@@ -1,4 +1,7 @@
 export type ViewMode = "grid" | "list";
+export type PlayStatus = "unplayed" | "playing" | "completed";
+export type CollectionFilter = "all" | "favorites" | "completed" | "unplayed";
+export type GameSortBy = "title" | "year" | "recent";
 
 export enum PhysicalCondition {
   Mint = "Mint",
@@ -29,6 +32,8 @@ export interface Game {
   rom_path: string | null;
   owned_physical: boolean;
   physical_condition: PhysicalCondition | null;
+  favorite: boolean;
+  play_status: PlayStatus;
   notes: string | null;
   launchbox_id: string | null;
   created_at: string;
@@ -39,6 +44,8 @@ export interface GameFilters {
   platformId?: number | null;
   search?: string;
   ownedPhysical?: boolean;
+  collectionFilter?: CollectionFilter;
+  sortBy?: GameSortBy;
 }
 
 export type GameCreateInput = Omit<Game, "id" | "platform_name" | "created_at" | "updated_at">;

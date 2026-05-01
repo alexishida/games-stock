@@ -3,6 +3,8 @@ import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
 import { LaunchBoxImporter } from "./components/LaunchBoxImporter/LaunchBoxImporter";
+import { ManualGameModal } from "./components/ManualGame/ManualGameModal";
+import { PlatformManager } from "./components/PlatformManager/PlatformManager";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TopBar } from "./components/TopBar/TopBar";
 import { useGames } from "./hooks/useGames";
@@ -14,11 +16,20 @@ export default function App() {
   useGames();
   const viewMode = useGameStockStore((state) => state.viewMode);
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
+  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
+  const sortBy = useGameStockStore((state) => state.sortBy);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
+  const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
+  const setSortBy = useGameStockStore((state) => state.setSortBy);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
+  const setCreateGameOpen = useGameStockStore((state) => state.setCreateGameOpen);
+  const setPlatformManagerOpen = useGameStockStore((state) => state.setPlatformManagerOpen);
 
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
+  useEffect(() => window.gameStockAPI.library.onOpenCreateGame(() => setCreateGameOpen(true)), [setCreateGameOpen]);
+  useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => setPlatformManagerOpen(true)), [setPlatformManagerOpen]);
+  useEffect(() => window.gameStockAPI.library.onSetSort(setSortBy), [setSortBy]);
 
   return (
     <div className="app-shell">
@@ -32,17 +43,17 @@ export default function App() {
             <div className="home-content">
               <section className="library-header" aria-label="Filtros da biblioteca">
                 <div className="library-tabs">
-                  <button type="button" className="active">Todos os jogos</button>
-                  <button type="button">Favoritos</button>
-                  <button type="button">Concluidos</button>
-                  <button type="button">Nao jogados</button>
+                  <button type="button" className={collectionFilter === "all" ? "active" : ""} onClick={() => setCollectionFilter("all")}>Todos os jogos</button>
+                  <button type="button" className={collectionFilter === "favorites" ? "active" : ""} onClick={() => setCollectionFilter("favorites")}>Favoritos</button>
+                  <button type="button" className={collectionFilter === "completed" ? "active" : ""} onClick={() => setCollectionFilter("completed")}>Concluidos</button>
+                  <button type="button" className={collectionFilter === "unplayed" ? "active" : ""} onClick={() => setCollectionFilter("unplayed")}>Nao jogados</button>
                 </div>
                 <div className="sort-control">
                   <span>Ordenar por:</span>
-                  <select aria-label="Ordenar biblioteca">
-                    <option>A-Z</option>
-                    <option>Ano</option>
-                    <option>Recentes</option>
+                  <select aria-label="Ordenar biblioteca" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+                    <option value="title">A-Z</option>
+                    <option value="year">Ano</option>
+                    <option value="recent">Recentes</option>
                   </select>
                 </div>
               </section>
@@ -54,7 +65,9 @@ export default function App() {
         </main>
       </div>
       <LaunchBoxImporter />
-      <button type="button" className="floating-add" aria-label="Importar jogos" onClick={() => setImporterOpen(true)}>
+      <ManualGameModal />
+      <PlatformManager />
+      <button type="button" className="floating-add" aria-label="Novo jogo" onClick={() => setCreateGameOpen(true)}>
         <span className="material-symbols-outlined" aria-hidden="true">add</span>
       </button>
     </div>

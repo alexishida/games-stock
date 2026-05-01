@@ -206,3 +206,123 @@ button {
   color: #002022;
   box-shadow: 0 16px 36px rgba(0, 242, 255, 0.28);
 }
+
+.management-modal {
+  display: grid;
+  gap: 16px;
+  width: min(620px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  padding: 18px;
+}
+
+.management-modal header,
+.management-modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.management-modal h2,
+.management-modal h3 {
+  margin: 0;
+}
+
+.management-modal h2 {
+  font-size: 18px;
+}
+
+.management-modal h3 {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.management-form {
+  display: grid;
+  gap: 12px;
+}
+
+.management-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.management-form input,
+.management-form select,
+.management-form textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  padding: 10px;
+}
+
+.management-form textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.form-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.platform-modal {
+  width: min(900px, calc(100vw - 48px));
+}
+
+.platform-manager-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  min-height: 0;
+}
+
+.platform-list {
+  display: grid;
+  align-content: start;
+  max-height: 520px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.platform-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+}
+
+.platform-row > button:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.platform-row span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}

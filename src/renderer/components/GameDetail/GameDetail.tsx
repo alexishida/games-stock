@@ -9,6 +9,7 @@ export function GameDetail() {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
+  const reloadGames = useGameStockStore((state) => state.reloadGames);
   const game = useMemo(() => games.find((item) => item.id === selectedGameId) ?? null, [games, selectedGameId]);
   const coverUrl = localMediaUrl(game?.box_art_path);
 
@@ -30,6 +31,14 @@ export function GameDetail() {
   const overview = game.notes?.trim() || "Sem descricao cadastrada para este jogo.";
   const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM nao associada";
   const canOpenRom = Boolean(game.rom_path);
+
+  async function deleteGame(): Promise<void> {
+    if (!game) return;
+    if (!window.confirm(`Excluir "${game.title}" da biblioteca?`)) return;
+    await window.gameStockAPI.games.delete(game.id);
+    setSelectedGameId(null);
+    reloadGames();
+  }
 
   return (
     <section className="game-detail">
@@ -70,6 +79,10 @@ export function GameDetail() {
                 <span className="material-symbols-outlined" aria-hidden="true">download</span>
                 Metadados
               </button>
+              <button type="button" className="detail-danger-button" onClick={deleteGame}>
+                <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                Excluir
+              </button>
             </div>
           </section>
 
@@ -85,10 +98,10 @@ export function GameDetail() {
             <div className="detail-panel detail-stat-card">
               <div className="detail-card-label">
                 <span className="material-symbols-outlined" aria-hidden="true">stars</span>
-                Avaliacao
+                Colecao
               </div>
-              <strong>{game.rating || "Sem nota"}</strong>
-              <small>{game.launchbox_id ? "Importado do LaunchBox" : "Cadastro local"}</small>
+              <strong>{game.favorite ? "Favorito" : "Padrao"}</strong>
+              <small>{game.play_status === "completed" ? "Concluido" : game.play_status === "playing" ? "Jogando" : "Nao jogado"}</small>
             </div>
           </section>
 

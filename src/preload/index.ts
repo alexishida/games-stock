@@ -8,6 +8,7 @@ import {
   LaunchBoxImportParams,
   LaunchBoxProgress,
   LaunchBoxSearchParams,
+  GameSortBy,
   ViewMode
 } from "../shared/types";
 
@@ -52,6 +53,21 @@ const api = {
       const listener = (_event: Electron.IpcRendererEvent, mode: ViewMode) => callback(mode);
       ipcRenderer.on("view:set", listener);
       return () => ipcRenderer.removeListener("view:set", listener);
+    }
+  },
+  library: {
+    onOpenCreateGame: (callback: () => void) => {
+      ipcRenderer.on(IPC_CHANNELS.library.openCreateGame, callback);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.library.openCreateGame, callback);
+    },
+    onOpenPlatformManager: (callback: () => void) => {
+      ipcRenderer.on(IPC_CHANNELS.library.openPlatformManager, callback);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.library.openPlatformManager, callback);
+    },
+    onSetSort: (callback: (sortBy: GameSortBy) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sortBy: GameSortBy) => callback(sortBy);
+      ipcRenderer.on(IPC_CHANNELS.library.setSort, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.library.setSort, listener);
     }
   }
 };

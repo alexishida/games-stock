@@ -1,7 +1,7 @@
 import { getDatabase } from "../database";
-import { Game, GameCreateInput, GameFilters, GameListResult, GameUpdateInput } from "../../shared/types";
+import { CollectionFilter, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../shared/types";
 
-type GameRow = Omit<Game, "owned_physical"> & { owned_physical: 0 | 1 };
+type GameRow = Omit<Game, "owned_physical" | "favorite"> & { owned_physical: 0 | 1; favorite: 0 | 1 };
 
 const writeColumns = [
   "title",
@@ -14,12 +14,14 @@ const writeColumns = [
   "rom_path",
   "owned_physical",
   "physical_condition",
+  "favorite",
+  "play_status",
   "notes",
   "launchbox_id"
 ] as const;
 
 function mapGame(row: GameRow): Game {
-  return { ...row, owned_physical: Boolean(row.owned_physical) };
+  return { ...row, owned_physical: Boolean(row.owned_physical), favorite: Boolean(row.favorite) };
 }
 
 function baseSelect(): string {
@@ -45,6 +47,10 @@ function buildWhere(filters: GameFilters = {}): { sql: string; params: unknown[]
   if (filters.ownedPhysical) {
     parts.push("games.owned_physical = 1");
   }
+  if (filters.collectionFilter) {
+    const collection = buildCollectionFilter(filters.collectionFilter);
+    if (collection) parts.push(collection);
+  }
 
   return {
     sql: parts.length ? `WHERE ${parts.join(" AND ")}` : "",
@@ -52,11 +58,35 @@ function buildWhere(filters: GameFilters = {}): { sql: string; params: unknown[]
   };
 }
 
+function buildCollectionFilter(filter: CollectionFilter): string | null {
+  switch (filter) {
+    case "favorites":
+      return "games.favorite = 1";
+    case "completed":
+      return "games.play_status = 'completed'";
+    case "unplayed":
+      return "games.play_status = 'unplayed'";
+    case "all":
+      return null;
+  }
+}
+
+function buildOrder(sortBy: GameSortBy = "title"): string {
+  switch (sortBy) {
+    case "year":
+      return "ORDER BY games.year IS NULL, games.year DESC, games.title COLLATE NOCASE";
+    case "recent":
+      return "ORDER BY games.created_at DESC, games.id DESC";
+    case "title":
+      return "ORDER BY games.title COLLATE NOCASE";
+  }
+}
+
 export function listGames(filters: GameFilters = {}): GameListResult {
   const database = getDatabase();
   const where = buildWhere(filters);
   const items = database
-    .prepare(`${baseSelect()} ${where.sql} ORDER BY games.title COLLATE NOCASE`)
+    .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters.sortBy)}`)
     .all(...where.params)
     .map((row) => mapGame(row as GameRow));
   const total = (database.prepare("SELECT COUNT(*) as count FROM games").get() as { count: number }).count;
@@ -123,6 +153,8 @@ function normalizeInput(data: Partial<GameCreateInput>): Record<string, unknown>
     rom_path: data.rom_path ?? null,
     owned_physical: data.owned_physical ? 1 : 0,
     physical_condition: data.owned_physical ? data.physical_condition ?? null : null,
+    favorite: data.favorite ? 1 : 0,
+    play_status: data.play_status ?? "unplayed",
     notes: data.notes ?? null,
     launchbox_id: data.launchbox_id ?? null
   };

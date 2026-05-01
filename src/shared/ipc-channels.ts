@@ -26,5 +26,10 @@ export const IPC_CHANNELS = {
     importGame: "launchbox:importGame",
     progress: "launchbox:progress",
     openImporter: "launchbox:openImporter"
+  },
+  library: {
+    openCreateGame: "library:openCreateGame",
+    openPlatformManager: "library:openPlatformManager",
+    setSort: "library:setSort"
   }
 } as const;

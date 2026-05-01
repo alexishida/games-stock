@@ -41,6 +41,8 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
     launchbox_id: game.id,
     owned_physical: false,
     physical_condition: null,
+    favorite: false,
+    play_status: "unplayed",
     rom_path: null
   });
 

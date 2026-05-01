@@ -30,9 +30,28 @@ export function GameForm({ game }: { game: Game }) {
     reloadGames();
   }
 
+  async function removeRom(): Promise<void> {
+    if (!draft.rom_path) return;
+    if (!window.confirm("Remover a ROM associada deste jogo?")) return;
+    setDraft((current) => ({ ...current, rom_path: null }));
+    await window.gameStockAPI.games.update(game.id, { rom_path: null });
+    reloadGames();
+  }
+
   return (
     <form className="game-form" onSubmit={save}>
       <label>Titulo<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+      <label className="checkbox-row">
+        <input type="checkbox" checked={draft.favorite} onChange={(event) => setDraft({ ...draft, favorite: event.target.checked })} />
+        Favorito
+      </label>
+      <label>Status
+        <select value={draft.play_status} onChange={(event) => setDraft({ ...draft, play_status: event.target.value as Game["play_status"] })}>
+          <option value="unplayed">Nao jogado</option>
+          <option value="playing">Jogando</option>
+          <option value="completed">Concluido</option>
+        </select>
+      </label>
       <label>Publisher<input value={draft.publisher ?? ""} onChange={(event) => setDraft({ ...draft, publisher: event.target.value })} /></label>
       <label>Ano<input type="number" value={draft.year ?? ""} onChange={(event) => setDraft({ ...draft, year: Number(event.target.value) || null })} /></label>
       <label>Genero<input value={draft.genre ?? ""} onChange={(event) => setDraft({ ...draft, genre: event.target.value })} /></label>
@@ -51,7 +70,7 @@ export function GameForm({ game }: { game: Game }) {
       )}
       <div className="detail-actions">
         <button type="button" className="text-button" onClick={associateRom}>Associar ROM</button>
-        <button type="button" className="text-button" onClick={() => setDraft({ ...draft, rom_path: null })}>Remover ROM</button>
+        <button type="button" className="text-button" onClick={removeRom} disabled={!draft.rom_path}>Remover ROM</button>
         <button type="button" className="text-button" onClick={importBoxArt}>Importar Box Art</button>
         <button type="submit" className="text-button active">Salvar</button>
       </div>

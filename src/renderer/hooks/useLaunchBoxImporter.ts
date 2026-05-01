@@ -4,6 +4,7 @@ import { useGameStockStore } from "../store";
 
 export function useLaunchBoxImporter() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const [query, setQuery] = useState("");
   const [platformKey, setPlatformKey] = useState("");
   const [results, setResults] = useState<LaunchBoxGame[]>([]);
@@ -37,6 +38,7 @@ export function useLaunchBoxImporter() {
     try {
       await window.gameStockAPI.launchbox.importGame({ launchboxGameId: selectedGame.id, imageTypes: selectedTypes });
       reloadGames();
+      reloadPlatforms();
     } finally {
       setLoading(false);
     }

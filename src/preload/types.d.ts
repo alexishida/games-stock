@@ -3,6 +3,7 @@ import {
   GameCreateInput,
   GameFilters,
   GameListResult,
+  GameSortBy,
   GameUpdateInput,
   LaunchBoxDownloadParams,
   LaunchBoxDownloadResult,
@@ -46,6 +47,11 @@ export interface GameStockAPI {
   };
   view: {
     onSet(callback: (mode: ViewMode) => void): () => void;
+  };
+  library: {
+    onOpenCreateGame(callback: () => void): () => void;
+    onOpenPlatformManager(callback: () => void): () => void;
+    onSetSort(callback: (sortBy: GameSortBy) => void): () => void;
   };
 }
 

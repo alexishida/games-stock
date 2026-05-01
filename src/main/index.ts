@@ -7,7 +7,7 @@ import * as games from "./repositories/games";
 import * as platforms from "./repositories/platforms";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./launchbox";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress } from "../shared/types";
+import { GameCreateInput, GameSortBy, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress } from "../shared/types";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -125,6 +125,8 @@ function createMenu(): void {
       label: "MENU",
       submenu: [
         { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.launchbox.openImporter) },
+        { label: "Novo Jogo Manual", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openCreateGame) },
+        { label: "Gerenciar Plataformas", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openPlatformManager) },
         { label: "Configuracoes", enabled: false },
         { type: "separator" },
         { label: "Sair", role: "quit" }
@@ -141,11 +143,22 @@ function createMenu(): void {
         { label: "Lista", click: () => mainWindow?.webContents.send("view:set", "list") }
       ]
     },
-    { label: "ORGANIZADO POR", submenu: [{ label: "Titulo", enabled: false }] },
+    {
+      label: "ORGANIZADO POR",
+      submenu: [
+        { label: "Titulo", click: () => sendSort("title") },
+        { label: "Ano", click: () => sendSort("year") },
+        { label: "Recentes", click: () => sendSort("recent") }
+      ]
+    },
     { label: "GRUPO DE IMAGENS", submenu: [{ label: "Box Art", enabled: false }] },
     { label: "EMBLEMAS", submenu: [{ label: "Fisicos", enabled: false }] }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function sendSort(sortBy: GameSortBy): void {
+  mainWindow?.webContents.send(IPC_CHANNELS.library.setSort, sortBy);
 }
 
 app.whenReady().then(() => {

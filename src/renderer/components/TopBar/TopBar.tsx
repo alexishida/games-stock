@@ -6,10 +6,14 @@ export function TopBar() {
   const filtered = useGameStockStore((state) => state.filtered);
   const total = useGameStockStore((state) => state.total);
   const viewMode = useGameStockStore((state) => state.viewMode);
+  const sortBy = useGameStockStore((state) => state.sortBy);
   const onlyPhysical = useGameStockStore((state) => state.onlyPhysical);
   const setSearchQuery = useGameStockStore((state) => state.setSearchQuery);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
+  const setSortBy = useGameStockStore((state) => state.setSortBy);
   const setOnlyPhysical = useGameStockStore((state) => state.setOnlyPhysical);
+
+  const nextSort = sortBy === "title" ? "year" : sortBy === "year" ? "recent" : "title";
 
   return (
     <header className="topbar">
@@ -18,7 +22,7 @@ export function TopBar() {
         <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Buscar biblioteca" />
       </div>
       <nav className="topbar-menu" aria-label="Visualizacao da biblioteca">
-        <button type="button" className="topbar-icon" title="Ordenar">
+        <button type="button" className="topbar-icon" title="Ordenar" onClick={() => setSortBy(nextSort)}>
           <span className="material-symbols-outlined" aria-hidden="true">sort</span>
         </button>
         <div className="view-switch">

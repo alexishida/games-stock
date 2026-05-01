@@ -1,0 +1,118 @@
+import { FormEvent, useEffect, useState } from "react";
+import { GameCreateInput, PhysicalCondition } from "../../../shared/types";
+import { useGameStockStore } from "../../store";
+
+const emptyDraft: Partial<GameCreateInput> = {
+  title: "",
+  platform_id: undefined,
+  publisher: "",
+  year: null,
+  genre: "",
+  rating: "",
+  notes: "",
+  owned_physical: false,
+  physical_condition: null,
+  favorite: false,
+  play_status: "unplayed"
+};
+
+export function ManualGameModal() {
+  const open = useGameStockStore((state) => state.createGameOpen);
+  const platforms = useGameStockStore((state) => state.platforms);
+  const setOpen = useGameStockStore((state) => state.setCreateGameOpen);
+  const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
+  const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const [draft, setDraft] = useState<Partial<GameCreateInput>>(emptyDraft);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setDraft(emptyDraft);
+      setError("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  async function save(event: FormEvent): Promise<void> {
+    event.preventDefault();
+    setError("");
+    if (!draft.title?.trim()) {
+      setError("Titulo e obrigatorio");
+      return;
+    }
+    if (!draft.platform_id) {
+      setError("Plataforma e obrigatoria");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const game = await window.gameStockAPI.games.create(draft);
+      reloadGames();
+      setSelectedGameId(game.id);
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel criar o jogo");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <section className="management-modal">
+        <header>
+          <h2>Novo jogo</h2>
+          <button type="button" className="icon-button" onClick={() => setOpen(false)}>x</button>
+        </header>
+        <form className="management-form" onSubmit={save}>
+          <label>Titulo<input value={draft.title ?? ""} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+          <label>Plataforma
+            <select value={draft.platform_id ?? ""} onChange={(event) => setDraft({ ...draft, platform_id: Number(event.target.value) || undefined })}>
+              <option value="">Selecione</option>
+              {platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
+            </select>
+          </label>
+          <div className="form-grid-two">
+            <label>Publisher<input value={draft.publisher ?? ""} onChange={(event) => setDraft({ ...draft, publisher: event.target.value })} /></label>
+            <label>Ano<input type="number" value={draft.year ?? ""} onChange={(event) => setDraft({ ...draft, year: Number(event.target.value) || null })} /></label>
+            <label>Genero<input value={draft.genre ?? ""} onChange={(event) => setDraft({ ...draft, genre: event.target.value })} /></label>
+            <label>Rating<input value={draft.rating ?? ""} onChange={(event) => setDraft({ ...draft, rating: event.target.value })} /></label>
+          </div>
+          <label>Notas<textarea value={draft.notes ?? ""} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
+          <div className="form-grid-two">
+            <label className="checkbox-row">
+              <input type="checkbox" checked={Boolean(draft.favorite)} onChange={(event) => setDraft({ ...draft, favorite: event.target.checked })} />
+              Favorito
+            </label>
+            <label>Status
+              <select value={draft.play_status ?? "unplayed"} onChange={(event) => setDraft({ ...draft, play_status: event.target.value as GameCreateInput["play_status"] })}>
+                <option value="unplayed">Nao jogado</option>
+                <option value="playing">Jogando</option>
+                <option value="completed">Concluido</option>
+              </select>
+            </label>
+          </div>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={Boolean(draft.owned_physical)} onChange={(event) => setDraft({ ...draft, owned_physical: event.target.checked })} />
+            Tenho fisico
+          </label>
+          {draft.owned_physical && (
+            <label>Condicao
+              <select value={draft.physical_condition ?? PhysicalCondition.Good} onChange={(event) => setDraft({ ...draft, physical_condition: event.target.value as PhysicalCondition })}>
+                {Object.values(PhysicalCondition).map((condition) => <option key={condition} value={condition}>{condition}</option>)}
+              </select>
+            </label>
+          )}
+          {error && <p className="form-error">{error}</p>}
+          <footer>
+            <button type="button" className="text-button" onClick={() => setOpen(false)}>Cancelar</button>
+            <button type="submit" className="text-button active" disabled={saving}>Salvar</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}

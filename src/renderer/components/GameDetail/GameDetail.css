@@ -231,6 +231,18 @@
   color: #fff;
 }
 
+.detail-danger-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.24);
+  color: #fecaca;
+  padding: 14px 20px;
+  font-weight: 900;
+}
+
 .detail-stats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

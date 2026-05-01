@@ -1,8 +1,5 @@
-# game-library Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change create-game-stock-app. Update Purpose after archive.
-## Requirements
 ### Requirement: Modelo de dados de jogo
 O sistema SHALL persistir jogos com os campos: `id` (integer PK), `title` (text, obrigatorio), `platform_id` (FK -> platforms), `publisher` (text), `year` (integer), `genre` (text), `rating` (text, ex: "E", "T", "M"), `box_art_path` (text, caminho absoluto local), `rom_path` (text, caminho absoluto), `owned_physical` (boolean, default false), `physical_condition` (text), `favorite` (boolean, default false), `play_status` (text, default "unplayed", valores "unplayed", "playing", "completed"), `notes` (text), `created_at`, `updated_at`.
 
@@ -40,11 +37,3 @@ O sistema SHALL expor via `window.gameStockAPI.games`: `list(filters?)`, `get(id
 #### Scenario: Deletar jogo
 - **WHEN** `games.delete(id)` é chamado com um ID existente
 - **THEN** o jogo é removido do banco e retorna `{ success: true }`
-
-### Requirement: Listagem com contagem
-O sistema SHALL retornar junto com a lista de jogos o total de jogos correspondentes aos filtros ativos, para exibição do contador "Exibindo X de Y total de jogos".
-
-#### Scenario: Contagem com filtro
-- **WHEN** `games.list({ platformId: 2 })` retorna 104 jogos de um total de 541
-- **THEN** a resposta contém `{ items: [...], total: 541, filtered: 104 }`
-

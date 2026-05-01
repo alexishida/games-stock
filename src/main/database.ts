@@ -57,6 +57,8 @@ function applySchema(database: Database.Database): void {
       rom_path TEXT,
       owned_physical INTEGER NOT NULL DEFAULT 0,
       physical_condition TEXT,
+      favorite INTEGER NOT NULL DEFAULT 0,
+      play_status TEXT NOT NULL DEFAULT 'unplayed',
       notes TEXT,
       launchbox_id TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -68,6 +70,21 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform_id);
     CREATE INDEX IF NOT EXISTS idx_games_launchbox ON games(launchbox_id);
   `);
+
+  addColumnIfMissing(database, "games", "favorite", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(database, "games", "play_status", "TEXT NOT NULL DEFAULT 'unplayed'");
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_games_favorite ON games(favorite);
+    CREATE INDEX IF NOT EXISTS idx_games_play_status ON games(play_status);
+  `);
+}
+
+function addColumnIfMissing(database: Database.Database, table: string, column: string, definition: string): void {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((item) => item.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 function seedPlatforms(database: Database.Database): void {
