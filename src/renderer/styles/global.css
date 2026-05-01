@@ -31,7 +31,7 @@ body,
 
 body::-webkit-scrollbar,
 *::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 body::-webkit-scrollbar-track,
@@ -52,7 +52,7 @@ body::-webkit-scrollbar-thumb,
   font-feature-settings: "liga";
   -webkit-font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
-  font-size: 22px;
+  font-size: 18px;
   font-style: normal;
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   font-weight: normal;
@@ -74,22 +74,28 @@ button {
 }
 
 .app-shell {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  grid-template-rows: 64px 1fr;
+  display: flex;
   height: 100vh;
-  min-width: 1024px;
+  min-width: 900px;
   overflow: hidden;
   background:
     radial-gradient(circle at 76% 12%, rgba(0, 242, 255, 0.08), transparent 28%),
     #131313;
 }
 
-.content-shell {
-  display: contents;
+.app-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .main-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -98,23 +104,23 @@ button {
 .home-content {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   min-height: 0;
-  padding: 32px;
+  padding: 20px 24px;
 }
 
 .library-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 0 0 18px;
+  gap: 16px;
+  padding: 0 0 12px;
 }
 
 .library-tabs {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 20px;
 }
 
 .library-tabs button {
@@ -122,8 +128,8 @@ button {
   border-bottom: 2px solid transparent;
   background: transparent;
   color: #64748b;
-  padding: 0 0 9px;
-  font-size: 18px;
+  padding: 0 0 7px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -135,7 +141,7 @@ button {
 .sort-control {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 800;
@@ -147,13 +153,15 @@ button {
   border: 0;
   background: transparent;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
 }
 
 .library-pane {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -168,8 +176,8 @@ button {
 
 .icon-button {
   display: inline-grid;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -180,9 +188,10 @@ button {
 .text-button {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
+  font-size: 13px;
 }
 
 .text-button.active,
@@ -193,30 +202,30 @@ button {
 
 .floating-add {
   position: fixed;
-  right: 32px;
-  bottom: 32px;
+  right: 24px;
+  bottom: 24px;
   z-index: 20;
   display: grid;
-  width: 56px;
-  height: 56px;
+  width: 46px;
+  height: 46px;
   place-items: center;
   border: 0;
   border-radius: 999px;
   background: var(--accent);
   color: #002022;
-  box-shadow: 0 16px 36px rgba(0, 242, 255, 0.28);
+  box-shadow: 0 12px 28px rgba(0, 242, 255, 0.28);
 }
 
 .management-modal {
   display: grid;
-  gap: 16px;
-  width: min(620px, calc(100vw - 48px));
-  max-height: min(760px, calc(100vh - 48px));
+  gap: 14px;
+  width: min(580px, calc(100vw - 48px));
+  max-height: min(720px, calc(100vh - 48px));
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-panel);
-  padding: 18px;
+  padding: 16px;
 }
 
 .management-modal header,
@@ -224,7 +233,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .management-modal h2,
@@ -233,24 +242,24 @@ button {
 }
 
 .management-modal h2 {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .management-modal h3 {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .management-form {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .management-form label {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -259,45 +268,45 @@ button {
 .management-form textarea {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
-  padding: 10px;
+  padding: 8px;
 }
 
 .management-form textarea {
-  min-height: 88px;
+  min-height: 72px;
   resize: vertical;
 }
 
 .form-grid-two {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .form-error {
   margin: 0;
   color: #fca5a5;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .platform-modal {
-  width: min(900px, calc(100vw - 48px));
+  width: min(820px, calc(100vw - 48px));
 }
 
 .platform-manager-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
   min-height: 0;
 }
 
 .platform-list {
   display: grid;
   align-content: start;
-  max-height: 520px;
+  max-height: 460px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -306,15 +315,15 @@ button {
 .platform-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   border-bottom: 1px solid var(--border);
-  padding: 8px;
+  padding: 6px 8px;
 }
 
 .platform-row > button:first-child {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
   border: 0;
   background: transparent;
@@ -324,5 +333,5 @@ button {
 
 .platform-row span {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
 }

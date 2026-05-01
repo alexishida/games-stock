@@ -152,27 +152,28 @@ export function deleteGame(id: number): { success: true } {
 }
 
 export function deleteGamesByRomFolder(folderPath: string): { success: true; deleted: number } {
+  const db = getDatabase();
   const normalizedFolder = normalizeFsPath(folderPath);
-  const rows = getDatabase().prepare("SELECT id, rom_path FROM games WHERE rom_path IS NOT NULL").all() as Array<{ id: number; rom_path: string }>;
+  const rows = db.prepare("SELECT id, rom_path FROM games WHERE rom_path IS NOT NULL").all() as Array<{ id: number; rom_path: string }>;
   const ids = rows
     .filter((row) => isPathInsideFolder(row.rom_path, normalizedFolder))
     .map((row) => row.id);
 
   if (!ids.length) return { success: true, deleted: 0 };
 
-  const remove = getDatabase().prepare("DELETE FROM games WHERE id = ?");
-  const transaction = getDatabase().transaction((gameIds: number[]) => {
+  const remove = db.prepare("DELETE FROM games WHERE id = ?");
+  db.transaction((gameIds: number[]) => {
     for (const id of gameIds) remove.run(id);
-  });
-  transaction(ids);
+  })(ids);
   return { success: true, deleted: ids.length };
 }
 
 export function deleteGamesWithoutRomPathByPlatformAndTitles(platformId: number, titles: string[]): { success: true; deleted: number } {
+  const db = getDatabase();
   const normalizedTitles = new Set(titles.map(normalizeTitleForMatch).filter(Boolean));
   if (!normalizedTitles.size) return { success: true, deleted: 0 };
 
-  const rows = getDatabase()
+  const rows = db
     .prepare("SELECT id, title FROM games WHERE platform_id = ? AND (rom_path IS NULL OR rom_path = '')")
     .all(platformId) as Array<{ id: number; title: string }>;
   const ids = rows
@@ -181,11 +182,10 @@ export function deleteGamesWithoutRomPathByPlatformAndTitles(platformId: number,
 
   if (!ids.length) return { success: true, deleted: 0 };
 
-  const remove = getDatabase().prepare("DELETE FROM games WHERE id = ?");
-  const transaction = getDatabase().transaction((gameIds: number[]) => {
+  const remove = db.prepare("DELETE FROM games WHERE id = ?");
+  db.transaction((gameIds: number[]) => {
     for (const id of gameIds) remove.run(id);
-  });
-  transaction(ids);
+  })(ids);
   return { success: true, deleted: ids.length };
 }
 

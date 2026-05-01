@@ -42,5 +42,8 @@ export const IPC_CHANNELS = {
     openCreateGame: "library:openCreateGame",
     openPlatformManager: "library:openPlatformManager",
     setSort: "library:setSort"
+  },
+  view: {
+    set: "view:set"
   }
 } as const;

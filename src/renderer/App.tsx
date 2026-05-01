@@ -12,21 +12,65 @@ import { TopBar } from "./components/TopBar/TopBar";
 import { useGames } from "./hooks/useGames";
 import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
+import { CollectionFilter, GameSortBy } from "../shared/types";
+
+const COLLECTION_TABS: { value: CollectionFilter; label: string }[] = [
+  { value: "all", label: "Todos os jogos" },
+  { value: "favorites", label: "Favoritos" },
+  { value: "completed", label: "Concluidos" },
+  { value: "unplayed", label: "Nao jogados" }
+];
+
+function LibraryView() {
+  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
+  const sortBy = useGameStockStore((state) => state.sortBy);
+  const viewMode = useGameStockStore((state) => state.viewMode);
+  const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
+  const setSortBy = useGameStockStore((state) => state.setSortBy);
+
+  return (
+    <div className="home-content">
+      <section className="library-header" aria-label="Filtros da biblioteca">
+        <div className="library-tabs">
+          {COLLECTION_TABS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={collectionFilter === value ? "active" : ""}
+              onClick={() => setCollectionFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="sort-control">
+          <span>Ordenar por:</span>
+          <select aria-label="Ordenar biblioteca" value={sortBy} onChange={(event) => setSortBy(event.target.value as GameSortBy)}>
+            <option value="title">A-Z</option>
+            <option value="year">Ano</option>
+            <option value="recent">Recentes</option>
+          </select>
+        </div>
+      </section>
+      <section className="library-pane">
+        {viewMode === "grid" ? <GameGrid /> : <GameList />}
+      </section>
+    </div>
+  );
+}
 
 export default function App() {
   usePlatforms();
   useGames();
-  const viewMode = useGameStockStore((state) => state.viewMode);
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
-  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
-  const sortBy = useGameStockStore((state) => state.sortBy);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
-  const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
-  const setSortBy = useGameStockStore((state) => state.setSortBy);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
   const setRomFolderImporterOpen = useGameStockStore((state) => state.setRomFolderImporterOpen);
   const setCreateGameOpen = useGameStockStore((state) => state.setCreateGameOpen);
   const setPlatformManagerOpen = useGameStockStore((state) => state.setPlatformManagerOpen);
+  const setSortBy = useGameStockStore((state) => state.setSortBy);
+  const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
 
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
@@ -34,38 +78,18 @@ export default function App() {
   useEffect(() => window.gameStockAPI.library.onOpenCreateGame(() => setCreateGameOpen(true)), [setCreateGameOpen]);
   useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => setPlatformManagerOpen(true)), [setPlatformManagerOpen]);
   useEffect(() => window.gameStockAPI.library.onSetSort(setSortBy), [setSortBy]);
+  useEffect(() => window.gameStockAPI.romFolderImport.onCompleted(() => {
+    reloadGames();
+    reloadPlatforms();
+  }), [reloadGames, reloadPlatforms]);
 
   return (
     <div className="app-shell">
-      <TopBar />
-      <div className="content-shell">
-        <Sidebar />
+      <Sidebar />
+      <div className="app-right">
+        <TopBar />
         <main className="main-area">
-          {selectedGameId ? (
-            <GameDetail />
-          ) : (
-            <div className="home-content">
-              <section className="library-header" aria-label="Filtros da biblioteca">
-                <div className="library-tabs">
-                  <button type="button" className={collectionFilter === "all" ? "active" : ""} onClick={() => setCollectionFilter("all")}>Todos os jogos</button>
-                  <button type="button" className={collectionFilter === "favorites" ? "active" : ""} onClick={() => setCollectionFilter("favorites")}>Favoritos</button>
-                  <button type="button" className={collectionFilter === "completed" ? "active" : ""} onClick={() => setCollectionFilter("completed")}>Concluidos</button>
-                  <button type="button" className={collectionFilter === "unplayed" ? "active" : ""} onClick={() => setCollectionFilter("unplayed")}>Nao jogados</button>
-                </div>
-                <div className="sort-control">
-                  <span>Ordenar por:</span>
-                  <select aria-label="Ordenar biblioteca" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
-                    <option value="title">A-Z</option>
-                    <option value="year">Ano</option>
-                    <option value="recent">Recentes</option>
-                  </select>
-                </div>
-              </section>
-              <section className="library-pane">
-                {viewMode === "grid" ? <GameGrid /> : <GameList />}
-              </section>
-            </div>
-          )}
+          {selectedGameId ? <GameDetail /> : <LibraryView />}
         </main>
       </div>
       <LaunchBoxImporter />

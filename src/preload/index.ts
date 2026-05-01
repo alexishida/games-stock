@@ -77,8 +77,8 @@ const api = {
   view: {
     onSet: (callback: (mode: ViewMode) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, mode: ViewMode) => callback(mode);
-      ipcRenderer.on("view:set", listener);
-      return () => ipcRenderer.removeListener("view:set", listener);
+      ipcRenderer.on(IPC_CHANNELS.view.set, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.view.set, listener);
     }
   },
   library: {

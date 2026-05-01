@@ -1,27 +1,26 @@
 .topbar {
-  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   min-width: 0;
-  height: 64px;
+  height: 52px;
   border-bottom: 1px solid rgba(30, 41, 59, 0.9);
   background: rgba(18, 18, 18, 0.92);
-  padding: 0 32px;
+  padding: 0 20px;
   backdrop-filter: blur(14px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .topbar-search {
   position: relative;
   flex: 1;
-  max-width: 560px;
+  max-width: 480px;
 }
 
 .topbar-search span {
   position: absolute;
-  left: 12px;
+  left: 10px;
   top: 50%;
   color: #64748b;
   transform: translateY(-50%);
@@ -29,13 +28,14 @@
 
 .topbar-search input {
   width: 100%;
-  height: 40px;
+  height: 34px;
   border: 1px solid rgba(30, 41, 59, 0.96);
-  border-radius: 8px;
+  border-radius: 6px;
   outline: 0;
   background: rgba(15, 23, 42, 0.48);
   color: var(--text-primary);
-  padding: 0 14px 0 42px;
+  padding: 0 12px 0 36px;
+  font-size: 13px;
 }
 
 .topbar-search input:focus {
@@ -46,13 +46,13 @@
 .topbar-menu {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
 }
 
 .topbar button {
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 0;
   background: transparent;
   color: var(--text-primary);
@@ -62,15 +62,15 @@
 .topbar-icon,
 .view-switch button {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   color: #94a3b8;
 }
 
 .view-switch {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .topbar button:hover,
@@ -82,7 +82,7 @@
 .physical-filter {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: #94a3b8;
   font-size: 12px;
   font-weight: 700;
@@ -91,7 +91,7 @@
 
 .topbar-count {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }

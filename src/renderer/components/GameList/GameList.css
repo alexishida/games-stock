@@ -1,6 +1,9 @@
 .game-list {
-  height: 100%;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .game-list-header,
@@ -12,6 +15,7 @@
 }
 
 .game-list-header {
+  flex-shrink: 0;
   height: 32px;
   padding: 0 10px;
   color: var(--text-secondary);
@@ -19,10 +23,18 @@
   font-weight: 800;
 }
 
+.game-list-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .game-list-row {
   border: 0;
   border-radius: 6px;
   padding: 4px 10px;
+  width: 100%;
+  height: 54px;
   background: transparent;
   color: var(--text-primary);
   text-align: left;

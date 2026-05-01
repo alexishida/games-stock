@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { RomFolderImportJob, RomFolderImportProgress, RomFolderImportResult } from "../../../shared/types";
-import { useGameStockStore } from "../../store";
+import { RomFolderImportProgress, RomFolderImportResult } from "../../../shared/types";
 import "./NotificationCenter.css";
 
 interface NotificationItem {
@@ -13,8 +12,6 @@ interface NotificationItem {
 }
 
 export function NotificationCenter() {
-  const reloadGames = useGameStockStore((state) => state.reloadGames);
-  const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const [items, setItems] = useState<Record<string, NotificationItem>>({});
   const notifications = useMemo(() => Object.values(items).sort((a, b) => a.jobId.localeCompare(b.jobId)).reverse(), [items]);
 
@@ -53,9 +50,7 @@ export function NotificationCenter() {
         result
       }
     }));
-    reloadGames();
-    reloadPlatforms();
-  }), [reloadGames, reloadPlatforms]);
+  }), []);
 
   if (!notifications.length) return null;
 
@@ -65,11 +60,16 @@ export function NotificationCenter() {
         <strong>Background</strong>
         <span>{notifications.length}</span>
       </header>
-      {notifications.map((item) => <NotificationCard key={item.jobId} item={item} onDismiss={() => setItems((current) => {
-        const next = { ...current };
-        delete next[item.jobId];
-        return next;
-      })} />)}
+      {notifications.map((item) => (
+        <NotificationCard
+          key={item.jobId}
+          item={item}
+          onDismiss={() => setItems((current) => {
+            const { [item.jobId]: _, ...rest } = current;
+            return rest;
+          })}
+        />
+      ))}
     </aside>
   );
 }

@@ -8,7 +8,7 @@ import * as platforms from "./repositories/platforms";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameSortBy, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
+import { GameCreateInput, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -68,6 +68,7 @@ async function createWindow(): Promise<void> {
 
   if (process.env.VITE_DEV_SERVER_URL || !app.isPackaged) {
     await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173");
+    mainWindow.webContents.openDevTools();
   } else {
     await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
@@ -221,7 +222,6 @@ function createMenu(): void {
         { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
         { label: "Novo Jogo Manual", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openCreateGame) },
         { label: "Gerenciar Plataformas", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openPlatformManager) },
-        { label: "Configuracoes", enabled: false },
         { type: "separator" },
         { label: "Sair", role: "quit" }
       ]
@@ -234,29 +234,16 @@ function createMenu(): void {
       ]
     },
     {
-      label: "VISUALIZACAO",
+      label: "SOBRE",
       submenu: [
-        { label: "Grade", click: () => mainWindow?.webContents.send("view:set", "grid") },
-        { label: "Lista", click: () => mainWindow?.webContents.send("view:set", "list") }
+        { label: `GameStock v${app.getVersion()}`, enabled: false },
+        { label: "Pasta de dados", click: () => shell.openPath(getUserDataDir()) }
       ]
-    },
-    {
-      label: "ORGANIZADO POR",
-      submenu: [
-        { label: "Titulo", click: () => sendSort("title") },
-        { label: "Ano", click: () => sendSort("year") },
-        { label: "Recentes", click: () => sendSort("recent") }
-      ]
-    },
-    { label: "GRUPO DE IMAGENS", submenu: [{ label: "Box Art", enabled: false }] },
-    { label: "EMBLEMAS", submenu: [{ label: "Fisicos", enabled: false }] }
+    }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function sendSort(sortBy: GameSortBy): void {
-  mainWindow?.webContents.send(IPC_CHANNELS.library.setSort, sortBy);
-}
 
 app.whenReady().then(() => {
   registerMediaProtocol();

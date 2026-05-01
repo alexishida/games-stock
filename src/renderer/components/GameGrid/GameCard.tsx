@@ -4,7 +4,7 @@ import { localMediaUrl } from "../../utils/media";
 import { GameCardPlaceholder } from "./GameCardPlaceholder";
 import { PhysicalBadge } from "./PhysicalBadge";
 
-export function GameCard({ game, style }: { game: Game; style?: React.CSSProperties }) {
+export function GameCard({ game }: { game: Game }) {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
   const coverUrl = localMediaUrl(game.box_art_path);
@@ -12,7 +12,6 @@ export function GameCard({ game, style }: { game: Game; style?: React.CSSPropert
   return (
     <button
       type="button"
-      style={style}
       className={selectedGameId === game.id ? "game-card selected" : "game-card"}
       onClick={() => setSelectedGameId(game.id)}
     >
@@ -23,10 +22,6 @@ export function GameCard({ game, style }: { game: Game; style?: React.CSSPropert
         <div className="card-copy">
           <span className="card-platform">{game.platform_name ?? "Sem plataforma"}</span>
           <strong>{game.title}</strong>
-          <div className="card-progress">
-            <span />
-            <small>{game.year ?? "NEW"}</small>
-          </div>
         </div>
       </div>
     </button>
