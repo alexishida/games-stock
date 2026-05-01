@@ -1,0 +1,85 @@
+.game-detail {
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 14px;
+}
+
+.detail-empty {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
+.detail-cover {
+  display: grid;
+  height: 220px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--accent);
+  font-size: 48px;
+}
+
+.detail-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.detail-meta h2 {
+  margin: 14px 0 4px;
+  font-size: 18px;
+}
+
+.detail-meta p {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+}
+
+.game-form {
+  display: grid;
+  gap: 10px;
+}
+
+.game-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.game-form input,
+.game-form select,
+.game-form textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  padding: 8px;
+}
+
+.game-form textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.checkbox-row {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

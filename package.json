@@ -1,0 +1,41 @@
+{
+  "name": "gamestock",
+  "version": "0.1.0",
+  "description": "Desktop game collection manager for ROM libraries and physical inventory.",
+  "main": "dist/main/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev:windows": "concurrently -k --success first -n VITE,TSC,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"wait-on tcp:5173 file:dist/main/index.js file:dist/preload/index.js && set ELECTRON_RUN_AS_NODE=&& electron .\"",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "dist:windows": "npm run build:renderer && npm run build:main && electron-builder --win",
+    "test:launchbox:e2e": "npm run build:renderer && npm run build:main && set ELECTRON_RUN_AS_NODE=&& electron scripts/e2e-launchbox.cjs",
+    "test:launchbox:e2e:packaged": "npm run dist:windows && set ELECTRON_RUN_AS_NODE=&& set GAMESTOCK_E2E_PACKAGED=1&& electron scripts/e2e-launchbox.cjs",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^12.4.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-window": "^1.8.11",
+    "xml2js": "^0.6.2",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/react-window": "^1.8.8",
+    "@types/xml2js": "^0.4.14",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.0.0",
+    "electron": "^41.0.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^7.0.0",
+    "wait-on": "^9.0.0"
+  }
+}

@@ -1,0 +1,208 @@
+:root {
+  --bg-primary: #131313;
+  --bg-sidebar: rgba(15, 23, 42, 0.82);
+  --bg-panel: #201f1f;
+  --bg-card: #2a2a2a;
+  --card-hover: rgba(0, 242, 255, 0.08);
+  --accent: #00f2ff;
+  --accent-muted: #74f5ff;
+  --accent-soft: rgba(0, 242, 255, 0.14);
+  --text-primary: #e5e2e1;
+  --text-secondary: #b9cacb;
+  --text-muted: #849495;
+  --border: rgba(132, 148, 149, 0.22);
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+body,
+#root {
+  height: 100vh;
+}
+
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: #131313;
+}
+
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #353534;
+}
+
+.material-symbols-outlined {
+  display: inline-block;
+  direction: ltr;
+  font-family: "Material Symbols Outlined";
+  font-feature-settings: "liga";
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-size: 22px;
+  font-style: normal;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-weight: normal;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: 64px 1fr;
+  height: 100vh;
+  min-width: 1024px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 76% 12%, rgba(0, 242, 255, 0.08), transparent 28%),
+    #131313;
+}
+
+.content-shell {
+  display: contents;
+}
+
+.main-area {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 32px;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 0 18px;
+}
+
+.library-tabs {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.library-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748b;
+  padding: 0 0 9px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.library-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sort-control select {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.library-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.empty-state {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.text-button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.text-button.active,
+.icon-button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.floating-add {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  z-index: 20;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #002022;
+  box-shadow: 0 16px 36px rgba(0, 242, 255, 0.28);
+}

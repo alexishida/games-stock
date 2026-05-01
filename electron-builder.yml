@@ -1,0 +1,16 @@
+appId: com.gamestock.app
+productName: GameStock
+directories:
+  output: release
+files:
+  - dist/**
+  - node_modules/**
+  - package.json
+win:
+  target:
+    - nsis
+    - portable
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
