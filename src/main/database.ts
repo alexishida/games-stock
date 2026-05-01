@@ -54,6 +54,8 @@ function applySchema(database: Database.Database): void {
       genre TEXT,
       rating TEXT,
       box_art_path TEXT,
+      background_path TEXT,
+      screenshot_path TEXT,
       rom_path TEXT,
       owned_physical INTEGER NOT NULL DEFAULT 0,
       physical_condition TEXT,
@@ -73,10 +75,15 @@ function applySchema(database: Database.Database): void {
 
   addColumnIfMissing(database, "games", "favorite", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(database, "games", "play_status", "TEXT NOT NULL DEFAULT 'unplayed'");
+  addColumnIfMissing(database, "games", "background_path", "TEXT");
+  addColumnIfMissing(database, "games", "screenshot_path", "TEXT");
+  addColumnIfMissing(database, "games", "rom_path", "TEXT");
+  addColumnIfMissing(database, "games", "launchbox_id", "TEXT");
 
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_games_favorite ON games(favorite);
     CREATE INDEX IF NOT EXISTS idx_games_play_status ON games(play_status);
+    CREATE INDEX IF NOT EXISTS idx_games_rom_path ON games(rom_path);
   `);
 }
 

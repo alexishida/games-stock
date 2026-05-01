@@ -9,6 +9,7 @@
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
     "dist:windows": "npm run build:renderer && npm run build:main && electron-builder --win",
+    "test:rom-folder-import": "npm run build:main && set ELECTRON_RUN_AS_NODE=&& electron scripts/test-rom-folder-import.cjs",
     "test:launchbox:e2e": "npm run build:renderer && npm run build:main && set ELECTRON_RUN_AS_NODE=&& electron scripts/e2e-launchbox.cjs",
     "test:launchbox:e2e:packaged": "npm run dist:windows && set ELECTRON_RUN_AS_NODE=&& set GAMESTOCK_E2E_PACKAGED=1&& electron scripts/e2e-launchbox.cjs",
     "postinstall": "electron-builder install-app-deps"

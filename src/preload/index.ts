@@ -9,6 +9,10 @@ import {
   LaunchBoxProgress,
   LaunchBoxSearchParams,
   GameSortBy,
+  RomFolderImportProgress,
+  RomFolderImportRequest,
+  RomFolderImportResult,
+  RomFolderScanRequest,
   ViewMode
 } from "../shared/types";
 
@@ -28,7 +32,10 @@ const api = {
   },
   dialogs: {
     openRomFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFile),
-    openImageFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openImageFile)
+    openRomFiles: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFiles),
+    openImageFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openImageFile),
+    openRomFolder: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolder),
+    openRomFolders: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolders)
   },
   shell: {
     openPath: (targetPath: string) => ipcRenderer.invoke(IPC_CHANNELS.shell.openPath, targetPath)
@@ -46,6 +53,25 @@ const api = {
     onOpenImporter: (callback: () => void) => {
       ipcRenderer.on(IPC_CHANNELS.launchbox.openImporter, callback);
       return () => ipcRenderer.removeListener(IPC_CHANNELS.launchbox.openImporter, callback);
+    }
+  },
+  romFolderImport: {
+    scan: (params: RomFolderScanRequest) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.scan, params),
+    import: (params: RomFolderImportRequest) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.import, params),
+    deleteFolderRecords: (params: string | { folderPath: string; platformId?: number }) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.deleteFolderRecords, params),
+    onProgress: (callback: (progress: RomFolderImportProgress) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: RomFolderImportProgress) => callback(progress);
+      ipcRenderer.on(IPC_CHANNELS.romFolderImport.progress, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.romFolderImport.progress, listener);
+    },
+    onCompleted: (callback: (result: RomFolderImportResult) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, result: RomFolderImportResult) => callback(result);
+      ipcRenderer.on(IPC_CHANNELS.romFolderImport.completed, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.romFolderImport.completed, listener);
+    },
+    onOpenImporter: (callback: () => void) => {
+      ipcRenderer.on(IPC_CHANNELS.romFolderImport.openImporter, callback);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.romFolderImport.openImporter, callback);
     }
   },
   view: {

@@ -6,11 +6,13 @@ import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./data
 import * as games from "./repositories/games";
 import * as platforms from "./repositories/platforms";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./launchbox";
+import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameSortBy, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress } from "../shared/types";
+import { GameCreateInput, GameSortBy, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
+const romFolderJobs = new Map<string, RomFolderImportJob>();
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -86,9 +88,31 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.dialogs.openRomFile, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ["openFile"],
-      filters: [{ name: "ROMs", extensions: ["zip", "rom", "bin", "iso", "img", "cue", "nes", "snes", "smd", "md", "n64", "z64", "v64", "gb", "gbc", "gba"] }]
+      filters: [{ name: "ROMs", extensions: SUPPORTED_ROM_EXTENSIONS.map((extension) => extension.slice(1)) }]
     });
     return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.dialogs.openRomFiles, async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ["openFile", "multiSelections"],
+      filters: [{ name: "ROMs", extensions: SUPPORTED_ROM_EXTENSIONS.map((extension) => extension.slice(1)) }]
+    });
+    return result.canceled ? [] : result.filePaths;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.dialogs.openRomFolder, async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ["openDirectory"]
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.dialogs.openRomFolders, async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ["openDirectory", "multiSelections"]
+    });
+    return result.canceled ? [] : result.filePaths;
   });
 
   ipcMain.handle(IPC_CHANNELS.dialogs.openImageFile, async () => {
@@ -113,10 +137,80 @@ function registerIpc(): void {
     downloadLaunchBoxImages(params, sendLaunchBoxProgress)
   );
   ipcMain.handle(IPC_CHANNELS.launchbox.importGame, (_event, params: LaunchBoxImportParams) => importGame(params, sendLaunchBoxProgress));
+
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.deleteFolderRecords, (_event, params: string | { folderPath: string; platformId?: number }) => {
+    const folderPath = typeof params === "string" ? params : params.folderPath;
+    const platformId = typeof params === "string" ? undefined : params.platformId;
+    const byRomPath = games.deleteGamesByRomFolder(folderPath);
+    if (!platformId) return byRomPath;
+
+    const scan = scanRomFolder({ folderPaths: [folderPath], platformId });
+    const byLegacyTitles = games.deleteGamesWithoutRomPathByPlatformAndTitles(
+      platformId,
+      scan.candidates.map((candidate) => candidate.titleCandidate)
+    );
+    return { success: true as const, deleted: byRomPath.deleted + byLegacyTitles.deleted };
+  });
 }
 
 function sendLaunchBoxProgress(progress: LaunchBoxProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.launchbox.progress, progress);
+}
+
+function sendRomFolderImportProgress(progress: RomFolderImportProgress): void {
+  mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.progress, progress);
+}
+
+function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImportJob {
+  const scan = scanRomFolder(params);
+  const jobId = `rom-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const initialProgress: RomFolderImportProgress = {
+    jobId,
+    current: 0,
+    total: scan.candidates.length,
+    stage: "preparing_metadata",
+    message: "Importacao iniciada em background"
+  };
+  const job: RomFolderImportJob = {
+    jobId,
+    folderPaths: scan.folderPaths,
+    romFilePaths: scan.romFilePaths,
+    platformId: scan.platformId,
+    platformName: scan.platformName,
+    status: "running",
+    startedAt: new Date().toISOString(),
+    progress: initialProgress
+  };
+  romFolderJobs.set(jobId, job);
+  sendRomFolderImportProgress(initialProgress);
+
+  void importRomFolder(params, (progress) => {
+    const nextProgress = { ...progress, jobId };
+    job.progress = nextProgress;
+    sendRomFolderImportProgress(nextProgress);
+  })
+    .then((result) => {
+      job.status = "completed";
+      job.result = { ...result, jobId };
+      job.progress = {
+        jobId,
+        current: result.summary.processed,
+        total: result.summary.processed,
+        stage: "done",
+        message: "Importacao concluida"
+      };
+      mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.completed, job.result);
+    })
+    .catch((error) => {
+      job.status = "failed";
+      job.error = error instanceof Error ? error.message : String(error);
+      job.progress = { ...job.progress, jobId, stage: "error", message: job.error };
+      sendRomFolderImportProgress(job.progress);
+    });
+
+  return job;
 }
 
 function createMenu(): void {
@@ -124,7 +218,7 @@ function createMenu(): void {
     {
       label: "MENU",
       submenu: [
-        { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.launchbox.openImporter) },
+        { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
         { label: "Novo Jogo Manual", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openCreateGame) },
         { label: "Gerenciar Plataformas", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openPlatformManager) },
         { label: "Configuracoes", enabled: false },
@@ -134,7 +228,10 @@ function createMenu(): void {
     },
     {
       label: "FERRAMENTAS",
-      submenu: [{ label: "Importar do LaunchBox", click: () => mainWindow?.webContents.send(IPC_CHANNELS.launchbox.openImporter) }]
+      submenu: [
+        { label: "Importar pasta de ROMs", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
+        { label: "Importar do LaunchBox", click: () => mainWindow?.webContents.send(IPC_CHANNELS.launchbox.openImporter) }
+      ]
     },
     {
       label: "VISUALIZACAO",

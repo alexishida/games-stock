@@ -5,6 +5,7 @@ import "./Sidebar.css";
 
 export function Sidebar() {
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
+  const setRomFolderImporterOpen = useGameStockStore((state) => state.setRomFolderImporterOpen);
 
   return (
     <aside className="sidebar">
@@ -30,9 +31,13 @@ export function Sidebar() {
       <div className="sidebar-label">Plataformas</div>
       <CategoryDropdown />
       <PlatformTree />
-      <button type="button" className="scan-button" onClick={() => setImporterOpen(true)}>
+      <button type="button" className="scan-button" onClick={() => setRomFolderImporterOpen(true)}>
         <span className="material-symbols-outlined" aria-hidden="true">sync</span>
-        Scan New ROMs
+        Importar pasta de ROMs
+      </button>
+      <button type="button" className="scan-button secondary" onClick={() => setImporterOpen(true)}>
+        <span className="material-symbols-outlined" aria-hidden="true">cloud_download</span>
+        LaunchBox manual
       </button>
     </aside>
   );

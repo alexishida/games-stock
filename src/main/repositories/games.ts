@@ -1,5 +1,6 @@
 import { getDatabase } from "../database";
 import { CollectionFilter, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../shared/types";
+import path from "node:path";
 
 type GameRow = Omit<Game, "owned_physical" | "favorite"> & { owned_physical: 0 | 1; favorite: 0 | 1 };
 
@@ -11,6 +12,8 @@ const writeColumns = [
   "genre",
   "rating",
   "box_art_path",
+  "background_path",
+  "screenshot_path",
   "rom_path",
   "owned_physical",
   "physical_condition",
@@ -103,7 +106,23 @@ export function createGame(data: Partial<GameCreateInput>): Game {
   if (!data.title?.trim()) throw new Error("Titulo e obrigatorio");
   if (!data.platform_id) throw new Error("Plataforma e obrigatoria");
 
-  const values = normalizeInput(data);
+  const values = normalizeInput({
+    publisher: null,
+    year: null,
+    genre: null,
+    rating: null,
+    box_art_path: null,
+    background_path: null,
+    screenshot_path: null,
+    rom_path: null,
+    owned_physical: false,
+    physical_condition: null,
+    favorite: false,
+    play_status: "unplayed",
+    notes: null,
+    launchbox_id: null,
+    ...data
+  });
   const result = getDatabase()
     .prepare(`
       INSERT INTO games (${writeColumns.join(", ")})
@@ -132,30 +151,102 @@ export function deleteGame(id: number): { success: true } {
   return { success: true };
 }
 
+export function deleteGamesByRomFolder(folderPath: string): { success: true; deleted: number } {
+  const normalizedFolder = normalizeFsPath(folderPath);
+  const rows = getDatabase().prepare("SELECT id, rom_path FROM games WHERE rom_path IS NOT NULL").all() as Array<{ id: number; rom_path: string }>;
+  const ids = rows
+    .filter((row) => isPathInsideFolder(row.rom_path, normalizedFolder))
+    .map((row) => row.id);
+
+  if (!ids.length) return { success: true, deleted: 0 };
+
+  const remove = getDatabase().prepare("DELETE FROM games WHERE id = ?");
+  const transaction = getDatabase().transaction((gameIds: number[]) => {
+    for (const id of gameIds) remove.run(id);
+  });
+  transaction(ids);
+  return { success: true, deleted: ids.length };
+}
+
+export function deleteGamesWithoutRomPathByPlatformAndTitles(platformId: number, titles: string[]): { success: true; deleted: number } {
+  const normalizedTitles = new Set(titles.map(normalizeTitleForMatch).filter(Boolean));
+  if (!normalizedTitles.size) return { success: true, deleted: 0 };
+
+  const rows = getDatabase()
+    .prepare("SELECT id, title FROM games WHERE platform_id = ? AND (rom_path IS NULL OR rom_path = '')")
+    .all(platformId) as Array<{ id: number; title: string }>;
+  const ids = rows
+    .filter((row) => normalizedTitles.has(normalizeTitleForMatch(row.title)))
+    .map((row) => row.id);
+
+  if (!ids.length) return { success: true, deleted: 0 };
+
+  const remove = getDatabase().prepare("DELETE FROM games WHERE id = ?");
+  const transaction = getDatabase().transaction((gameIds: number[]) => {
+    for (const id of gameIds) remove.run(id);
+  });
+  transaction(ids);
+  return { success: true, deleted: ids.length };
+}
+
 export function upsertLaunchBoxGame(data: Partial<GameCreateInput> & { title: string; platform_id: number }): { game: Game; created: boolean } {
-  const existing = getDatabase()
-    .prepare("SELECT id FROM games WHERE LOWER(title) = LOWER(?) AND platform_id = ?")
-    .get(data.title, data.platform_id) as { id: number } | undefined;
+  const existing = findExistingGame(data);
 
   if (existing) return { game: updateGame(existing.id, data), created: false };
   return { game: createGame(data), created: true };
 }
 
+function findExistingGame(data: Partial<GameCreateInput> & { title: string; platform_id: number }): { id: number } | undefined {
+  if (data.launchbox_id) {
+    const byLaunchBoxId = getDatabase()
+      .prepare("SELECT id FROM games WHERE launchbox_id = ? AND platform_id = ?")
+      .get(data.launchbox_id, data.platform_id) as { id: number } | undefined;
+    if (byLaunchBoxId) return byLaunchBoxId;
+  }
+
+  return getDatabase()
+    .prepare("SELECT id FROM games WHERE LOWER(title) = LOWER(?) AND platform_id = ?")
+    .get(data.title, data.platform_id) as { id: number } | undefined;
+}
+
 function normalizeInput(data: Partial<GameCreateInput>): Record<string, unknown> {
   return {
-    title: data.title?.trim(),
-    platform_id: data.platform_id,
-    publisher: data.publisher ?? null,
-    year: data.year ?? null,
-    genre: data.genre ?? null,
-    rating: data.rating ?? null,
-    box_art_path: data.box_art_path ?? null,
-    rom_path: data.rom_path ?? null,
-    owned_physical: data.owned_physical ? 1 : 0,
-    physical_condition: data.owned_physical ? data.physical_condition ?? null : null,
-    favorite: data.favorite ? 1 : 0,
-    play_status: data.play_status ?? "unplayed",
-    notes: data.notes ?? null,
-    launchbox_id: data.launchbox_id ?? null
+    title: has(data, "title") ? data.title?.trim() : undefined,
+    platform_id: has(data, "platform_id") ? data.platform_id : undefined,
+    publisher: has(data, "publisher") ? data.publisher ?? null : undefined,
+    year: has(data, "year") ? data.year ?? null : undefined,
+    genre: has(data, "genre") ? data.genre ?? null : undefined,
+    rating: has(data, "rating") ? data.rating ?? null : undefined,
+    box_art_path: has(data, "box_art_path") ? data.box_art_path ?? null : undefined,
+    background_path: has(data, "background_path") ? data.background_path ?? null : undefined,
+    screenshot_path: has(data, "screenshot_path") ? data.screenshot_path ?? null : undefined,
+    rom_path: has(data, "rom_path") ? data.rom_path ?? null : undefined,
+    owned_physical: has(data, "owned_physical") ? (data.owned_physical ? 1 : 0) : undefined,
+    physical_condition: has(data, "physical_condition") || has(data, "owned_physical") ? (data.owned_physical ? data.physical_condition ?? null : null) : undefined,
+    favorite: has(data, "favorite") ? (data.favorite ? 1 : 0) : undefined,
+    play_status: has(data, "play_status") ? data.play_status ?? "unplayed" : undefined,
+    notes: has(data, "notes") ? data.notes ?? null : undefined,
+    launchbox_id: has(data, "launchbox_id") ? data.launchbox_id ?? null : undefined
   };
+}
+
+function has(data: Partial<GameCreateInput>, key: keyof GameCreateInput): boolean {
+  return Object.prototype.hasOwnProperty.call(data, key);
+}
+
+function isPathInsideFolder(targetPath: string, normalizedFolder: string): boolean {
+  const normalizedTarget = normalizeFsPath(targetPath);
+  return normalizedTarget === normalizedFolder || normalizedTarget.startsWith(`${normalizedFolder}/`);
+}
+
+function normalizeFsPath(value: string): string {
+  return path
+    .resolve(value)
+    .replace(/\\/g, "/")
+    .replace(/\/+$/g, "")
+    .toLowerCase();
+}
+
+function normalizeTitleForMatch(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }

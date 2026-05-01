@@ -29,6 +29,8 @@ export interface Game {
   genre: string | null;
   rating: string | null;
   box_art_path: string | null;
+  background_path: string | null;
+  screenshot_path: string | null;
   rom_path: string | null;
   owned_physical: boolean;
   physical_condition: PhysicalCondition | null;
@@ -125,4 +127,103 @@ export interface LaunchBoxImportResult {
   gameId: number;
   created: boolean;
   boxArtPath: string | null;
+}
+
+export type RomFolderImportStage =
+  | "preparing_metadata"
+  | "matching"
+  | "downloading"
+  | "skipped"
+  | "saving"
+  | "done"
+  | "error";
+
+export type RomFolderMatchStatus = "matched" | "unmatched" | "ambiguous";
+
+export interface RomFolderImportCandidate {
+  folderPath: string;
+  romPath: string;
+  filename: string;
+  titleCandidate: string;
+  platformId: number;
+  platformName: string;
+}
+
+export interface RomFolderScanRequest {
+  folderPaths: string[];
+  romFilePaths?: string[];
+  platformId: number;
+}
+
+export interface RomFolderScanResult {
+  folderPaths: string[];
+  romFilePaths: string[];
+  platformId: number;
+  platformName: string;
+  candidates: RomFolderImportCandidate[];
+  ignored: number;
+}
+
+export interface RomFolderMatchedCandidate extends RomFolderImportCandidate {
+  status: RomFolderMatchStatus;
+  match: LaunchBoxGame | null;
+  alternatives: LaunchBoxGame[];
+}
+
+export interface RomFolderImportRequest {
+  folderPaths: string[];
+  romFilePaths?: string[];
+  platformId: number;
+}
+
+export interface RomFolderImportItemResult {
+  candidate: RomFolderImportCandidate;
+  status: "created" | "updated" | "unmatched" | "failed";
+  gameId?: number;
+  launchboxGameId?: string;
+  error?: string;
+  failedDownloads?: number;
+}
+
+export interface RomFolderImportSummary {
+  created: number;
+  updated: number;
+  skipped: number;
+  unmatched: number;
+  failedDownloads: number;
+  processed: number;
+}
+
+export interface RomFolderImportResult {
+  jobId?: string;
+  folderPaths: string[];
+  romFilePaths: string[];
+  platformId: number;
+  platformName: string;
+  items: RomFolderImportItemResult[];
+  summary: RomFolderImportSummary;
+}
+
+export interface RomFolderImportProgress {
+  jobId?: string;
+  current: number;
+  total: number;
+  folderPath?: string;
+  filename?: string;
+  imageFilename?: string;
+  stage: RomFolderImportStage;
+  message?: string;
+}
+
+export interface RomFolderImportJob {
+  jobId: string;
+  folderPaths: string[];
+  romFilePaths: string[];
+  platformId: number;
+  platformName: string;
+  status: "running" | "completed" | "failed";
+  startedAt: string;
+  progress: RomFolderImportProgress;
+  result?: RomFolderImportResult;
+  error?: string;
 }

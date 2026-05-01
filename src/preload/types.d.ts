@@ -13,6 +13,12 @@ import {
   LaunchBoxProgress,
   LaunchBoxSearchParams,
   Platform,
+  RomFolderImportJob,
+  RomFolderImportProgress,
+  RomFolderImportRequest,
+  RomFolderImportResult,
+  RomFolderScanRequest,
+  RomFolderScanResult,
   ViewMode
 } from "../shared/types";
 
@@ -32,7 +38,10 @@ export interface GameStockAPI {
   };
   dialogs: {
     openRomFile(): Promise<string | null>;
+    openRomFiles(): Promise<string[]>;
     openImageFile(): Promise<string | null>;
+    openRomFolder(): Promise<string | null>;
+    openRomFolders(): Promise<string[]>;
   };
   shell: {
     openPath(path: string): Promise<string>;
@@ -43,6 +52,14 @@ export interface GameStockAPI {
     downloadImages(params: LaunchBoxDownloadParams): Promise<LaunchBoxDownloadResult>;
     importGame(params: LaunchBoxImportParams): Promise<LaunchBoxImportResult>;
     onProgress(callback: (progress: LaunchBoxProgress) => void): () => void;
+    onOpenImporter(callback: () => void): () => void;
+  };
+  romFolderImport: {
+    scan(params: RomFolderScanRequest): Promise<RomFolderScanResult>;
+    import(params: RomFolderImportRequest): Promise<RomFolderImportJob>;
+    deleteFolderRecords(params: string | { folderPath: string; platformId?: number }): Promise<{ success: true; deleted: number }>;
+    onProgress(callback: (progress: RomFolderImportProgress) => void): () => void;
+    onCompleted(callback: (result: RomFolderImportResult) => void): () => void;
     onOpenImporter(callback: () => void): () => void;
   };
   view: {

@@ -34,8 +34,7 @@ export async function downloadImages(
   onProgress?: ProgressCallback
 ): Promise<LaunchBoxDownloadResult> {
   const images = types.length ? game.images.filter((image) => types.includes(image.type)) : game.images;
-  const safeName = sanitize(game.name);
-  const gameDir = path.join(outputDir, safeName);
+  const gameDir = getGameImageDir(outputDir, game);
   fs.mkdirSync(gameDir, { recursive: true });
 
   const result: LaunchBoxDownloadResult = { success: 0, skipped: 0, failed: 0, files: [] };
@@ -70,6 +69,10 @@ export async function downloadImages(
 
   fs.writeFileSync(path.join(gameDir, "metadata.json"), JSON.stringify(game, null, 2), "utf8");
   return result;
+}
+
+export function getGameImageDir(outputDir: string, game: Pick<LaunchBoxGame, "name" | "platform">): string {
+  return path.join(outputDir, sanitize(game.platform || "Unknown_Platform"), sanitize(game.name));
 }
 
 function sanitize(value: string): string {

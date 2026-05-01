@@ -4,7 +4,9 @@ import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
 import { LaunchBoxImporter } from "./components/LaunchBoxImporter/LaunchBoxImporter";
 import { ManualGameModal } from "./components/ManualGame/ManualGameModal";
+import { NotificationCenter } from "./components/NotificationCenter/NotificationCenter";
 import { PlatformManager } from "./components/PlatformManager/PlatformManager";
+import { RomFolderImporter } from "./components/RomFolderImporter/RomFolderImporter";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TopBar } from "./components/TopBar/TopBar";
 import { useGames } from "./hooks/useGames";
@@ -22,11 +24,13 @@ export default function App() {
   const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
   const setSortBy = useGameStockStore((state) => state.setSortBy);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
+  const setRomFolderImporterOpen = useGameStockStore((state) => state.setRomFolderImporterOpen);
   const setCreateGameOpen = useGameStockStore((state) => state.setCreateGameOpen);
   const setPlatformManagerOpen = useGameStockStore((state) => state.setPlatformManagerOpen);
 
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
+  useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => setRomFolderImporterOpen(true)), [setRomFolderImporterOpen]);
   useEffect(() => window.gameStockAPI.library.onOpenCreateGame(() => setCreateGameOpen(true)), [setCreateGameOpen]);
   useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => setPlatformManagerOpen(true)), [setPlatformManagerOpen]);
   useEffect(() => window.gameStockAPI.library.onSetSort(setSortBy), [setSortBy]);
@@ -65,8 +69,10 @@ export default function App() {
         </main>
       </div>
       <LaunchBoxImporter />
+      <RomFolderImporter />
       <ManualGameModal />
       <PlatformManager />
+      <NotificationCenter />
       <button type="button" className="floating-add" aria-label="Novo jogo" onClick={() => setCreateGameOpen(true)}>
         <span className="material-symbols-outlined" aria-hidden="true">add</span>
       </button>

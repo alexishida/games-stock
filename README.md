@@ -1,101 +1,106 @@
 # GameStock
 
-GameStock is a Windows desktop app for managing retro game libraries, ROM paths, box art, and physical collection inventory. It is built with Electron, React, TypeScript, Vite, and SQLite.
+GameStock é um aplicativo desktop para Windows para gerenciar bibliotecas de jogos retrô — caminhos de ROMs, box art, status de jogo e inventário físico — construído com Electron, React, TypeScript, Vite e SQLite.
 
-## Features
+## Funcionalidades
 
-- Local SQLite database stored under `%APPDATA%/GameStock/`
-- Game CRUD with title, platform, publisher, year, genre, rating, notes, ROM path, and box art
-- Platform list grouped by category with per-platform game counts
-- Dark LaunchBox-inspired library UI with grid and list views
-- Physical inventory tracking with condition values
-- Native file dialogs for associating ROMs and importing cover images
-- LaunchBox metadata and image importer using the public LaunchBox metadata archive
-- Windows distribution through `electron-builder` with NSIS and portable targets
+- **Gerenciamento de biblioteca** — adicione, edite e exclua jogos com título, plataforma, publisher, ano, gênero, classificação e notas
+- **Visualização em grade e lista** — grade virtualizada com capa dos jogos e modo lista compacto
+- **Navegação por plataformas** — barra lateral agrupada por categoria com contagem de jogos por plataforma
+- **Inventário físico** — registre cópias físicas com valores de conservação (Mint → Poor)
+- **Favoritos e status de jogo** — marque jogos como favorito e acompanhe o progresso (não jogado / jogando / concluído)
+- **Filtros e ordenação** — filtre por plataforma, cópia física, favoritos ou status; ordene por título, ano ou adicionados recentemente
+- **ROM e capa** — diálogos nativos de arquivo para associar ROMs e importar imagens de capa
+- **Importador LaunchBox** — baixa o arquivo público de metadados do LaunchBox, permite buscar jogos, selecionar tipos de imagem e importar metadados e box art com progresso em tempo real
+- **Estado da janela persistente** — memoriza o tamanho e posição da janela entre sessões
+- **Dados locais** — todos os dados ficam em disco sob `%APPDATA%/GameStock/`; nada sai da máquina
 
-## Requirements
+## Requisitos
 
 - Windows 11
-- Node.js compatible with the project dependencies
+- Node.js ≥ 18
 - npm
 
-## Install
+## Instalação
 
 ```bash
 npm install
 ```
 
-The postinstall script runs `electron-builder install-app-deps` so native modules such as `better-sqlite3` match the Electron runtime.
+O script `postinstall` executa `electron-builder install-app-deps` para recompilar módulos nativos (como `better-sqlite3`) contra o runtime do Electron incluído.
 
-## Development
+## Desenvolvimento
 
 ```bash
 npm run dev:windows
 ```
 
-This starts Vite on `localhost:5173`, compiles the Electron main/preload code in watch mode, waits for both outputs, and opens Electron.
+Inicia o Vite em `localhost:5173`, compila o código Electron main e preload em modo watch, aguarda todas as saídas e abre o Electron.
 
-If your shell has `ELECTRON_RUN_AS_NODE` set, clear it before launching Electron manually:
+Se `ELECTRON_RUN_AS_NODE` estiver definido no seu shell, limpe antes de iniciar o Electron manualmente:
 
 ```powershell
-$env:ELECTRON_RUN_AS_NODE=$null
+$env:ELECTRON_RUN_AS_NODE = $null
 ```
 
 ## Build
 
-Compile the renderer:
+Compilar o bundle do renderer:
 
 ```bash
 npm run build:renderer
 ```
 
-Compile Electron main and preload:
+Compilar o código Electron main e preload:
 
 ```bash
 npm run build:main
 ```
 
-Create Windows installer and portable builds:
+Gerar o instalador NSIS e builds portáteis do Windows em `release/`:
 
 ```bash
 npm run dist:windows
 ```
 
-Build outputs are written to `release/`.
+## Testes
 
-## Tests
-
-Run the LaunchBox import smoke test against the compiled app:
+Executar o smoke test de importação LaunchBox contra o app compilado:
 
 ```bash
 npm run test:launchbox:e2e
 ```
 
-Run the same flow against the packaged app contents in `release/win-unpacked/resources/app.asar`:
+Executar o mesmo teste contra o app empacotado em `release/win-unpacked/`:
 
 ```bash
 npm run test:launchbox:e2e:packaged
 ```
 
-The packaged test builds the Windows distribution, ensures LaunchBox metadata is available, searches for "Sonic", imports "Box - Front" images, and checks that the renderer grid shows the imported game with a cover image.
+O teste compila o app, busca os metadados do LaunchBox, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade do renderer.
 
-## Local Data
+## Dados Locais
 
-GameStock stores runtime data outside the repository:
+O GameStock armazena todos os dados de runtime fora do repositório:
 
-- Database: `%APPDATA%/GameStock/gamestock.db`
-- Imported images: `%APPDATA%/GameStock/images/`
-- LaunchBox cache: `%APPDATA%/GameStock/launchbox_cache/`
-- Window bounds: `%APPDATA%/GameStock/window-bounds.json`
+| Caminho | Conteúdo |
+|---------|----------|
+| `%APPDATA%/GameStock/gamestock.db` | Banco de dados SQLite |
+| `%APPDATA%/GameStock/images/` | Imagens de capa importadas |
+| `%APPDATA%/GameStock/launchbox_cache/` | Metadados LaunchBox extraídos |
+| `%APPDATA%/GameStock/window-bounds.json` | Posição e tamanho da janela salvos |
 
-## LaunchBox Importer
+## Importador LaunchBox
 
-The importer downloads `Metadata.zip` from the public LaunchBox games database and caches the extracted metadata locally. The first run can take a while because the metadata archive is large. Progress is reported through Electron IPC to the renderer.
+O importador baixa o `Metadata.zip` do banco de dados público de jogos do LaunchBox e armazena em cache os arquivos XML extraídos localmente. A primeira execução faz o download de um arquivo grande e pode levar alguns minutos. O progresso é transmitido para a UI via IPC do Electron. Buscas subsequentes usam o cache local.
 
-## OpenSpec Status
+## Stack Tecnológica
 
-The current OpenSpec change is `create-game-stock-app`.
-
-Implemented tasks: `63/63`
-
-All implementation tasks are complete.
+| Camada | Tecnologia |
+|--------|-----------|
+| Shell | Electron 41 |
+| Renderer | React 19 + TypeScript + Vite 7 |
+| Estado | Zustand 5 |
+| Banco de dados | better-sqlite3 (SQLite) |
+| IPC | Electron contextBridge / ipcRenderer |
+| Empacotamento | electron-builder (NSIS + portátil) |

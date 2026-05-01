@@ -16,6 +16,7 @@ interface GameStockState {
   loading: boolean;
   selectedGameId: number | null;
   importerOpen: boolean;
+  romFolderImporterOpen: boolean;
   createGameOpen: boolean;
   platformManagerOpen: boolean;
   reloadToken: number;
@@ -32,6 +33,7 @@ interface GameStockState {
   setLoading(value: boolean): void;
   setSelectedGameId(value: number | null): void;
   setImporterOpen(value: boolean): void;
+  setRomFolderImporterOpen(value: boolean): void;
   setCreateGameOpen(value: boolean): void;
   setPlatformManagerOpen(value: boolean): void;
   reloadGames(): void;
@@ -53,6 +55,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   loading: false,
   selectedGameId: null,
   importerOpen: false,
+  romFolderImporterOpen: false,
   createGameOpen: false,
   platformManagerOpen: false,
   reloadToken: 0,
@@ -69,6 +72,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setLoading: (loading) => set({ loading }),
   setSelectedGameId: (selectedGameId) => set({ selectedGameId }),
   setImporterOpen: (importerOpen) => set({ importerOpen }),
+  setRomFolderImporterOpen: (romFolderImporterOpen) => set({ romFolderImporterOpen }),
   setCreateGameOpen: (createGameOpen) => set({ createGameOpen }),
   setPlatformManagerOpen: (platformManagerOpen) => set({ platformManagerOpen }),
   reloadGames: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),

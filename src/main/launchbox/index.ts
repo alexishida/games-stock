@@ -28,6 +28,8 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
   const platformId = params.platformId ?? resolvePlatformId(game.platform);
   const download = await downloadImages(game, getImagesDir(), params.imageTypes, onProgress);
   const boxArtPath = download.files.find((file) => file.includes("Box_-_Front")) ?? download.files[0] ?? null;
+  const backgroundPath = download.files.find((file) => file.includes("Fanart_-_Background")) ?? null;
+  const screenshotPath = download.files.find((file) => file.includes("Screenshot_-_Gameplay")) ?? null;
   const year = game.release ? Number(game.release.slice(0, 4)) || null : null;
   const saved = upsertLaunchBoxGame({
     title: game.name,
@@ -38,6 +40,8 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
     rating: game.rating || null,
     notes: game.overview || null,
     box_art_path: boxArtPath,
+    background_path: backgroundPath,
+    screenshot_path: screenshotPath,
     launchbox_id: game.id,
     owned_physical: false,
     physical_condition: null,

@@ -14,7 +14,10 @@ export const IPC_CHANNELS = {
   },
   dialogs: {
     openRomFile: "dialogs:openRomFile",
-    openImageFile: "dialogs:openImageFile"
+    openRomFiles: "dialogs:openRomFiles",
+    openImageFile: "dialogs:openImageFile",
+    openRomFolder: "dialogs:openRomFolder",
+    openRomFolders: "dialogs:openRomFolders"
   },
   shell: {
     openPath: "shell:openPath"
@@ -26,6 +29,14 @@ export const IPC_CHANNELS = {
     importGame: "launchbox:importGame",
     progress: "launchbox:progress",
     openImporter: "launchbox:openImporter"
+  },
+  romFolderImport: {
+    scan: "romFolderImport:scan",
+    import: "romFolderImport:import",
+    deleteFolderRecords: "romFolderImport:deleteFolderRecords",
+    progress: "romFolderImport:progress",
+    completed: "romFolderImport:completed",
+    openImporter: "romFolderImport:openImporter"
   },
   library: {
     openCreateGame: "library:openCreateGame",
