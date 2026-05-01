@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
 import { LaunchBoxImporter } from "./components/LaunchBoxImporter/LaunchBoxImporter";
@@ -12,6 +13,7 @@ export default function App() {
   usePlatforms();
   useGames();
   const viewMode = useGameStockStore((state) => state.viewMode);
+  const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
 
@@ -24,27 +26,31 @@ export default function App() {
       <div className="content-shell">
         <Sidebar />
         <main className="main-area">
-          <div className="home-content">
-            <section className="library-header" aria-label="Filtros da biblioteca">
-              <div className="library-tabs">
-                <button type="button" className="active">Todos os jogos</button>
-                <button type="button">Favoritos</button>
-                <button type="button">Concluidos</button>
-                <button type="button">Nao jogados</button>
-              </div>
-              <div className="sort-control">
-                <span>Ordenar por:</span>
-                <select aria-label="Ordenar biblioteca">
-                  <option>A-Z</option>
-                  <option>Ano</option>
-                  <option>Recentes</option>
-                </select>
-              </div>
-            </section>
-            <section className="library-pane">
-              {viewMode === "grid" ? <GameGrid /> : <GameList />}
-            </section>
-          </div>
+          {selectedGameId ? (
+            <GameDetail />
+          ) : (
+            <div className="home-content">
+              <section className="library-header" aria-label="Filtros da biblioteca">
+                <div className="library-tabs">
+                  <button type="button" className="active">Todos os jogos</button>
+                  <button type="button">Favoritos</button>
+                  <button type="button">Concluidos</button>
+                  <button type="button">Nao jogados</button>
+                </div>
+                <div className="sort-control">
+                  <span>Ordenar por:</span>
+                  <select aria-label="Ordenar biblioteca">
+                    <option>A-Z</option>
+                    <option>Ano</option>
+                    <option>Recentes</option>
+                  </select>
+                </div>
+              </section>
+              <section className="library-pane">
+                {viewMode === "grid" ? <GameGrid /> : <GameList />}
+              </section>
+            </div>
+          )}
         </main>
       </div>
       <LaunchBoxImporter />
