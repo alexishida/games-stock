@@ -41,18 +41,18 @@ O sistema SHALL suportar um item especial "Todos" que lista jogos de todas as pl
 - **THEN** a grade exibe todos os jogos do banco, independente de plataforma
 
 ### Requirement: UI de gerenciamento de plataformas (PlatformManager)
-O sistema SHALL fornecer interface de duas colunas dentro do SettingsModal: lista de plataformas à esquerda e formulário de criação/edição à direita.
+O sistema SHALL fornecer dentro do SettingsModal uma lista completa de plataformas com botão "Nova plataforma" e ações de editar/excluir por linha. Criar e editar SHALL abrir em modais sobrepostos independentes (PlatformFormModal), separados da lista principal.
 
 #### Scenario: Criar plataforma pela UI
-- **WHEN** o usuário informa nome e categoria válidos e salva
+- **WHEN** o usuário clica em "Nova plataforma" e informa nome e categoria válidos e salva
 - **THEN** a plataforma é criada, aparece na lista e fica disponível na árvore lateral e no formulário de jogos
 
 #### Scenario: Editar plataforma pela UI
-- **WHEN** o usuário clica em editar uma plataforma, altera nome ou categoria e salva
-- **THEN** a plataforma é atualizada na lista e na árvore lateral; o botão "Limpar" cancela a edição
+- **WHEN** o usuário clica no ícone de lápis de uma plataforma, altera nome ou categoria e salva
+- **THEN** a plataforma é atualizada na lista e na árvore lateral; fechar ou cancelar o modal descarta a edição
 
 #### Scenario: Excluir plataforma sem jogos
-- **WHEN** o usuário clica em excluir uma plataforma sem jogos e confirma
+- **WHEN** o usuário clica no ícone de lixeira de uma plataforma sem jogos e confirma o diálogo
 - **THEN** a plataforma é removida da lista e da árvore lateral
 
 #### Scenario: Excluir plataforma com jogos

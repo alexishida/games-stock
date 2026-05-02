@@ -345,14 +345,6 @@ button {
   padding: 0 34px 0 10px;
 }
 
-.platform-manager-grid .management-form select {
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-control);
-  padding: 0 34px 0 10px;
-}
-
 .management-form textarea {
   min-height: 72px;
   resize: vertical;
@@ -375,42 +367,104 @@ button {
   width: min(820px, calc(100vw - 48px));
 }
 
-.platform-manager-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 14px;
+.platform-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-height: 0;
+}
+
+.platform-manager-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.platform-manager-toolbar .form-error {
+  flex: 1;
+  margin: 0;
+}
+
+.platform-add-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .platform-list {
   display: grid;
   align-content: start;
-  max-height: 460px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
+  flex: 1;
+}
+
+.platform-list-empty {
+  margin: 0;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
 }
 
 .platform-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
+  display: flex;
   align-items: center;
+  gap: 8px;
   border-bottom: 1px solid var(--border);
-  padding: 6px 8px;
+  padding: 10px 12px;
 }
 
-.platform-row > button:first-child {
+.platform-row:last-child {
+  border-bottom: 0;
+}
+
+.platform-row-info {
   display: grid;
   gap: 2px;
+  flex: 1;
   min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary);
-  text-align: left;
 }
 
-.platform-row span {
+.platform-row-info strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.platform-row-info span {
   color: var(--text-secondary);
   font-size: 11px;
+}
+
+.platform-row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.platform-form-modal {
+  width: min(420px, calc(100vw - 48px));
+  border-color: var(--border-strong);
+  border-radius: 12px;
+}
+
+.platform-form-modal h2 {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.platform-form-modal footer {
+  justify-content: flex-end;
+}
+
+.platform-form-modal .management-form select {
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 34px 0 10px;
 }

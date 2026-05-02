@@ -1,7 +1,78 @@
 import { FormEvent, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { Platform } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
+
+type ModalMode = { kind: "create" } | { kind: "edit"; platform: Platform };
+
+function PlatformFormModal({ mode, onClose }: { mode: ModalMode; onClose: () => void }) {
+  const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
+  const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const [name, setName] = useState(mode.kind === "edit" ? mode.platform.name : "");
+  const [category, setCategory] = useState(mode.kind === "edit" ? mode.platform.category : "Console");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save(event: FormEvent): Promise<void> {
+    event.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      if (mode.kind === "edit") {
+        await window.gameStockAPI.platforms.update(mode.platform.id, { name, category });
+      } else {
+        await window.gameStockAPI.platforms.create({ name, category });
+      }
+      reloadPlatforms();
+      reloadGames();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar a plataforma");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <section className="management-modal platform-form-modal">
+        <header>
+          <h2>{mode.kind === "edit" ? "Editar plataforma" : "Nova plataforma"}</h2>
+          <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+        <form className="management-form" onSubmit={save}>
+          <label>
+            Nome
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: PlayStation 2"
+            />
+          </label>
+          <label>
+            Categoria
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="Console">Console</option>
+              <option value="Portátil">Portátil</option>
+              <option value="PC">PC</option>
+            </select>
+          </label>
+          {error && <p className="form-error">{error}</p>}
+          <footer>
+            <button type="button" className="text-button" onClick={onClose} disabled={saving}>
+              Cancelar
+            </button>
+            <button type="submit" className="text-button active" disabled={saving || !name.trim()}>
+              {saving ? "Salvando…" : "Salvar"}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
 
 export function PlatformManager() {
   const platforms = useGameStockStore((state) => state.platforms);
@@ -9,29 +80,8 @@ export function PlatformManager() {
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
-  const [editing, setEditing] = useState<Platform | null>(null);
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("Console");
+  const [modal, setModal] = useState<ModalMode | null>(null);
   const [error, setError] = useState("");
-
-  async function save(event: FormEvent): Promise<void> {
-    event.preventDefault();
-    setError("");
-    try {
-      if (editing) {
-        await window.gameStockAPI.platforms.update(editing.id, { name, category });
-      } else {
-        await window.gameStockAPI.platforms.create({ name, category });
-      }
-      setEditing(null);
-      setName("");
-      setCategory("Console");
-      reloadPlatforms();
-      reloadGames();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar a plataforma");
-    }
-  }
 
   async function remove(platform: Platform): Promise<void> {
     if (!window.confirm(`Remover a plataforma "${platform.name}"?`)) return;
@@ -42,48 +92,55 @@ export function PlatformManager() {
       reloadPlatforms();
       reloadGames();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel remover a plataforma");
+      setError(err instanceof Error ? err.message : "Não foi possível remover a plataforma");
     }
   }
 
-  function edit(platform: Platform): void {
-    setEditing(platform);
-    setName(platform.name);
-    setCategory(platform.category);
-    setError("");
-  }
-
   return (
-    <div className="platform-manager-grid">
+    <div className="platform-manager">
       <div className="platform-list">
+        {platforms.length === 0 && (
+          <p className="platform-list-empty">Nenhuma plataforma cadastrada.</p>
+        )}
         {platforms.map((platform) => (
           <div className="platform-row" key={platform.id}>
-            <button type="button" onClick={() => edit(platform)}>
+            <div className="platform-row-info">
               <strong>{platform.name}</strong>
-              <span>{platform.category} - {platform.gameCount ?? 0} jogos</span>
-            </button>
-            <button type="button" className="icon-button" title="Remover" onClick={() => remove(platform)}>
-              <Trash2 aria-hidden="true" size={16} />
-            </button>
+              <span>{platform.category} &middot; {platform.gameCount ?? 0} jogos</span>
+            </div>
+            <div className="platform-row-actions">
+              <button
+                type="button"
+                className="icon-button"
+                title="Editar"
+                onClick={() => setModal({ kind: "edit", platform })}
+              >
+                <Pencil size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                title="Remover"
+                onClick={() => remove(platform)}
+              >
+                <Trash2 size={14} aria-hidden="true" />
+              </button>
+            </div>
           </div>
         ))}
       </div>
-      <form className="management-form" onSubmit={save}>
-        <h3>{editing ? "Editar plataforma" : "Nova plataforma"}</h3>
-        <label>Nome<input value={name} onChange={(event) => setName(event.target.value)} /></label>
-        <label>Categoria
-          <select value={category} onChange={(event) => setCategory(event.target.value)}>
-            <option value="Console">Console</option>
-            <option value="Portátil">Portátil</option>
-            <option value="PC">PC</option>
-          </select>
-        </label>
+      <div className="platform-manager-toolbar">
         {error && <p className="form-error">{error}</p>}
-        <footer>
-          {editing && <button type="button" className="text-button" onClick={() => { setEditing(null); setName(""); setCategory("Console"); }}>Limpar</button>}
-          <button type="submit" className="text-button active">Salvar</button>
-        </footer>
-      </form>
+        <button
+          type="button"
+          className="text-button active platform-add-button"
+          onClick={() => setModal({ kind: "create" })}
+        >
+          <Plus size={14} aria-hidden="true" />
+          Nova plataforma
+        </button>
+      </div>
+      {modal && <PlatformFormModal mode={modal} onClose={() => setModal(null)} />}
     </div>
   );
 }
