@@ -5,21 +5,21 @@ Define o controle de inventário físico para jogos possuídos em cartucho, disc
 
 ## Requirements
 ### Requirement: Flag de posse física por jogo
-O sistema SHALL permitir marcar cada jogo como possuído fisicamente via `owned_physical`. Jogos físicos SHALL exibir indicador visual distinto na grade.
+O sistema SHALL permitir marcar cada jogo como possuído fisicamente via campo `owned_physical` (booleano, default false). O campo SHALL ser editável no GameForm dentro do GameDetail.
 
 #### Scenario: Marcar jogo como possuído fisicamente
-- **WHEN** o usuário ativa "Tenho físico" no detalhe de um jogo
-- **THEN** `owned_physical` é atualizado para true e o badge aparece na grade
+- **WHEN** o usuário ativa "Tenho físico" no GameForm e salva
+- **THEN** `owned_physical` é atualizado para true e persiste entre sessões
 
 #### Scenario: Jogo sem cópia física
 - **WHEN** `owned_physical = false`
-- **THEN** nenhum badge de inventário físico é exibido no card
+- **THEN** nenhum indicador de inventário físico é exibido para o jogo
 
 ### Requirement: Condição do item físico
 O sistema SHALL permitir registrar `physical_condition` com valores "Mint", "Near Mint", "Good", "Fair" e "Poor". O campo SHALL aparecer apenas quando `owned_physical = true`.
 
 #### Scenario: Registrar condição
-- **WHEN** o usuário seleciona condição "Good" para um jogo físico
+- **WHEN** o usuário seleciona condição "Good" para um jogo físico e salva
 - **THEN** `physical_condition = "Good"` é salvo no banco
 
 #### Scenario: Condição sem posse física
@@ -27,8 +27,8 @@ O sistema SHALL permitir registrar `physical_condition` com valores "Mint", "Nea
 - **THEN** o campo `physical_condition` não é exibido na UI
 
 ### Requirement: Filtro por inventário físico
-O sistema SHALL permitir filtrar a biblioteca para exibir apenas jogos físicos.
+O sistema SHALL permitir filtrar a biblioteca para exibir apenas jogos físicos via parâmetro de filtro na listagem.
 
 #### Scenario: Ativar filtro de inventário
-- **WHEN** o usuário ativa "Apenas físicos"
+- **WHEN** o filtro de inventário físico está ativo
 - **THEN** a grade exibe somente jogos com `owned_physical = true`

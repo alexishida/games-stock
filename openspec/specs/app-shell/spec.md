@@ -16,7 +16,7 @@ O sistema SHALL criar uma janela Electron principal com dimensões mínimas de 1
 - **THEN** a janela restaura a posição e o tamanho anteriores
 
 ### Requirement: Isolamento de processo com contextBridge
-O sistema SHALL usar `contextIsolation: true` e `nodeIntegration: false`. O preload SHALL expor `window.gameStockAPI` via `contextBridge.exposeInMainWorld` com os namespaces `games`, `platforms`, `dialogs` e `shell`.
+O sistema SHALL usar `contextIsolation: true` e `nodeIntegration: false`. O preload SHALL expor `window.gameStockAPI` via `contextBridge.exposeInMainWorld` com os namespaces `games`, `platforms`, `dialogs`, `shell`, `launchbox` e `romFolderImport`.
 
 #### Scenario: Acesso seguro ao IPC
 - **WHEN** o renderer invoca `window.gameStockAPI.games.list()`
@@ -31,31 +31,39 @@ O sistema SHALL criar ou abrir o banco SQLite em `%APPDATA%/GameStock/gamestock.
 
 #### Scenario: Primeiro uso
 - **WHEN** o app é aberto pela primeira vez
-- **THEN** o arquivo `gamestock.db` é criado com as tabelas `platforms` e `games`
+- **THEN** o arquivo `gamestock.db` é criado com as tabelas `platforms` e `games` e as plataformas padrão são inseridas
 
 #### Scenario: Uso subsequente
 - **WHEN** o app é aberto com banco existente
 - **THEN** o banco é aberto sem recriar tabelas e os dados existentes são preservados
 
 ### Requirement: Menu nativo da aplicação
-O sistema SHALL exibir uma barra de menu nativa com itens MENU, FERRAMENTAS, VISUALIZAÇÃO, ORGANIZADO POR, GRUPO DE IMAGENS e EMBLEMAS. Itens disponíveis no MVP SHALL enviar eventos ao renderer para abrir diálogos ou atualizar o estado da biblioteca.
+O sistema SHALL exibir uma barra de menu nativa. Os itens disponíveis SHALL enviar eventos IPC ao renderer para abrir modais ou atualizar o estado da biblioteca.
 
 #### Scenario: Menu sair
-- **WHEN** o usuário clica em MENU -> Sair
+- **WHEN** o usuário clica em Sair no menu nativo
 - **THEN** o aplicativo fecha graciosamente
 
 #### Scenario: Menu visualização
-- **WHEN** o usuário clica em VISUALIZAÇÃO -> Grade ou Lista
-- **THEN** a área principal alterna entre grade de box arts e visualização em lista
+- **WHEN** o usuário aciona o item de visualização Grade ou Lista no menu
+- **THEN** o renderer recebe o canal `view:set` e alterna entre grade de box arts e visualização em lista
 
-#### Scenario: Menu importar jogos
-- **WHEN** o usuário clica em MENU -> Importar Jogos ou FERRAMENTAS -> Importar do LaunchBox
-- **THEN** o modal de importação LaunchBox é aberto
+#### Scenario: Menu importar jogos LaunchBox
+- **WHEN** o usuário aciona "Importar do LaunchBox" no menu
+- **THEN** o renderer recebe o canal `launchbox:openImporter` e abre o modal de importação LaunchBox
 
 #### Scenario: Menu gerenciar plataformas
-- **WHEN** o usuário clica em MENU -> Gerenciar Plataformas
-- **THEN** a interface de gerenciamento de plataformas é aberta
+- **WHEN** o usuário aciona "Gerenciar Plataformas" no menu
+- **THEN** o renderer recebe o canal `library:openPlatformManager` e abre o SettingsModal na seção "plataformas"
 
-#### Scenario: Menu organizar por
-- **WHEN** o usuário clica em ORGANIZADO POR -> Título, Ano ou Recentes
-- **THEN** a biblioteca aplica a ordenação selecionada
+#### Scenario: Menu criar jogo
+- **WHEN** o usuário aciona "Novo Jogo" no menu
+- **THEN** o renderer recebe o canal `library:openCreateGame` e abre o ManualGameModal
+
+#### Scenario: Menu ordenar biblioteca
+- **WHEN** o usuário aciona uma opção de ordenação no menu
+- **THEN** o renderer recebe o canal `library:setSort` com o valor correspondente e aplica a ordenação à biblioteca
+
+#### Scenario: Menu importar pasta de ROMs
+- **WHEN** o usuário aciona "Importar pasta de ROMs" no menu
+- **THEN** o renderer recebe o canal `romFolderImport:openImporter` e abre o SettingsModal na seção "biblioteca"

@@ -1,98 +1,99 @@
 # rom-folder-import - Especificação
 
 ## Purpose
-Define o assistente de importação em lote por pastas de ROMs, com seleção de plataforma, revisão, execução em background, notificações e resumo de resultados.
+Define o assistente de importação em lote por pastas de ROMs, com resumo de pastas configuradas, adição/remoção de entradas, descoberta de ROMs, execução em background e notificações de progresso.
 
 ## Requirements
-### Requirement: Assistente de importação de ROMs por pasta
-O sistema SHALL fornecer um fluxo guiado que permite selecionar uma ou mais pastas locais ou arquivos ROM individuais, selecionar uma plataforma, revisar ROMs descobertas e iniciar importação em lote.
+### Requirement: Resumo de pastas configuradas (SummaryStep)
+O sistema SHALL exibir na tela inicial do RomFolderImporter uma tabela com todas as pastas já configuradas, mostrando caminho, plataforma associada e quantidade de jogos indexados. As entradas SHALL ser persistidas em `localStorage`.
 
-#### Scenario: Iniciar importação por pasta
-- **WHEN** o usuário abre a ação de importação pela UI da biblioteca
-- **THEN** o sistema exibe um assistente com seleção de pasta, seleção de plataforma, revisão, progresso e resultados
+#### Scenario: Abrir com pastas configuradas
+- **WHEN** o usuário abre o RomFolderImporter com entradas salvas
+- **THEN** a tabela exibe cada entrada com folderPath, platformName e indexedCount
 
-#### Scenario: Selecionar pastas de ROMs
-- **WHEN** o usuário escolhe uma ou mais pastas pelo seletor nativo
-- **THEN** o assistente armazena caminhos absolutos e só prossegue se pelo menos uma pasta foi selecionada
+#### Scenario: Abrir sem pastas configuradas
+- **WHEN** não há entradas salvas no localStorage
+- **THEN** a tabela exibe estado vazio e o botão "Adicionar Pasta" está visível
 
-#### Scenario: Lista de seleção antes da plataforma
-- **WHEN** o usuário abre a primeira tela do assistente
-- **THEN** o assistente exibe somente pastas ou arquivos selecionados antes da etapa de plataforma
+#### Scenario: Continuar downloads de pasta existente
+- **WHEN** o usuário seleciona uma linha e clica em "Continuar downloads"
+- **THEN** o sistema inicia um job de importação em background para aquela pasta usando a plataforma já salva e fecha o overlay
 
-#### Scenario: Selecionar plataforma depois dos arquivos
-- **WHEN** o usuário avança após selecionar pastas ou arquivos
-- **THEN** o assistente exibe a seleção de plataforma antes de escanear ROMs
+### Requirement: Adicionar nova pasta de ROMs
+O sistema SHALL fornecer um fluxo de dois passos (configure → review) dentro de um overlay modal para adicionar uma nova pasta ao índice.
 
-#### Scenario: Pré-preencher caminhos anteriores
-- **WHEN** o usuário abre o assistente após usá-lo antes
-- **THEN** a lista é preenchida com os últimos caminhos salvos
+#### Scenario: Abrir formulário de configuração
+- **WHEN** o usuário clica em "Adicionar Pasta"
+- **THEN** o overlay do AddFolderPanel é exibido no passo "configure" com campo de pasta e select de plataforma
 
-#### Scenario: Resumo inicial de importações salvas
-- **WHEN** o usuário abre o assistente
-- **THEN** a primeira tela mostra tabela de pastas em uso com caminho, plataforma e quantidade de jogos indexados
+#### Scenario: Selecionar pasta pelo browser nativo
+- **WHEN** o usuário clica para selecionar pasta
+- **THEN** o diálogo nativo de seleção de pasta é aberto e o caminho escolhido é preenchido no campo
 
-#### Scenario: Adicionar pasta a partir do resumo
-- **WHEN** o usuário clica em "Adicionar Pasta" na tela inicial
-- **THEN** o assistente navega para a configuração em vez de abrir o seletor nativo imediatamente
+#### Scenario: Avançar para revisão
+- **WHEN** o usuário clica em "Próximo" com pasta e plataforma selecionadas
+- **THEN** o sistema chama `romFolderImport:scan` e avança para o passo "review" com lista de candidatos encontrados
 
-#### Scenario: Deletar pasta a partir do resumo
-- **WHEN** o usuário seleciona uma linha e clica em "Deletar Pasta"
-- **THEN** a pasta é removida da tabela salva e os jogos com `rom_path` dentro dela são removidos da biblioteca
+#### Scenario: Revisão antes de importar
+- **WHEN** o passo "review" é exibido
+- **THEN** o assistente mostra quantidade de ROMs encontradas, arquivos ignorados e lista de candidatos (filename e titleCandidate)
 
-#### Scenario: Pasta física preservada
-- **WHEN** o usuário deleta uma pasta do GameStock
-- **THEN** o sistema MUST NOT apagar a pasta física nem os arquivos ROM do disco
-
-#### Scenario: Formulário de adicionar pasta
-- **WHEN** o usuário abre a tela de configuração
-- **THEN** o assistente exibe campos de seleção de pasta e plataforma
-
-#### Scenario: Selecionar arquivos ROM individuais
-- **WHEN** o usuário escolhe uma ou mais ROMs pelo seletor nativo
-- **THEN** o assistente adiciona os caminhos à lista e os inclui no scan/importação
-
-#### Scenario: Selecionar plataforma de importação
-- **WHEN** o usuário escolhe uma plataforma da lista configurada
-- **THEN** essa plataforma é usada para todas as ROMs do lote atual
-
-### Requirement: Descoberta de ROMs em pastas selecionadas
-O sistema SHALL escanear as pastas selecionadas, detectar ROMs suportadas e derivar um título candidato para cada arquivo.
-
-#### Scenario: Descobrir ROMs suportadas
-- **WHEN** a pasta contém arquivos com extensões suportadas
-- **THEN** o sistema retorna candidatos com `folderPath`, `romPath`, nome original, título normalizado e plataforma selecionada
-
-#### Scenario: Ignorar arquivos não suportados
-- **WHEN** a pasta contém arquivos com extensões não suportadas
-- **THEN** esses arquivos são ignorados e não entram na lista de candidatos
+#### Scenario: Voltar para configuração
+- **WHEN** o usuário clica em "Voltar" no passo "review"
+- **THEN** o assistente retorna ao passo "configure" sem perder pasta e plataforma selecionadas
 
 #### Scenario: Pasta vazia
-- **WHEN** a pasta não contém ROMs suportadas
-- **THEN** o assistente exibe estado vazio e não permite iniciar importação
+- **WHEN** o scan retorna zero candidatos
+- **THEN** o passo "review" exibe estado vazio e não permite iniciar a importação
 
-### Requirement: Progresso e resumo da importação em lote
-O sistema SHALL reportar progresso da importação e contagens finais ao renderer.
+#### Scenario: Iniciar importação em background
+- **WHEN** o usuário clica em "Iniciar em background" no passo "review"
+- **THEN** o sistema chama `romFolderImport:import`, fecha o overlay, salva a entrada no localStorage e inicia o job
+
+### Requirement: Remoção de pasta configurada
+O sistema SHALL permitir remover uma entrada da tabela, excluindo também os jogos indexados com `rom_path` dentro daquela pasta.
+
+#### Scenario: Confirmar remoção de pasta
+- **WHEN** o usuário seleciona uma linha, clica em "Deletar Pasta" e confirma
+- **THEN** a entrada é removida do localStorage e `romFolderImport:deleteFolderRecords` é chamado para remover os jogos associados
+
+#### Scenario: Pasta física preservada
+- **WHEN** o usuário remove uma pasta do GameStock
+- **THEN** o sistema MUST NOT apagar a pasta física nem os arquivos ROM do disco
+
+### Requirement: Descoberta de ROMs em pastas selecionadas
+O sistema SHALL escanear a pasta selecionada, detectar arquivos com extensões ROM suportadas e derivar um título candidato para cada arquivo via normalização do nome.
+
+#### Scenario: Descobrir ROMs suportadas
+- **WHEN** a pasta contém arquivos com extensões suportadas (.zip, .rom, .bin, .iso, .img, .cue, .nes, .snes, .sfc, .smc, .swc, .fig, .smd, .md, .n64, .z64, .v64, .gb, .gbc, .gba)
+- **THEN** o scan retorna candidatos com `folderPath`, `romPath`, `filename`, `titleCandidate` e dados de plataforma
+
+#### Scenario: Ignorar arquivos não suportados
+- **WHEN** a pasta contém arquivos com extensões não suportadas (ex: .txt, .jpg, .xml)
+- **THEN** esses arquivos são ignorados e contabilizados em `ignored`
+
+### Requirement: Execução em background e progresso
+O sistema SHALL executar o job de importação de forma assíncrona no processo main, emitindo eventos de progresso e conclusão ao renderer via IPC.
 
 #### Scenario: Progresso durante importação
-- **WHEN** uma importação em lote está rodando
-- **THEN** o renderer recebe job ID, item atual, total, pasta atual, ROM atual, estágio atual e imagem opcional
+- **WHEN** um job está rodando
+- **THEN** o renderer recebe eventos `romFolderImport:progress` com jobId, current, total, folderPath, filename, imageFilename, stage e message
 
-#### Scenario: Importação em background
-- **WHEN** o usuário inicia o lote revisado
-- **THEN** a janela de importação fecha e downloads de metadados/imagens continuam em background
+#### Scenario: Conclusão do job
+- **WHEN** o job termina
+- **THEN** o renderer recebe `romFolderImport:completed` com o resultado incluindo summary (created, updated, skipped, unmatched, failedDownloads, processed)
 
-#### Scenario: Notificações em background
-- **WHEN** a importação em background emite progresso ou conclusão
-- **THEN** a área de notificações exibe status, progresso e resumo final
+#### Scenario: Stage de importação
+- **WHEN** o job avança entre etapas
+- **THEN** o stage no evento de progresso reflete: "preparing_metadata", "matching", "downloading", "saving" ou "done"
 
-#### Scenario: Continuar downloads pela tela inicial
-- **WHEN** o usuário seleciona uma pasta inicial e clica em "Continuar downloads"
-- **THEN** o sistema inicia importação em background para aquela pasta usando sua plataforma salva e fecha a janela
+### Requirement: Persistência de entradas no localStorage
+O sistema SHALL salvar e carregar as entradas de pasta configuradas do `localStorage` do renderer, com migração de formatos legados.
 
-#### Scenario: Resumo de importação
-- **WHEN** o lote termina
-- **THEN** o assistente exibe criados, atualizados, ignorados, sem match, downloads com falha e total processado
+#### Scenario: Salvar nova entrada
+- **WHEN** o usuário inicia uma importação com sucesso
+- **THEN** a entrada `{ folderPath, platformId, platformName, indexedCount }` é adicionada ao localStorage
 
-#### Scenario: Cancelar antes de gravar
-- **WHEN** o usuário cancela na revisão antes de iniciar
-- **THEN** nenhum jogo é criado ou atualizado e nenhuma imagem é baixada
+#### Scenario: Carregar entradas ao abrir
+- **WHEN** o RomFolderImporter é montado
+- **THEN** as entradas são carregadas do localStorage e exibidas na tabela
