@@ -14,13 +14,12 @@ export function GameListRow({ game }: { game: Game }) {
       onClick={() => setSelectedGameId(game.id)}
     >
       <span className="thumb">
-        {coverUrl ? <img src={coverUrl} alt="" /> : <span className="material-symbols-outlined" aria-hidden="true">videogame_asset</span>}
+        {coverUrl ? <img src={coverUrl} alt="" loading="lazy" decoding="async" draggable={false} /> : <span className="material-symbols-outlined" aria-hidden="true">videogame_asset</span>}
       </span>
       <span>{game.title}</span>
       <span>{game.platform_name}</span>
       <span>{game.publisher}</span>
       <span>{game.year}</span>
-      <span>{game.owned_physical ? "Fisico" : ""}</span>
     </button>
   );
 }

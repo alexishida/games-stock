@@ -103,59 +103,60 @@ spacing:
   margin: 2rem
 ---
 
-## Brand & Style
+## Marca e Estilo
 
-The brand personality of this design system is defined by technical precision and immersive digital organization. It targets a sophisticated gaming audience that values both aesthetic polish and functional efficiency. The UI evokes a "Command Center" feel—reliable, high-performance, and futuristic.
+A personalidade de marca deste sistema de design é definida por precisão técnica e organização digital imersiva. Ele mira um público gamer sofisticado, que valoriza tanto o acabamento estético quanto a eficiência funcional. A UI evoca a sensação de um "Centro de Comando": confiável, performática e futurista.
 
-The design style merges **Minimalism** with **Glassmorphism**. By stripping away unnecessary decorative elements, the system allows game cover art to remain the focal point. Glassmorphism is applied strategically to navigational elements and overlays to provide a sense of depth and modern craft without distracting from the primary content library.
+O estilo visual combina **Minimalismo** com **Glassmorphism**. Ao remover elementos decorativos desnecessários, o sistema permite que as capas dos jogos permaneçam como ponto focal. O glassmorphism é aplicado estrategicamente em elementos de navegação e overlays para criar sensação de profundidade e acabamento moderno sem distrair da biblioteca principal de conteúdo.
 
-## Colors
+## Cores
 
-This design system utilizes a high-contrast dark palette designed to reduce eye strain during long sessions while making game metadata legible. 
+Este sistema de design utiliza uma paleta escura de alto contraste, pensada para reduzir o cansaço visual em sessões longas e manter os metadados dos jogos legíveis.
 
-- **Primary:** Electric Cyan (#00f2ff) is reserved for high-priority actions, focus states, and progress indicators.
-- **Surface Palette:** The foundation is Deep Charcoal (#121212), with Slate Grays used to define containers and interactive surfaces.
-- **Borders:** Subtle, low-opacity slate borders (e.g., #334155 at 40% opacity) are used to define game card boundaries without creating visual noise.
-- **Accents:** Tertiary sky blues are used for secondary status indicators (e.g., "Verified ROM" or "Updated").
+- **Primária:** Electric Cyan (#00f2ff) é reservado para ações de alta prioridade, estados de foco e indicadores de progresso.
+- **Paleta de superfícies:** A base é Deep Charcoal (#121212), com Slate Grays usados para definir containers e superfícies interativas.
+- **Bordas:** Bordas slate sutis e com baixa opacidade (por exemplo, #334155 a 40% de opacidade) são usadas para delimitar cards de jogos sem criar ruído visual.
+- **Acentos:** Azuis celestes terciários são usados para indicadores de status secundários (por exemplo, "ROM verificada" ou "Atualizado").
 
-## Typography
+## Tipografia
 
-The typography system relies on **Inter** for its exceptional legibility and neutral, systematic character. 
+O sistema tipográfico usa **Inter** por sua excelente legibilidade e por seu caráter neutro e sistemático.
 
-- **Hierarchy:** Game titles use `headline-lg` or `headline-md` in bold weights to stand out against rich imagery. 
-- **Metadata Labels:** Small, uppercase bold labels with slight letter-spacing are used for technical details like "PLATFORM," "REGION," or "FILE SIZE" to ensure high-contrast readability against dark backgrounds.
-- **Body Text:** Standard information uses a comfortable 14px-16px size with generous line height for descriptions and change logs.
+- **Hierarquia:** Títulos de jogos usam `headline-lg` ou `headline-md` em pesos fortes para se destacar sobre imagens ricas.
+- **Rótulos de metadados:** Rótulos pequenos, em caixa alta e negrito, com leve espaçamento entre letras, são usados para detalhes técnicos como "PLATAFORMA", "REGIÃO" ou "TAMANHO DO ARQUIVO", garantindo leitura de alto contraste sobre fundos escuros.
+- **Texto de corpo:** Informações padrão usam tamanho confortável entre 14px e 16px, com line-height generoso para descrições e logs de alteração.
 
-## Layout & Spacing
+## Layout e Espaçamento
 
-The layout utilizes a **Fluid Grid** model for the main game library, allowing the view to scale from small thumbnails to large hero cards based on the window size. 
+O layout utiliza um modelo de **Grid Fluido** para a biblioteca principal de jogos, permitindo que a visualização escale de miniaturas pequenas para cards hero grandes de acordo com o tamanho da janela.
 
-- **Sidebars:** A fixed-width sidebar (280px) houses navigation, utilizing a semi-transparent glass effect to maintain a sense of space.
-- **Grid System:** An 8px base unit drives all spacing. For the gallery, a 24px (1.5rem) gutter is maintained to prevent visual clutter between cover art.
-- **Margins:** Global page margins are set to 32px (2rem) to frame the content comfortably within the desktop application window.
+- **Sidebars:** Uma sidebar de largura fixa (280px) abriga a navegação, usando um efeito de vidro semitransparente para manter a sensação de espaço.
+- **Sistema de grid:** Uma unidade base de 8px orienta todos os espaçamentos. Na galeria, mantém-se um gutter de 24px (1.5rem) para evitar poluição visual entre as capas.
+- **Margens:** As margens globais da página são definidas em 32px (2rem) para enquadrar o conteúdo confortavelmente dentro da janela do aplicativo desktop.
 
-## Elevation & Depth
+## Elevação e Profundidade
 
-Hierarchy is established through **Tonal Layers** and **Glassmorphism**.
+A hierarquia é estabelecida por **Camadas Tonais** e **Glassmorphism**.
 
-- **Level 0 (Background):** Solid #121212.
-- **Level 1 (Cards/Containers):** Slate Gray (#1e293b) with a 1px subtle border.
-- **Level 2 (Overlays/Sidebars):** Semi-transparent slate with a `backdrop-filter: blur(12px)`. This creates a frosted glass effect that suggests the UI is floating above the game library.
-- **Shadows:** Use ultra-soft, large-radius shadows (0 10px 30px rgba(0,0,0,0.5)) for active game cards and modals to pull them forward in the Z-space.
+- **Nível 0 (fundo):** #121212 sólido.
+- **Nível 1 (cards/containers):** Slate Gray (#1e293b) com borda sutil de 1px.
+- **Nível 2 (overlays/sidebars):** Slate semitransparente com `backdrop-filter: blur(12px)`. Isso cria um efeito de vidro fosco que sugere que a UI está flutuando acima da biblioteca de jogos.
+- **Sombras:** Use sombras ultrassuaves, com raio amplo (0 10px 30px rgba(0,0,0,0.5)), em cards de jogo ativos e modais para trazê-los para frente no eixo Z.
 
-## Shapes
+## Formas
 
-The shape language for this design system is consistently **Rounded**, striking a balance between organic approachability and technical precision.
+A linguagem de formas deste sistema de design é consistentemente **Arredondada**, equilibrando acessibilidade orgânica e precisão técnica.
 
-- **Standard Elements:** Buttons, input fields, and small cards use a 0.5rem (8px) radius.
-- **Large Components:** Main game cover cards and modal containers use a 1rem (16px) radius to emphasize their importance and soften the overall look of the grid.
-- **Interactive States:** On hover, cards may subtly increase their elevation, but the corner radius remains constant to maintain visual rhythm.
+- **Elementos padrão:** Botões, campos de entrada e cards pequenos usam raio de 6px para manter a interface mais compacta.
+- **Componentes grandes:** Cards principais de capas de jogos e containers de modal usam raio de 1rem (16px) para enfatizar sua importância e suavizar a aparência geral do grid.
+- **Estados interativos:** No hover, os cards podem aumentar sutilmente sua elevação, mas o raio dos cantos permanece constante para manter o ritmo visual.
 
-## Components
+## Componentes
 
-- **Game Cards:** The centerpiece component. It features a full-bleed cover image with a subtle gradient overlay at the bottom to ensure title legibility. Metadata chips sit at the top-right.
-- **Buttons:** Primary buttons are solid Electric Cyan with black text. Secondary buttons are outlined in slate with hover-filled states.
-- **Metadata Chips:** High-contrast, small-format pills (e.g., "N64", "RPG") with semi-transparent backgrounds and bright borders.
-- **Input Fields:** Deep-set dark fields with #00f2ff focus rings and ghost placeholder text.
-- **Glass Sidebars:** Navigational links use a subtle "left-border" indicator in primary cyan when active, accompanied by a soft background highlight.
-- **Progress Bars:** Thin, 4px tall bars using the primary color for completion, set against a dark slate track.
+- **Cards de jogos:** O componente central. Ele apresenta uma imagem de capa full-bleed com um overlay de gradiente sutil na parte inferior para garantir a legibilidade do título. Chips de metadados ficam no canto superior direito.
+- **Botões:** Botões primários são preenchidos com Electric Cyan e usam texto preto. Botões secundários têm contorno slate e estados de hover preenchidos.
+- **Chips de metadados:** Pills pequenas e de alto contraste (por exemplo, "N64", "RPG"), com fundos semitransparentes e bordas brilhantes.
+- **Campos de entrada:** Campos escuros e rebaixados, com anéis de foco em #00f2ff e texto de placeholder discreto.
+- **Selects de formulário:** Devem seguir o mesmo tratamento dos campos de entrada: fundo escuro (`var(--bg-panel)` ou `rgba(255, 255, 255, 0.04)`), texto `var(--text-primary)`, borda `var(--border)`, raio de 6px e foco com anel #00f2ff. As opções internas (`option`/`optgroup`) também precisam usar fundo escuro e texto claro para evitar menus nativos com fundo branco.
+- **Sidebars de vidro:** Links de navegação usam um indicador sutil de "borda esquerda" em ciano primário quando ativos, acompanhado por um destaque suave de fundo.
+- **Barras de progresso:** Barras finas, com 4px de altura, usando a cor primária para conclusão sobre uma trilha slate escura.

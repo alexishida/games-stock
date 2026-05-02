@@ -53,7 +53,7 @@ export const SUPPORTED_ROM_EXTENSIONS = [
   ".gba"
 ];
 
-const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = ["Box - Front", "Fanart - Background", "Screenshot - Gameplay"];
+const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = ["Box - Front", "Cart - Front", "Fanart - Background", "Screenshot - Gameplay"];
 
 export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResult {
   const platform = requirePlatform(request.platformId);
@@ -223,13 +223,11 @@ function upsertMatchedGame(game: LaunchBoxGame, candidate: RomFolderImportCandid
     genre: game.genres || null,
     rating: game.rating || null,
     notes: game.overview || null,
-    box_art_path: findDownloadedMedia(files, "Box_-_Front"),
-    background_path: findDownloadedMedia(files, "Fanart_-_Background"),
-    screenshot_path: findDownloadedMedia(files, "Screenshot_-_Gameplay"),
+    box_art_path: findDownloadedMedia(files, "box-front"),
+    background_path: findDownloadedMedia(files, "fanart-background"),
+    screenshot_path: findDownloadedMedia(files, "screenshot-gameplay"),
     launchbox_id: game.id,
     rom_path: candidate.romPath,
-    owned_physical: false,
-    physical_condition: null,
     favorite: false,
     play_status: "unplayed"
   };

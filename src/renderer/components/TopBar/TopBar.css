@@ -79,16 +79,6 @@
   color: var(--accent);
 }
 
-.physical-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #94a3b8;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .topbar-count {
   color: var(--text-secondary);
   font-size: 11px;

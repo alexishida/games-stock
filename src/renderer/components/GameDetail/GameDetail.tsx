@@ -92,14 +92,6 @@ export function GameDetail() {
           <section className="detail-stats-grid" aria-label="Resumo da colecao">
             <div className="detail-panel detail-stat-card">
               <div className="detail-card-label">
-                <span className="material-symbols-outlined" aria-hidden="true">inventory_2</span>
-                Inventario
-              </div>
-              <strong>{game.owned_physical ? "Fisico" : "Digital"}</strong>
-              <small>{game.physical_condition ?? "Sem condicao fisica"}</small>
-            </div>
-            <div className="detail-panel detail-stat-card">
-              <div className="detail-card-label">
                 <span className="material-symbols-outlined" aria-hidden="true">stars</span>
                 Colecao
               </div>

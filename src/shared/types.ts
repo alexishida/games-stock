@@ -3,14 +3,6 @@ export type PlayStatus = "unplayed" | "playing" | "completed";
 export type CollectionFilter = "all" | "favorites" | "completed" | "unplayed";
 export type GameSortBy = "title" | "year" | "recent";
 
-export enum PhysicalCondition {
-  Mint = "Mint",
-  NearMint = "Near Mint",
-  Good = "Good",
-  Fair = "Fair",
-  Poor = "Poor"
-}
-
 export interface Platform {
   id: number;
   name: string;
@@ -32,8 +24,6 @@ export interface Game {
   background_path: string | null;
   screenshot_path: string | null;
   rom_path: string | null;
-  owned_physical: boolean;
-  physical_condition: PhysicalCondition | null;
   favorite: boolean;
   play_status: PlayStatus;
   notes: string | null;
@@ -45,7 +35,6 @@ export interface Game {
 export interface GameFilters {
   platformId?: number | null;
   search?: string;
-  ownedPhysical?: boolean;
   collectionFilter?: CollectionFilter;
   sortBy?: GameSortBy;
   page?: number;

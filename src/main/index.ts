@@ -222,6 +222,7 @@ function createMenu(): void {
         { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
         { label: "Novo Jogo Manual", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openCreateGame) },
         { label: "Gerenciar Plataformas", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openPlatformManager) },
+        { label: "Pasta de dados", click: () => shell.openPath(getUserDataDir()) },
         { type: "separator" },
         { label: "Sair", role: "quit" }
       ]
@@ -236,8 +237,7 @@ function createMenu(): void {
     {
       label: "Sobre",
       submenu: [
-        { label: `GameStock v${app.getVersion()}`, enabled: false },
-        { label: "Pasta de dados", click: () => shell.openPath(getUserDataDir()) }
+        { label: `GameStock v${app.getVersion()}`, enabled: false }
       ]
     }
   ];
@@ -273,7 +273,7 @@ function registerMediaProtocol(): void {
 
     const normalized = path.resolve(filePath);
     const allowedRoot = path.resolve(getUserDataDir());
-    if (!normalized.startsWith(allowedRoot)) {
+    if (normalized !== allowedRoot && !normalized.startsWith(`${allowedRoot}${path.sep}`)) {
       return new Response("Forbidden", { status: 403 });
     }
 

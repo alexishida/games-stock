@@ -2,7 +2,7 @@ import { getDatabase } from "../database";
 import { CollectionFilter, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../shared/types";
 import path from "node:path";
 
-type GameRow = Omit<Game, "owned_physical" | "favorite"> & { owned_physical: 0 | 1; favorite: 0 | 1 };
+type GameRow = Omit<Game, "favorite"> & { favorite: 0 | 1 };
 
 const writeColumns = [
   "title",
@@ -15,8 +15,6 @@ const writeColumns = [
   "background_path",
   "screenshot_path",
   "rom_path",
-  "owned_physical",
-  "physical_condition",
   "favorite",
   "play_status",
   "notes",
@@ -24,7 +22,7 @@ const writeColumns = [
 ] as const;
 
 function mapGame(row: GameRow): Game {
-  return { ...row, owned_physical: Boolean(row.owned_physical), favorite: Boolean(row.favorite) };
+  return { ...row, favorite: Boolean(row.favorite) };
 }
 
 function baseSelect(): string {
@@ -46,9 +44,6 @@ function buildWhere(filters: GameFilters = {}): { sql: string; params: unknown[]
   if (filters.search?.trim()) {
     parts.push("LOWER(games.title) LIKE ?");
     params.push(`%${filters.search.trim().toLowerCase()}%`);
-  }
-  if (filters.ownedPhysical) {
-    parts.push("games.owned_physical = 1");
   }
   if (filters.collectionFilter) {
     const collection = buildCollectionFilter(filters.collectionFilter);
@@ -126,8 +121,6 @@ export function createGame(data: Partial<GameCreateInput>): Game {
     background_path: null,
     screenshot_path: null,
     rom_path: null,
-    owned_physical: false,
-    physical_condition: null,
     favorite: false,
     play_status: "unplayed",
     notes: null,
@@ -232,8 +225,6 @@ function normalizeInput(data: Partial<GameCreateInput>): Record<string, unknown>
     background_path: has(data, "background_path") ? data.background_path ?? null : undefined,
     screenshot_path: has(data, "screenshot_path") ? data.screenshot_path ?? null : undefined,
     rom_path: has(data, "rom_path") ? data.rom_path ?? null : undefined,
-    owned_physical: has(data, "owned_physical") ? (data.owned_physical ? 1 : 0) : undefined,
-    physical_condition: has(data, "physical_condition") || has(data, "owned_physical") ? (data.owned_physical ? data.physical_condition ?? null : null) : undefined,
     favorite: has(data, "favorite") ? (data.favorite ? 1 : 0) : undefined,
     play_status: has(data, "play_status") ? data.play_status ?? "unplayed" : undefined,
     notes: has(data, "notes") ? data.notes ?? null : undefined,

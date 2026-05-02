@@ -72,9 +72,14 @@ export async function downloadImages(
 }
 
 export function getGameImageDir(outputDir: string, game: Pick<LaunchBoxGame, "name" | "platform">): string {
-  return path.join(outputDir, sanitize(game.platform || "Unknown_Platform"), sanitize(game.name));
+  return path.join(outputDir, sanitize(game.platform || "unknown-platform"), sanitize(game.name));
 }
 
 function sanitize(value: string): string {
-  return value.replace(/[^\w\s.-]/g, "_").replace(/\s+/g, "_").slice(0, 120);
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 120);
 }

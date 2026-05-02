@@ -36,7 +36,7 @@ export const IPC_CHANNELS = {
     deleteFolderRecords: "romFolderImport:deleteFolderRecords",
     progress: "romFolderImport:progress",
     completed: "romFolderImport:completed",
-    openImporter: "romFolderImport:openImporter"
+    openImporter: "romFolderImport:openImporter",
   },
   library: {
     openCreateGame: "library:openCreateGame",

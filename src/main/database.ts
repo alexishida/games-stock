@@ -10,7 +10,7 @@ const defaultPlatforms = [
   ["Nintendo 64", "Consoles"],
   ["Sega Saturn", "Consoles"],
   ["Game Boy", "Portateis"],
-  ["SNES", "Consoles"],
+  ["Super Nintendo", "Consoles"],
   ["NES", "Consoles"]
 ];
 
@@ -57,8 +57,6 @@ function applySchema(database: Database.Database): void {
       background_path TEXT,
       screenshot_path TEXT,
       rom_path TEXT,
-      owned_physical INTEGER NOT NULL DEFAULT 0,
-      physical_condition TEXT,
       favorite INTEGER NOT NULL DEFAULT 0,
       play_status TEXT NOT NULL DEFAULT 'unplayed',
       notes TEXT,

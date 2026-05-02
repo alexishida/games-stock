@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Game, PhysicalCondition } from "../../../shared/types";
+import { Game } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 
 export function GameForm({ game }: { game: Game }) {
@@ -57,17 +57,6 @@ export function GameForm({ game }: { game: Game }) {
       <label>Genero<input value={draft.genre ?? ""} onChange={(event) => setDraft({ ...draft, genre: event.target.value })} /></label>
       <label>Rating<input value={draft.rating ?? ""} onChange={(event) => setDraft({ ...draft, rating: event.target.value })} /></label>
       <label>Notas<textarea value={draft.notes ?? ""} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
-      <label className="checkbox-row">
-        <input type="checkbox" checked={draft.owned_physical} onChange={(event) => setDraft({ ...draft, owned_physical: event.target.checked })} />
-        Tenho fisico
-      </label>
-      {draft.owned_physical && (
-        <label>Condicao
-          <select value={draft.physical_condition ?? PhysicalCondition.Good} onChange={(event) => setDraft({ ...draft, physical_condition: event.target.value as PhysicalCondition })}>
-            {Object.values(PhysicalCondition).map((condition) => <option key={condition} value={condition}>{condition}</option>)}
-          </select>
-        </label>
-      )}
       <div className="detail-actions">
         <button type="button" className="text-button" onClick={associateRom}>Associar ROM</button>
         <button type="button" className="text-button" onClick={removeRom} disabled={!draft.rom_path}>Remover ROM</button>

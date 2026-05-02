@@ -5,8 +5,7 @@ import { GameList } from "./components/GameList/GameList";
 import { LaunchBoxImporter } from "./components/LaunchBoxImporter/LaunchBoxImporter";
 import { ManualGameModal } from "./components/ManualGame/ManualGameModal";
 import { NotificationCenter } from "./components/NotificationCenter/NotificationCenter";
-import { PlatformManager } from "./components/PlatformManager/PlatformManager";
-import { RomFolderImporter } from "./components/RomFolderImporter/RomFolderImporter";
+import { SettingsModal } from "./components/SettingsModal/SettingsModal";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TopBar } from "./components/TopBar/TopBar";
 import { useGames } from "./hooks/useGames";
@@ -65,18 +64,17 @@ export default function App() {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
-  const setRomFolderImporterOpen = useGameStockStore((state) => state.setRomFolderImporterOpen);
+  const openSettings = useGameStockStore((state) => state.openSettings);
   const setCreateGameOpen = useGameStockStore((state) => state.setCreateGameOpen);
-  const setPlatformManagerOpen = useGameStockStore((state) => state.setPlatformManagerOpen);
   const setSortBy = useGameStockStore((state) => state.setSortBy);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
 
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
-  useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => setRomFolderImporterOpen(true)), [setRomFolderImporterOpen]);
+  useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => openSettings("biblioteca")), [openSettings]);
   useEffect(() => window.gameStockAPI.library.onOpenCreateGame(() => setCreateGameOpen(true)), [setCreateGameOpen]);
-  useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => setPlatformManagerOpen(true)), [setPlatformManagerOpen]);
+  useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => openSettings("plataformas")), [openSettings]);
   useEffect(() => window.gameStockAPI.library.onSetSort(setSortBy), [setSortBy]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -109,13 +107,9 @@ export default function App() {
         </main>
       </div>
       <LaunchBoxImporter />
-      <RomFolderImporter />
+      <SettingsModal />
       <ManualGameModal />
-      <PlatformManager />
       <NotificationCenter />
-      <button type="button" className="floating-add" aria-label="Novo jogo" onClick={() => setCreateGameOpen(true)}>
-        <span className="material-symbols-outlined" aria-hidden="true">add</span>
-      </button>
     </div>
   );
 }

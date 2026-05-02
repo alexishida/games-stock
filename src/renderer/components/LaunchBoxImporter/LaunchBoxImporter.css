@@ -7,6 +7,10 @@
   background: rgba(0, 0, 0, 0.58);
 }
 
+.modal-backdrop ~ .modal-backdrop {
+  background: transparent;
+}
+
 .importer-modal {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
@@ -36,8 +40,7 @@
   font-size: 18px;
 }
 
-.importer-search input,
-.importer-search select {
+.importer-search input {
   height: 34px;
   min-width: 0;
   border: 1px solid var(--border);
@@ -45,6 +48,12 @@
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
   padding: 0 8px;
+}
+
+.importer-search select {
+  height: 34px;
+  min-width: 0;
+  padding: 0 34px 0 10px;
 }
 
 .importer-search input {

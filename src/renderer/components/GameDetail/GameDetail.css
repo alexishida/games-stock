@@ -439,7 +439,6 @@
 }
 
 .game-form input,
-.game-form select,
 .game-form textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -447,6 +446,13 @@
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
   padding: 8px;
+  font-size: 13px;
+}
+
+.game-form select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 34px 0 10px;
   font-size: 13px;
 }
 

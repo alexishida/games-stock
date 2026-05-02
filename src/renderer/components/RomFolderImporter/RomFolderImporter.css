@@ -36,7 +36,9 @@
 
 .rom-folder-step {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
+  flex: 1;
   min-height: 0;
 }
 
@@ -96,11 +98,10 @@
 
 .assistant-platform select {
   height: 36px;
-  border: 1px solid rgba(139, 148, 178, 0.35);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text-primary);
-  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.04);
+  padding: 0 34px 0 10px;
 }
 
 .folder-field {
@@ -358,8 +359,23 @@
   text-align: center;
 }
 
-.confirm-backdrop {
-  z-index: 30;
+.rom-folder-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.panel-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border-radius: 8px;
 }
 
 .confirm-dialog {
@@ -406,4 +422,55 @@
   border-color: rgba(248, 113, 113, 0.5);
   background: rgba(127, 29, 29, 0.35);
   color: #fecaca;
+}
+
+.add-folder-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  padding: 20px 24px;
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100% - 48px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.add-folder-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.add-folder-dialog-header strong {
+  font-size: 15px;
+  color: #8bbcff;
+}
+
+.add-folder-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.add-folder-dialog-body p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.add-folder-dialog-body .candidate-list {
+  max-height: 220px;
+}
+
+.add-folder-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
 }

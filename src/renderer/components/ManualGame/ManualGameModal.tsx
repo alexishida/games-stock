@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { GameCreateInput, PhysicalCondition } from "../../../shared/types";
+import { GameCreateInput } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 
 const emptyDraft: Partial<GameCreateInput> = {
@@ -10,8 +10,6 @@ const emptyDraft: Partial<GameCreateInput> = {
   genre: "",
   rating: "",
   notes: "",
-  owned_physical: false,
-  physical_condition: null,
   favorite: false,
   play_status: "unplayed"
 };
@@ -95,17 +93,6 @@ export function ManualGameModal() {
               </select>
             </label>
           </div>
-          <label className="checkbox-row">
-            <input type="checkbox" checked={Boolean(draft.owned_physical)} onChange={(event) => setDraft({ ...draft, owned_physical: event.target.checked })} />
-            Tenho fisico
-          </label>
-          {draft.owned_physical && (
-            <label>Condicao
-              <select value={draft.physical_condition ?? PhysicalCondition.Good} onChange={(event) => setDraft({ ...draft, physical_condition: event.target.value as PhysicalCondition })}>
-                {Object.values(PhysicalCondition).map((condition) => <option key={condition} value={condition}>{condition}</option>)}
-              </select>
-            </label>
-          )}
           {error && <p className="form-error">{error}</p>}
           <footer>
             <button type="button" className="text-button" onClick={() => setOpen(false)}>Cancelar</button>

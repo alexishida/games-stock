@@ -3,7 +3,7 @@ import { PlatformTree } from "./PlatformTree";
 import "./Sidebar.css";
 
 export function Sidebar() {
-  const setRomFolderImporterOpen = useGameStockStore((state) => state.setRomFolderImporterOpen);
+  const openSettings = useGameStockStore((state) => state.openSettings);
 
   return (
     <aside className="sidebar">
@@ -27,7 +27,7 @@ export function Sidebar() {
         </button>
       </nav>
       <PlatformTree />
-      <button type="button" className="scan-button" onClick={() => setRomFolderImporterOpen(true)}>
+      <button type="button" className="scan-button" onClick={() => openSettings("biblioteca")}>
         <span className="material-symbols-outlined" aria-hidden="true">manage_search</span>
         Gerenciar biblioteca
       </button>
