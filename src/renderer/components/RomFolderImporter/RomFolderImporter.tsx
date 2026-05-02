@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { FolderPlus, RefreshCw, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
@@ -91,7 +93,7 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
       />
 
       {addFolderOpen ? (
-        <div className="panel-confirm-overlay">
+        <div className="panel-confirm-overlay draggable-overlay">
           <AddFolderPanel
             platforms={platforms}
             onCancel={() => setAddFolderOpen(false)}
@@ -127,11 +129,50 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const [scan, setScan] = useState<RomFolderScanResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
 
-  const selectedPlatform = useMemo(
-    () => platforms.find((p) => p.id === platformId) ?? null,
-    [platformId, platforms]
-  );
+  function clampDialogOffset(x: number, y: number): { x: number; y: number } {
+    const rect = dialogRef.current?.getBoundingClientRect();
+    if (!rect) return { x, y };
+
+    const margin = 12;
+    const maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - margin);
+    const maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - margin);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y))
+    };
+  }
+
+  function startDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
+    if ((event.target as HTMLElement).closest(interactiveSelector)) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragState.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: dialogOffset.x,
+      originY: dialogOffset.y
+    };
+  }
+
+  function dragDialog(event: ReactPointerEvent<HTMLDivElement>): void {
+    const drag = dragState.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setDialogOffset(clampDialogOffset(
+      drag.originX + event.clientX - drag.startX,
+      drag.originY + event.clientY - drag.startY
+    ));
+  }
+
+  function stopDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (dragState.current?.pointerId !== event.pointerId) return;
+    dragState.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
 
   async function chooseFolder(): Promise<void> {
     const selected = await window.gameStockAPI.dialogs.openRomFolder();
@@ -174,10 +215,20 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   }
 
   return (
-    <div className="add-folder-dialog">
+    <div
+      ref={dialogRef}
+      className="add-folder-dialog"
+      style={{ "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties}
+      onPointerDown={startDialogDrag}
+      onPointerMove={dragDialog}
+      onPointerUp={stopDialogDrag}
+      onPointerCancel={stopDialogDrag}
+    >
       <div className="add-folder-dialog-header">
         <strong>{step === "configure" ? "Adicionar pasta" : "Revisar ROMs"}</strong>
-        <button type="button" className="icon-button" onClick={onCancel} disabled={busy} aria-label="Fechar">×</button>
+        <button type="button" className="icon-button" onClick={onCancel} disabled={busy} aria-label="Fechar">
+          <X aria-hidden="true" size={18} />
+        </button>
       </div>
 
       {error ? <div className="import-alert">{error}</div> : null}
@@ -206,17 +257,26 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
 
       {step === "review" && scan ? (
         <div className="add-folder-dialog-body">
-          <div className="review-summary">
-            <strong>{scan.candidates.length} ROMs encontradas</strong>
-            <span>Plataforma: {scan.platformName}</span>
-            <span>{scan.folderPaths.length} pasta(s) | Ignorados: {scan.ignored}</span>
+          <div className="review-header">
+            <p className="eyebrow">{scan.platformName}</p>
+            <div className="review-metrics">
+              <div className="review-metric">
+                <strong>{scan.candidates.length}</strong>
+                <span>ROMs encontradas</span>
+              </div>
+              <div className="review-metric">
+                <strong>{scan.ignored}</strong>
+                <span>Ignorados</span>
+              </div>
+            </div>
           </div>
           {!scan.candidates.length ? <div className="folder-table-empty">Nenhuma ROM suportada encontrada nessa pasta.</div> : null}
           <div className="candidate-list">
             {scan.candidates.map((candidate) => (
               <div key={candidate.romPath} className="candidate-row">
                 <strong>{candidate.titleCandidate}</strong>
-                <span>{candidate.filename} - {candidate.folderPath}</span>
+                <span className="candidate-filename">{candidate.filename}</span>
+                <span className="candidate-path">{candidate.folderPath}</span>
               </div>
             ))}
           </div>
@@ -227,7 +287,6 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
         {step === "configure" ? (
           <>
             <button type="button" className="text-button" onClick={onCancel} disabled={busy}>Cancelar</button>
-            <span className="import-hint">{selectedPlatform ? `Tudo sera importado como ${selectedPlatform.name}.` : "Selecione a plataforma antes de continuar."}</span>
             <button type="button" className="text-button active" onClick={scanFolder} disabled={busy || !folderPath || !platformId}>Proximo</button>
           </>
         ) : (
@@ -288,9 +347,20 @@ function SummaryStep({
 
       <footer>
         <div className="footer-actions">
-          <button type="button" className="text-button active" onClick={onAddFolder} disabled={busy}>Adicionar Pasta</button>
-          <button type="button" className="text-button" onClick={onDeleteFolder} disabled={busy || !selectedFolderPath}>Deletar Pasta</button>
-          <button type="button" className="text-button active" onClick={onContinueDownload} disabled={busy || !selectedFolderPath}>Continuar downloads</button>
+          <div className="footer-actions-left">
+            <button type="button" className="text-button active import-action-button" onClick={onAddFolder} disabled={busy}>
+              <FolderPlus aria-hidden="true" size={18} />
+              Adicionar Pasta
+            </button>
+            <button type="button" className="text-button danger import-action-button" onClick={onDeleteFolder} disabled={busy || !selectedFolderPath}>
+              <Trash2 aria-hidden="true" size={18} />
+              Deletar Pasta
+            </button>
+          </div>
+          <button type="button" className="text-button active import-action-button" onClick={onContinueDownload} disabled={busy || !selectedFolderPath}>
+            <RefreshCw aria-hidden="true" size={18} />
+            Syncronizar
+          </button>
         </div>
       </footer>
     </div>

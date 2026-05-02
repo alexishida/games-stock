@@ -43,7 +43,6 @@
 }
 
 .candidate-row span,
-.review-summary span,
 .import-hint,
 .progress-step p,
 .progress-step small {
@@ -64,18 +63,23 @@
 
 .import-assistant-panel.summary {
   grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 8px;
 }
 
 .import-assistant-panel h3 {
   margin: 0;
-  color: #8bbcff;
+  color: var(--accent);
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .import-assistant-panel p {
+  max-width: 640px;
+  margin: 0 0 6px;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -91,7 +95,7 @@
 
 .assistant-platform span {
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--form-label-font-size);
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -102,6 +106,7 @@
   border-radius: 6px;
   background-color: rgba(255, 255, 255, 0.04);
   padding: 0 34px 0 10px;
+  font-size: var(--form-control-font-size);
 }
 
 .folder-field {
@@ -118,6 +123,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
   padding: 0 10px;
+  font-size: var(--form-control-font-size);
 }
 
 .folder-field button {
@@ -127,6 +133,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
   padding: 0 12px;
+  font-size: var(--form-control-font-size);
 }
 
 .rom-source-list {
@@ -196,6 +203,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
   padding: 0 12px;
+  font-size: var(--form-control-font-size);
 }
 
 .assistant-actions button:disabled {
@@ -234,7 +242,32 @@
 
 .footer-actions {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  width: 100%;
+}
+
+.footer-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.import-action-button svg {
+  display: block;
+}
+
+.text-button.danger {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(127, 29, 29, 0.25);
+  color: #fecaca;
 }
 
 .folder-table {
@@ -295,14 +328,12 @@
   padding: 10px 12px;
 }
 
-.review-summary,
 .result-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.review-summary,
 .metric {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -310,8 +341,45 @@
   padding: 12px;
 }
 
-.review-summary {
-  grid-template-columns: 1.5fr 1fr 1fr;
+.review-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+
+.review-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.review-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+}
+
+.review-metric strong {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.review-metric span {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .metric strong {
@@ -335,9 +403,23 @@
 
 .candidate-row {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   border-bottom: 1px solid var(--border);
   padding: 10px 12px;
+}
+
+.candidate-filename {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.candidate-path {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  opacity: 0.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .candidate-row:last-child {
@@ -378,6 +460,12 @@
   border-radius: 8px;
 }
 
+.panel-confirm-overlay.draggable-overlay {
+  position: fixed;
+  z-index: 1000;
+  border-radius: 0;
+}
+
 .confirm-dialog {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -415,6 +503,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
   padding: 0 16px;
+  font-size: var(--form-control-font-size);
   cursor: pointer;
 }
 
@@ -435,6 +524,10 @@
   width: min(520px, calc(100vw - 48px));
   max-height: calc(100% - 48px);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+  touch-action: none;
+  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
+  user-select: none;
 }
 
 .add-folder-dialog-header {
@@ -443,9 +536,20 @@
   justify-content: space-between;
 }
 
+.add-folder-dialog button,
+.add-folder-dialog input,
+.add-folder-dialog label,
+.add-folder-dialog select,
+.add-folder-dialog textarea {
+  cursor: auto;
+  user-select: auto;
+}
+
 .add-folder-dialog-header strong {
-  font-size: 15px;
-  color: #8bbcff;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .add-folder-dialog-body {
@@ -463,6 +567,12 @@
   line-height: 1.45;
 }
 
+.add-folder-dialog-body p.eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 1;
+}
+
 .add-folder-dialog-body .candidate-list {
   max-height: 220px;
 }
@@ -470,7 +580,7 @@
 .add-folder-dialog-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   padding-top: 4px;
 }
