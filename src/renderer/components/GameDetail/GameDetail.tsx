@@ -170,7 +170,7 @@ export function GameDetail() {
 
           {lightboxUrl && (
             <div className="detail-lightbox" onClick={() => setLightboxUrl(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
-              <button type="button" className="detail-lightbox-close" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
+              <button type="button" className="detail-lightbox-close icon-button modal-close-button" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
                 <X aria-hidden="true" size={20} />
               </button>
               <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />

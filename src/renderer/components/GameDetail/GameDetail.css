@@ -407,21 +407,9 @@
   position: absolute;
   top: 20px;
   right: 20px;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--bg-glass);
-  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
   font-size: 20px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.detail-lightbox-close:hover {
-  background: var(--bg-panel);
 }
 
 

@@ -64,7 +64,7 @@ export function ManualGameModal() {
       <section className="management-modal">
         <header>
           <h2>Novo jogo</h2>
-          <button type="button" className="icon-button" onClick={() => setOpen(false)} aria-label="Fechar">
+          <button type="button" className="icon-button modal-close-button" onClick={() => setOpen(false)} aria-label="Fechar">
             <X aria-hidden="true" size={18} />
           </button>
         </header>

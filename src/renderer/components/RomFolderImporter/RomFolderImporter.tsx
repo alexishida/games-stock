@@ -226,7 +226,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
     >
       <div className="add-folder-dialog-header">
         <strong>{step === "configure" ? "Adicionar pasta" : "Revisar ROMs"}</strong>
-        <button type="button" className="icon-button" onClick={onCancel} disabled={busy} aria-label="Fechar">
+        <button type="button" className="icon-button modal-close-button" onClick={onCancel} disabled={busy} aria-label="Fechar">
           <X aria-hidden="true" size={18} />
         </button>
       </div>

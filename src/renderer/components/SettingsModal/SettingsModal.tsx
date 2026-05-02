@@ -48,7 +48,7 @@ export function SettingsModal() {
               <p className="eyebrow">{eyebrow}</p>
               <h2>{title}</h2>
             </div>
-            <button type="button" className="settings-close icon-button" onClick={() => setOpen(false)} aria-label="Fechar">
+            <button type="button" className="icon-button modal-close-button" onClick={() => setOpen(false)} aria-label="Fechar">
               <X aria-hidden="true" size={18} />
             </button>
           </header>

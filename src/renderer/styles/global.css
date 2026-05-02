@@ -241,6 +241,31 @@ button {
   display: block;
 }
 
+.icon-button.modal-close-button {
+  flex: 0 0 auto;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.38);
+  color: #fecaca;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.icon-button.modal-close-button:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.8);
+  background: rgba(185, 28, 28, 0.58);
+  color: #fff1f2;
+}
+
+.icon-button.modal-close-button:focus-visible {
+  outline: 0;
+  border-color: rgba(248, 113, 113, 0.95);
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.22);
+}
+
+.icon-button.modal-close-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .text-button {
   border: 1px solid var(--border);
   border-radius: 6px;
