@@ -3,9 +3,9 @@ import path from "node:path";
 import { getImagesDir } from "./db/database";
 import { upsertLaunchBoxGame } from "./db/repositories/games";
 import { listPlatforms } from "./db/repositories/platforms";
-import { buildIndex, ensureMetadata } from "./launchbox/db";
-import { downloadImages } from "./launchbox/scraper";
-import { PLATFORMS } from "./launchbox/config";
+import { PLATFORMS } from "./lib/launchbox";
+import { buildIndex, ensureMetadata } from "./lib/launchbox/db";
+import { downloadImages } from "./lib/launchbox/scraper";
 import {
   GameCreateInput,
   LaunchBoxGame,

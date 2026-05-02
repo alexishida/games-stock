@@ -1,6 +1,6 @@
 import { app } from "electron";
 import path from "node:path";
-import { LaunchBoxImageType } from "../../shared/types";
+import { LaunchBoxImageType } from "../../../shared/types";
 
 export const METADATA_URL = "https://gamesdb.launchbox-app.com/Metadata.zip";
 export const IMAGES_BASE = "https://images.launchbox-app.com/";

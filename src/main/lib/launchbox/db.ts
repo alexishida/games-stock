@@ -5,7 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { parseStringPromise } from "xml2js";
-import { LaunchBoxGame, LaunchBoxProgress } from "../../shared/types";
+import { LaunchBoxGame, LaunchBoxProgress } from "../../../shared/types";
 import { CACHE_AGE_H, getIndexFile, getLaunchBoxCacheDir, getMetadataFile, METADATA_URL } from "./config";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;

@@ -3,8 +3,8 @@ import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { getImagesDir } from "../db/database";
-import { LaunchBoxDownloadResult, LaunchBoxGame, LaunchBoxImageType, LaunchBoxProgress, LaunchBoxSearchParams } from "../../shared/types";
+import { getImagesDir } from "../../db/database";
+import { LaunchBoxDownloadResult, LaunchBoxGame, LaunchBoxImageType, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { IMAGES_BASE, PLATFORMS } from "./config";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;

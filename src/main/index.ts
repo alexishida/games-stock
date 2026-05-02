@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
-import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./launchbox";
+import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { GameCreateInput, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
