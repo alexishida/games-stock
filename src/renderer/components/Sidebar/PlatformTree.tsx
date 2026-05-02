@@ -3,14 +3,18 @@ import { useGameStockStore } from "../../store";
 
 export function PlatformTree() {
   const platforms = useGameStockStore((state) => state.platforms);
-  const selectedCategory = useGameStockStore((state) => state.selectedCategory);
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
 
-  const filtered = useMemo(
-    () => platforms.filter((p) => !selectedCategory || p.category === selectedCategory),
-    [platforms, selectedCategory]
-  );
+  const grouped = useMemo(() => {
+    const withGames = platforms.filter((p) => (p.gameCount ?? 0) > 0);
+    const map = new Map<string, typeof withGames>();
+    for (const p of withGames) {
+      if (!map.has(p.category)) map.set(p.category, []);
+      map.get(p.category)!.push(p);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [platforms]);
 
   return (
     <div className="platform-tree">
@@ -18,16 +22,20 @@ export function PlatformTree() {
         <span>Todos</span>
         <span>{platforms.reduce((sum, p) => sum + (p.gameCount ?? 0), 0)}</span>
       </button>
-      {filtered.map((platform) => (
-        <button
-          type="button"
-          key={platform.id}
-          className={selectedPlatformId === platform.id ? "tree-item selected" : "tree-item"}
-          onClick={() => setSelectedPlatformId(platform.id)}
-        >
-          <span>{platform.name}</span>
-          <span>{platform.gameCount ?? 0}</span>
-        </button>
+      {grouped.map(([category, items]) => (
+        <div key={category}>
+{items.map((platform) => (
+            <button
+              type="button"
+              key={platform.id}
+              className={selectedPlatformId === platform.id ? "tree-item selected" : "tree-item"}
+              onClick={() => setSelectedPlatformId(platform.id)}
+            >
+              <span>{platform.name}</span>
+              <span>{platform.gameCount ?? 0}</span>
+            </button>
+          ))}
+        </div>
       ))}
     </div>
   );

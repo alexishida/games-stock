@@ -12,14 +12,14 @@ export function PlatformManager() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("Consoles");
+  const [category, setCategory] = useState("Console");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setEditing(null);
     setName("");
-    setCategory("Consoles");
+    setCategory("Console");
     setError("");
   }, [open]);
 
@@ -43,7 +43,7 @@ export function PlatformManager() {
       }
       setEditing(null);
       setName("");
-      setCategory("Consoles");
+      setCategory("Console");
       reloadPlatforms();
       reloadGames();
     } catch (err) {
@@ -88,7 +88,13 @@ export function PlatformManager() {
           <form className="management-form" onSubmit={save}>
             <h3>{editing ? "Editar plataforma" : "Nova plataforma"}</h3>
             <label>Nome<input value={name} onChange={(event) => setName(event.target.value)} /></label>
-            <label>Categoria<input value={category} onChange={(event) => setCategory(event.target.value)} /></label>
+            <label>Categoria
+              <select value={category} onChange={(event) => setCategory(event.target.value)}>
+                <option value="Console">Console</option>
+                <option value="Portátil">Portátil</option>
+                <option value="PC">PC</option>
+              </select>
+            </label>
             {error && <p className="form-error">{error}</p>}
             <footer>
               {editing && <button type="button" className="text-button" onClick={() => { setEditing(null); setName(""); setCategory("Consoles"); }}>Limpar</button>}

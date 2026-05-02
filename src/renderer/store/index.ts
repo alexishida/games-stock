@@ -12,6 +12,7 @@ interface GameStockState {
   games: Game[];
   total: number;
   filtered: number;
+  currentPage: number;
   platforms: Platform[];
   loading: boolean;
   selectedGameId: number | null;
@@ -28,6 +29,7 @@ interface GameStockState {
   setCollectionFilter(value: CollectionFilter): void;
   setSortBy(value: GameSortBy): void;
   setOnlyPhysical(value: boolean): void;
+  setCurrentPage(value: number): void;
   setGames(value: GameListResult): void;
   setPlatforms(value: Platform[]): void;
   setLoading(value: boolean): void;
@@ -51,6 +53,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   games: [],
   total: 0,
   filtered: 0,
+  currentPage: 1,
   platforms: [],
   loading: false,
   selectedGameId: null,
@@ -60,13 +63,14 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   platformManagerOpen: false,
   reloadToken: 0,
   platformsReloadToken: 0,
-  setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId }),
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
+  setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, currentPage: 1, selectedGameId: null }),
+  setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
+  setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
-  setCollectionFilter: (collectionFilter) => set({ collectionFilter }),
-  setSortBy: (sortBy) => set({ sortBy }),
-  setOnlyPhysical: (onlyPhysical) => set({ onlyPhysical }),
+  setCollectionFilter: (collectionFilter) => set({ collectionFilter, currentPage: 1 }),
+  setSortBy: (sortBy) => set({ sortBy, currentPage: 1 }),
+  setOnlyPhysical: (onlyPhysical) => set({ onlyPhysical, currentPage: 1 }),
+  setCurrentPage: (currentPage) => set({ currentPage }),
   setGames: ({ items, total, filtered }) => set({ games: items, total, filtered }),
   setPlatforms: (platforms) => set({ platforms }),
   setLoading: (loading) => set({ loading }),

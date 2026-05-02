@@ -26,7 +26,6 @@ export function Sidebar() {
           Inventario
         </button>
       </nav>
-      <div className="sidebar-label">Plataformas</div>
       <PlatformTree />
       <button type="button" className="scan-button" onClick={() => setRomFolderImporterOpen(true)}>
         <span className="material-symbols-outlined" aria-hidden="true">manage_search</span>

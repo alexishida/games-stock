@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
@@ -12,6 +12,9 @@ export function GameDetail() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const game = useMemo(() => games.find((item) => item.id === selectedGameId) ?? null, [games, selectedGameId]);
   const coverUrl = localMediaUrl(game?.box_art_path);
+  const screenshotUrl = localMediaUrl(game?.screenshot_path);
+  const backgroundUrl = localMediaUrl(game?.background_path);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   if (!game) {
     return (
@@ -133,21 +136,54 @@ export function GameDetail() {
           <section className="detail-panel">
             <h3>Galeria</h3>
             <div className="detail-gallery">
-              <div>{coverUrl ? <img src={coverUrl} alt="" /> : <span className="material-symbols-outlined" aria-hidden="true">image</span>}</div>
-              <div><span className="material-symbols-outlined" aria-hidden="true">photo_library</span></div>
-              <div><span className="material-symbols-outlined" aria-hidden="true">stadia_controller</span></div>
-              <div><span>+0</span></div>
+              <button
+                type="button"
+                className={"detail-gallery-thumb" + (screenshotUrl ? "" : " detail-gallery-empty")}
+                onClick={() => screenshotUrl && setLightboxUrl(screenshotUrl)}
+                disabled={!screenshotUrl}
+                aria-label="Screenshot"
+              >
+                {screenshotUrl
+                  ? <img src={screenshotUrl} alt="Screenshot" />
+                  : <span className="material-symbols-outlined" aria-hidden="true">screenshot_monitor</span>}
+                <span className="detail-gallery-label">Screenshot</span>
+              </button>
+              <button
+                type="button"
+                className={"detail-gallery-thumb" + (coverUrl ? "" : " detail-gallery-empty")}
+                onClick={() => coverUrl && setLightboxUrl(coverUrl)}
+                disabled={!coverUrl}
+                aria-label="Box Art"
+              >
+                {coverUrl
+                  ? <img src={coverUrl} alt="Box Art" />
+                  : <span className="material-symbols-outlined" aria-hidden="true">image</span>}
+                <span className="detail-gallery-label">Box Art</span>
+              </button>
+              <button
+                type="button"
+                className={"detail-gallery-thumb detail-gallery-wide" + (backgroundUrl ? "" : " detail-gallery-empty")}
+                onClick={() => backgroundUrl && setLightboxUrl(backgroundUrl)}
+                disabled={!backgroundUrl}
+                aria-label="Background"
+              >
+                {backgroundUrl
+                  ? <img src={backgroundUrl} alt="Background" />
+                  : <span className="material-symbols-outlined" aria-hidden="true">wallpaper</span>}
+                <span className="detail-gallery-label">Background</span>
+              </button>
             </div>
           </section>
 
-          <section className="detail-panel">
-            <h3>Configurar</h3>
-            <button type="button" className="detail-setting-row">
-              <span className="material-symbols-outlined" aria-hidden="true">settings_input_component</span>
-              Core do emulador
-              <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
-            </button>
-          </section>
+          {lightboxUrl && (
+            <div className="detail-lightbox" onClick={() => setLightboxUrl(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
+              <button type="button" className="detail-lightbox-close" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+              <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
+            </div>
+          )}
+
         </aside>
       </div>
     </section>

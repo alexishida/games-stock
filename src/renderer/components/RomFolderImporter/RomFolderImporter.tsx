@@ -21,6 +21,7 @@ export function RomFolderImporter() {
   const setOpen = useGameStockStore((state) => state.setRomFolderImporterOpen);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
+  const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
   const platforms = useGameStockStore((state) => state.platforms);
   const [folderEntries, setFolderEntries] = useState<FolderEntry[]>([]);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function RomFolderImporter() {
   const [step, setStep] = useState<Step>("summary");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const selectedPlatform = useMemo(
     () => platforms.find((platform) => platform.id === platformId) ?? null,
@@ -89,6 +91,7 @@ export function RomFolderImporter() {
     try {
       const nextJob = await window.gameStockAPI.romFolderImport.import({ folderPaths: scan.folderPaths, romFilePaths: scan.romFilePaths, platformId });
       setJob(nextJob);
+      setSelectedPlatformId(platformId as number);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -109,9 +112,15 @@ export function RomFolderImporter() {
     setStep("configure");
   }
 
-  async function deleteSelectedFolder(): Promise<void> {
+  function requestDeleteSelectedFolder(): void {
+    if (!selectedFolderPath) return;
+    setConfirmDelete(true);
+  }
+
+  async function confirmDeleteSelectedFolder(): Promise<void> {
     if (!selectedFolderPath) return;
     const entry = folderEntries.find((item) => item.folderPath === selectedFolderPath);
+    setConfirmDelete(false);
     setBusy(true);
     setError(null);
     try {
@@ -137,6 +146,7 @@ export function RomFolderImporter() {
     try {
       const nextJob = await window.gameStockAPI.romFolderImport.import({ folderPaths: [entry.folderPath], platformId: entry.platformId });
       setJob(nextJob);
+      setSelectedPlatformId(entry.platformId);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -165,7 +175,7 @@ export function RomFolderImporter() {
             busy={busy}
             onSelectFolder={setSelectedFolderPath}
             onAddFolder={openAddFolderForm}
-            onDeleteFolder={deleteSelectedFolder}
+            onDeleteFolder={requestDeleteSelectedFolder}
             onContinueDownload={continueSelectedDownload}
           />
         ) : null}
@@ -194,6 +204,19 @@ export function RomFolderImporter() {
 
         {step === "started" && job ? <StartedStep job={job} onClose={close} onAgain={openAddFolderForm} /> : null}
       </section>
+
+      {confirmDelete ? (
+        <div className="modal-backdrop confirm-backdrop">
+          <div className="confirm-dialog">
+            <p>Remover a pasta e todos os jogos importados dela?</p>
+            <p className="confirm-path">{selectedFolderPath}</p>
+            <div className="confirm-actions">
+              <button type="button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
+              <button type="button" className="danger" onClick={confirmDeleteSelectedFolder}>Remover</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -48,6 +48,8 @@ export interface GameFilters {
   ownedPhysical?: boolean;
   collectionFilter?: CollectionFilter;
   sortBy?: GameSortBy;
+  page?: number;
+  pageSize?: number;
 }
 
 export type GameCreateInput = Omit<Game, "id" | "platform_name" | "created_at" | "updated_at">;

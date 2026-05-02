@@ -217,7 +217,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
 function createMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: "MENU",
+      label: "Menu",
       submenu: [
         { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
         { label: "Novo Jogo Manual", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openCreateGame) },
@@ -227,14 +227,14 @@ function createMenu(): void {
       ]
     },
     {
-      label: "FERRAMENTAS",
+      label: "Ferramentas",
       submenu: [
         { label: "Importar pasta de ROMs", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
         { label: "Importar do LaunchBox", click: () => mainWindow?.webContents.send(IPC_CHANNELS.launchbox.openImporter) }
       ]
     },
     {
-      label: "SOBRE",
+      label: "Sobre",
       submenu: [
         { label: `GameStock v${app.getVersion()}`, enabled: false },
         { label: "Pasta de dados", click: () => shell.openPath(getUserDataDir()) }

@@ -78,6 +78,22 @@ export default function App() {
   useEffect(() => window.gameStockAPI.library.onOpenCreateGame(() => setCreateGameOpen(true)), [setCreateGameOpen]);
   useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => setPlatformManagerOpen(true)), [setPlatformManagerOpen]);
   useEffect(() => window.gameStockAPI.library.onSetSort(setSortBy), [setSortBy]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsub = window.gameStockAPI.romFolderImport.onProgress((progress) => {
+      if (progress.stage !== "done") return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        reloadGames();
+        reloadPlatforms();
+      }, 1500);
+    });
+    return () => {
+      unsub();
+      if (timer) clearTimeout(timer);
+    };
+  }, [reloadGames, reloadPlatforms]);
+
   useEffect(() => window.gameStockAPI.romFolderImport.onCompleted(() => {
     reloadGames();
     reloadPlatforms();

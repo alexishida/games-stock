@@ -1,4 +1,5 @@
 import { useGameStockStore } from "../../store";
+import { Pagination } from "../Pagination/Pagination";
 import { GameCard } from "./GameCard";
 import "./GameGrid.css";
 
@@ -8,10 +9,13 @@ export function GameGrid() {
   if (!games.length) return <div className="empty-state">Nenhum jogo encontrado</div>;
 
   return (
-    <div className="game-grid-wrap">
-      {games.map((game) => (
-        <GameCard key={game.id} game={game} />
-      ))}
-    </div>
+    <>
+      <div className="game-grid-wrap">
+        {games.map((game) => (
+          <GameCard key={game.id} game={game} />
+        ))}
+      </div>
+      <Pagination />
+    </>
   );
 }

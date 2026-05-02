@@ -92,8 +92,7 @@
   color: #64748b;
   font-size: 9px;
   font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .search-input {
@@ -154,6 +153,7 @@
   color: #64748b;
   font-size: 10px;
   font-weight: 900;
+  letter-spacing: 0.04em;
 }
 
 .tree-item {

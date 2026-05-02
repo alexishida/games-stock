@@ -88,13 +88,24 @@ function buildOrder(sortBy: GameSortBy = "title"): string {
 export function listGames(filters: GameFilters = {}): GameListResult {
   const database = getDatabase();
   const where = buildWhere(filters);
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = filters.pageSize ?? 50;
+  const offset = (page - 1) * pageSize;
+
+  const filtered = (
+    database
+      .prepare(`SELECT COUNT(*) as count FROM games JOIN platforms ON platforms.id = games.platform_id ${where.sql}`)
+      .get(...where.params) as { count: number }
+  ).count;
+
   const items = database
-    .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters.sortBy)}`)
-    .all(...where.params)
+    .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters.sortBy)} LIMIT ? OFFSET ?`)
+    .all(...where.params, pageSize, offset)
     .map((row) => mapGame(row as GameRow));
+
   const total = (database.prepare("SELECT COUNT(*) as count FROM games").get() as { count: number }).count;
 
-  return { items, total, filtered: items.length };
+  return { items, total, filtered };
 }
 
 export function getGame(id: number): Game | null {

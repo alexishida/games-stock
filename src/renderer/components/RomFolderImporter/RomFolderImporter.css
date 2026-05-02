@@ -357,3 +357,53 @@
   align-content: center;
   text-align: center;
 }
+
+.confirm-backdrop {
+  z-index: 30;
+}
+
+.confirm-dialog {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  padding: 24px;
+  width: min(400px, calc(100vw - 48px));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  display: grid;
+  gap: 12px;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.confirm-path {
+  color: var(--text-secondary) !important;
+  font-size: 11px !important;
+  word-break: break-all;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.confirm-actions button {
+  height: 30px;
+  border: 1px solid rgba(139, 148, 178, 0.35);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.confirm-actions button.danger {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+}

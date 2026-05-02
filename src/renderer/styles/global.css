@@ -274,6 +274,18 @@ button {
   padding: 8px;
 }
 
+.management-form select {
+  appearance: none;
+  background-color: #1e1e1e;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.management-form select option {
+  background-color: #1e1e1e;
+  color: var(--text-primary);
+}
+
 .management-form textarea {
   min-height: 72px;
   resize: vertical;
