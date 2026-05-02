@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getImagesDir } from "./database";
-import { upsertLaunchBoxGame } from "./repositories/games";
-import { listPlatforms } from "./repositories/platforms";
+import { getImagesDir } from "./db/database";
+import { upsertLaunchBoxGame } from "./db/repositories/games";
+import { listPlatforms } from "./db/repositories/platforms";
 import { buildIndex, ensureMetadata } from "./launchbox/db";
 import { downloadImages } from "./launchbox/scraper";
 import { PLATFORMS } from "./launchbox/config";

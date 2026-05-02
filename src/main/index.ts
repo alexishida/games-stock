@@ -2,9 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./database";
-import * as games from "./repositories/games";
-import * as platforms from "./repositories/platforms";
+import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
+import * as games from "./db/repositories/games";
+import * as platforms from "./db/repositories/platforms";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";

@@ -1,6 +1,6 @@
-import { getImagesDir } from "../database";
-import { upsertLaunchBoxGame } from "../repositories/games";
-import { findOrCreatePlatform, listPlatforms } from "../repositories/platforms";
+import { getImagesDir } from "../db/database";
+import { upsertLaunchBoxGame } from "../db/repositories/games";
+import { findOrCreatePlatform, listPlatforms } from "../db/repositories/platforms";
 import { LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../shared/types";
 import { PLATFORMS } from "./config";
 import { buildIndex, ensureMetadata } from "./db";

@@ -51,6 +51,14 @@ Quando o usuário pedir "abrir uma nova janela", "abrir em uma janela", ou qualq
 
 Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 
+## Arquitetura SQLite
+
+- Todo codigo relacionado ao SQLite deve ficar em `src/main/db`.
+- Conexao, schema, migrations simples e seeds ficam em `src/main/db/database.ts`.
+- Chamadas SQL (`prepare`, `transaction`, queries e comandos) devem ficar nos DAOs em `src/main/db/dao`.
+- Repositorios em `src/main/db/repositories` devem ser fachadas finas ou orquestracao; nao colocar SQL direto neles.
+- Codigo fora de `src/main/db` deve acessar o banco via repositorios/DAOs exportados, nunca via `better-sqlite3` direto.
+
 ## Regra aprendida: modais empilhados
 
 Quando ja existir um modal aberto e outro modal/confirmacao for aberto dentro dele, nao criar nova camada escura de fundo. Manter o overlay interno apenas para posicionamento e bloqueio de clique, com `background: transparent`.
