@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { FolderPlus, RefreshCw, Trash2, X } from "lucide-react";
+import { CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
@@ -241,7 +241,10 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
             <span>Pasta</span>
             <div className="folder-field">
               <input value={folderPath} onChange={(e) => setFolderPath(e.target.value)} placeholder="Selecione a pasta dos ROMs" />
-              <button type="button" onClick={chooseFolder} disabled={busy}>Selecionar</button>
+              <button type="button" onClick={chooseFolder} disabled={busy}>
+                <FolderOpen aria-hidden="true" size={16} />
+                Selecionar
+              </button>
             </div>
           </label>
 
@@ -286,8 +289,14 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
       <footer className="add-folder-dialog-footer">
         {step === "configure" ? (
           <>
-            <button type="button" className="text-button" onClick={onCancel} disabled={busy}>Cancelar</button>
-            <button type="button" className="text-button active" onClick={scanFolder} disabled={busy || !folderPath || !platformId}>Proximo</button>
+            <button type="button" className="text-button danger import-action-button" onClick={onCancel} disabled={busy}>
+              <CircleX aria-hidden="true" size={18} />
+              Cancelar
+            </button>
+            <button type="button" className="text-button active import-action-button" onClick={scanFolder} disabled={busy || !folderPath || !platformId}>
+              <FolderCheck aria-hidden="true" size={18} />
+              Selecionar pasta
+            </button>
           </>
         ) : (
           <>
