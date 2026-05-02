@@ -61,9 +61,9 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 
 ## Regra aprendida: modais empilhados
 
-Quando ja existir um modal aberto e outro modal/confirmacao for aberto dentro dele, nao criar nova camada escura de fundo. Manter o overlay interno apenas para posicionamento e bloqueio de clique, com `background: transparent`.
+Quando ja existir um modal aberto e outro modal/confirmacao for aberto acima dele, o modal de tras deve receber uma nova camada escura semi-transparente. Isso vale para 2o, 3o, 4o modal e seguintes, para manter o modal de cima mais legivel.
 
-Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve ficar transparente quando usado dentro do modal de configuracoes. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
+Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve usar `background: rgba(...)` quando usado dentro do modal de configuracoes. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
 
 ## Regra aprendida: modais secundarios arrastaveis
 

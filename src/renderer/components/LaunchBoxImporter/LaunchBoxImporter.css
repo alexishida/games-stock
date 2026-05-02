@@ -8,7 +8,7 @@
 }
 
 .modal-backdrop ~ .modal-backdrop {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.46);
 }
 
 .importer-modal {

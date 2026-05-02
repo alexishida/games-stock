@@ -457,7 +457,7 @@
   z-index: 10;
   display: grid;
   place-items: center;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.46);
   border-radius: 8px;
 }
 
