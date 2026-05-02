@@ -28,7 +28,6 @@ export function SettingsModal() {
     <div className="modal-backdrop">
       <div className="settings-modal">
         <nav className="settings-nav">
-          <p className="settings-nav-label">Configuracoes</p>
           {NAV_ITEMS.map(({ Icon, ...item }) => (
             <button
               key={item.id}

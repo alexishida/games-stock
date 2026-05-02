@@ -242,7 +242,8 @@ button {
   display: block;
 }
 
-.icon-button.modal-close-button {
+.icon-button.modal-close-button,
+.icon-button.danger {
   flex: 0 0 auto;
   border-color: rgba(248, 113, 113, 0.55);
   background: rgba(127, 29, 29, 0.38);
@@ -250,24 +251,31 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
-.icon-button.modal-close-button:hover:not(:disabled) {
+.icon-button.modal-close-button:hover:not(:disabled),
+.icon-button.danger:hover:not(:disabled) {
   border-color: rgba(248, 113, 113, 0.8);
   background: rgba(185, 28, 28, 0.58);
   color: #fff1f2;
 }
 
-.icon-button.modal-close-button:focus-visible {
+.icon-button.modal-close-button:focus-visible,
+.icon-button.danger:focus-visible {
   outline: 0;
   border-color: rgba(248, 113, 113, 0.95);
   box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.22);
 }
 
-.icon-button.modal-close-button:disabled {
+.icon-button.modal-close-button:disabled,
+.icon-button.danger:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
 .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 10px;
@@ -276,10 +284,27 @@ button {
   font-size: var(--form-control-font-size);
 }
 
+.text-button svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
 .text-button.active,
 .icon-button.active {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.text-button.danger {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(127, 29, 29, 0.25);
+  color: #fecaca;
+}
+
+.text-button.danger:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.8);
+  background: rgba(185, 28, 28, 0.5);
+  color: #fff1f2;
 }
 
 .management-modal {
@@ -460,6 +485,21 @@ button {
 
 .platform-form-modal footer {
   justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.platform-form-modal .management-form {
+  gap: 16px;
+}
+
+.platform-form-modal .management-form label {
+  gap: 8px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.platform-form-action {
+  min-width: 94px;
 }
 
 .platform-form-modal .management-form select {

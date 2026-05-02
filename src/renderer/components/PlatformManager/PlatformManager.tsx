@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Platform } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 
@@ -61,10 +61,12 @@ function PlatformFormModal({ mode, onClose }: { mode: ModalMode; onClose: () => 
           </label>
           {error && <p className="form-error">{error}</p>}
           <footer>
-            <button type="button" className="text-button" onClick={onClose} disabled={saving}>
+            <button type="button" className="text-button danger platform-form-action" onClick={onClose} disabled={saving}>
+              <X size={14} aria-hidden="true" />
               Cancelar
             </button>
-            <button type="submit" className="text-button active" disabled={saving || !name.trim()}>
+            <button type="submit" className="text-button active platform-form-action" disabled={saving || !name.trim()}>
+              <Save size={14} aria-hidden="true" />
               {saving ? "Salvando…" : "Salvar"}
             </button>
           </footer>
@@ -119,7 +121,7 @@ export function PlatformManager() {
               </button>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-button danger"
                 title="Remover"
                 onClick={() => remove(platform)}
               >
