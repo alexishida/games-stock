@@ -27,9 +27,6 @@ export function SettingsModal() {
   return (
     <div className="modal-backdrop">
       <div className="settings-modal">
-        <button type="button" className="settings-close icon-button" onClick={() => setOpen(false)} aria-label="Fechar">
-          <X aria-hidden="true" size={18} />
-        </button>
         <nav className="settings-nav">
           <p className="settings-nav-label">Configuracoes</p>
           {NAV_ITEMS.map(({ Icon, ...item }) => (
@@ -47,8 +44,13 @@ export function SettingsModal() {
 
         <div className="settings-content">
           <header className="settings-header">
-            <p className="eyebrow">{eyebrow}</p>
-            <h2>{title}</h2>
+            <div>
+              <p className="eyebrow">{eyebrow}</p>
+              <h2>{title}</h2>
+            </div>
+            <button type="button" className="settings-close icon-button" onClick={() => setOpen(false)} aria-label="Fechar">
+              <X aria-hidden="true" size={18} />
+            </button>
           </header>
 
           <div className="settings-body">

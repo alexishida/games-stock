@@ -10,7 +10,7 @@
 ## Convenções de UI
 
 ### Design
-Sempre que for criar um form seguir o \DESIGN.md
+Sempre que for criar um form seguir o /.ai-framework/DESIGN.md
 
 ### Icones
 Usar sempre `lucide-react` para icones da UI. A dependencia deve ficar local no projeto, importando apenas os icones necessarios em cada componente. Nao usar Material Symbols, fontes remotas de icones ou SVG inline quando existir equivalente Lucide.

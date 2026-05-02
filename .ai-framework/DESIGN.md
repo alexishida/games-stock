@@ -173,3 +173,7 @@ A linguagem de formas deste sistema de design é consistentemente **Arredondada*
 - **Selects de formulário:** Devem seguir o mesmo tratamento dos campos de entrada: fundo escuro (`rgba(255, 255, 255, 0.04)`), texto `on-surface`, borda `outline`, raio de 6px, fonte `form-control` e foco com anel #00f2ff. As opções internas (`option`/`optgroup`) também precisam usar fundo escuro e texto claro para evitar menus nativos com fundo branco.
 - **Sidebars de vidro:** Links de navegação usam um indicador sutil de "borda esquerda" em ciano primário quando ativos, acompanhado por um destaque suave de fundo.
 - **Barras de progresso:** Barras finas, com 4px de altura, usando a cor primária para conclusão sobre uma trilha slate escura.
+
+### Padrão: botões de fechar modal
+
+Todo botão de fechar modal deve usar `icon-button` com ícone `X` do `lucide-react`, tamanho 26px, sem padding e SVG centralizado. O botão inteiro deve ser vermelho, não apenas o ícone: borda `rgba(248, 113, 113, 0.55)`, fundo `rgba(127, 29, 29, 0.38)` e cor `#fecaca`. No hover, intensificar para borda `rgba(248, 113, 113, 0.8)`, fundo `rgba(185, 28, 28, 0.58)` e cor `#fff1f2`.

@@ -233,6 +233,12 @@ button {
   border-radius: 6px;
   background: var(--bg-control);
   color: var(--text-primary);
+  padding: 0;
+  line-height: 0;
+}
+
+.icon-button svg {
+  display: block;
 }
 
 .text-button {

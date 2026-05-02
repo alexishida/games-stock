@@ -11,13 +11,19 @@
   overflow: hidden;
 }
 
-.settings-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 5;
+.settings-close.icon-button {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.38);
+  color: #fecaca;
+}
+
+.settings-close.icon-button:hover {
+  border-color: rgba(248, 113, 113, 0.8);
+  background: rgba(185, 28, 28, 0.58);
+  color: #fff1f2;
 }
 
 
@@ -80,9 +86,10 @@
 }
 
 .settings-header {
-  display: grid;
-  gap: 3px;
-  align-content: start;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .settings-header h2 {
