@@ -165,6 +165,7 @@ A linguagem de formas deste sistema de design é consistentemente **Arredondada*
 ## Componentes
 
 - **Cards de jogos:** O componente central. Ele apresenta uma imagem de capa full-bleed com um overlay de gradiente sutil na parte inferior para garantir a legibilidade do título. Chips de metadados ficam no canto superior direito.
+- **Títulos de modal:** Todo modal deve manter respiro padrão de 28px entre o cabeçalho/título e o conteúdo seguinte. Usar a variável CSS global `--modal-title-gap` para esse espaçamento, evitando valores locais divergentes.
 - **Modais secundários:** Modais abertos sobre outro modal usam título interno em Inter, 22px, peso 900, `line-height: 1` e cor `on-surface`. Mantêm borda `outline`, fundo `surface-container`, sombra ampla e raio próximo de 12px para preservar a hierarquia sem competir com o modal principal. Ações de rodapé ficam alinhadas à direita, com espaçamento consistente entre botões.
 - **Botões:** Botões primários são preenchidos com Electric Cyan e usam texto preto (`on-primary`). Botões secundários têm contorno slate e estados de hover preenchidos.
 - **Icones:** Todos os icones da interface usam `lucide-react` instalado localmente no projeto. Importar apenas os icones necessarios por componente e manter tamanhos entre 16px e 22px em botoes/menus.

@@ -19,6 +19,7 @@
   --border-strong: rgba(132, 148, 149, 0.4);
   --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.5);
   --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.58);
+  --modal-title-gap: 28px;
   --form-control-font-size: 13px;
   --form-label-font-size: 11px;
   font-family: Inter, Segoe UI, Arial, sans-serif;
@@ -283,7 +284,7 @@ button {
 
 .management-modal {
   display: grid;
-  gap: 14px;
+  gap: var(--modal-title-gap);
   width: min(580px, calc(100vw - 48px));
   max-height: min(720px, calc(100vh - 48px));
   overflow: auto;

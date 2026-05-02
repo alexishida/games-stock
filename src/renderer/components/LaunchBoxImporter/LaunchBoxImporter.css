@@ -34,6 +34,7 @@
 
 .importer-modal header {
   justify-content: space-between;
+  margin-bottom: calc(var(--modal-title-gap) - 12px);
 }
 
 .importer-modal h2 {

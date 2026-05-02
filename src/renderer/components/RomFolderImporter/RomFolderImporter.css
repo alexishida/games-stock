@@ -1,7 +1,7 @@
 .rom-folder-modal {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 14px;
+  gap: var(--modal-title-gap);
   width: min(920px, calc(100vw - 48px));
   height: min(720px, calc(100vh - 48px));
   border: 1px solid var(--border);
@@ -535,6 +535,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: calc(var(--modal-title-gap) - 16px);
 }
 
 .add-folder-dialog button,

@@ -9,8 +9,8 @@ const NAV_ITEMS: { id: SettingsSection; label: string; Icon: typeof FolderOpen }
   { id: "plataformas", label: "Plataformas", Icon: Gamepad2 }
 ];
 
-const SECTION_TITLES: Record<SettingsSection, { eyebrow: string; title: string }> = {
-  biblioteca: { eyebrow: "Importacao em lote", title: "Gerenciar biblioteca" },
+const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title: string }> = {
+  biblioteca: { title: "Gerenciar biblioteca" },
   plataformas: { eyebrow: "Configuracoes", title: "Gerenciar plataformas" }
 };
 
@@ -45,7 +45,7 @@ export function SettingsModal() {
         <div className="settings-content">
           <header className="settings-header">
             <div>
-              <p className="eyebrow">{eyebrow}</p>
+              {eyebrow && <p className="eyebrow">{eyebrow}</p>}
               <h2>{title}</h2>
             </div>
             <button type="button" className="icon-button modal-close-button" onClick={() => setOpen(false)} aria-label="Fechar">
