@@ -5,12 +5,12 @@
   width: min(920px, calc(100vw - 48px));
   height: min(720px, calc(100vh - 48px));
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   background:
     radial-gradient(circle at 12% 0%, rgba(0, 242, 255, 0.14), transparent 30%),
     var(--bg-panel);
   padding: 18px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  box-shadow: var(--shadow-modal);
 }
 
 .rom-folder-modal header,
@@ -118,9 +118,9 @@
 .folder-field input {
   min-width: 0;
   height: 36px;
-  border: 1px solid rgba(139, 148, 178, 0.35);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
   color: var(--text-primary);
   padding: 0 10px;
   font-size: var(--form-control-font-size);
@@ -128,9 +128,9 @@
 
 .folder-field button {
   height: 36px;
-  border: 1px solid rgba(139, 148, 178, 0.35);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
   color: var(--text-primary);
   padding: 0 12px;
   font-size: var(--form-control-font-size);
@@ -158,7 +158,7 @@
 
 .rom-source-list button:hover,
 .rom-source-list button.selected {
-  background: rgba(139, 188, 255, 0.16);
+  background: var(--accent-soft);
 }
 
 .rom-source-list button span:last-child {
@@ -199,8 +199,9 @@
 .assistant-actions button {
   min-width: 110px;
   height: 28px;
-  border: 1px solid rgba(139, 148, 178, 0.35);
-  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
   color: var(--text-primary);
   padding: 0 12px;
   font-size: var(--form-control-font-size);
@@ -303,7 +304,7 @@
 
 .folder-table-row:not(.header):hover,
 .folder-table-row.selected {
-  background: rgba(139, 188, 255, 0.16);
+  background: var(--accent-soft);
 }
 
 .folder-table-row span {
@@ -498,9 +499,9 @@
 
 .confirm-actions button {
   height: 30px;
-  border: 1px solid rgba(139, 148, 178, 0.35);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--bg-control);
   color: var(--text-primary);
   padding: 0 16px;
   font-size: var(--form-control-font-size);

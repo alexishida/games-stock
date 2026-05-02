@@ -5,7 +5,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   grid-auto-rows: 240px;
-  gap: 14px;
+  gap: 24px;
   align-content: start;
   padding: 2px 4px 16px;
 }
@@ -13,13 +13,13 @@
 .game-card {
   display: block;
   overflow: hidden;
-  border: 1px solid rgba(30, 41, 59, 0.92);
-  border-radius: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
   padding: 0;
   background: transparent;
   color: var(--text-primary);
   text-align: left;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-elevated);
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
@@ -38,7 +38,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--bg-card);
 }
 
@@ -63,7 +63,7 @@
   padding: 12px;
   background:
     linear-gradient(145deg, rgba(0, 242, 255, 0.12), transparent),
-    #202124;
+    var(--bg-card);
   color: var(--text-secondary);
   text-align: center;
 }
@@ -82,7 +82,7 @@
   position: absolute;
   inset: auto 0 0;
   height: 58%;
-  background: linear-gradient(to top, rgba(2, 6, 23, 0.98), rgba(2, 6, 23, 0.74) 54%, transparent);
+  background: linear-gradient(to top, rgba(19, 19, 19, 0.98), rgba(19, 19, 19, 0.74) 54%, transparent);
 }
 
 .card-copy {
@@ -107,7 +107,7 @@
 .card-copy strong {
   display: -webkit-box;
   overflow: hidden;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.3;
   -webkit-box-orient: vertical;

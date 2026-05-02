@@ -14,7 +14,7 @@
   justify-content: space-between;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.9);
+  background: var(--bg-glass);
   color: var(--text-primary);
   padding: 8px 12px;
   backdrop-filter: blur(14px);
@@ -27,7 +27,7 @@
   place-items: center;
   border-radius: 999px;
   background: var(--accent);
-  color: #002022;
+  color: var(--on-accent);
   font-size: 12px;
   font-weight: 900;
 }
@@ -38,11 +38,11 @@
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--bg-glass);
   color: var(--text-primary);
   padding: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
-  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-elevated);
+  backdrop-filter: blur(12px);
 }
 
 .notification-card.completed {

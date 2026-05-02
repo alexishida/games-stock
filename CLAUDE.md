@@ -1,2 +1,2 @@
-@.agents\skills\caveman\SKILL.md
-@.agents\RULES.md
+@.ai-framework\skills\caveman\SKILL.md
+@.ai-framework\RULES.md

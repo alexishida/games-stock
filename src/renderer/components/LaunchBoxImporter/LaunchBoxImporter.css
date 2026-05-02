@@ -18,9 +18,10 @@
   width: min(900px, calc(100vw - 48px));
   height: min(680px, calc(100vh - 48px));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--bg-panel);
   padding: 16px;
+  box-shadow: var(--shadow-modal);
 }
 
 .importer-modal header,
@@ -71,7 +72,7 @@
 .image-type-list {
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .result-list button {
@@ -111,7 +112,7 @@
 }
 
 .progress-track {
-  height: 8px;
+  height: 4px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);

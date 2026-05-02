@@ -1,16 +1,24 @@
 :root {
   --bg-primary: #131313;
-  --bg-sidebar: rgba(15, 23, 42, 0.82);
+  --bg-sidebar: rgba(28, 27, 27, 0.82);
   --bg-panel: #201f1f;
   --bg-card: #2a2a2a;
+  --bg-elevated: #353534;
+  --bg-control: rgba(255, 255, 255, 0.04);
+  --bg-control-hover: rgba(255, 255, 255, 0.06);
+  --bg-glass: rgba(32, 31, 31, 0.82);
   --card-hover: rgba(0, 242, 255, 0.08);
   --accent: #00f2ff;
   --accent-muted: #74f5ff;
   --accent-soft: rgba(0, 242, 255, 0.14);
+  --on-accent: #002022;
   --text-primary: #e5e2e1;
   --text-secondary: #b9cacb;
   --text-muted: #849495;
   --border: rgba(132, 148, 149, 0.22);
+  --border-strong: rgba(132, 148, 149, 0.4);
+  --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 24px 80px rgba(0, 0, 0, 0.58);
   --form-control-font-size: 13px;
   --form-label-font-size: 11px;
   font-family: Inter, Segoe UI, Arial, sans-serif;
@@ -72,7 +80,7 @@ select {
   border: 1px solid var(--border);
   border-radius: 6px;
   appearance: none;
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--bg-control);
   background-image:
     linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
     linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
@@ -89,7 +97,7 @@ select {
 
 select:hover {
   border-color: rgba(0, 242, 255, 0.44);
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: var(--bg-control-hover);
 }
 
 select:focus-visible {
@@ -123,7 +131,7 @@ button {
   min-width: 900px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 76% 12%, rgba(0, 242, 255, 0.08), transparent 28%),
+    radial-gradient(circle at 76% 12%, rgba(0, 242, 255, 0.06), transparent 28%),
     #131313;
 }
 
@@ -171,7 +179,7 @@ button {
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   padding: 0 0 7px;
   font-size: 14px;
   font-weight: 700;
@@ -223,7 +231,7 @@ button {
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-control);
   color: var(--text-primary);
 }
 
@@ -231,7 +239,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-control);
   color: var(--text-primary);
   font-size: var(--form-control-font-size);
 }
@@ -249,9 +257,10 @@ button {
   max-height: min(720px, calc(100vh - 48px));
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--bg-panel);
   padding: 16px;
+  box-shadow: var(--shadow-modal);
 }
 
 .management-modal header,
@@ -294,7 +303,7 @@ button {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-control);
   color: var(--text-primary);
   padding: 8px;
 }
@@ -308,7 +317,7 @@ button {
   height: 36px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--bg-control);
   padding: 0 34px 0 10px;
 }
 
@@ -347,7 +356,7 @@ button {
   max-height: 460px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .platform-row {
