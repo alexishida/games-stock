@@ -86,6 +86,16 @@ typography:
     fontSize: 11px
     fontWeight: '500'
     lineHeight: '1'
+  form-control:
+    fontFamily: Inter
+    fontSize: 13px
+    fontWeight: '400'
+    lineHeight: '1.4'
+  form-label:
+    fontFamily: Inter
+    fontSize: 11px
+    fontWeight: '800'
+    lineHeight: '1'
 rounded:
   sm: 0.25rem
   DEFAULT: 0.5rem
@@ -125,6 +135,7 @@ O sistema tipográfico usa **Inter** por sua excelente legibilidade e por seu ca
 - **Hierarquia:** Títulos de jogos usam `headline-lg` ou `headline-md` em pesos fortes para se destacar sobre imagens ricas.
 - **Rótulos de metadados:** Rótulos pequenos, em caixa alta e negrito, com leve espaçamento entre letras, são usados para detalhes técnicos como "PLATAFORMA", "REGIÃO" ou "TAMANHO DO ARQUIVO", garantindo leitura de alto contraste sobre fundos escuros.
 - **Texto de corpo:** Informações padrão usam tamanho confortável entre 14px e 16px, com line-height generoso para descrições e logs de alteração.
+- **Formulários:** Controles de formulário (`input`, `select`, `textarea` e botões de ação do fluxo) usam `form-control` com 13px, o mesmo tamanho visual do botão "Adicionar Pasta". Rótulos de formulário usam `form-label` com 11px e peso 800.
 
 ## Layout e Espaçamento
 
@@ -154,9 +165,11 @@ A linguagem de formas deste sistema de design é consistentemente **Arredondada*
 ## Componentes
 
 - **Cards de jogos:** O componente central. Ele apresenta uma imagem de capa full-bleed com um overlay de gradiente sutil na parte inferior para garantir a legibilidade do título. Chips de metadados ficam no canto superior direito.
+- **Modais secundários:** Modais abertos sobre outro modal usam título interno em Inter, 22px, peso 900, `line-height: 1` e cor `var(--text-primary)`. Mantêm borda `var(--border)`, fundo `var(--bg-panel)`, sombra ampla e raio próximo de 12px para preservar a hierarquia sem competir com o modal principal. Ações de rodapé ficam alinhadas à direita, com espaçamento consistente entre botões.
 - **Botões:** Botões primários são preenchidos com Electric Cyan e usam texto preto. Botões secundários têm contorno slate e estados de hover preenchidos.
+- **Icones:** Todos os icones da interface usam `lucide-react` instalado localmente no projeto. Nao usar Material Symbols, fontes remotas de icones ou SVG inline quando existir equivalente Lucide. Importar apenas os icones necessarios por componente e manter tamanhos entre 16px e 22px em botoes/menus.
 - **Chips de metadados:** Pills pequenas e de alto contraste (por exemplo, "N64", "RPG"), com fundos semitransparentes e bordas brilhantes.
 - **Campos de entrada:** Campos escuros e rebaixados, com anéis de foco em #00f2ff e texto de placeholder discreto.
-- **Selects de formulário:** Devem seguir o mesmo tratamento dos campos de entrada: fundo escuro (`var(--bg-panel)` ou `rgba(255, 255, 255, 0.04)`), texto `var(--text-primary)`, borda `var(--border)`, raio de 6px e foco com anel #00f2ff. As opções internas (`option`/`optgroup`) também precisam usar fundo escuro e texto claro para evitar menus nativos com fundo branco.
+- **Selects de formulário:** Devem seguir o mesmo tratamento dos campos de entrada: fundo escuro (`var(--bg-panel)` ou `rgba(255, 255, 255, 0.04)`), texto `var(--text-primary)`, borda `var(--border)`, raio de 6px, fonte `var(--form-control-font-size)` e foco com anel #00f2ff. As opções internas (`option`/`optgroup`) também precisam usar fundo escuro e texto claro para evitar menus nativos com fundo branco.
 - **Sidebars de vidro:** Links de navegação usam um indicador sutil de "borda esquerda" em ciano primário quando ativos, acompanhado por um destaque suave de fundo.
 - **Barras de progresso:** Barras finas, com 4px de altura, usando a cor primária para conclusão sobre uma trilha slate escura.

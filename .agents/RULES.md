@@ -12,6 +12,9 @@
 ### Design
 Sempre que for criar um form seguir o \DESIGN.md
 
+### Icones
+Usar sempre `lucide-react` para icones da UI. A dependencia deve ficar local no projeto, importando apenas os icones necessarios em cada componente. Nao usar Material Symbols, fontes remotas de icones ou SVG inline quando existir equivalente Lucide.
+
 ### Janelas e modais
 
 **Nunca criar uma `BrowserWindow` separada do Electron para fluxos de UI.**
@@ -53,3 +56,13 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 Quando ja existir um modal aberto e outro modal/confirmacao for aberto dentro dele, nao criar nova camada escura de fundo. Manter o overlay interno apenas para posicionamento e bloqueio de clique, com `background: transparent`.
 
 Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve ficar transparente quando usado dentro do modal de configuracoes. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
+
+## Regra aprendida: modais secundarios arrastaveis
+
+Todo modal secundario aberto sobre outro modal deve ser arrastavel dentro da area da janela principal. Use overlay React, nao `BrowserWindow`.
+
+- O drag deve funcionar pelo corpo do modal sempre que possivel.
+- Controles interativos (`button`, `input`, `select`, `textarea`, `label`, links e elementos com `role="button"`) nao devem iniciar drag, para manter clique, foco e selecao funcionando.
+- O modal deve iniciar centralizado e ter deslocamento limitado para nao sair da area visivel da janela.
+- Quando o modal secundario precisar cobrir toda a area arrastavel, use overlay `position: fixed; inset: 0; background: transparent`.
+- Botoes de acao no rodape de modal secundario devem ficar alinhados a direita (`justify-content: flex-end`) com gap consistente.

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { X } from "lucide-react";
 import { LaunchBoxImageType } from "../../../shared/types";
 import { useLaunchBoxImporter } from "../../hooks/useLaunchBoxImporter";
 import { useGameStockStore } from "../../store";
@@ -33,7 +34,9 @@ export function LaunchBoxImporter() {
       <section className="importer-modal">
         <header>
           <h2>Importar do LaunchBox</h2>
-          <button type="button" className="icon-button" onClick={() => setImporterOpen(false)}>×</button>
+          <button type="button" className="icon-button" onClick={() => setImporterOpen(false)} aria-label="Fechar">
+            <X aria-hidden="true" size={18} />
+          </button>
         </header>
         <div className="importer-search">
           <input value={importer.query} onChange={(event) => importer.setQuery(event.target.value)} placeholder="Buscar jogo" />
@@ -48,7 +51,7 @@ export function LaunchBoxImporter() {
             {importer.results.map((game) => (
               <button type="button" key={game.id} className={importer.selectedGame?.id === game.id ? "selected" : ""} onClick={() => importer.setSelectedGame(game)}>
                 <strong>{game.name}</strong>
-                <span>{game.platform} · {game.images.length} imagens</span>
+                <span>{game.platform} - {game.images.length} imagens</span>
               </button>
             ))}
           </div>

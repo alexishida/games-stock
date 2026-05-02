@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { RomFolderImportProgress, RomFolderImportResult } from "../../../shared/types";
 import "./NotificationCenter.css";
 
@@ -83,7 +84,11 @@ function NotificationCard({ item, onDismiss }: { item: NotificationItem; onDismi
     <article className={`notification-card ${item.status}`}>
       <div className="notification-title">
         <strong>{title}</strong>
-        {item.status !== "running" ? <button type="button" onClick={onDismiss}>x</button> : null}
+        {item.status !== "running" ? (
+          <button type="button" onClick={onDismiss} aria-label="Dispensar">
+            <X aria-hidden="true" size={14} />
+          </button>
+        ) : null}
       </div>
       <p>{item.progress.filename ?? `${item.folderCount || item.result?.folderPaths.length || 0} pasta(s)`}</p>
       {item.progress.imageFilename ? <span>{item.progress.imageFilename}</span> : null}

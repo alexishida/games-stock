@@ -106,8 +106,8 @@
   object-fit: cover;
 }
 
-.detail-cover-card .material-symbols-outlined {
-  font-size: 40px;
+.detail-cover-card svg {
+  color: var(--text-secondary);
 }
 
 .detail-title-block {
@@ -434,7 +434,7 @@
   display: grid;
   gap: 5px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--form-label-font-size);
   font-weight: 800;
 }
 
@@ -446,14 +446,14 @@
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
   padding: 8px;
-  font-size: 13px;
+  font-size: var(--form-control-font-size);
 }
 
 .game-form select {
   width: 100%;
   min-height: 34px;
   padding: 0 34px 0 10px;
-  font-size: 13px;
+  font-size: var(--form-control-font-size);
 }
 
 .game-form textarea {

@@ -1,3 +1,4 @@
+import { BookOpen, Gamepad2, ScanSearch } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";
 import "./Sidebar.css";
@@ -9,7 +10,7 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="brand-lockup">
         <div className="brand-mark">
-          <span className="material-symbols-outlined" aria-hidden="true">videogame_asset</span>
+          <Gamepad2 aria-hidden="true" size={22} />
         </div>
         <div>
           <strong>GameStock</strong>
@@ -18,17 +19,17 @@ export function Sidebar() {
       </div>
       <nav className="sidebar-nav" aria-label="Navegacao principal">
         <button type="button" className="nav-item active">
-          <span className="material-symbols-outlined" aria-hidden="true">library_books</span>
+          <BookOpen aria-hidden="true" size={18} />
           Biblioteca
         </button>
         <button type="button" className="nav-item">
-          <span className="material-symbols-outlined" aria-hidden="true">videogame_asset</span>
+          <Gamepad2 aria-hidden="true" size={18} />
           Inventario
         </button>
       </nav>
       <PlatformTree />
       <button type="button" className="scan-button" onClick={() => openSettings("biblioteca")}>
-        <span className="material-symbols-outlined" aria-hidden="true">manage_search</span>
+        <ScanSearch aria-hidden="true" size={18} />
         Gerenciar biblioteca
       </button>
     </aside>

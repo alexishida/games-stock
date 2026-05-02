@@ -18,7 +18,7 @@
   max-width: 480px;
 }
 
-.topbar-search span {
+.topbar-search svg {
   position: absolute;
   left: 10px;
   top: 50%;
@@ -35,7 +35,7 @@
   background: rgba(15, 23, 42, 0.48);
   color: var(--text-primary);
   padding: 0 12px 0 36px;
-  font-size: 13px;
+  font-size: var(--form-control-font-size);
 }
 
 .topbar-search input:focus {

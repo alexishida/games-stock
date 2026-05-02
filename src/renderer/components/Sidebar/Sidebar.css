@@ -31,8 +31,8 @@
   flex-shrink: 0;
 }
 
-.brand-mark .material-symbols-outlined {
-  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24;
+.brand-mark svg {
+  stroke-width: 2.4;
 }
 
 .brand-lockup strong,
@@ -130,7 +130,7 @@
   border-radius: 6px;
   background-color: rgba(255, 255, 255, 0.04);
   padding: 0 34px 0 10px;
-  font-size: 12px;
+  font-size: var(--form-control-font-size);
 }
 
 .platform-tree {

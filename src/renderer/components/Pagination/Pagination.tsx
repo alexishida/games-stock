@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import "./Pagination.css";
 
@@ -27,7 +28,7 @@ export function Pagination() {
           onClick={() => setCurrentPage(1)}
           aria-label="Primeira página"
         >
-          <span className="material-symbols-outlined">first_page</span>
+          <ChevronsLeft aria-hidden="true" size={18} />
         </button>
         <button
           type="button"
@@ -36,7 +37,7 @@ export function Pagination() {
           onClick={() => setCurrentPage(currentPage - 1)}
           aria-label="Página anterior"
         >
-          <span className="material-symbols-outlined">chevron_left</span>
+          <ChevronLeft aria-hidden="true" size={18} />
         </button>
         <span className="pagination-pages">
           {currentPage} / {totalPages}
@@ -48,7 +49,7 @@ export function Pagination() {
           onClick={() => setCurrentPage(currentPage + 1)}
           aria-label="Próxima página"
         >
-          <span className="material-symbols-outlined">chevron_right</span>
+          <ChevronRight aria-hidden="true" size={18} />
         </button>
         <button
           type="button"
@@ -57,7 +58,7 @@ export function Pagination() {
           onClick={() => setCurrentPage(totalPages)}
           aria-label="Última página"
         >
-          <span className="material-symbols-outlined">last_page</span>
+          <ChevronsRight aria-hidden="true" size={18} />
         </button>
       </div>
     </div>

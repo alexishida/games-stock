@@ -1,11 +1,12 @@
+import { FolderOpen, Gamepad2, X } from "lucide-react";
 import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
 import "./SettingsModal.css";
 
-const NAV_ITEMS: { id: SettingsSection; label: string; icon: string }[] = [
-  { id: "biblioteca", label: "Biblioteca", icon: "folder_open" },
-  { id: "plataformas", label: "Plataformas", icon: "videogame_asset" }
+const NAV_ITEMS: { id: SettingsSection; label: string; Icon: typeof FolderOpen }[] = [
+  { id: "biblioteca", label: "Biblioteca", Icon: FolderOpen },
+  { id: "plataformas", label: "Plataformas", Icon: Gamepad2 }
 ];
 
 const SECTION_TITLES: Record<SettingsSection, { eyebrow: string; title: string }> = {
@@ -26,17 +27,19 @@ export function SettingsModal() {
   return (
     <div className="modal-backdrop">
       <div className="settings-modal">
-        <button type="button" className="settings-close icon-button" onClick={() => setOpen(false)}>×</button>
+        <button type="button" className="settings-close icon-button" onClick={() => setOpen(false)} aria-label="Fechar">
+          <X aria-hidden="true" size={18} />
+        </button>
         <nav className="settings-nav">
           <p className="settings-nav-label">Configuracoes</p>
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.map(({ Icon, ...item }) => (
             <button
               key={item.id}
               type="button"
               className={`settings-nav-item ${section === item.id ? "active" : ""}`}
               onClick={() => setSection(item.id)}
             >
-              <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>
+              <Icon aria-hidden="true" size={18} />
               {item.label}
             </button>
           ))}

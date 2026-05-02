@@ -1,3 +1,4 @@
+import { ArrowUpDown, Grid2X2, List, Search } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import "./TopBar.css";
 
@@ -17,21 +18,21 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar-search">
-        <span className="material-symbols-outlined" aria-hidden="true">search</span>
+        <Search aria-hidden="true" size={18} />
         <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Buscar biblioteca" />
       </div>
       {!selectedGameId && (
         <>
           <nav className="topbar-menu" aria-label="Visualizacao da biblioteca">
             <button type="button" className="topbar-icon" title="Ordenar" onClick={() => setSortBy(nextSort)}>
-              <span className="material-symbols-outlined" aria-hidden="true">sort</span>
+              <ArrowUpDown aria-hidden="true" size={18} />
             </button>
             <div className="view-switch">
               <button type="button" className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")} title="Grade">
-                <span className="material-symbols-outlined" aria-hidden="true">grid_view</span>
+                <Grid2X2 aria-hidden="true" size={18} />
               </button>
               <button type="button" className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")} title="Lista">
-                <span className="material-symbols-outlined" aria-hidden="true">view_list</span>
+                <List aria-hidden="true" size={18} />
               </button>
             </div>
           </nav>

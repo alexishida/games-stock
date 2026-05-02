@@ -52,6 +52,6 @@
   cursor: default;
 }
 
-.pagination-btn .material-symbols-outlined {
-  font-size: 18px;
+.pagination-btn svg {
+  display: block;
 }

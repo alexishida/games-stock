@@ -17,6 +17,7 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.4.1",
+    "lucide-react": "^1.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-window": "^1.8.11",

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowLeft, Download, Gamepad2, Image, Monitor, Play, Star, Trash2, X } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
@@ -49,12 +50,12 @@ export function GameDetail() {
         {coverUrl ? <img className="detail-hero-bg" src={coverUrl} alt="" aria-hidden="true" /> : <div className="detail-hero-bg detail-hero-fallback" />}
         <div className="detail-hero-shade" />
         <button type="button" className="detail-back" onClick={() => setSelectedGameId(null)}>
-          <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+          <ArrowLeft aria-hidden="true" size={18} />
           Biblioteca
         </button>
         <div className="detail-hero-content">
           <div className="detail-cover-card">
-            {coverUrl ? <img src={coverUrl} alt="" /> : <span className="material-symbols-outlined" aria-hidden="true">videogame_asset</span>}
+            {coverUrl ? <img src={coverUrl} alt="" /> : <Gamepad2 aria-hidden="true" size={38} />}
           </div>
           <div className="detail-title-block">
             <div className="detail-chips" aria-label="Metadados principais">
@@ -75,15 +76,15 @@ export function GameDetail() {
             <p>{overview}</p>
             <div className="detail-primary-actions">
               <button type="button" className="detail-primary-button" disabled={!canOpenRom} onClick={() => game.rom_path && window.gameStockAPI.shell.openPath(game.rom_path)}>
-                <span className="material-symbols-outlined" aria-hidden="true">play_arrow</span>
+                <Play aria-hidden="true" size={18} />
                 Abrir ROM
               </button>
               <button type="button" className="detail-secondary-button" onClick={() => setImporterOpen(true)}>
-                <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                <Download aria-hidden="true" size={18} />
                 Metadados
               </button>
               <button type="button" className="detail-danger-button" onClick={deleteGame}>
-                <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                <Trash2 aria-hidden="true" size={18} />
                 Excluir
               </button>
             </div>
@@ -92,7 +93,7 @@ export function GameDetail() {
           <section className="detail-stats-grid" aria-label="Resumo da colecao">
             <div className="detail-panel detail-stat-card">
               <div className="detail-card-label">
-                <span className="material-symbols-outlined" aria-hidden="true">stars</span>
+                <Star aria-hidden="true" size={18} />
                 Colecao
               </div>
               <strong>{game.favorite ? "Favorito" : "Padrao"}</strong>
@@ -137,7 +138,7 @@ export function GameDetail() {
               >
                 {screenshotUrl
                   ? <img src={screenshotUrl} alt="Screenshot" />
-                  : <span className="material-symbols-outlined" aria-hidden="true">screenshot_monitor</span>}
+                  : <Monitor aria-hidden="true" size={24} />}
                 <span className="detail-gallery-label">Screenshot</span>
               </button>
               <button
@@ -149,7 +150,7 @@ export function GameDetail() {
               >
                 {coverUrl
                   ? <img src={coverUrl} alt="Box Art" />
-                  : <span className="material-symbols-outlined" aria-hidden="true">image</span>}
+                  : <Image aria-hidden="true" size={24} />}
                 <span className="detail-gallery-label">Box Art</span>
               </button>
               <button
@@ -161,7 +162,7 @@ export function GameDetail() {
               >
                 {backgroundUrl
                   ? <img src={backgroundUrl} alt="Background" />
-                  : <span className="material-symbols-outlined" aria-hidden="true">wallpaper</span>}
+                  : <Image aria-hidden="true" size={24} />}
                 <span className="detail-gallery-label">Background</span>
               </button>
             </div>
@@ -170,7 +171,7 @@ export function GameDetail() {
           {lightboxUrl && (
             <div className="detail-lightbox" onClick={() => setLightboxUrl(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
               <button type="button" className="detail-lightbox-close" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
-                <span className="material-symbols-outlined">close</span>
+                <X aria-hidden="true" size={20} />
               </button>
               <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
             </div>

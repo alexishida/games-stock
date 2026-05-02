@@ -1,3 +1,4 @@
+import { Gamepad2 } from "lucide-react";
 import { Game } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -14,7 +15,7 @@ export function GameListRow({ game }: { game: Game }) {
       onClick={() => setSelectedGameId(game.id)}
     >
       <span className="thumb">
-        {coverUrl ? <img src={coverUrl} alt="" loading="lazy" decoding="async" draggable={false} /> : <span className="material-symbols-outlined" aria-hidden="true">videogame_asset</span>}
+        {coverUrl ? <img src={coverUrl} alt="" loading="lazy" decoding="async" draggable={false} /> : <Gamepad2 aria-hidden="true" size={22} />}
       </span>
       <span>{game.title}</span>
       <span>{game.platform_name}</span>

@@ -107,7 +107,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: var(--form-control-font-size);
 }
 
 .progress-track {

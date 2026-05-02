@@ -11,6 +11,8 @@
   --text-secondary: #b9cacb;
   --text-muted: #849495;
   --border: rgba(132, 148, 149, 0.22);
+  --form-control-font-size: 13px;
+  --form-label-font-size: 11px;
   font-family: Inter, Segoe UI, Arial, sans-serif;
 }
 
@@ -45,21 +47,9 @@ body::-webkit-scrollbar-thumb,
   background: #353534;
 }
 
-.material-symbols-outlined {
-  display: inline-block;
-  direction: ltr;
-  font-family: "Material Symbols Outlined";
-  font-feature-settings: "liga";
-  -webkit-font-feature-settings: "liga";
-  -webkit-font-smoothing: antialiased;
-  font-size: 18px;
-  font-style: normal;
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
-  font-weight: normal;
-  letter-spacing: 0;
-  line-height: 1;
-  text-transform: none;
-  white-space: nowrap;
+.lucide {
+  flex-shrink: 0;
+  stroke-width: 2;
 }
 
 button,
@@ -67,6 +57,12 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+input,
+select,
+textarea {
+  font-size: var(--form-control-font-size);
 }
 
 select {
@@ -199,7 +195,7 @@ button {
 
 .sort-control select {
   min-height: 30px;
-  font-size: 12px;
+  font-size: var(--form-control-font-size);
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -237,7 +233,7 @@ button {
   padding: 6px 10px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--form-control-font-size);
 }
 
 .text-button.active,
@@ -289,7 +285,7 @@ button {
   display: grid;
   gap: 5px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--form-label-font-size);
   font-weight: 800;
 }
 

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { GameCreateInput } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 
@@ -63,7 +64,9 @@ export function ManualGameModal() {
       <section className="management-modal">
         <header>
           <h2>Novo jogo</h2>
-          <button type="button" className="icon-button" onClick={() => setOpen(false)}>x</button>
+          <button type="button" className="icon-button" onClick={() => setOpen(false)} aria-label="Fechar">
+            <X aria-hidden="true" size={18} />
+          </button>
         </header>
         <form className="management-form" onSubmit={save}>
           <label>Titulo<input value={draft.title ?? ""} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>

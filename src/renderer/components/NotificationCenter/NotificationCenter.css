@@ -61,10 +61,15 @@
 }
 
 .notification-title button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
   border: 0;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
+  padding: 0;
 }
 
 .notification-card p,

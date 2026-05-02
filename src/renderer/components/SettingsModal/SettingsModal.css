@@ -67,27 +67,30 @@
   color: var(--accent);
 }
 
-.settings-nav-item .material-symbols-outlined {
-  font-size: 17px;
+.settings-nav-item svg {
+  display: block;
 }
 
 .settings-content {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  padding: 20px;
-  gap: 16px;
+  padding: 20px 24px 20px;
+  gap: 20px;
 }
 
 .settings-header {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  align-content: start;
 }
 
 .settings-header h2 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .settings-body {

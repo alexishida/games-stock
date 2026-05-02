@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Platform } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 
@@ -62,7 +63,7 @@ export function PlatformManager() {
               <span>{platform.category} - {platform.gameCount ?? 0} jogos</span>
             </button>
             <button type="button" className="icon-button" title="Remover" onClick={() => remove(platform)}>
-              <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+              <Trash2 aria-hidden="true" size={16} />
             </button>
           </div>
         ))}
