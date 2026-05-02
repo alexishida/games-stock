@@ -140,6 +140,13 @@ export interface RomFolderImportCandidate {
   platformName: string;
 }
 
+export interface RomFolderIgnoredItem {
+  folderPath: string;
+  romPath: string;
+  filename: string;
+  reason: string;
+}
+
 export interface RomFolderScanRequest {
   folderPaths: string[];
   romFilePaths?: string[];
@@ -153,6 +160,7 @@ export interface RomFolderScanResult {
   platformName: string;
   candidates: RomFolderImportCandidate[];
   ignored: number;
+  ignoredItems: RomFolderIgnoredItem[];
 }
 
 export interface RomFolderMatchedCandidate extends RomFolderImportCandidate {

@@ -366,6 +366,19 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   padding: 10px 12px;
+  color: inherit;
+  text-align: left;
+}
+
+.review-metric:not(:disabled):hover,
+.review-metric.selected {
+  border-color: rgba(0, 242, 255, 0.5);
+  background: var(--accent-soft);
+}
+
+.review-metric:disabled {
+  cursor: default;
+  opacity: 0.55;
 }
 
 .review-metric strong {
@@ -407,20 +420,27 @@
 
 .candidate-row {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   border-bottom: 1px solid var(--border);
-  padding: 10px 12px;
+  padding: 7px 10px;
+}
+
+.candidate-row strong {
+  font-size: 14px;
+  line-height: 1.2;
 }
 
 .candidate-filename {
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .candidate-path {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.2;
   opacity: 0.55;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -438,6 +458,10 @@
 .candidate-row.unmatched,
 .candidate-row.failed {
   border-left: 3px solid #f97316;
+}
+
+.candidate-row.ignored {
+  border-left: 3px solid rgba(248, 113, 113, 0.75);
 }
 
 .progress-step {
@@ -528,20 +552,31 @@
   width: min(520px, calc(100vw - 48px));
   max-height: calc(100% - 48px);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
-  cursor: grab;
+  cursor: default;
   touch-action: none;
   transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
   user-select: none;
+}
+
+.add-folder-dialog.review {
+  width: min(620px, calc(100vw - 48px));
+  height: min(680px, calc(100vh - 48px));
 }
 
 .add-folder-dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  cursor: grab;
   margin-bottom: calc(var(--modal-title-gap) - 16px);
 }
 
 .add-folder-dialog button,
+.add-folder-dialog [role="button"] {
+  cursor: pointer;
+  user-select: auto;
+}
+
 .add-folder-dialog input,
 .add-folder-dialog label,
 .add-folder-dialog select,
@@ -580,6 +615,20 @@
 
 .add-folder-dialog-body .candidate-list {
   max-height: 220px;
+}
+
+.add-folder-dialog.review .add-folder-dialog-body {
+  flex: 1;
+}
+
+.add-folder-dialog.review .candidate-list {
+  flex: 1;
+  max-height: none;
+  cursor: default;
+}
+
+.add-folder-dialog.review .candidate-row {
+  cursor: default;
 }
 
 .add-folder-dialog-footer {

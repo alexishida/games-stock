@@ -14,6 +14,7 @@ import {
   RomFolderImportProgress,
   RomFolderImportRequest,
   RomFolderImportResult,
+  RomFolderIgnoredItem,
   RomFolderMatchedCandidate,
   RomFolderScanRequest,
   RomFolderScanResult
@@ -59,7 +60,7 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
   const platform = requirePlatform(request.platformId);
   const folderPaths = request.folderPaths.map((folderPath) => path.resolve(folderPath));
   const romFilePaths = (request.romFilePaths ?? []).map((filePath) => path.resolve(filePath));
-  let ignored = 0;
+  const ignoredItems: RomFolderIgnoredItem[] = [];
 
   const folderCandidates = folderPaths.flatMap((folderPath) => {
     const entries = fs.readdirSync(folderPath, { withFileTypes: true });
@@ -67,7 +68,12 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
       if (!entry.isFile()) return [];
       const ext = path.extname(entry.name).toLowerCase();
       if (!SUPPORTED_ROM_EXTENSIONS.includes(ext)) {
-        ignored += 1;
+        ignoredItems.push({
+          folderPath,
+          romPath: path.join(folderPath, entry.name),
+          filename: entry.name,
+          reason: ext ? `Extensao ${ext} nao suportada` : "Arquivo sem extensao suportada"
+        });
         return [];
       }
 
@@ -85,7 +91,12 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
   const fileCandidates = romFilePaths.flatMap((romPath): RomFolderImportCandidate[] => {
     const ext = path.extname(romPath).toLowerCase();
     if (!SUPPORTED_ROM_EXTENSIONS.includes(ext)) {
-      ignored += 1;
+      ignoredItems.push({
+        folderPath: path.dirname(romPath),
+        romPath,
+        filename: path.basename(romPath),
+        reason: ext ? `Extensao ${ext} nao suportada` : "Arquivo sem extensao suportada"
+      });
       return [];
     }
 
@@ -99,7 +110,15 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
     }];
   });
 
-  return { folderPaths, romFilePaths, platformId: platform.id, platformName: platform.name, candidates: [...folderCandidates, ...fileCandidates], ignored };
+  return {
+    folderPaths,
+    romFilePaths,
+    platformId: platform.id,
+    platformName: platform.name,
+    candidates: [...folderCandidates, ...fileCandidates],
+    ignored: ignoredItems.length,
+    ignoredItems
+  };
 }
 
 export async function importRomFolder(request: RomFolderImportRequest, onProgress?: ProgressCallback): Promise<RomFolderImportResult> {

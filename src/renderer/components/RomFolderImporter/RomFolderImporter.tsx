@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
@@ -127,6 +127,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const [folderPath, setFolderPath] = useState("");
   const [platformId, setPlatformId] = useState<number | "">(loadSavedPlatformId);
   const [scan, setScan] = useState<RomFolderScanResult | null>(null);
+  const [reviewView, setReviewView] = useState<"candidates" | "ignored">("candidates");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
@@ -186,6 +187,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
     try {
       const nextScan = await window.gameStockAPI.romFolderImport.scan({ folderPaths: [folderPath], platformId });
       setScan(nextScan);
+      setReviewView("candidates");
       savePlatformId(platformId);
       setStep("review");
     } catch (err) {
@@ -217,7 +219,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   return (
     <div
       ref={dialogRef}
-      className="add-folder-dialog"
+      className={`add-folder-dialog ${step === "review" ? "review" : ""}`}
       style={{ "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties}
       onPointerDown={startDialogDrag}
       onPointerMove={dragDialog}
@@ -263,25 +265,43 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
           <div className="review-header">
             <p className="eyebrow">{scan.platformName}</p>
             <div className="review-metrics">
-              <div className="review-metric">
+              <button
+                type="button"
+                className={`review-metric ${reviewView === "candidates" ? "selected" : ""}`}
+                onClick={() => setReviewView("candidates")}
+              >
                 <strong>{scan.candidates.length}</strong>
                 <span>ROMs encontradas</span>
-              </div>
-              <div className="review-metric">
+              </button>
+              <button
+                type="button"
+                className={`review-metric ${reviewView === "ignored" ? "selected" : ""}`}
+                onClick={() => setReviewView("ignored")}
+                disabled={!scan.ignoredItems.length}
+              >
                 <strong>{scan.ignored}</strong>
                 <span>Ignorados</span>
-              </div>
+              </button>
             </div>
           </div>
-          {!scan.candidates.length ? <div className="folder-table-empty">Nenhuma ROM suportada encontrada nessa pasta.</div> : null}
+          {reviewView === "candidates" && !scan.candidates.length ? <div className="folder-table-empty">Nenhuma ROM suportada encontrada nessa pasta.</div> : null}
+          {reviewView === "ignored" && !scan.ignoredItems.length ? <div className="folder-table-empty">Nenhum arquivo ignorado nessa pasta.</div> : null}
           <div className="candidate-list">
-            {scan.candidates.map((candidate) => (
-              <div key={candidate.romPath} className="candidate-row">
-                <strong>{candidate.titleCandidate}</strong>
-                <span className="candidate-filename">{candidate.filename}</span>
-                <span className="candidate-path">{candidate.folderPath}</span>
-              </div>
-            ))}
+            {reviewView === "candidates"
+              ? scan.candidates.map((candidate) => (
+                <div key={candidate.romPath} className="candidate-row">
+                  <strong>{candidate.titleCandidate}</strong>
+                  <span className="candidate-filename">{candidate.filename}</span>
+                  <span className="candidate-path">{candidate.folderPath}</span>
+                </div>
+              ))
+              : scan.ignoredItems.map((item) => (
+                <div key={item.romPath} className="candidate-row ignored">
+                  <strong>{item.filename}</strong>
+                  <span className="candidate-filename">{item.reason}</span>
+                  <span className="candidate-path">{item.folderPath}</span>
+                </div>
+              ))}
           </div>
         </div>
       ) : null}
@@ -300,8 +320,14 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
           </>
         ) : (
           <>
-            <button type="button" className="text-button" onClick={() => setStep("configure")} disabled={busy}>Voltar</button>
-            <button type="button" className="text-button active" onClick={startImport} disabled={busy || !scan?.candidates.length}>Iniciar em background</button>
+            <button type="button" className="text-button import-action-button" onClick={() => setStep("configure")} disabled={busy}>
+              <ArrowLeft aria-hidden="true" size={18} />
+              Voltar
+            </button>
+            <button type="button" className="text-button active import-action-button" onClick={startImport} disabled={busy || !scan?.candidates.length}>
+              <Save aria-hidden="true" size={18} />
+              Salvar
+            </button>
           </>
         )}
       </footer>
