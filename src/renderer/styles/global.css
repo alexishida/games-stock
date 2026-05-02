@@ -344,15 +344,17 @@ button {
 
 .management-form {
   display: grid;
-  gap: 10px;
+  gap: 16px;
 }
 
 .management-form label {
   display: grid;
-  gap: 5px;
+  gap: 8px;
   color: var(--text-secondary);
   font-size: var(--form-label-font-size);
   font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .management-form input,
@@ -488,17 +490,7 @@ button {
   margin-top: 4px;
 }
 
-.platform-form-modal .management-form {
-  gap: 16px;
-}
-
-.platform-form-modal .management-form label {
-  gap: 8px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.platform-form-action {
+.form-action-button {
   min-width: 94px;
 }
 

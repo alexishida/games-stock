@@ -61,11 +61,11 @@ function PlatformFormModal({ mode, onClose }: { mode: ModalMode; onClose: () => 
           </label>
           {error && <p className="form-error">{error}</p>}
           <footer>
-            <button type="button" className="text-button danger platform-form-action" onClick={onClose} disabled={saving}>
+            <button type="button" className="text-button danger form-action-button" onClick={onClose} disabled={saving}>
               <X size={14} aria-hidden="true" />
               Cancelar
             </button>
-            <button type="submit" className="text-button active platform-form-action" disabled={saving || !name.trim()}>
+            <button type="submit" className="text-button active form-action-button" disabled={saving || !name.trim()}>
               <Save size={14} aria-hidden="true" />
               {saving ? "Salvando…" : "Salvar"}
             </button>

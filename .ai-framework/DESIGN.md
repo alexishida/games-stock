@@ -175,6 +175,14 @@ A linguagem de formas deste sistema de design é consistentemente **Arredondada*
 - **Sidebars de vidro:** Links de navegação usam um indicador sutil de "borda esquerda" em ciano primário quando ativos, acompanhado por um destaque suave de fundo.
 - **Barras de progresso:** Barras finas, com 4px de altura, usando a cor primária para conclusão sobre uma trilha slate escura.
 
+### Padrão: formulários em modal
+
+Formulários em modais devem usar `management-form` como base visual. Labels ficam sempre em caixa alta, peso 800, tamanho `form-label`, `letter-spacing: 0.05em` e `gap: 8px` ate o campo.
+
+Grupos de campos usam `gap: 16px`. Rodapés de modal ficam alinhados à direita, com espaçamento consistente entre ações.
+
+Botões de ação em formulários devem usar ícones `lucide-react` junto do texto. Ação primária usa `.text-button.active`; cancelar ou ação negativa usa `.text-button.danger`. Para botões de rodapé, usar `.form-action-button` para largura mínima consistente.
+
 ### Padrão: botões de fechar modal
 
 Todo botão de fechar modal deve usar `icon-button` com ícone `X` do `lucide-react`, tamanho 26px, sem padding e SVG centralizado. O botão inteiro deve ser vermelho, não apenas o ícone: borda `rgba(248, 113, 113, 0.55)`, fundo `rgba(127, 29, 29, 0.38)` e cor `#fecaca`. No hover, intensificar para borda `rgba(248, 113, 113, 0.8)`, fundo `rgba(185, 28, 28, 0.58)` e cor `#fff1f2`.
