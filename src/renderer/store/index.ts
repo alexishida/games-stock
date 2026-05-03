@@ -70,7 +70,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
-  setCollectionFilter: (collectionFilter) => set({ collectionFilter, selectedPlatformId: null, currentPage: 1 }),
+  setCollectionFilter: (collectionFilter) => set({ collectionFilter, selectedPlatformId: null, currentPage: 1, selectedGameId: null }),
   setSortBy: (sortBy) => set({ sortBy, currentPage: 1 }),
   setCurrentPage: (currentPage) => set({ currentPage }),
   setGames: ({ items, total, filtered }) => set({ games: items, total, filtered }),
