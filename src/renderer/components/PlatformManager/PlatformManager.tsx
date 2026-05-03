@@ -121,14 +121,16 @@ export function PlatformManager() {
               >
                 <Pencil size={14} aria-hidden="true" />
               </button>
-              <button
-                type="button"
-                className="icon-button danger"
-                title="Remover"
-                onClick={() => remove(platform)}
-              >
-                <Trash2 size={14} aria-hidden="true" />
-              </button>
+              {!platform.is_default && (
+                <button
+                  type="button"
+                  className="icon-button danger"
+                  title="Remover"
+                  onClick={() => remove(platform)}
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </button>
+              )}
             </div>
           </div>
         ))}

@@ -13,7 +13,7 @@ export class PlatformDao {
         FROM platforms
         LEFT JOIN games ON games.platform_id = platforms.id
         GROUP BY platforms.id
-        ORDER BY platforms.category COLLATE NOCASE, platforms.name COLLATE NOCASE
+        ORDER BY platforms.name COLLATE NOCASE
       `)
       .all() as Platform[];
   }
@@ -46,6 +46,9 @@ export class PlatformDao {
   }
 
   delete(id: number): { success: true } {
+    const platform = this.database.prepare("SELECT is_default FROM platforms WHERE id = ?").get(id) as { is_default: number } | undefined;
+    if (!platform) throw new Error("Plataforma nao encontrada");
+    if (platform.is_default) throw new Error("Nao e possivel remover plataformas padrao");
     const count = this.database.prepare("SELECT COUNT(*) as count FROM games WHERE platform_id = ?").get(id) as { count: number };
     if (count.count > 0) throw new Error("Nao e possivel remover plataforma com jogos associados");
     this.database.prepare("DELETE FROM platforms WHERE id = ?").run(id);

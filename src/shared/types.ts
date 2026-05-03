@@ -31,6 +31,7 @@ export interface Platform {
   id: number;
   name: string;
   category: string;
+  is_default: number;
   created_at: string;
   gameCount?: number;
 }
