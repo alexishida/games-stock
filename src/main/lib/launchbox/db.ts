@@ -1,15 +1,13 @@
-import AdmZip from "adm-zip";
 import fs from "node:fs";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { parseStringPromise } from "xml2js";
-import { LaunchBoxGame, LaunchBoxProgress } from "../../../shared/types";
+import { Worker } from "node:worker_threads";
+import type { LaunchBoxGame, LaunchBoxProgress } from "../../../shared/types";
 import { CACHE_AGE_H, getIndexFile, getLaunchBoxCacheDir, getMetadataFile, METADATA_URL } from "./config";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;
-type XmlNode = Record<string, unknown>;
 
 let memoryIndex: Record<string, LaunchBoxGame> | null = null;
 
@@ -36,13 +34,8 @@ export async function ensureMetadata(force = false, onProgress?: ProgressCallbac
 
   await pipeline(body, dest);
 
-  const zip = new AdmZip(zipPath);
-  const entry = zip.getEntries().find((candidate) => candidate.entryName.endsWith(".xml"));
-  if (!entry) throw new Error("Metadata.xml nao encontrado no ZIP");
-  zip.extractEntryTo(entry, cacheDir, false, true);
+  await runExtractWorker(zipPath, cacheDir, metadataFile);
 
-  const extracted = path.join(cacheDir, path.basename(entry.entryName));
-  if (extracted !== metadataFile) fs.renameSync(extracted, metadataFile);
   fs.rmSync(zipPath, { force: true });
   fs.rmSync(getIndexFile(), { force: true });
   memoryIndex = null;
@@ -66,44 +59,8 @@ export async function buildIndex(onProgress?: ProgressCallback): Promise<Record<
     }
   }
 
-  const xml = fs.readFileSync(metadataFile, "utf8");
-  const root = await parseStringPromise(xml, { explicitArray: true, trim: true });
-  const top = (root.LaunchBox ?? root.Root ?? Object.values(root)[0]) as { Game?: XmlNode[]; GameImage?: XmlNode[] };
-  const index: Record<string, LaunchBoxGame> = {};
-
-  for (const game of top.Game ?? []) {
-    const id = txt(game.DatabaseID);
-    if (!id) continue;
-    index[id] = {
-      id,
-      name: txt(game.Name),
-      platform: txt(game.Platform),
-      release: txt(game.ReleaseDate).slice(0, 10),
-      developer: txt(game.Developer),
-      publisher: txt(game.Publisher),
-      genres: txt(game.Genres),
-      overview: txt(game.Overview),
-      players: txt(game.MaxPlayers),
-      rating: txt(game.ESRB),
-      cooperative: txt(game.Cooperative),
-      images: []
-    };
-  }
-
-  for (const image of top.GameImage ?? []) {
-    const id = txt(image.DatabaseID);
-    const target = index[id];
-    if (!target) continue;
-    target.images.push({
-      filename: txt(image.FileName),
-      type: txt(image.Type) as LaunchBoxGame["images"][number]["type"],
-      region: txt(image.Region) || null
-    });
-  }
-
-  fs.writeFileSync(indexFile, JSON.stringify(index), "utf8");
-  memoryIndex = index;
-  return index;
+  memoryIndex = await runIndexWorker(metadataFile, indexFile);
+  return memoryIndex;
 }
 
 export function getMetadataDownloadedAt(): string | null {
@@ -118,9 +75,32 @@ function needsUpdate(filePath: string): boolean {
   return ageMs > CACHE_AGE_H * 3_600_000;
 }
 
-function txt(node: unknown): string {
-  if (!node) return "";
-  if (typeof node === "string") return node.trim();
-  if (Array.isArray(node)) return String(node[0] ?? "").trim();
-  return "";
+function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const workerPath = path.join(__dirname, "extract-worker.js");
+    const worker = new Worker(workerPath, { workerData: { zipPath, cacheDir, metadataFile } });
+    worker.on("message", (result: { ok?: boolean; error?: string }) => {
+      if (result.error) reject(new Error(result.error));
+      else resolve();
+    });
+    worker.on("error", reject);
+    worker.on("exit", (code) => {
+      if (code !== 0) reject(new Error(`Extract worker saiu com codigo ${code}`));
+    });
+  });
+}
+
+function runIndexWorker(metadataFile: string, indexFile: string): Promise<Record<string, LaunchBoxGame>> {
+  return new Promise((resolve, reject) => {
+    const workerPath = path.join(__dirname, "index-worker.js");
+    const worker = new Worker(workerPath, { workerData: { metadataFile, indexFile } });
+    worker.on("message", (result: Record<string, LaunchBoxGame> | { error: string }) => {
+      if ("error" in result) reject(new Error((result as { error: string }).error));
+      else resolve(result as Record<string, LaunchBoxGame>);
+    });
+    worker.on("error", reject);
+    worker.on("exit", (code) => {
+      if (code !== 0) reject(new Error(`Index worker saiu com codigo ${code}`));
+    });
+  });
 }
