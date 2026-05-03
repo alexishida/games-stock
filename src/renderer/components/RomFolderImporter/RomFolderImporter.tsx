@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
@@ -37,8 +37,8 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
     setAddFolderOpen(false);
   }
 
-  function requestDeleteSelectedFolder(): void {
-    if (!selectedFolderPath) return;
+  function requestDeleteFolder(folderPath: string): void {
+    setSelectedFolderPath(folderPath);
     setConfirmDelete(true);
   }
 
@@ -89,7 +89,7 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
         busy={busy}
         onSelectFolder={setSelectedFolderPath}
         onAddFolder={() => setAddFolderOpen(true)}
-        onDeleteFolder={requestDeleteSelectedFolder}
+        onDeleteFolder={requestDeleteFolder}
         onContinueDownload={continueSelectedDownload}
       />
 
@@ -104,13 +104,23 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
       ) : null}
 
       {confirmDelete ? (
-        <div className="panel-confirm-overlay">
+        <div className="panel-confirm-overlay delete-confirm-overlay">
           <div className="confirm-dialog">
-            <p>Remover a pasta e todos os jogos importados dela?</p>
+            <div className="confirm-dialog-title">
+              <AlertTriangle aria-hidden="true" size={22} />
+              <p>Remover pasta da biblioteca?</p>
+            </div>
+            <p className="confirm-message">Esta acao remove a pasta e todos os jogos importados dela. Os arquivos originais continuam no disco.</p>
             <p className="confirm-path">{selectedFolderPath}</p>
             <div className="confirm-actions">
-              <button type="button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
-              <button type="button" className="danger" onClick={confirmDeleteSelectedFolder}>Remover</button>
+              <button type="button" onClick={() => setConfirmDelete(false)}>
+                <X aria-hidden="true" size={16} />
+                Cancelar
+              </button>
+              <button type="button" className="danger" onClick={confirmDeleteSelectedFolder}>
+                <Trash2 aria-hidden="true" size={16} />
+                Remover
+              </button>
             </div>
           </div>
         </div>
@@ -350,7 +360,7 @@ function SummaryStep({
   busy: boolean;
   onSelectFolder(folderPath: string): void;
   onAddFolder(): void;
-  onDeleteFolder(): void;
+  onDeleteFolder(folderPath: string): void;
   onContinueDownload(): void;
 }) {
   return (
@@ -359,13 +369,13 @@ function SummaryStep({
         <SectionIntro title="Pastas em uso" description="Pastas ja configuradas para importacao, com a plataforma associada e o total de jogos indexados." />
         <div className="folder-table" role="table" aria-label="Pastas em uso">
           <div className="folder-table-row header" role="row">
-            <span role="columnheader">Pasta em uso</span>
+            <span role="columnheader">Pasta</span>
             <span role="columnheader">Plataforma</span>
-            <span role="columnheader">Jogos indexados</span>
+            <span role="columnheader">Jogos</span>
+            <span className="folder-table-action-header" role="columnheader" aria-label="Acao" />
           </div>
           {entries.length ? entries.map((entry) => (
-            <button
-              type="button"
+            <div
               key={entry.folderPath}
               className={`folder-table-row ${entry.folderPath === selectedFolderPath ? "selected" : ""}`}
               onClick={() => onSelectFolder(entry.folderPath)}
@@ -374,7 +384,21 @@ function SummaryStep({
               <span role="cell">{entry.folderPath}</span>
               <span role="cell">{entry.platformName}</span>
               <span role="cell">{entry.indexedCount}</span>
-            </button>
+              <div className="folder-table-action-cell" role="cell">
+                <button
+                  type="button"
+                  className="folder-table-delete"
+                  aria-label={`Deletar pasta ${entry.folderPath}`}
+                  disabled={busy}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteFolder(entry.folderPath);
+                  }}
+                >
+                  <Trash2 aria-hidden="true" size={16} />
+                </button>
+              </div>
+            </div>
           )) : <div className="folder-table-empty">Nenhuma pasta configurada.</div>}
         </div>
       </section>
@@ -385,10 +409,6 @@ function SummaryStep({
             <button type="button" className="text-button active import-action-button" onClick={onAddFolder} disabled={busy}>
               <FolderPlus aria-hidden="true" size={18} />
               Adicionar Pasta
-            </button>
-            <button type="button" className="text-button danger import-action-button" onClick={onDeleteFolder} disabled={busy || !selectedFolderPath}>
-              <Trash2 aria-hidden="true" size={18} />
-              Deletar Pasta
             </button>
           </div>
           <button type="button" className="text-button active import-action-button" onClick={onContinueDownload} disabled={busy || !selectedFolderPath}>

@@ -267,12 +267,14 @@
 
 .folder-table-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(140px, 0.6fr) minmax(120px, 0.4fr);
+  grid-template-columns: minmax(0, 1fr) 130px 72px 44px;
   width: 100%;
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: transparent;
   color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
   padding: 0;
   text-align: left;
 }
@@ -283,10 +285,10 @@
   z-index: 1;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  font-size: 11px;
+  cursor: default;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .folder-table-row:not(.header):hover,
@@ -299,6 +301,48 @@
   padding: 10px 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.folder-table-action-header {
+  padding: 10px 8px;
+}
+
+.folder-table-action-cell {
+  display: grid;
+  min-width: 0;
+  padding: 6px;
+  place-items: center;
+}
+
+.folder-table-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(248, 113, 113, 0.55);
+  border-radius: 6px;
+  background: rgba(127, 29, 29, 0.38);
+  color: #fecaca;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.folder-table-delete svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.folder-table-delete:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.8);
+  background: rgba(185, 28, 28, 0.58);
+  color: #fff1f2;
+}
+
+.folder-table-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .folder-table-empty {
@@ -475,6 +519,13 @@
 .panel-confirm-overlay.draggable-overlay {
   position: fixed;
   z-index: 1000;
+  background: transparent;
+  border-radius: 0;
+}
+
+.panel-confirm-overlay.delete-confirm-overlay {
+  position: fixed;
+  z-index: 1100;
   border-radius: 0;
 }
 
@@ -483,21 +534,43 @@
   border-radius: 12px;
   background: var(--bg-panel);
   padding: 24px;
-  width: min(400px, calc(100vw - 48px));
+  width: min(480px, calc(100vw - 48px));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .confirm-dialog p {
   margin: 0;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.confirm-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fecaca;
+}
+
+.confirm-dialog-title svg {
+  flex-shrink: 0;
+}
+
+.confirm-dialog-title p {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.confirm-message {
+  color: var(--text-primary);
 }
 
 .confirm-path {
   color: var(--text-secondary) !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
   word-break: break-all;
 }
 
@@ -509,6 +582,10 @@
 }
 
 .confirm-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   height: 30px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -517,6 +594,10 @@
   padding: 0 16px;
   font-size: var(--form-control-font-size);
   cursor: pointer;
+}
+
+.confirm-actions button svg {
+  flex-shrink: 0;
 }
 
 .confirm-actions button.danger {
