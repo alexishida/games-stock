@@ -33,7 +33,7 @@ function loadBounds(): Electron.Rectangle {
   try {
     return JSON.parse(fs.readFileSync(getBoundsFile(), "utf8")) as Electron.Rectangle;
   } catch {
-    return { width: 1280, height: 800, x: undefined as never, y: undefined as never };
+    return { width: 1225, height: 818, x: undefined as never, y: undefined as never };
   }
 }
 
