@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -252,7 +252,7 @@ export function GameDetail() {
       </div>
 
       {lightboxItem && (
-        <div className="detail-lightbox" onClick={() => setLightboxIndex(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
+        <div className="detail-lightbox" role="dialog" aria-modal="true" aria-label="Visualizar imagem">
           <button type="button" className="detail-lightbox-download text-button" onClick={downloadLightboxImage} aria-label="Salvar imagem" title="Salvar imagem">
             <Download aria-hidden="true" size={18} />
             Salvar
