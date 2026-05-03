@@ -16,6 +16,29 @@
   margin-top: 4px;
 }
 
+.draggable-emulator-modal {
+  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
+  user-select: none;
+}
+
+.draggable-emulator-modal header {
+  cursor: grab;
+}
+
+.draggable-emulator-modal button,
+.draggable-emulator-modal [role="button"] {
+  cursor: pointer;
+  user-select: auto;
+}
+
+.draggable-emulator-modal input,
+.draggable-emulator-modal label,
+.draggable-emulator-modal select,
+.draggable-emulator-modal textarea {
+  cursor: auto;
+  user-select: auto;
+}
+
 .emulator-exe-row {
   display: flex;
   gap: 6px;
@@ -36,17 +59,20 @@
   letter-spacing: 0;
 }
 
-.emulator-checkbox-label {
+.management-form label.emulator-checkbox-label {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-direction: row !important;
   font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-primary);
   cursor: pointer;
 }
 
-.emulator-checkbox-label input[type="checkbox"] {
+.management-form label.emulator-checkbox-label input[type="checkbox"] {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
@@ -145,7 +171,219 @@
   background: rgba(0, 220, 230, 0.06);
 }
 
+.emulator-core-config-button {
+  height: 26px;
+  padding: 0 9px;
+  color: var(--accent);
+}
+
 .icon-button.active {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.emulator-secondary-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.retroarch-core-dialog {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 14px;
+  width: min(760px, calc(100vw - 56px));
+  height: min(620px, calc(100vh - 56px));
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-modal);
+  padding: 18px;
+  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
+  user-select: none;
+}
+
+.retroarch-core-dialog button,
+.retroarch-core-dialog [role="button"] {
+  cursor: pointer;
+  user-select: auto;
+}
+
+.retroarch-core-dialog input,
+.retroarch-core-dialog label,
+.retroarch-core-dialog select,
+.retroarch-core-dialog textarea {
+  cursor: auto;
+  user-select: auto;
+}
+
+.retroarch-core-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: grab;
+}
+
+.retroarch-core-dialog-header h3,
+.retroarch-core-dialog-header p {
+  margin: 0;
+}
+
+.retroarch-core-dialog-header h3 {
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.retroarch-core-dialog-header p {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.retroarch-core-toolbar label {
+  display: grid;
+  gap: 8px;
+  width: min(360px, 100%);
+  color: var(--text-secondary);
+  font-size: var(--form-label-font-size);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.retroarch-core-toolbar input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-size: var(--form-control-font-size);
+}
+
+.retroarch-core-toolbar input:focus-visible {
+  outline: 0;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.18);
+}
+
+.retroarch-core-list {
+  display: grid;
+  align-content: start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.retroarch-core-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.retroarch-core-row:last-child {
+  border-bottom: 0;
+}
+
+.retroarch-core-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.retroarch-core-info strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.retroarch-core-info span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.retroarch-core-current {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.retroarch-core-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px auto;
+  gap: 6px;
+  align-items: end;
+}
+
+.retroarch-core-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: var(--form-label-font-size);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.retroarch-core-field span {
+  line-height: 1;
+}
+
+.retroarch-core-controls input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
+  color: var(--text-primary);
+  padding: 8px 10px;
+}
+
+.retroarch-core-controls input::placeholder {
+  color: var(--text-muted);
+}
+
+.retroarch-core-controls input:focus-visible {
+  outline: 0;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.18);
+}
+
+.retroarch-core-save {
+  min-width: 92px;
+}
+
+.retroarch-core-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.retroarch-core-dialog-footer .form-error {
+  flex: 1;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .retroarch-core-controls {
+    grid-template-columns: minmax(0, 1fr) 26px;
+  }
+
+  .retroarch-core-save {
+    grid-column: 1 / -1;
+    justify-self: flex-start;
+  }
 }

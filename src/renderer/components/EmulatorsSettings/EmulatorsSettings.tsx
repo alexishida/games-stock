@@ -1,10 +1,72 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { FolderOpen, Link, Pencil, Plus, Save, Trash2, Unlink, X } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { Check, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
 import { Emulator, Platform, PlatformEmulator } from "../../../shared/types";
 import { getRetroArchCoreForPlatform, RETROARCH_CORE_NAMES } from "../../../shared/retroarch";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./EmulatorsSettings.css";
+
+interface PlatformRetroArchConfig {
+  platform: Platform;
+  retroArchLink: PlatformEmulator | null;
+  defaultEmulator: PlatformEmulator | null;
+}
+
+function useDraggableDialog() {
+  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
+
+  function clampDialogOffset(x: number, y: number): { x: number; y: number } {
+    const rect = dialogRef.current?.getBoundingClientRect();
+    if (!rect) return { x, y };
+
+    const margin = 12;
+    const maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - margin);
+    const maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - margin);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y))
+    };
+  }
+
+  function startDialogDrag(event: ReactPointerEvent<HTMLElement>): void {
+    if ((event.target as HTMLElement).closest(interactiveSelector)) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragState.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: dialogOffset.x,
+      originY: dialogOffset.y
+    };
+  }
+
+  function dragDialog(event: ReactPointerEvent<HTMLElement>): void {
+    const drag = dragState.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setDialogOffset(clampDialogOffset(
+      drag.originX + event.clientX - drag.startX,
+      drag.originY + event.clientY - drag.startY
+    ));
+  }
+
+  function stopDialogDrag(event: ReactPointerEvent<HTMLElement>): void {
+    if (dragState.current?.pointerId !== event.pointerId) return;
+    dragState.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  return {
+    dialogRef,
+    style: { "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties,
+    startDialogDrag,
+    dragDialog,
+    stopDialogDrag
+  };
+}
 
 // ─── EmulatorFormModal ────────────────────────────────────────────────────────
 
@@ -25,6 +87,7 @@ function EmulatorFormModal({
   const [args, setArgs] = useState(editing?.args ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const draggable = useDraggableDialog();
 
   async function browsePath(): Promise<void> {
     const result = await window.gameStockAPI.dialogs.openExecutableFile();
@@ -50,8 +113,16 @@ function EmulatorFormModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <section className="management-modal emulator-form-modal">
+    <div className="emulator-secondary-overlay">
+      <section
+        ref={draggable.dialogRef}
+        className="management-modal emulator-form-modal draggable-emulator-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <header>
           <h2>{editing ? "Editar emulador" : "Novo emulador"}</h2>
           <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
@@ -120,6 +191,7 @@ function LinkPlatformModal({
   const selectedPlatform = platformId ? platforms.find((p) => p.id === Number(platformId)) : null;
   const defaultRetroArchCore = selectedPlatform ? getRetroArchCoreForPlatform(selectedPlatform.name) : null;
   const coreListId = `retroarch-core-options-${emulator.id}`;
+  const draggable = useDraggableDialog();
 
   useEffect(() => {
     if (!isRetroArch) return;
@@ -134,6 +206,15 @@ function LinkPlatformModal({
   async function browseCorePath(): Promise<void> {
     const result = await window.gameStockAPI.dialogs.openAnyFile();
     if (result) setCorePath(result);
+  }
+
+  function selectPlatform(nextPlatformId: number): void {
+    setPlatformId(nextPlatformId);
+    if (!isRetroArch) return;
+    const platform = platforms.find((p) => p.id === nextPlatformId);
+    const suggestedCore = platform ? getRetroArchCoreForPlatform(platform.name) : null;
+    autoCoreRef.current = suggestedCore ?? "";
+    setCorePath(suggestedCore ?? "");
   }
 
   async function save(e: FormEvent): Promise<void> {
@@ -161,8 +242,16 @@ function LinkPlatformModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <section className="management-modal emulator-form-modal">
+    <div className="emulator-secondary-overlay">
+      <section
+        ref={draggable.dialogRef}
+        className="management-modal emulator-form-modal draggable-emulator-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <header>
           <h2>Vincular a plataforma</h2>
           <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
@@ -172,7 +261,7 @@ function LinkPlatformModal({
         <form className="management-form" onSubmit={save}>
           <label>
             Plataforma
-            <select value={platformId} onChange={(e) => setPlatformId(Number(e.target.value))}>
+            <select value={platformId} onChange={(e) => selectPlatform(Number(e.target.value))}>
               {platforms.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -232,13 +321,15 @@ function EmulatorRow({
   platforms,
   onEdit,
   onDelete,
-  onReload
+  onReload,
+  onConfigureRetroArchCores
 }: {
   emulator: Emulator;
   platforms: Platform[];
   onEdit: () => void;
   onDelete: () => void;
   onReload: () => void;
+  onConfigureRetroArchCores?: () => void;
 }) {
   const [associations, setAssociations] = useState<PlatformEmulator[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -289,6 +380,17 @@ function EmulatorRow({
           <button type="button" className="icon-button" title="Editar" onClick={onEdit}>
             <Pencil size={14} aria-hidden="true" />
           </button>
+          {emulator.is_retroarch === 1 && onConfigureRetroArchCores && (
+            <button
+              type="button"
+              className="text-button emulator-core-config-button"
+              title="Configurar cores por plataforma"
+              onClick={onConfigureRetroArchCores}
+            >
+              <SlidersHorizontal size={14} aria-hidden="true" />
+              Cores
+            </button>
+          )}
           {emulator.is_retroarch !== 1 && (
             <button type="button" className="icon-button danger" title="Remover" onClick={onDelete}>
               <Trash2 size={14} aria-hidden="true" />
@@ -346,11 +448,273 @@ function EmulatorRow({
 
 // ─── EmulatorsSettings ────────────────────────────────────────────────────────
 
+function RetroArchPlatformCores({
+  retroArch,
+  platforms,
+  reloadToken,
+  onReload,
+  onClose
+}: {
+  retroArch: Emulator;
+  platforms: Platform[];
+  reloadToken: number;
+  onReload: () => void;
+  onClose: () => void;
+}) {
+  const [configs, setConfigs] = useState<PlatformRetroArchConfig[]>([]);
+  const [coreDrafts, setCoreDrafts] = useState<Record<number, string>>({});
+  const [savingPlatformId, setSavingPlatformId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [successPlatformId, setSuccessPlatformId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
+
+  const filteredConfigs = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return configs;
+    return configs.filter((config) => {
+      const suggestedCore = getRetroArchCoreForPlatform(config.platform.name) ?? "";
+      const currentCore = config.retroArchLink?.core_path ?? "";
+      return [config.platform.name, suggestedCore, currentCore].some((value) =>
+        value.toLowerCase().includes(query)
+      );
+    });
+  }, [configs, search]);
+
+  function clampDialogOffset(x: number, y: number): { x: number; y: number } {
+    const rect = dialogRef.current?.getBoundingClientRect();
+    if (!rect) return { x, y };
+
+    const margin = 12;
+    const maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - margin);
+    const maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - margin);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y))
+    };
+  }
+
+  function startDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
+    if ((event.target as HTMLElement).closest(interactiveSelector)) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragState.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: dialogOffset.x,
+      originY: dialogOffset.y
+    };
+  }
+
+  function dragDialog(event: ReactPointerEvent<HTMLDivElement>): void {
+    const drag = dragState.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setDialogOffset(clampDialogOffset(
+      drag.originX + event.clientX - drag.startX,
+      drag.originY + event.clientY - drag.startY
+    ));
+  }
+
+  function stopDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (dragState.current?.pointerId !== event.pointerId) return;
+    dragState.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  useEffect(() => {
+    if (!platforms.length) {
+      setConfigs([]);
+      setCoreDrafts({});
+      return;
+    }
+
+    let active = true;
+    void Promise.all(
+      platforms.map(async (platform) => {
+        const links = await window.gameStockAPI.emulators.listByPlatform(platform.id);
+        const retroArchLink = links.find((entry) => entry.emulator_id === retroArch.id) ?? null;
+        const defaultEmulator = links.find((entry) => entry.is_default === 1) ?? null;
+        return { platform, retroArchLink, defaultEmulator };
+      })
+    ).then((nextConfigs) => {
+      if (!active) return;
+      setConfigs(nextConfigs);
+      setCoreDrafts((current) => {
+        const nextDrafts: Record<number, string> = {};
+        for (const config of nextConfigs) {
+          nextDrafts[config.platform.id] =
+            current[config.platform.id] ??
+            config.retroArchLink?.core_path ??
+            getRetroArchCoreForPlatform(config.platform.name) ??
+            "";
+        }
+        return nextDrafts;
+      });
+    }).catch(() => {
+      if (active) setConfigs([]);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [platforms, reloadToken, retroArch.id]);
+
+  async function browseCorePath(platformId: number): Promise<void> {
+    const result = await window.gameStockAPI.dialogs.openAnyFile();
+    if (result) {
+      setCoreDrafts((current) => ({ ...current, [platformId]: result }));
+      setSuccessPlatformId(null);
+    }
+  }
+
+  async function savePlatformCore(config: PlatformRetroArchConfig): Promise<void> {
+    const corePath = coreDrafts[config.platform.id]?.trim() ?? "";
+    if (!corePath) {
+      setError("Core do RetroArch e obrigatorio");
+      return;
+    }
+
+    setError("");
+    setSuccessPlatformId(null);
+    setSavingPlatformId(config.platform.id);
+    try {
+      await window.gameStockAPI.emulators.linkPlatform(
+        retroArch.id,
+        config.platform.id,
+        config.retroArchLink?.is_default === 1,
+        corePath
+      );
+      setSuccessPlatformId(config.platform.id);
+      onReload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar core do RetroArch");
+    } finally {
+      setSavingPlatformId(null);
+    }
+  }
+
+  return (
+    <div className="emulator-secondary-overlay">
+      <div
+        ref={dialogRef}
+        className="retroarch-core-dialog"
+        style={{ "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties}
+        onPointerDown={startDialogDrag}
+        onPointerMove={dragDialog}
+        onPointerUp={stopDialogDrag}
+        onPointerCancel={stopDialogDrag}
+      >
+        <header className="retroarch-core-dialog-header">
+          <div>
+            <h3>Cores do RetroArch</h3>
+            <p>Configure o core usado por plataforma sem trocar o emulador padrao atual.</p>
+          </div>
+          <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="retroarch-core-toolbar">
+          <label>
+            Buscar
+            <input
+              autoFocus
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Plataforma ou core"
+            />
+          </label>
+        </div>
+
+        <div className="retroarch-core-list">
+        {filteredConfigs.length === 0 && (
+          <p className="platform-list-empty">Nenhuma plataforma cadastrada.</p>
+        )}
+        {filteredConfigs.map((config) => {
+          const platformId = config.platform.id;
+          const saving = savingPlatformId === platformId;
+          const defaultSuggestedCore = getRetroArchCoreForPlatform(config.platform.name);
+          const isRetroArchDefault = config.defaultEmulator?.emulator_id === retroArch.id;
+          const draftValue = coreDrafts[platformId] ?? "";
+          const currentCore = config.retroArchLink?.core_path?.trim() ?? "";
+
+          return (
+            <div key={platformId} className="retroarch-core-row">
+              <div className="retroarch-core-info">
+                <strong>{config.platform.name}</strong>
+                <span>
+                  {isRetroArchDefault ? "RetroArch padrao" : `Padrao atual: ${config.defaultEmulator?.emulator?.name ?? "Sem emulador"}`}
+                  {defaultSuggestedCore && (
+                    <>
+                      {" · "}
+                      Sugestao: {defaultSuggestedCore}
+                    </>
+                  )}
+                </span>
+                {currentCore && <em className="retroarch-core-current">Core salvo: {currentCore}</em>}
+              </div>
+              <div className="retroarch-core-controls">
+                <label className="retroarch-core-field">
+                  <span>Core</span>
+                  <input
+                    list={`retroarch-platform-core-options-${platformId}`}
+                    value={draftValue}
+                    onChange={(e) => {
+                      setCoreDrafts((current) => ({ ...current, [platformId]: e.target.value }));
+                      setSuccessPlatformId(null);
+                    }}
+                    placeholder="Nome ou caminho do core libretro"
+                  />
+                </label>
+                <datalist id={`retroarch-platform-core-options-${platformId}`}>
+                  {RETROARCH_CORE_NAMES.map((coreName) => (
+                    <option key={coreName} value={coreName} />
+                  ))}
+                </datalist>
+                <button
+                  type="button"
+                  className="icon-button"
+                  title="Selecionar core"
+                  onClick={() => void browseCorePath(platformId)}
+                >
+                  <FolderOpen size={15} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="text-button active retroarch-core-save"
+                  onClick={() => void savePlatformCore(config)}
+                  disabled={saving || !draftValue.trim()}
+                >
+                  {successPlatformId === platformId ? <Check size={14} aria-hidden="true" /> : <Save size={14} aria-hidden="true" />}
+                  {saving ? "Salvando..." : successPlatformId === platformId ? "Salvo" : "Salvar"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        </div>
+
+        <footer className="retroarch-core-dialog-footer">
+          {error && <p className="form-error">{error}</p>}
+          <button type="button" className="text-button danger form-action-button" onClick={onClose}>
+            <X size={14} aria-hidden="true" />
+            Fechar
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 export function EmulatorsSettings() {
   const platforms = useGameStockStore((state) => state.platforms);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const [emulatorList, setEmulatorList] = useState<Emulator[]>([]);
   const [modal, setModal] = useState<EmulatorModalMode | null>(null);
+  const [retroArchCoreModalOpen, setRetroArchCoreModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -362,6 +726,11 @@ export function EmulatorsSettings() {
   useEffect(() => {
     window.gameStockAPI.emulators.list().then(setEmulatorList).catch(() => {});
   }, [reloadToken]);
+
+  const retroArch = useMemo(
+    () => emulatorList.find((emulator) => emulator.is_retroarch === 1) ?? null,
+    [emulatorList]
+  );
 
   async function remove(emulator: Emulator): Promise<void> {
     if (!window.confirm(`Remover o emulador "${emulator.name}"?`)) return;
@@ -392,6 +761,9 @@ export function EmulatorsSettings() {
             onEdit={() => setModal({ kind: "edit", emulator })}
             onDelete={() => void remove(emulator)}
             onReload={reload}
+            onConfigureRetroArchCores={
+              emulator.is_retroarch === 1 ? () => setRetroArchCoreModalOpen(true) : undefined
+            }
           />
         ))}
       </div>
@@ -407,6 +779,15 @@ export function EmulatorsSettings() {
           mode={modal}
           onClose={() => setModal(null)}
           onSaved={reload}
+        />
+      )}
+      {retroArch && retroArchCoreModalOpen && (
+        <RetroArchPlatformCores
+          retroArch={retroArch}
+          platforms={platforms}
+          reloadToken={reloadToken}
+          onReload={reload}
+          onClose={() => setRetroArchCoreModalOpen(false)}
         />
       )}
     </div>
