@@ -78,6 +78,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.list, (_event, filters) => games.listGames(filters));
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
   ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
+  ipcMain.handle(IPC_CHANNELS.games.collectionCounts, () => games.getCollectionCounts());
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));
   ipcMain.handle(IPC_CHANNELS.games.delete, (_event, id: number) => games.deleteGame(id));

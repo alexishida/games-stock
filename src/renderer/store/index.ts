@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { CollectionFilter, Game, GameListResult, GameSortBy, Platform, ViewMode } from "../../shared/types";
+import { CollectionCounts, CollectionFilter, Game, GameListResult, GameSortBy, Platform, ViewMode } from "../../shared/types";
 
 export type SettingsSection = "biblioteca" | "plataformas";
 
@@ -23,6 +23,7 @@ interface GameStockState {
   createGameOpen: boolean;
   reloadToken: number;
   platformsReloadToken: number;
+  collectionCounts: CollectionCounts;
   setSelectedPlatformId(value: number | null): void;
   setSearchQuery(value: string): void;
   setSelectedCategory(value: string): void;
@@ -39,6 +40,7 @@ interface GameStockState {
   setSettingsSection(value: SettingsSection): void;
   openSettings(section: SettingsSection): void;
   setCreateGameOpen(value: boolean): void;
+  setCollectionCounts(value: CollectionCounts): void;
   reloadGames(): void;
   reloadPlatforms(): void;
 }
@@ -63,11 +65,12 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   createGameOpen: false,
   reloadToken: 0,
   platformsReloadToken: 0,
-  setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, currentPage: 1, selectedGameId: null }),
+  collectionCounts: { favorites: 0, playing: 0, completed: 0 },
+  setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null }),
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
-  setCollectionFilter: (collectionFilter) => set({ collectionFilter, currentPage: 1 }),
+  setCollectionFilter: (collectionFilter) => set({ collectionFilter, selectedPlatformId: null, currentPage: 1 }),
   setSortBy: (sortBy) => set({ sortBy, currentPage: 1 }),
   setCurrentPage: (currentPage) => set({ currentPage }),
   setGames: ({ items, total, filtered }) => set({ games: items, total, filtered }),
@@ -79,6 +82,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setSettingsSection: (settingsSection) => set({ settingsSection }),
   openSettings: (settingsSection) => set({ settingsOpen: true, settingsSection }),
   setCreateGameOpen: (createGameOpen) => set({ createGameOpen }),
+  setCollectionCounts: (collectionCounts) => set({ collectionCounts }),
   reloadGames: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
   reloadPlatforms: () => set((state) => ({ platformsReloadToken: state.platformsReloadToken + 1 }))
 }));

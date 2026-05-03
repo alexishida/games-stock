@@ -1,6 +1,12 @@
 export type ViewMode = "grid" | "list";
 export type PlayStatus = "unplayed" | "playing" | "completed";
-export type CollectionFilter = "all" | "favorites" | "completed" | "unplayed";
+export type CollectionFilter = "all" | "favorites" | "playing" | "completed" | "unplayed";
+
+export interface CollectionCounts {
+  favorites: number;
+  playing: number;
+  completed: number;
+}
 export type GameSortBy = "title" | "year" | "recent";
 
 export interface Platform {

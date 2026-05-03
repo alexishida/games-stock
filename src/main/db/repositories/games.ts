@@ -1,6 +1,6 @@
 import { getDatabase } from "../database";
 import { GameDao } from "../dao/gameDao";
-import { Game, GameCreateInput, GameFilters, GameListResult, GameUpdateInput } from "../../../shared/types";
+import { CollectionCounts, Game, GameCreateInput, GameFilters, GameListResult, GameUpdateInput } from "../../../shared/types";
 
 function gameDao(): GameDao {
   return new GameDao(getDatabase());
@@ -36,4 +36,8 @@ export function deleteGamesWithoutRomPathByPlatformAndTitles(platformId: number,
 
 export function upsertLaunchBoxGame(data: Partial<GameCreateInput> & { title: string; platform_id: number }): { game: Game; created: boolean } {
   return gameDao().upsertLaunchBox(data);
+}
+
+export function getCollectionCounts(): CollectionCounts {
+  return gameDao().collectionCounts();
 }

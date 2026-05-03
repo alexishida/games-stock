@@ -1,10 +1,27 @@
-import { Gamepad2, Library, Settings } from "lucide-react";
+import { type ReactNode } from "react";
+import { CheckCircle2, Gamepad2, Library, Settings, Star } from "lucide-react";
+import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";
 import "./Sidebar.css";
 
+type FilterDef = { value: CollectionFilter; label: string; icon: ReactNode; countKey: keyof CollectionCounts };
+
+const COLLECTION_FILTERS: FilterDef[] = [
+  { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} />, countKey: "favorites" },
+  { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} />, countKey: "playing" },
+  { value: "completed", label: "Concluído", icon: <CheckCircle2 aria-hidden="true" size={15} />, countKey: "completed" }
+];
+
 export function Sidebar() {
   const openSettings = useGameStockStore((state) => state.openSettings);
+  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
+  const collectionCounts = useGameStockStore((state) => state.collectionCounts);
+  const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
+  const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
+  const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
+
+  const isLibraryActive = selectedPlatformId === null && collectionFilter === "all";
 
   return (
     <aside className="sidebar">
@@ -18,7 +35,7 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="sidebar-nav" aria-label="Navegacao principal">
-        <button type="button" className="nav-item active">
+        <button type="button" className={isLibraryActive ? "nav-item active" : "nav-item"} onClick={() => setSelectedPlatformId(null)}>
           <Library aria-hidden="true" size={18} />
           Biblioteca
         </button>
@@ -27,6 +44,22 @@ export function Sidebar() {
           Inventario
         </button>
       </nav>
+      <div className="sidebar-separator" />
+      <nav className="sidebar-nav" aria-label="Filtros de colecao">
+        {COLLECTION_FILTERS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            className={collectionFilter === item.value ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
+            onClick={() => setCollectionFilter(item.value)}
+          >
+            {item.icon}
+            {item.label}
+            <span className="nav-item-count">{collectionCounts[item.countKey]}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="sidebar-separator" />
       <PlatformTree />
       <button type="button" className="scan-button" onClick={() => openSettings("biblioteca")}>
         <Settings aria-hidden="true" size={18} />

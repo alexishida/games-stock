@@ -1,4 +1,5 @@
 import {
+  CollectionCounts,
   Game,
   GameCreateInput,
   GameFilters,
@@ -28,6 +29,7 @@ export interface GameStockAPI {
     list(filters?: GameFilters): Promise<GameListResult>;
     get(id: number): Promise<Game | null>;
     listMedia(id: number): Promise<GameMediaItem[]>;
+    collectionCounts(): Promise<CollectionCounts>;
     create(data: Partial<GameCreateInput>): Promise<Game>;
     update(id: number, data: GameUpdateInput): Promise<Game>;
     delete(id: number): Promise<{ success: true }>;

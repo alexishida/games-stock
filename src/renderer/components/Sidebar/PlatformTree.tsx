@@ -4,6 +4,7 @@ import { useGameStockStore } from "../../store";
 export function PlatformTree() {
   const platforms = useGameStockStore((state) => state.platforms);
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
+  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
 
   const grouped = useMemo(() => {
@@ -16,15 +17,17 @@ export function PlatformTree() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [platforms]);
 
+  const isAll = selectedPlatformId === null && collectionFilter === "all";
+
   return (
     <div className="platform-tree">
-      <button type="button" className={selectedPlatformId === null ? "tree-item selected" : "tree-item"} onClick={() => setSelectedPlatformId(null)}>
+      <button type="button" className={isAll ? "tree-item selected" : "tree-item"} onClick={() => setSelectedPlatformId(null)}>
         <span>Todos</span>
         <span>{platforms.reduce((sum, p) => sum + (p.gameCount ?? 0), 0)}</span>
       </button>
       {grouped.map(([category, items]) => (
         <div key={category}>
-{items.map((platform) => (
+          {items.map((platform) => (
             <button
               type="button"
               key={platform.id}

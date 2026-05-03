@@ -8,6 +8,7 @@ import { NotificationCenter } from "./components/NotificationCenter/Notification
 import { SettingsModal } from "./components/SettingsModal/SettingsModal";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TopBar } from "./components/TopBar/TopBar";
+import { useCollectionCounts } from "./hooks/useCollectionCounts";
 import { useGames } from "./hooks/useGames";
 import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
@@ -61,6 +62,7 @@ function LibraryView() {
 export default function App() {
   usePlatforms();
   useGames();
+  useCollectionCounts();
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);

@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import path from "node:path";
-import { CollectionFilter, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../../shared/types";
+import { CollectionCounts, CollectionFilter, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../../shared/types";
 
 type GameRow = Omit<Game, "favorite"> & { favorite: 0 | 1 };
 
@@ -91,6 +91,17 @@ export class GameDao {
     const updated = this.get(id);
     if (!updated) throw new Error("Jogo nao encontrado");
     return updated;
+  }
+
+  collectionCounts(): CollectionCounts {
+    const row = this.database.prepare(`
+      SELECT
+        SUM(CASE WHEN favorite = 1 THEN 1 ELSE 0 END) as favorites,
+        SUM(CASE WHEN play_status = 'playing' THEN 1 ELSE 0 END) as playing,
+        SUM(CASE WHEN play_status = 'completed' THEN 1 ELSE 0 END) as completed
+      FROM games
+    `).get() as { favorites: number; playing: number; completed: number };
+    return { favorites: row.favorites ?? 0, playing: row.playing ?? 0, completed: row.completed ?? 0 };
   }
 
   delete(id: number): { success: true } {
@@ -194,6 +205,8 @@ function buildCollectionFilter(filter: CollectionFilter): string | null {
   switch (filter) {
     case "favorites":
       return "games.favorite = 1";
+    case "playing":
+      return "games.play_status = 'playing'";
     case "completed":
       return "games.play_status = 'completed'";
     case "unplayed":
