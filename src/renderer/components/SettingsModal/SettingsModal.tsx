@@ -11,7 +11,7 @@ const NAV_ITEMS: { id: SettingsSection; label: string; Icon: typeof FolderOpen }
 
 const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title: string }> = {
   biblioteca: { title: "Gerenciar biblioteca" },
-  plataformas: { eyebrow: "Configuracoes", title: "Gerenciar plataformas" }
+  plataformas: { title: "Gerenciar plataformas" }
 };
 
 export function SettingsModal() {

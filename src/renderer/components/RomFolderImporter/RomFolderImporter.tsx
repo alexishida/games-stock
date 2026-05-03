@@ -4,6 +4,7 @@ import { ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Sav
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
+import { SectionIntro } from "../SectionIntro/SectionIntro";
 
 type ImportSource = { path: string; type: "folder" | "file" };
 interface FolderEntry {
@@ -355,9 +356,7 @@ function SummaryStep({
   return (
     <div className="rom-folder-step">
       <section className="import-assistant-panel summary">
-        <h3>Pastas em uso</h3>
-        <p>Pastas ja configuradas para importacao, com a plataforma associada e o total de jogos indexados.</p>
-
+        <SectionIntro title="Pastas em uso" description="Pastas ja configuradas para importacao, com a plataforma associada e o total de jogos indexados." />
         <div className="folder-table" role="table" aria-label="Pastas em uso">
           <div className="folder-table-row header" role="row">
             <span role="columnheader">Pasta em uso</span>

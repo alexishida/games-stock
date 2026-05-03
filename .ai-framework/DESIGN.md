@@ -183,6 +183,15 @@ Grupos de campos usam `gap: 16px`. Rodapés de modal ficam alinhados à direita,
 
 Botões de ação em formulários devem usar ícones `lucide-react` junto do texto. Ação primária usa `.text-button.active`; cancelar ou ação negativa usa `.text-button.danger`. Para botões de rodapé, usar `.form-action-button` para largura mínima consistente.
 
+### Padrão: intro de seção de configurações
+
+Toda seção do modal de configurações deve iniciar com o componente `<SectionIntro title="..." description="..." />` localizado em `src/renderer/components/SectionIntro/SectionIntro.tsx`.
+
+- `title`: subtítulo em `var(--accent)`, 16px, peso 800 — identifica o conteúdo da seção (ex.: "Pastas em uso", "Plataformas").
+- `description`: frase curta em `var(--text-primary)`, 13px — descreve o que o usuário encontra abaixo.
+- O componente adiciona `margin-bottom: 12px` após o `<p>` para separar o intro do conteúdo seguinte.
+- Não duplicar os estilos em CSS local — o componente centraliza tudo em `SectionIntro.css`.
+
 ### Padrão: botões de fechar modal
 
 Todo botão de fechar modal deve usar `icon-button` com ícone `X` do `lucide-react`, tamanho 26px, sem padding e SVG centralizado. O botão inteiro deve ser vermelho, não apenas o ícone: borda `rgba(248, 113, 113, 0.55)`, fundo `rgba(127, 29, 29, 0.38)` e cor `#fecaca`. No hover, intensificar para borda `rgba(248, 113, 113, 0.8)`, fundo `rgba(185, 28, 28, 0.58)` e cor `#fff1f2`.

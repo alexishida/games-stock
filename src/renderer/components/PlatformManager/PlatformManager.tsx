@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Platform } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
+import { SectionIntro } from "../SectionIntro/SectionIntro";
 
 type ModalMode = { kind: "create" } | { kind: "edit"; platform: Platform };
 
@@ -100,6 +101,7 @@ export function PlatformManager() {
 
   return (
     <div className="platform-manager">
+      <SectionIntro title="Plataformas" description="Plataformas cadastradas para organizar sua biblioteca de jogos." />
       <div className="platform-list">
         {platforms.length === 0 && (
           <p className="platform-list-empty">Nenhuma plataforma cadastrada.</p>

@@ -1,0 +1,20 @@
+.section-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-intro h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.section-intro p {
+  margin: 0 0 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+}
