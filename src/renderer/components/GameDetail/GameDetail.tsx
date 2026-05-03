@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, Gamepad2, Image, Monitor, Play, Star, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, CheckCircle2, Download, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -20,6 +20,7 @@ export function GameDetail() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isCoverLandscape, setIsCoverLandscape] = useState(false);
   const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
+  const editSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setIsCoverLandscape(false);
@@ -51,6 +52,7 @@ export function GameDetail() {
     );
   }
 
+  const currentGame = game;
   const publisher = game.publisher || "Publisher nao informado";
   const genre = game.genre || "Genero nao informado";
   const year = game.year?.toString() ?? "Ano nao informado";
@@ -69,6 +71,20 @@ export function GameDetail() {
     await window.gameStockAPI.games.delete(game.id);
     setSelectedGameId(null);
     reloadGames();
+  }
+
+  async function toggleFavorite(): Promise<void> {
+    await window.gameStockAPI.games.update(currentGame.id, { favorite: !currentGame.favorite });
+    reloadGames();
+  }
+
+  async function togglePlayStatus(status: typeof currentGame.play_status): Promise<void> {
+    await window.gameStockAPI.games.update(currentGame.id, { play_status: currentGame.play_status === status ? "unplayed" : status });
+    reloadGames();
+  }
+
+  function scrollToEdit(): void {
+    editSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -101,6 +117,27 @@ export function GameDetail() {
             </div>
             <h1>{game.title}</h1>
             <p>{publisher} · {genre}</p>
+          </div>
+          <div className="detail-hero-actions" aria-label="Acoes do jogo">
+            <button type="button" className="detail-hero-play-button" disabled={!canOpenRom} onClick={() => game.rom_path && window.gameStockAPI.shell.openPath(game.rom_path)}>
+              <Play aria-hidden="true" size={18} />
+              Jogar
+            </button>
+            <button type="button" className={"detail-hero-icon-button" + (game.favorite ? " active" : "")} onClick={toggleFavorite} aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"} title={game.favorite ? "Remover favorito" : "Marcar favorito"}>
+              <Star aria-hidden="true" size={18} />
+            </button>
+            <button type="button" className={"detail-hero-icon-button" + (game.play_status === "completed" ? " active" : "")} onClick={() => togglePlayStatus("completed")} aria-label="Concluido" title="Concluido">
+              <CheckCircle2 aria-hidden="true" size={18} />
+            </button>
+            <button type="button" className={"detail-hero-icon-button" + (game.play_status === "playing" ? " active" : "")} onClick={() => togglePlayStatus("playing")} aria-label="Jogando" title="Jogando">
+              <Gamepad2 aria-hidden="true" size={18} />
+            </button>
+            <button type="button" className="detail-hero-icon-button" onClick={scrollToEdit} aria-label="Editar" title="Editar">
+              <Pencil aria-hidden="true" size={18} />
+            </button>
+            <button type="button" className="detail-hero-icon-button danger" onClick={deleteGame} aria-label="Excluir" title="Excluir">
+              <Trash2 aria-hidden="true" size={18} />
+            </button>
           </div>
         </div>
       </div>
@@ -137,7 +174,7 @@ export function GameDetail() {
             </div>
           </section>
 
-          <section className="detail-panel">
+          <section className="detail-panel" ref={editSectionRef}>
             <h2>Editar cadastro</h2>
             <GameForm game={game} />
           </section>

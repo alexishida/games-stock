@@ -59,7 +59,7 @@
 .detail-back {
   position: absolute;
   top: 16px;
-  left: 20px;
+  right: 20px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -153,6 +153,68 @@
   color: var(--accent);
   font-size: 14px;
   font-weight: 700;
+}
+
+.detail-hero-actions {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  padding-bottom: 8px;
+}
+
+.detail-hero-play-button,
+.detail-hero-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 900;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.detail-hero-play-button {
+  gap: 7px;
+  min-height: 44px;
+  border: 1px solid rgba(74, 222, 128, 0.55);
+  background: #16a34a;
+  color: #f0fdf4;
+  padding: 0 20px;
+  font-size: 13px;
+  box-shadow: 0 12px 28px rgba(22, 163, 74, 0.24);
+}
+
+.detail-hero-play-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.detail-hero-icon-button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+
+.detail-hero-icon-button:hover,
+.detail-hero-play-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.detail-hero-icon-button.active {
+  border-color: rgba(250, 204, 21, 0.6);
+  background: rgba(250, 204, 21, 0.18);
+  color: #fde68a;
+}
+
+.detail-hero-icon-button.danger {
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
 }
 
 .detail-content-grid {
@@ -495,5 +557,18 @@
 
   .detail-side-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .detail-hero-content {
+    flex-wrap: wrap;
+  }
+
+  .detail-hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    padding-bottom: 0;
   }
 }
