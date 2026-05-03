@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
-import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt } from "./lib/launchbox";
+import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
@@ -150,6 +150,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>
     ensureLaunchBoxMetadata(Boolean(options?.force), sendLaunchBoxProgress)
   );
+  ipcMain.handle(IPC_CHANNELS.launchbox.metadataExists, () => metadataExists());
   ipcMain.handle(IPC_CHANNELS.launchbox.searchGames, (_event, params) => searchGames(params));
   ipcMain.handle(IPC_CHANNELS.launchbox.downloadImages, (_event, params: LaunchBoxDownloadParams) =>
     downloadLaunchBoxImages(params, sendLaunchBoxProgress)

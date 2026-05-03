@@ -29,6 +29,7 @@ export const IPC_CHANNELS = {
   },
   launchbox: {
     ensureMetadata: "launchbox:ensureMetadata",
+    metadataExists: "launchbox:metadataExists",
     searchGames: "launchbox:searchGames",
     downloadImages: "launchbox:downloadImages",
     importGame: "launchbox:importGame",

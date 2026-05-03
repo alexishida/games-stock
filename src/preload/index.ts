@@ -47,6 +47,7 @@ const api = {
   },
   launchbox: {
     ensureMetadata: (options?: { force?: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.ensureMetadata, options),
+    metadataExists: () => ipcRenderer.invoke(IPC_CHANNELS.launchbox.metadataExists) as Promise<boolean>,
     searchGames: (params: LaunchBoxSearchParams) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.searchGames, params),
     downloadImages: (params: LaunchBoxDownloadParams) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.downloadImages, params),
     importGame: (params: LaunchBoxImportParams) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.importGame, params),

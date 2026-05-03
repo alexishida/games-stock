@@ -3,13 +3,13 @@ import { getCoverStats, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGam
 import { findOrCreatePlatform, listPlatforms } from "../../db/repositories/platforms";
 import { CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { PLATFORMS } from "./config";
-import { buildIndex, ensureMetadata, getMetadataDownloadedAt } from "./db";
+import { buildIndex, ensureMetadata, getMetadataDownloadedAt, metadataExists } from "./db";
 import { downloadImages, searchGames as searchIndex } from "./scraper";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;
 
 export { IMAGE_TYPE_LIST, PLATFORMS } from "./config";
-export { ensureMetadata, buildIndex };
+export { ensureMetadata, buildIndex, metadataExists };
 
 export function getLaunchBoxMetadataDownloadedAt(): string | null {
   return getMetadataDownloadedAt();

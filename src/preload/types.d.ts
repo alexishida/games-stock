@@ -57,6 +57,7 @@ export interface GameStockAPI {
   };
   launchbox: {
     ensureMetadata(options?: { force?: boolean }): Promise<{ status: "cached" | "downloaded" }>;
+    metadataExists(): Promise<boolean>;
     searchGames(params: LaunchBoxSearchParams): Promise<LaunchBoxGame[]>;
     downloadImages(params: LaunchBoxDownloadParams): Promise<LaunchBoxDownloadResult>;
     importGame(params: LaunchBoxImportParams): Promise<LaunchBoxImportResult>;

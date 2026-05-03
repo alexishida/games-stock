@@ -62,6 +62,10 @@ export async function buildIndex(onProgress?: ProgressCallback): Promise<Record<
   return memoryIndex;
 }
 
+export function metadataExists(): boolean {
+  return fs.existsSync(getMetadataFile());
+}
+
 export function getMetadataDownloadedAt(): string | null {
   const metadataFile = getMetadataFile();
   if (!fs.existsSync(metadataFile)) return null;

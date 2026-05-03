@@ -75,6 +75,21 @@ export default function App() {
   const setSettingsSection = useGameStockStore((state) => state.setSettingsSection);
   const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
 
+  useEffect(() => {
+    void (async () => {
+      const exists = await window.gameStockAPI.launchbox.metadataExists();
+      if (exists) return;
+      const jobId = `metadata-startup-${Date.now()}`;
+      window.dispatchEvent(new CustomEvent("gamestock:media:start", { detail: { jobId, title: "Baixando base de dados" } }));
+      try {
+        await window.gameStockAPI.launchbox.ensureMetadata({ force: false });
+        window.dispatchEvent(new CustomEvent("gamestock:media:finish", { detail: { jobId, status: "completed", title: "Base de dados pronta" } }));
+      } catch (err) {
+        window.dispatchEvent(new CustomEvent("gamestock:media:finish", { detail: { jobId, status: "failed", title: err instanceof Error ? err.message : "Falha ao baixar base de dados" } }));
+      }
+    })();
+  }, []);
+
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
   useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => openSettings("biblioteca")), [openSettings]);
