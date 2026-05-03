@@ -6,6 +6,8 @@ export function usePlatforms(): void {
   const platformsReloadToken = useGameStockStore((state) => state.platformsReloadToken);
 
   useEffect(() => {
-    window.gameStockAPI.platforms.list().then(setPlatforms);
+    window.gameStockAPI.platforms.list().then((list) =>
+      setPlatforms([...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })))
+    );
   }, [platformsReloadToken, setPlatforms]);
 }
