@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Download, RefreshCw, XCircle } from "lucide-react";
-import { CoverSyncResult, CoverSyncStats, LaunchBoxProgress } from "../../../shared/types";
+import { DatabaseZap, Gamepad2, Image, ImageOff, RefreshCw } from "lucide-react";
+import { CoverSyncStats, LaunchBoxProgress } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./CoversSettings.css";
@@ -21,7 +21,6 @@ export function CoversSettings() {
   const [syncing, setSyncing] = useState(false);
   const [updatingMetadata, setUpdatingMetadata] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<CoverSyncResult | null>(null);
   const syncingRef = useRef(false);
   const updatingMetadataRef = useRef(false);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
@@ -57,12 +56,10 @@ export function CoversSettings() {
     syncingRef.current = true;
     setSyncing(true);
     setError(null);
-    setLastResult(null);
     setSyncProgress(null);
     try {
       const result = await window.gameStockAPI.games.syncCovers();
       setStats(result);
-      setLastResult(result);
       reloadGames();
       emitMediaJob("finish", { jobId, status: "completed", title: `${result.metadataUpdated} metadado(s), ${result.downloadedNow} capa(s)` });
     } catch (caught) {
@@ -77,7 +74,7 @@ export function CoversSettings() {
 
   async function updateMetadata() {
     const jobId = `metadata-sync-${Date.now()}`;
-    emitMediaJob("start", { jobId, title: "Atualizando Metadata.zip" });
+    emitMediaJob("start", { jobId, title: "Atualizando base de dados" });
     updatingMetadataRef.current = true;
     setUpdatingMetadata(true);
     setError(null);
@@ -85,7 +82,7 @@ export function CoversSettings() {
     try {
       await window.gameStockAPI.launchbox.ensureMetadata({ force: true });
       await loadStats();
-      emitMediaJob("finish", { jobId, status: "completed", title: "Metadata.zip atualizado" });
+      emitMediaJob("finish", { jobId, status: "completed", title: "Base de dados atualizada" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       emitMediaJob("finish", { jobId, status: "failed", title: caught instanceof Error ? caught.message : String(caught) });
@@ -101,63 +98,22 @@ export function CoversSettings() {
     : syncing
       ? "Preparando sincronizacao"
       : `${percent}% da biblioteca com capa`;
+  const syncTotal = syncProgress?.total || 1;
+  const syncCurrent = syncProgress?.current || 0;
+  const syncPercent = syncing && syncProgress?.total ? Math.round((syncCurrent / syncTotal) * 100) : percent;
+  const syncFileName = syncProgress?.filename ?? "Aguardando progresso";
 
   return (
     <section className="covers-settings">
-      <SectionIntro title="Mídia da biblioteca" description="Situacao das capas principais e metadados baixados para os jogos da biblioteca." />
-
-      <div className="covers-status">
-        <div className="cover-stat">
-          <CheckCircle2 aria-hidden="true" size={18} />
-          <span>Baixadas</span>
-          <strong>{stats.downloaded}</strong>
-        </div>
-        <div className="cover-stat warning">
-          <XCircle aria-hidden="true" size={18} />
-          <span>Faltando</span>
-          <strong>{stats.missing}</strong>
-        </div>
-        <div className="cover-stat">
-          <Download aria-hidden="true" size={18} />
-          <span>Com LaunchBox</span>
-          <strong>{stats.metadataSyncable}</strong>
-        </div>
-      </div>
-
-      <div className="covers-sync-panel">
-        <div className="covers-sync-header">
-          <div>
-            <strong>Sincronizacao de mídia</strong>
-            <span>{stats.total} jogo(s) na biblioteca</span>
-          </div>
-          <button type="button" className="text-button active" onClick={syncCovers} disabled={syncing || updatingMetadata || (stats.syncable === 0 && stats.metadataSyncable === 0)}>
-            <RefreshCw aria-hidden="true" size={16} className={syncing ? "spin" : ""} />
-            {syncing ? "Sincronizando" : "Sincronizar"}
-          </button>
-        </div>
-
-        <div className="covers-progress-track" aria-label="Progresso de covers">
-          <span style={{ width: `${syncing && syncProgress?.total ? Math.round((syncProgress.current / syncProgress.total) * 100) : percent}%` }} />
-        </div>
-        <p className="covers-progress-text">{progressText}</p>
-
-        {lastResult && (
-          <p className="covers-result">
-            {lastResult.metadataUpdated} metadado(s) atualizado(s), {lastResult.downloadedNow} capa(s) baixada(s), {lastResult.failed} falha(s), {lastResult.skipped + lastResult.metadataSkipped} ignorada(s).
-          </p>
-        )}
-        {error && <p className="form-error">{error}</p>}
-      </div>
-
       <div className="covers-sync-panel metadata-panel">
         <div className="covers-sync-header">
           <div>
-            <strong>Metadata.zip</strong>
+            <strong>Atualizar dados</strong>
             <span>Ultimo download: {formatMetadataDate(stats.metadataDownloadedAt)}</span>
           </div>
           <button type="button" className="text-button active" onClick={updateMetadata} disabled={updatingMetadata || syncing}>
-            <RefreshCw aria-hidden="true" size={16} className={updatingMetadata ? "spin" : ""} />
-            {updatingMetadata ? "Atualizando" : "Atualizar Metadata.zip"}
+            <DatabaseZap aria-hidden="true" size={16} className={updatingMetadata ? "spin" : ""} />
+            {updatingMetadata ? "Atualizando" : "Atualizar"}
           </button>
         </div>
         {updatingMetadata && (
@@ -171,6 +127,52 @@ export function CoversSettings() {
           </>
         )}
       </div>
+
+      <div className="covers-media-intro">
+        <SectionIntro title="Mídia da biblioteca" description="Situacao das capas principais e metadados baixados para os jogos da biblioteca." />
+      </div>
+
+      <div className="covers-status">
+        <div className="cover-stat">
+          <Image aria-hidden="true" size={18} />
+          <span>Covers</span>
+          <strong>{stats.downloaded}</strong>
+        </div>
+        <div className="cover-stat warning">
+          <ImageOff aria-hidden="true" size={18} />
+          <span>Sem Covers</span>
+          <strong>{stats.missing}</strong>
+        </div>
+        <div className="cover-stat">
+          <Gamepad2 aria-hidden="true" size={18} />
+          <span>Jogos</span>
+          <strong>{stats.metadataSyncable}</strong>
+        </div>
+      </div>
+
+      <div className={"covers-sync-panel" + (!syncing ? " covers-sync-panel-idle" : "")}>
+        <div className="covers-sync-header">
+          <div>
+            <strong>Sincronizacao de mídia</strong>
+            {syncing && <span>{syncFileName}</span>}
+          </div>
+          <button type="button" className="text-button active" onClick={syncCovers} disabled={syncing || updatingMetadata || (stats.syncable === 0 && stats.metadataSyncable === 0)}>
+            <RefreshCw aria-hidden="true" size={16} className={syncing ? "spin" : ""} />
+            {syncing ? "Sincronizando" : "Sincronizar"}
+          </button>
+        </div>
+
+        {syncing && (
+          <>
+            <div className="covers-progress-track" aria-label="Progresso de covers">
+              <span style={{ width: `${syncPercent}%` }} />
+            </div>
+            <p className="covers-progress-text">{syncProgress ? `${syncCurrent} de ${syncTotal}` : progressText}</p>
+          </>
+        )}
+        {error && <p className="form-error">{error}</p>}
+      </div>
+
     </section>
   );
 }

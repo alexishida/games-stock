@@ -22,6 +22,7 @@ interface MediaNotificationItem {
 }
 
 type NotificationItem = RomNotificationItem | MediaNotificationItem;
+const AUTO_DISMISS_MS = 5000;
 
 export function NotificationCenter() {
   const [items, setItems] = useState<Record<string, NotificationItem>>({});
@@ -129,6 +130,25 @@ export function NotificationCenter() {
     }));
   }), []);
 
+  useEffect(() => {
+    const completedIds = notifications
+      .filter((item) => item.status !== "running")
+      .map((item) => item.jobId);
+    if (!completedIds.length) return undefined;
+
+    const timer = setTimeout(() => {
+      setItems((current) => {
+        const next = { ...current };
+        for (const jobId of completedIds) {
+          if (next[jobId]?.status !== "running") delete next[jobId];
+        }
+        return next;
+      });
+    }, AUTO_DISMISS_MS);
+
+    return () => clearTimeout(timer);
+  }, [notifications]);
+
   if (!notifications.length) return null;
 
   return (
@@ -176,6 +196,11 @@ function MediaNotificationCard({ item, onDismiss }: { item: MediaNotificationIte
   const total = item.progress?.total || 1;
   const current = item.progress?.current || 0;
   const percent = item.status === "completed" ? 100 : Math.min(100, Math.round((current / total) * 100));
+  const progressText = item.status === "completed"
+    ? "Concluido"
+    : item.status === "failed"
+      ? "Erro"
+      : formatMediaProgress(item, current, total);
 
   return (
     <article className={`notification-card ${item.status}`}>
@@ -189,9 +214,20 @@ function MediaNotificationCard({ item, onDismiss }: { item: MediaNotificationIte
       </div>
       <p>{item.progress?.filename ?? "Aguardando progresso"}</p>
       <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
-      <small>{item.status === "completed" ? "Concluido" : item.status === "failed" ? "Erro" : `${current} de ${total}`}</small>
+      <small>{progressText}</small>
     </article>
   );
+}
+
+function formatMediaProgress(item: MediaNotificationItem, current: number, total: number): string {
+  if (item.progress?.filename?.toLowerCase() === "metadata.zip") {
+    return `${formatMegabytes(current)} de ${formatMegabytes(total)}`;
+  }
+  return `${current} de ${total}`;
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function labelForStage(stage: RomFolderImportProgress["stage"]): string {

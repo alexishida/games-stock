@@ -11,6 +11,10 @@
   gap: 10px;
 }
 
+.covers-media-intro {
+  margin-top: 12px;
+}
+
 .cover-stat {
   display: grid;
   grid-template-columns: auto 1fr;
