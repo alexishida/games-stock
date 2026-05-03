@@ -1,33 +1,36 @@
 # GameStock
 
-GameStock é um aplicativo desktop para Windows para gerenciar bibliotecas de jogos retrô — caminhos de ROMs, box art, status de jogo e inventário físico — construído com Electron, React, TypeScript, Vite e SQLite.
+GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
 ## Funcionalidades
 
-- **Gerenciamento de biblioteca** — adicione, edite e exclua jogos com título, plataforma, publisher, ano, gênero, classificação e notas
-- **Visualização em grade e lista** — grade virtualizada com capa dos jogos e modo lista compacto
-- **Navegação por plataformas** — barra lateral agrupada por categoria com contagem de jogos por plataforma
-- **Inventário físico** — registre cópias físicas com valores de conservação (Mint → Poor)
-- **Favoritos e status de jogo** — marque jogos como favorito e acompanhe o progresso (não jogado / jogando / concluído)
-- **Filtros e ordenação** — filtre por plataforma, cópia física, favoritos ou status; ordene por título, ano ou adicionados recentemente
-- **ROM e capa** — diálogos nativos de arquivo para associar ROMs e importar imagens de capa
-- **Importador LaunchBox** — baixa o arquivo público de metadados do LaunchBox, permite buscar jogos, selecionar tipos de imagem e importar metadados e box art com progresso em tempo real
-- **Estado da janela persistente** — memoriza o tamanho e posição da janela entre sessões
-- **Dados locais** — todos os dados ficam em disco sob `%APPDATA%/GameStock/`; nada sai da máquina
+- **Biblioteca de jogos**: crie, edite, exclua e consulte jogos com titulo, plataforma, publisher, ano, genero, classificacao, notas, favorito e status de jogo.
+- **Grade e lista**: navegue por cards com capas ou por uma lista compacta, com paginacao e ordenacao.
+- **Detalhe do jogo**: veja capa, background, screenshot, metadados, caminho da ROM e formulario de edicao em uma tela dedicada.
+- **Filtros de colecao**: filtre por todos, favoritos, jogando, concluidos e nao jogados.
+- **Busca e plataformas**: pesquise por titulo e navegue pela sidebar com plataformas agrupadas por categoria.
+- **Gerenciador de plataformas**: cadastre, edite e remova plataformas usadas pela biblioteca.
+- **Cadastro manual**: adicione jogos sem depender da LaunchBox.
+- **Associacao de ROMs**: selecione arquivos ROM por dialogos nativos do sistema.
+- **Importador LaunchBox**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
+- **Importacao por pasta de ROMs**: escaneie pastas ou arquivos, revise candidatos, rode importacao em background e acompanhe progresso.
+- **Sincronizacao de capas**: atualize midias de jogos vinculados a LaunchBox e acompanhe estatisticas de capas.
+- **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI.
+- **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/GameStock/`.
 
 ## Requisitos
 
 - Windows 11
-- Node.js ≥ 18
+- Node.js 18 ou superior
 - npm
 
-## Instalação
+## Instalacao
 
 ```bash
 npm install
 ```
 
-O script `postinstall` executa `electron-builder install-app-deps` para recompilar módulos nativos (como `better-sqlite3`) contra o runtime do Electron incluído.
+O `postinstall` executa `electron-builder install-app-deps` para recompilar modulos nativos, como `better-sqlite3`, contra o runtime do Electron usado pelo projeto.
 
 ## Desenvolvimento
 
@@ -35,9 +38,9 @@ O script `postinstall` executa `electron-builder install-app-deps` para recompil
 npm run dev:windows
 ```
 
-Inicia o Vite em `localhost:5173`, compila o código Electron main e preload em modo watch, aguarda todas as saídas e abre o Electron.
+Esse comando inicia o Vite em `127.0.0.1:5173`, compila `main` e `preload` em modo watch, espera os artefatos em `dist/` e abre o Electron.
 
-Se `ELECTRON_RUN_AS_NODE` estiver definido no seu shell, limpe antes de iniciar o Electron manualmente:
+Se `ELECTRON_RUN_AS_NODE` estiver definido no shell, limpe antes de iniciar o Electron manualmente:
 
 ```powershell
 $env:ELECTRON_RUN_AS_NODE = $null
@@ -45,19 +48,19 @@ $env:ELECTRON_RUN_AS_NODE = $null
 
 ## Build
 
-Compilar o bundle do renderer:
+Compilar o renderer:
 
 ```bash
 npm run build:renderer
 ```
 
-Compilar o código Electron main e preload:
+Compilar o processo main e o preload:
 
 ```bash
 npm run build:main
 ```
 
-Gerar o instalador NSIS e builds portáteis do Windows em `release/`:
+Gerar instalador NSIS e build portatil do Windows em `release/`:
 
 ```bash
 npm run dist:windows
@@ -65,42 +68,72 @@ npm run dist:windows
 
 ## Testes
 
-Executar o smoke test de importação LaunchBox contra o app compilado:
+Smoke test da importacao por pasta de ROMs:
+
+```bash
+npm run test:rom-folder-import
+```
+
+E2E da importacao LaunchBox contra o app compilado:
 
 ```bash
 npm run test:launchbox:e2e
 ```
 
-Executar o mesmo teste contra o app empacotado em `release/win-unpacked/`:
+E2E da importacao LaunchBox contra o app empacotado em `release/win-unpacked/`:
 
 ```bash
 npm run test:launchbox:e2e:packaged
 ```
 
-O teste compila o app, busca os metadados do LaunchBox, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade do renderer.
+O E2E compila o app, baixa/cacheia metadados LaunchBox, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade.
 
 ## Dados Locais
 
-O GameStock armazena todos os dados de runtime fora do repositório:
+O GameStock armazena dados de runtime fora do repositorio:
 
-| Caminho | Conteúdo |
+| Caminho | Conteudo |
 |---------|----------|
-| `%APPDATA%/GameStock/gamestock.db` | Banco de dados SQLite |
-| `%APPDATA%/GameStock/images/` | Imagens de capa importadas |
-| `%APPDATA%/GameStock/launchbox_cache/` | Metadados LaunchBox extraídos |
-| `%APPDATA%/GameStock/window-bounds.json` | Posição e tamanho da janela salvos |
+| `%APPDATA%/GameStock/gamestock.db` | Banco SQLite |
+| `%APPDATA%/GameStock/images/` | Capas, backgrounds, screenshots e outras midias baixadas |
+| `%APPDATA%/GameStock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache da LaunchBox |
+| `%APPDATA%/GameStock/window-bounds.json` | Posicao e tamanho da janela |
+
+Entradas de pastas de ROMs configuradas ficam no `localStorage` do renderer.
 
 ## Importador LaunchBox
 
-O importador baixa o `Metadata.zip` do banco de dados público de jogos do LaunchBox e armazena em cache os arquivos XML extraídos localmente. A primeira execução faz o download de um arquivo grande e pode levar alguns minutos. O progresso é transmitido para a UI via IPC do Electron. Buscas subsequentes usam o cache local.
+O importador baixa `https://gamesdb.launchbox-app.com/Metadata.zip`, extrai `Metadata.xml` e cria um indice local em `index.json`. O cache e reutilizado quando tem menos de 24 horas, salvo quando uma atualizacao forcada e solicitada.
 
-## Stack Tecnológica
+A busca usa o indice local, pode filtrar por plataforma e limita resultados para manter a UI responsiva. Ao importar, o GameStock cria ou atualiza o jogo no SQLite, baixa as imagens escolhidas e gera um `cover.jpg` otimizado com `sharp` quando ha imagem "Box - Front".
+
+## Importacao por Pasta de ROMs
+
+O assistente fica em **Configuracoes > Biblioteca**. Ele permite cadastrar pastas, escolher plataforma, escanear ROMs suportadas, revisar arquivos encontrados e iniciar importacao em background.
+
+Extensoes suportadas incluem `.zip`, `.rom`, `.bin`, `.iso`, `.img`, `.cue`, `.nes`, `.snes`, `.sfc`, `.smc`, `.swc`, `.fig`, `.smd`, `.md`, `.n64`, `.z64`, `.v64`, `.gb`, `.gbc` e `.gba`.
+
+Durante o job, o app tenta casar cada ROM com a LaunchBox por titulo e plataforma. Jogos com match sao criados ou atualizados sem duplicar registros; ROMs sem match entram no resumo final.
+
+## Stack
 
 | Camada | Tecnologia |
-|--------|-----------|
-| Shell | Electron 41 |
+|--------|------------|
+| Desktop shell | Electron 41 |
 | Renderer | React 19 + TypeScript + Vite 7 |
 | Estado | Zustand 5 |
-| Banco de dados | better-sqlite3 (SQLite) |
-| IPC | Electron contextBridge / ipcRenderer |
-| Empacotamento | electron-builder (NSIS + portátil) |
+| Banco | SQLite via `better-sqlite3` |
+| IPC | `contextBridge` / `ipcRenderer` |
+| Midia | `sharp` |
+| LaunchBox | `adm-zip` + `xml2js` |
+| UI icons | `lucide-react` |
+| Build | `electron-builder` |
+
+## Arquitetura
+
+- Canais IPC ficam em `src/shared/ipc-channels.ts`.
+- Handlers do processo main ficam em `src/main/index.ts`.
+- API segura do renderer e exposta em `src/preload/index.ts` como `window.gameStockAPI`.
+- Tipos compartilhados ficam em `src/shared/types.ts` e `src/preload/types.d.ts`.
+- Codigo SQLite fica em `src/main/db`, com DAOs em `src/main/db/dao` e repositorios em `src/main/db/repositories`.
+- Componentes React ficam em `src/renderer/components`.
