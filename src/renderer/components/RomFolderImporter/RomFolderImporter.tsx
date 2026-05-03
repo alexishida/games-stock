@@ -253,7 +253,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
             <span>Plataforma</span>
             <select value={platformId} onChange={(e) => setPlatformId(e.target.value ? Number(e.target.value) : "")}>
               <option value="">Selecione uma plataforma</option>
-              {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {[...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </label>
         </div>

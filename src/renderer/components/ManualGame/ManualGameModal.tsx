@@ -73,7 +73,7 @@ export function ManualGameModal() {
           <label>Plataforma
             <select value={draft.platform_id ?? ""} onChange={(event) => setDraft({ ...draft, platform_id: Number(event.target.value) || undefined })}>
               <option value="">Selecione</option>
-              {platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
+              {[...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })).map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
             </select>
           </label>
           <div className="form-grid-two">
