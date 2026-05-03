@@ -13,10 +13,12 @@ export function GameList() {
       <div className="game-list">
         <div className="game-list-header">
           <span></span>
-          <span>Titulo</span>
+          <span>Título</span>
           <span>Plataforma</span>
+          <span>Estilo</span>
           <span>Publisher</span>
           <span>Ano</span>
+          <span></span>
         </div>
         <div className="game-list-body">
           {games.map((game) => (
