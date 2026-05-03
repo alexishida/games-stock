@@ -83,6 +83,25 @@
   font-size: 11px;
 }
 
+.emulator-core-path {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emulator-core-hint {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .emulator-associations {
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--border);

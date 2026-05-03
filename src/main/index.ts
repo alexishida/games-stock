@@ -11,6 +11,7 @@ import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImag
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
+import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -124,13 +125,15 @@ function registerIpc(): void {
 
     let args: string[];
     if (emulator.is_retroarch) {
-      args = [game.rom_path];
+      const corePath = resolveRetroArchCorePath(pe.core_path, emulator.executable, game.platform_name ?? "");
+      if (!corePath) throw new Error("Core do RetroArch nao configurado para esta plataforma");
+      args = ["-L", corePath, game.rom_path];
     } else {
       const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
       args = [...parsedArgs, game.rom_path];
     }
 
-    spawn(emulator.executable, args, { detached: true, stdio: "ignore" }).unref();
+    await spawnDetachedProcess(emulator.executable, args);
     return { success: true };
   });
 
@@ -411,4 +414,73 @@ function mediaSortWeight(filePath: string): number {
     case "other":
       return 5;
   }
+}
+
+function spawnDetachedProcess(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    let settled = false;
+
+    child.once("error", (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    });
+
+    child.once("spawn", () => {
+      if (settled) return;
+      settled = true;
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+function resolveRetroArchCorePath(
+  configuredCorePath: string | null | undefined,
+  retroArchExecutable: string,
+  platformName: string
+): string | null {
+  const normalizedConfigured = configuredCorePath?.trim();
+  const coresDir = path.join(path.dirname(retroArchExecutable), "cores");
+  const configuredCore = normalizedConfigured ? resolveRetroArchCoreCandidate(normalizedConfigured, coresDir) : null;
+  if (configuredCore) return configuredCore;
+  if (!fs.existsSync(coresDir)) return null;
+
+  const candidates = getRetroArchCoreCandidatesForPlatform(platformName);
+  for (const candidate of candidates) {
+    const corePath = resolveRetroArchCoreCandidate(candidate, coresDir);
+    if (corePath) return corePath;
+  }
+
+  return null;
+}
+
+function resolveRetroArchCoreCandidate(coreCandidate: string, coresDir: string): string | null {
+  const directPath = path.resolve(coreCandidate);
+  if (fs.existsSync(directPath)) return directPath;
+
+  const baseDir = path.dirname(coresDir);
+  const relativePaths = [
+    path.resolve(coresDir, coreCandidate),
+    path.resolve(baseDir, coreCandidate)
+  ];
+
+  for (const candidatePath of relativePaths) {
+    if (fs.existsSync(candidatePath)) return candidatePath;
+  }
+
+  if (path.basename(coreCandidate) !== coreCandidate) return null;
+
+  for (const fileName of getRetroArchCoreFileNames(coreCandidate)) {
+    const candidatePath = path.join(coresDir, fileName);
+    if (fs.existsSync(candidatePath)) return candidatePath;
+  }
+
+  return null;
+}
+
+function getRetroArchCoreFileNames(coreName: string): string[] {
+  if (path.extname(coreName)) return [coreName];
+  return [".dll", ".so", ".dylib"].map((extension) => `${coreName}${extension}`);
 }

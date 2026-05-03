@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { FolderOpen, Link, Pencil, Plus, Save, Trash2, Unlink, X } from "lucide-react";
 import { Emulator, Platform, PlatformEmulator } from "../../../shared/types";
+import { getRetroArchCoreForPlatform, RETROARCH_CORE_NAMES } from "../../../shared/retroarch";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./EmulatorsSettings.css";
@@ -111,16 +112,46 @@ function LinkPlatformModal({
 }) {
   const [platformId, setPlatformId] = useState<number | "">(platforms[0]?.id ?? "");
   const [isDefault, setIsDefault] = useState(true);
+  const [corePath, setCorePath] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const isRetroArch = emulator.is_retroarch === 1;
+  const autoCoreRef = useRef("");
+  const selectedPlatform = platformId ? platforms.find((p) => p.id === Number(platformId)) : null;
+  const defaultRetroArchCore = selectedPlatform ? getRetroArchCoreForPlatform(selectedPlatform.name) : null;
+  const coreListId = `retroarch-core-options-${emulator.id}`;
+
+  useEffect(() => {
+    if (!isRetroArch) return;
+    const nextAutoCore = defaultRetroArchCore ?? "";
+    setCorePath((current) => {
+      const shouldAutofill = !current.trim() || current === autoCoreRef.current;
+      autoCoreRef.current = nextAutoCore;
+      return shouldAutofill ? nextAutoCore : current;
+    });
+  }, [defaultRetroArchCore, isRetroArch]);
+
+  async function browseCorePath(): Promise<void> {
+    const result = await window.gameStockAPI.dialogs.openAnyFile();
+    if (result) setCorePath(result);
+  }
 
   async function save(e: FormEvent): Promise<void> {
     e.preventDefault();
     if (!platformId) return;
+    if (isRetroArch && !corePath.trim()) {
+      setError("Core do RetroArch e obrigatorio");
+      return;
+    }
     setError("");
     setSaving(true);
     try {
-      await window.gameStockAPI.emulators.linkPlatform(emulator.id, Number(platformId), isDefault);
+      await window.gameStockAPI.emulators.linkPlatform(
+        emulator.id,
+        Number(platformId),
+        isDefault,
+        isRetroArch ? corePath.trim() : null
+      );
       onSaved();
       onClose();
     } catch (err) {
@@ -147,6 +178,32 @@ function LinkPlatformModal({
               ))}
             </select>
           </label>
+          {isRetroArch && (
+            <label>
+              Core
+              <div className="emulator-exe-row">
+                <input
+                  list={coreListId}
+                  value={corePath}
+                  onChange={(e) => setCorePath(e.target.value)}
+                  placeholder={defaultRetroArchCore ? `Padrao: ${defaultRetroArchCore}` : "Nome ou caminho do core libretro"}
+                />
+                <datalist id={coreListId}>
+                  {RETROARCH_CORE_NAMES.map((coreName) => (
+                    <option key={coreName} value={coreName} />
+                  ))}
+                </datalist>
+                <button type="button" className="icon-button" title="Selecionar core" onClick={browseCorePath}>
+                  <FolderOpen size={15} aria-hidden="true" />
+                </button>
+              </div>
+              {defaultRetroArchCore && (
+                <span className="emulator-core-hint">
+                  Core padrao desta plataforma. Pode trocar antes de vincular.
+                </span>
+              )}
+            </label>
+          )}
           <label className="emulator-checkbox-label">
             <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
             Definir como emulador padrão desta plataforma
@@ -248,6 +305,7 @@ function EmulatorRow({
               <div key={pe.platform_id} className="emulator-assoc-row">
                 <span>
                   {platformName(pe.platform_id)}
+                  {pe.core_path && <em className="emulator-core-path">{pe.core_path}</em>}
                   {pe.is_default === 1 && <span className="emulator-badge default">padrão</span>}
                 </span>
                 <button
