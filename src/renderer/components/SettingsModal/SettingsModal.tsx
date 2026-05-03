@@ -1,4 +1,5 @@
-import { FolderOpen, Gamepad2, Settings, X } from "lucide-react";
+import { FolderOpen, Gamepad2, Images, Settings, X } from "lucide-react";
+import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
@@ -6,12 +7,14 @@ import "./SettingsModal.css";
 
 const NAV_ITEMS: { id: SettingsSection; label: string; Icon: typeof FolderOpen }[] = [
   { id: "biblioteca", label: "Biblioteca", Icon: FolderOpen },
-  { id: "plataformas", label: "Plataformas", Icon: Gamepad2 }
+  { id: "plataformas", label: "Plataformas", Icon: Gamepad2 },
+  { id: "covers", label: "Covers", Icon: Images }
 ];
 
 const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title: string }> = {
   biblioteca: { title: "Gerenciar biblioteca" },
-  plataformas: { title: "Gerenciar plataformas" }
+  plataformas: { title: "Gerenciar plataformas" },
+  covers: { title: "Gerenciar covers" }
 };
 
 export function SettingsModal() {
@@ -62,6 +65,9 @@ export function SettingsModal() {
             )}
             {section === "plataformas" && (
               <PlatformManager />
+            )}
+            {section === "covers" && (
+              <CoversSettings />
             )}
           </div>
         </div>

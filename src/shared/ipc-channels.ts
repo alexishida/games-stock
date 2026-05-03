@@ -4,6 +4,8 @@ export const IPC_CHANNELS = {
     get: "games:get",
     listMedia: "games:listMedia",
     collectionCounts: "games:collectionCounts",
+    coverStats: "games:coverStats",
+    syncCovers: "games:syncCovers",
     create: "games:create",
     update: "games:update",
     delete: "games:delete"

@@ -1,0 +1,106 @@
+.covers-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.covers-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cover-stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 8px;
+  align-items: center;
+  min-height: 86px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 12px;
+}
+
+.cover-stat svg {
+  color: var(--accent);
+}
+
+.cover-stat.warning svg {
+  color: #fca5a5;
+}
+
+.cover-stat span {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cover-stat strong {
+  grid-column: 1 / -1;
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.covers-sync-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-control);
+  padding: 14px;
+}
+
+.covers-sync-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.covers-sync-header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.covers-sync-header strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.covers-sync-header span,
+.covers-progress-text,
+.covers-result {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.covers-progress-track {
+  overflow: hidden;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(132, 148, 149, 0.18);
+}
+
+.covers-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.18s ease;
+}
+
+.spin {
+  animation: covers-spin 0.9s linear infinite;
+}
+
+@keyframes covers-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

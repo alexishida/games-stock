@@ -1,6 +1,6 @@
 import { getDatabase } from "../database";
 import { GameDao } from "../dao/gameDao";
-import { CollectionCounts, Game, GameCreateInput, GameFilters, GameListResult, GameUpdateInput } from "../../../shared/types";
+import { CollectionCounts, CoverSyncStats, Game, GameCreateInput, GameFilters, GameListResult, GameUpdateInput } from "../../../shared/types";
 
 function gameDao(): GameDao {
   return new GameDao(getDatabase());
@@ -40,4 +40,12 @@ export function upsertLaunchBoxGame(data: Partial<GameCreateInput> & { title: st
 
 export function getCollectionCounts(): CollectionCounts {
   return gameDao().collectionCounts();
+}
+
+export function getCoverStats(): CoverSyncStats {
+  return gameDao().coverStats();
+}
+
+export function listGamesMissingCovers(): Game[] {
+  return gameDao().listMissingCovers();
 }

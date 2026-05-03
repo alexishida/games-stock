@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { CollectionCounts, CollectionFilter, Game, GameListResult, GameSortBy, Platform, ViewMode } from "../../shared/types";
 
-export type SettingsSection = "biblioteca" | "plataformas";
+export type SettingsSection = "biblioteca" | "plataformas" | "covers";
 
 interface GameStockState {
   selectedPlatformId: number | null;

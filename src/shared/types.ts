@@ -7,6 +7,20 @@ export interface CollectionCounts {
   playing: number;
   completed: number;
 }
+
+export interface CoverSyncStats {
+  total: number;
+  downloaded: number;
+  missing: number;
+  syncable: number;
+}
+
+export interface CoverSyncResult extends CoverSyncStats {
+  attempted: number;
+  downloadedNow: number;
+  failed: number;
+  skipped: number;
+}
 export type GameSortBy = "title" | "year" | "recent";
 
 export interface Platform {

@@ -1,7 +1,7 @@
 import { getImagesDir } from "../../db/database";
-import { upsertLaunchBoxGame } from "../../db/repositories/games";
+import { getCoverStats, listGamesMissingCovers, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
 import { findOrCreatePlatform, listPlatforms } from "../../db/repositories/platforms";
-import { LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
+import { CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { PLATFORMS } from "./config";
 import { buildIndex, ensureMetadata } from "./db";
 import { downloadImages, searchGames as searchIndex } from "./scraper";
@@ -49,6 +49,52 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
   });
 
   return { gameId: saved.game.id, created: saved.created, boxArtPath };
+}
+
+export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<CoverSyncResult> {
+  const missing = listGamesMissingCovers();
+  const index = await buildIndex(onProgress);
+  let downloadedNow = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (let i = 0; i < missing.length; i += 1) {
+    const gameRecord = missing[i];
+    const launchBoxId = gameRecord.launchbox_id;
+    const launchBoxGame = launchBoxId ? index[launchBoxId] : null;
+    const current = i + 1;
+
+    if (!launchBoxGame) {
+      skipped += 1;
+      onProgress?.({ current, total: missing.length, filename: gameRecord.title, status: "skipped" });
+      continue;
+    }
+
+    const download = await downloadImages(launchBoxGame, getImagesDir(), ["Box - Front"], (progress) => {
+      onProgress?.({
+        current,
+        total: missing.length,
+        filename: progress.filename ?? gameRecord.title,
+        status: progress.status
+      });
+    });
+    const boxArtPath = download.files.find((file) => file.endsWith("cover.jpg")) ?? download.files.find((file) => file.includes("box-front")) ?? null;
+
+    if (boxArtPath) {
+      updateGame(gameRecord.id, { box_art_path: boxArtPath });
+      downloadedNow += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  return {
+    ...getCoverStats(),
+    attempted: missing.length,
+    downloadedNow,
+    failed,
+    skipped
+  };
 }
 
 function resolvePlatformId(launchBoxPlatform: string): number {

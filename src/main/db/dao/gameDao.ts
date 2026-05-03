@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import path from "node:path";
-import { CollectionCounts, CollectionFilter, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../../shared/types";
+import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../../shared/types";
 
 type GameRow = Omit<Game, "favorite"> & { favorite: 0 | 1 };
 
@@ -102,6 +102,37 @@ export class GameDao {
       FROM games
     `).get() as { favorites: number; playing: number; completed: number };
     return { favorites: row.favorites ?? 0, playing: row.playing ?? 0, completed: row.completed ?? 0 };
+  }
+
+  coverStats(): CoverSyncStats {
+    const row = this.database.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN box_art_path IS NOT NULL AND box_art_path != '' THEN 1 ELSE 0 END) as downloaded,
+        SUM(CASE WHEN (box_art_path IS NULL OR box_art_path = '') AND launchbox_id IS NOT NULL AND launchbox_id != '' THEN 1 ELSE 0 END) as syncable
+      FROM games
+    `).get() as { total: number; downloaded: number | null; syncable: number | null };
+    const downloaded = row.downloaded ?? 0;
+    const total = row.total ?? 0;
+    return {
+      total,
+      downloaded,
+      missing: Math.max(0, total - downloaded),
+      syncable: row.syncable ?? 0
+    };
+  }
+
+  listMissingCovers(): Game[] {
+    return this.database
+      .prepare(`
+        ${baseSelect()}
+        WHERE (games.box_art_path IS NULL OR games.box_art_path = '')
+          AND games.launchbox_id IS NOT NULL
+          AND games.launchbox_id != ''
+        ORDER BY games.title COLLATE NOCASE
+      `)
+      .all()
+      .map((row) => mapGame(row as GameRow));
   }
 
   delete(id: number): { success: true } {
