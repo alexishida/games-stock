@@ -35,18 +35,22 @@ export function NotificationCenter() {
   useEffect(() => window.gameStockAPI.romFolderImport.onProgress((progress) => {
     if (!progress.jobId) return;
     setLastRomImportJob((current) => updateRomImportJob(current, progress));
-    setItems((current) => ({
-      ...current,
-      [progress.jobId!]: {
-        type: "rom",
-        jobId: progress.jobId!,
-        folderCount: current[progress.jobId!]?.folderCount || (progress.folderPath ? 1 : 0),
-        platformName: current[progress.jobId!]?.platformName,
-        status: progress.stage === "error" ? "failed" : current[progress.jobId!]?.status ?? "running",
-        progress,
-        result: current[progress.jobId!]?.result
-      }
-    }));
+    setItems((current) => {
+      const prev = current[progress.jobId!];
+      const prevRom = prev?.type === "rom" ? prev : undefined;
+      return {
+        ...current,
+        [progress.jobId!]: {
+          type: "rom",
+          jobId: progress.jobId!,
+          folderCount: prevRom?.folderCount || (progress.folderPath ? 1 : 0),
+          platformName: prevRom?.platformName,
+          status: progress.stage === "error" ? "failed" : prev?.status ?? "running",
+          progress,
+          result: prevRom?.result
+        }
+      };
+    });
   }), [setLastRomImportJob]);
 
   useEffect(() => {
@@ -267,16 +271,17 @@ function labelForStage(stage: RomFolderImportProgress["stage"]): string {
 }
 
 function updateRomImportJob(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
+  const prev = current?.jobId === progress.jobId ? current : null;
   return {
     jobId: progress.jobId!,
-    folderPaths: current?.jobId === progress.jobId ? current.folderPaths : [],
-    romFilePaths: current?.jobId === progress.jobId ? current.romFilePaths : [],
-    platformId: current?.jobId === progress.jobId ? current.platformId : 0,
-    platformName: current?.jobId === progress.jobId ? current.platformName : "Biblioteca",
+    folderPaths: prev ? prev.folderPaths : [],
+    romFilePaths: prev ? prev.romFilePaths : [],
+    platformId: prev ? prev.platformId : 0,
+    platformName: prev ? prev.platformName : "Biblioteca",
     status: progress.stage === "error" ? "failed" : "running",
-    startedAt: current?.jobId === progress.jobId ? current.startedAt : new Date().toISOString(),
+    startedAt: prev ? prev.startedAt : new Date().toISOString(),
     progress,
-    result: current?.jobId === progress.jobId ? current.result : undefined,
+    result: prev ? prev.result : undefined,
     error: progress.stage === "error" ? progress.message : undefined
   };
 }

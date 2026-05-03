@@ -130,16 +130,17 @@ export default function App() {
 }
 
 function updateRomImportJob(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
+  const prev = current?.jobId === progress.jobId ? current : null;
   return {
     jobId: progress.jobId!,
-    folderPaths: current?.jobId === progress.jobId ? current.folderPaths : [],
-    romFilePaths: current?.jobId === progress.jobId ? current.romFilePaths : [],
-    platformId: current?.jobId === progress.jobId ? current.platformId : 0,
-    platformName: current?.jobId === progress.jobId ? current.platformName : "Biblioteca",
+    folderPaths: prev ? prev.folderPaths : [],
+    romFilePaths: prev ? prev.romFilePaths : [],
+    platformId: prev ? prev.platformId : 0,
+    platformName: prev ? prev.platformName : "Biblioteca",
     status: progress.stage === "error" ? "failed" : "running",
-    startedAt: current?.jobId === progress.jobId ? current.startedAt : new Date().toISOString(),
+    startedAt: prev ? prev.startedAt : new Date().toISOString(),
     progress,
-    result: current?.jobId === progress.jobId ? current.result : undefined,
+    result: prev ? prev.result : undefined,
     error: progress.stage === "error" ? progress.message : undefined
   };
 }
