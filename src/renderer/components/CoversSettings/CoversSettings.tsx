@@ -166,7 +166,7 @@ export function CoversSettings() {
               <span style={{ width: `${metadataProgress?.total ? Math.round((metadataProgress.current / metadataProgress.total) * 100) : 0}%` }} />
             </div>
             <p className="covers-progress-text">
-              {metadataProgress ? `${metadataProgress.current}/${metadataProgress.total} ${metadataProgress.filename ?? "Metadata.zip"}` : "Baixando Metadata.zip"}
+              {metadataProgress ? `${formatMegabytesProgress(metadataProgress)} ${metadataProgress.filename ?? "Metadata.zip"}` : "Baixando Metadata.zip"}
             </p>
           </>
         )}
@@ -181,6 +181,16 @@ function formatMetadataDate(value: string | null): string {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function formatMegabytesProgress(progress: LaunchBoxProgress): string {
+  const current = formatMegabytes(progress.current);
+  if (!progress.total) return current;
+  return `${current}/${formatMegabytes(progress.total)}`;
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function emitMediaJob(type: "start" | "finish", detail: Record<string, unknown>): void {
