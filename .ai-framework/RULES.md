@@ -59,6 +59,12 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 - Repositorios em `src/main/db/repositories` devem ser fachadas finas ou orquestracao; nao colocar SQL direto neles.
 - Codigo fora de `src/main/db` deve acessar o banco via repositorios/DAOs exportados, nunca via `better-sqlite3` direto.
 
+## Regra aprendida: estado assíncrono compartilhado
+
+Sempre usar Zustand (`src/renderer/store/index.ts`) para qualquer estado assíncrono que precise ser visível em mais de um componente (ex: download em andamento, job de importação, flags de loading global).
+
+Nunca usar `window.dispatchEvent` como mecanismo de estado compartilhado. Eventos são fire-and-forget — componentes que montam depois do evento já ter sido emitido perdem o estado. O Zustand persiste o valor e qualquer componente lê o estado atual ao montar.
+
 ## Regra aprendida: modais empilhados
 
 Quando ja existir um modal aberto e outro modal/confirmacao for aberto acima dele, o modal de tras deve receber uma nova camada escura semi-transparente. Isso vale para 2o, 3o, 4o modal e seguintes, para manter o modal de cima mais legivel.
