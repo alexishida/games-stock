@@ -1,4 +1,4 @@
-import { FolderOpen, Gamepad2, X } from "lucide-react";
+import { FolderOpen, Gamepad2, Settings, X } from "lucide-react";
 import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
@@ -28,6 +28,10 @@ export function SettingsModal() {
     <div className="modal-backdrop">
       <div className="settings-modal">
         <nav className="settings-nav">
+          <p className="settings-nav-label">
+            <Settings aria-hidden="true" size={15} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />
+            Configurações
+          </p>
           {NAV_ITEMS.map(({ Icon, ...item }) => (
             <button
               key={item.id}
