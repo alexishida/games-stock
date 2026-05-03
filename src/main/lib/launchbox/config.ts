@@ -38,16 +38,19 @@ export const PLATFORMS: Record<string, string[]> = {
 };
 
 export const IMAGE_TYPES: Record<string, LaunchBoxImageType> = {
-  "1": "Box - Front",
+  "1": "Box - 3D",
   "2": "Box - Back",
-  "3": "Box - Spine",
-  "4": "Screenshot - Gameplay",
-  "5": "Fanart - Background",
-  "6": "Banner",
-  "7": "Clear Logo",
-  "8": "Disc",
-  "9": "Cart - Front",
-  "10": "Screenshot - Game Title"
+  "3": "Box - Back - Reconstructed",
+  "4": "Box - Front",
+  "5": "Box - Front - Reconstructed",
+  "6": "Box - Spine",
+  "7": "Screenshot - Gameplay",
+  "8": "Fanart - Background",
+  "9": "Banner",
+  "10": "Clear Logo",
+  "11": "Disc",
+  "12": "Cart - Front",
+  "13": "Screenshot - Game Title"
 };
 
 export const IMAGE_TYPE_LIST = Object.values(IMAGE_TYPES);

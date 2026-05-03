@@ -87,8 +87,9 @@
 
 .detail-cover-card {
   display: grid;
-  width: 180px;
-  aspect-ratio: 3 / 4;
+  width: 195px;
+  height: 280px;
+  max-height: 280px;
   flex: 0 0 auto;
   place-items: center;
   overflow: hidden;
@@ -98,6 +99,12 @@
   color: var(--accent);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.44);
   transform: rotate(-1deg);
+}
+
+.detail-cover-card.landscape {
+  width: 280px;
+  height: 195px;
+  max-height: 195px;
 }
 
 .detail-cover-card img {

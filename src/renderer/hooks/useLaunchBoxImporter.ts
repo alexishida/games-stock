@@ -2,6 +2,14 @@ import { useState } from "react";
 import { LaunchBoxGame, LaunchBoxImageType, LaunchBoxProgress } from "../../shared/types";
 import { useGameStockStore } from "../store";
 
+const defaultImageTypes: LaunchBoxImageType[] = [
+  "Box - Back",
+  "Box - Front",
+  "Cart - Front",
+  "Fanart - Background",
+  "Screenshot - Gameplay"
+];
+
 export function useLaunchBoxImporter() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
@@ -9,7 +17,7 @@ export function useLaunchBoxImporter() {
   const [platformKey, setPlatformKey] = useState("");
   const [results, setResults] = useState<LaunchBoxGame[]>([]);
   const [selectedGame, setSelectedGame] = useState<LaunchBoxGame | null>(null);
-  const [selectedTypes, setSelectedTypes] = useState<LaunchBoxImageType[]>(["Box - Front"]);
+  const [selectedTypes, setSelectedTypes] = useState<LaunchBoxImageType[]>(defaultImageTypes);
   const [progress, setProgress] = useState<LaunchBoxProgress | null>(null);
   const [loading, setLoading] = useState(false);
 

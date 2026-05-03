@@ -51,8 +51,11 @@ export interface GameListResult {
 }
 
 export type LaunchBoxImageType =
+  | "Box - 3D"
   | "Box - Front"
+  | "Box - Front - Reconstructed"
   | "Box - Back"
+  | "Box - Back - Reconstructed"
   | "Box - Spine"
   | "Screenshot - Gameplay"
   | "Fanart - Background"

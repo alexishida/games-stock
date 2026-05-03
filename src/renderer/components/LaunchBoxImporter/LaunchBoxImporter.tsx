@@ -16,7 +16,13 @@ const platformEntries = [
   ["saturn", "Sega Saturn"]
 ];
 
-const imageTypes: LaunchBoxImageType[] = ["Box - Front", "Box - Back", "Box - Spine", "Screenshot - Gameplay", "Fanart - Background", "Banner", "Clear Logo", "Disc", "Cart - Front", "Screenshot - Game Title"];
+const imageTypes: LaunchBoxImageType[] = [
+  "Box - Back",
+  "Box - Front",
+  "Cart - Front",
+  "Fanart - Background",
+  "Screenshot - Gameplay"
+];
 
 export function LaunchBoxImporter() {
   const importerOpen = useGameStockStore((state) => state.importerOpen);

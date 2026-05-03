@@ -54,7 +54,13 @@ export const SUPPORTED_ROM_EXTENSIONS = [
   ".gba"
 ];
 
-const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = ["Box - Front", "Cart - Front", "Fanart - Background", "Screenshot - Gameplay"];
+const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = [
+  "Box - Back",
+  "Box - Front",
+  "Cart - Front",
+  "Fanart - Background",
+  "Screenshot - Gameplay"
+];
 
 export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResult {
   const platform = requirePlatform(request.platformId);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Download, Gamepad2, Image, Monitor, Play, Star, Trash2, X } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -16,6 +16,11 @@ export function GameDetail() {
   const screenshotUrl = localMediaUrl(game?.screenshot_path);
   const backgroundUrl = localMediaUrl(game?.background_path);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [isCoverLandscape, setIsCoverLandscape] = useState(false);
+
+  useEffect(() => {
+    setIsCoverLandscape(false);
+  }, [selectedGameId]);
 
   if (!game) {
     return (
@@ -54,8 +59,17 @@ export function GameDetail() {
           Biblioteca
         </button>
         <div className="detail-hero-content">
-          <div className="detail-cover-card">
-            {coverUrl ? <img src={coverUrl} alt="" /> : <Gamepad2 aria-hidden="true" size={38} />}
+          <div className={"detail-cover-card" + (isCoverLandscape ? " landscape" : "")}>
+            {coverUrl
+              ? <img
+                  src={coverUrl}
+                  alt=""
+                  onLoad={(event) => {
+                    const img = event.currentTarget;
+                    setIsCoverLandscape(img.naturalWidth > img.naturalHeight);
+                  }}
+                />
+              : <Gamepad2 aria-hidden="true" size={38} />}
           </div>
           <div className="detail-title-block">
             <div className="detail-chips" aria-label="Metadados principais">

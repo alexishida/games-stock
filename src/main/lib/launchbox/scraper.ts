@@ -91,17 +91,20 @@ function sanitize(value: string): string {
 
 function getImageFilename(image: Pick<LaunchBoxGame["images"][number], "filename" | "region" | "type">, index: number): string {
   const ext = path.extname(image.filename) || ".jpg";
-  if (image.type === "Box - Front") {
-    return `box-front-${sanitize(image.region || "no_region")}-${String(index + 1).padStart(2, "0")}${ext}`;
+  if (image.type.startsWith("Box -")) {
+    return `${slug(image.type)}-${slug(image.region || "no_region")}-${String(index + 1).padStart(2, "0")}${ext}`;
   }
 
-  return `${sanitize(image.type)}-${sanitize(image.region || "no_region")}${ext}`;
+  return `${slug(image.type)}-${slug(image.region || "no_region")}${ext}`;
 }
 
 const BOX_FRONT_REGION_PRIORITY = ["brazil", "north-america", "europe", "world", "united-states", "no_region"];
 
 async function ensureCoverPreview(gameDir: string, files: string[]): Promise<string | null> {
-  const boxArtFiles = files.filter((file) => path.basename(file).toLowerCase().startsWith("box-front-"));
+  const boxArtFiles = files.filter((file) => {
+    const filename = path.basename(file).toLowerCase();
+    return filename.startsWith("box-front-") || filename.startsWith("box-front-reconstructed-");
+  });
   if (!boxArtFiles.length) return null;
 
   const selected = selectPreferredBoxArt(boxArtFiles);
@@ -123,4 +126,13 @@ function selectPreferredBoxArt(files: string[]): string | null {
   }
 
   return files[0] ?? null;
+}
+
+function slug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 120);
 }
