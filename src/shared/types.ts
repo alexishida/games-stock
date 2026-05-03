@@ -226,6 +226,15 @@ export interface RomFolderImportRequest {
   platformId: number;
 }
 
+export interface RomFolderRecordCountRequest {
+  folderPath: string;
+  platformId?: number;
+}
+
+export interface RomFolderRecordCountResult extends RomFolderRecordCountRequest {
+  count: number;
+}
+
 export interface RomFolderImportItemResult {
   candidate: RomFolderImportCandidate;
   status: "created" | "updated" | "unmatched" | "failed";

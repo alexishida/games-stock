@@ -23,6 +23,8 @@ import {
   RomFolderImportProgress,
   RomFolderImportRequest,
   RomFolderImportResult,
+  RomFolderRecordCountRequest,
+  RomFolderRecordCountResult,
   RomFolderScanRequest,
   RomFolderScanResult,
   ViewMode
@@ -83,6 +85,7 @@ export interface GameStockAPI {
     scan(params: RomFolderScanRequest): Promise<RomFolderScanResult>;
     import(params: RomFolderImportRequest): Promise<RomFolderImportJob>;
     jobs(): Promise<RomFolderImportJob[]>;
+    countFolderRecords(params: RomFolderRecordCountRequest[]): Promise<RomFolderRecordCountResult[]>;
     deleteFolderRecords(params: string | { folderPath: string; platformId?: number }): Promise<{ success: true; deleted: number }>;
     onProgress(callback: (progress: RomFolderImportProgress) => void): () => void;
     onCompleted(callback: (result: RomFolderImportResult) => void): () => void;

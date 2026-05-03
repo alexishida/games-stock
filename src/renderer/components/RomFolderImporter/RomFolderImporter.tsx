@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { AlertTriangle, ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
@@ -31,6 +31,24 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    let canceled = false;
+    const entries = folderEntries.length ? folderEntries : loadSavedFolderEntries(platforms);
+    if (!entries.length) return undefined;
+
+    void refreshFolderCounts(entries)
+      .then((nextEntries) => {
+        if (canceled) return;
+        setFolderEntries(nextEntries);
+        saveFolderEntries(nextEntries);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      canceled = true;
+    };
+  }, [platforms]);
 
   function handleFolderAdded(entry: FolderEntry): void {
     const nextEntries = upsertFolderEntry(folderEntries, entry);
@@ -209,7 +227,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
         folderPath: scan.folderPaths[0],
         platformId,
         platformName: platform?.name ?? scan.platformName,
-        indexedCount: scan.candidates.length
+        indexedCount: 0
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -446,4 +464,14 @@ function saveFolderEntries(entries: FolderEntry[]): void {
 
 function upsertFolderEntry(entries: FolderEntry[], nextEntry: FolderEntry): FolderEntry[] {
   return [...entries.filter((entry) => entry.folderPath !== nextEntry.folderPath), nextEntry];
+}
+
+async function refreshFolderCounts(entries: FolderEntry[]): Promise<FolderEntry[]> {
+  const counts = await window.gameStockAPI.romFolderImport.countFolderRecords(
+    entries.map((entry) => ({ folderPath: entry.folderPath, platformId: entry.platformId }))
+  );
+  return entries.map((entry, index) => ({
+    ...entry,
+    indexedCount: counts[index]?.count ?? entry.indexedCount
+  }));
 }

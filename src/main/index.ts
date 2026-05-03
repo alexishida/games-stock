@@ -10,7 +10,7 @@ import * as emulators from "./db/repositories/emulators";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
+import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -221,6 +221,12 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.jobs, () => Array.from(romFolderJobs.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt)));
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.countFolderRecords, (_event, params: RomFolderRecordCountRequest[]) =>
+    params.map((entry) => ({
+      ...entry,
+      count: games.countGamesByRomFolder(entry.folderPath, entry.platformId)
+    }))
+  );
   ipcMain.handle(IPC_CHANNELS.romFolderImport.deleteFolderRecords, (_event, params: string | { folderPath: string; platformId?: number }) => {
     // Remove only GameStock database records. Original ROM files and downloaded images stay on disk as cache.
     const folderPath = typeof params === "string" ? params : params.folderPath;

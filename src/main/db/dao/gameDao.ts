@@ -171,6 +171,19 @@ export class GameDao {
     return { success: true, deleted: ids.length };
   }
 
+  countByRomFolder(folderPath: string, platformId?: number): number {
+    const normalizedFolder = normalizeFsPath(folderPath);
+    const rows = platformId
+      ? this.database
+        .prepare("SELECT rom_path FROM games WHERE platform_id = ? AND rom_path IS NOT NULL AND rom_path != ''")
+        .all(platformId) as Array<{ rom_path: string }>
+      : this.database
+        .prepare("SELECT rom_path FROM games WHERE rom_path IS NOT NULL AND rom_path != ''")
+        .all() as Array<{ rom_path: string }>;
+
+    return rows.filter((row) => isPathInsideFolder(row.rom_path, normalizedFolder)).length;
+  }
+
   deleteWithoutRomPathByPlatformAndTitles(platformId: number, titles: string[]): { success: true; deleted: number } {
     const normalizedTitles = new Set(titles.map(normalizeTitleForMatch).filter(Boolean));
     if (!normalizedTitles.size) return { success: true, deleted: 0 };

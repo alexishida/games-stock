@@ -30,6 +30,10 @@ export function deleteGamesByRomFolder(folderPath: string): { success: true; del
   return gameDao().deleteByRomFolder(folderPath);
 }
 
+export function countGamesByRomFolder(folderPath: string, platformId?: number): number {
+  return gameDao().countByRomFolder(folderPath, platformId);
+}
+
 export function deleteGamesWithoutRomPathByPlatformAndTitles(platformId: number, titles: string[]): { success: true; deleted: number } {
   return gameDao().deleteWithoutRomPathByPlatformAndTitles(platformId, titles);
 }
