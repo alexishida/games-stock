@@ -24,6 +24,12 @@
   text-align: left;
   box-shadow: var(--shadow-elevated);
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  cursor: pointer;
+}
+
+.game-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .game-card:hover {

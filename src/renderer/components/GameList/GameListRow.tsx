@@ -30,11 +30,23 @@ export function GameListRow({ game }: { game: Game }) {
     }
   }
 
+  function handleSelect(): void {
+    selectGame(game);
+  }
+
+  function handleRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleSelect();
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={selectedGameId === game.id ? "game-list-row selected" : "game-list-row"}
-      onClick={() => selectGame(game)}
+      onClick={handleSelect}
+      onKeyDown={handleRowKeyDown}
     >
       <span className={isLandscape ? "thumb landscape" : "thumb"}>
         {coverUrl
@@ -73,6 +85,6 @@ export function GameListRow({ game }: { game: Game }) {
           <Play size={12} fill="currentColor" aria-hidden="true" />
         </button>
       </span>
-    </button>
+    </div>
   );
 }

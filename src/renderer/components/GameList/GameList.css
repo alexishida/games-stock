@@ -38,11 +38,17 @@
   background: transparent;
   color: var(--text-primary);
   text-align: left;
+  cursor: pointer;
 }
 
 .game-list-row:hover,
 .game-list-row.selected {
   background: var(--accent-soft);
+}
+
+.game-list-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .thumb {

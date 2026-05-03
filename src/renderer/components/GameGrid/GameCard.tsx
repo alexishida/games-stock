@@ -37,11 +37,23 @@ export function GameCard({ game }: { game: Game }) {
     isLandscape ? "landscape" : "",
   ].filter(Boolean).join(" ");
 
+  function handleSelect(): void {
+    selectGame(game);
+  }
+
+  function handleCardKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleSelect();
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={classes}
-      onClick={() => selectGame(game)}
+      onClick={handleSelect}
+      onKeyDown={handleCardKeyDown}
     >
       <div className="cover-frame">
         {coverUrl
@@ -75,6 +87,6 @@ export function GameCard({ game }: { game: Game }) {
         </button>
         {launchError && <div className="card-launch-error">{launchError}</div>}
       </div>
-    </button>
+    </div>
   );
 }
