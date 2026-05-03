@@ -206,6 +206,13 @@ export class GameDao {
       if (byLaunchBoxId) return byLaunchBoxId;
     }
 
+    if (data.rom_path) {
+      const byRomPath = this.database
+        .prepare("SELECT id FROM games WHERE rom_path = ? AND platform_id = ?")
+        .get(data.rom_path, data.platform_id) as { id: number } | undefined;
+      if (byRomPath) return byRomPath;
+    }
+
     return this.database
       .prepare("SELECT id FROM games WHERE LOWER(title) = LOWER(?) AND platform_id = ?")
       .get(data.title, data.platform_id) as { id: number } | undefined;

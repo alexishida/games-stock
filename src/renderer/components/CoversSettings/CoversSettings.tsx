@@ -17,7 +17,9 @@ const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const LAST_MEDIA_SYNC_JOB_KEY = "gamestock.media.lastMediaSyncJob";
 
 export function CoversSettings() {
-  const [stats, setStats] = useState<CoverSyncStats>(EMPTY_STATS);
+  const storeCoverStats = useGameStockStore((state) => state.coverStats);
+  const setCoverStats = useGameStockStore((state) => state.setCoverStats);
+  const stats = storeCoverStats ?? EMPTY_STATS;
   const [syncProgress, setSyncProgress] = useState<LaunchBoxProgress | null>(null);
   const [metadataProgress, setMetadataProgress] = useState<LaunchBoxProgress | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -93,7 +95,7 @@ export function CoversSettings() {
   async function loadStats() {
     setError(null);
     try {
-      setStats(await window.gameStockAPI.games.coverStats());
+      setCoverStats(await window.gameStockAPI.games.coverStats());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     }
@@ -119,7 +121,7 @@ export function CoversSettings() {
     });
     try {
       const result = await window.gameStockAPI.games.syncCovers();
-      setStats(result);
+      setCoverStats(result);
       reloadGames();
       const completedJob = {
         jobId,
@@ -266,7 +268,7 @@ export function CoversSettings() {
         <div className="cover-stat">
           <Gamepad2 aria-hidden="true" size={18} />
           <span>Jogos</span>
-          <strong>{stats.metadataSyncable}</strong>
+          <strong>{stats.total}</strong>
         </div>
       </div>
 

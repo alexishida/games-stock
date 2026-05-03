@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getImagesDir } from "./db/database";
-import { upsertLaunchBoxGame } from "./db/repositories/games";
+import { createGame, upsertLaunchBoxGame } from "./db/repositories/games";
 import { listPlatforms } from "./db/repositories/platforms";
 import { PLATFORMS } from "./lib/launchbox";
 import { buildIndex, ensureMetadata } from "./lib/launchbox/db";
@@ -150,9 +150,12 @@ export async function importRomFolder(request: RomFolderImportRequest, onProgres
       onProgress?.({ current, total, folderPath: candidate.folderPath, filename: candidate.filename, stage: "matching", message: `Buscando ${candidate.titleCandidate}` });
       const matched = matchCandidate(candidate, launchBoxIndex, matchContext);
       if (matched.status !== "matched" || !matched.match) {
+        const placeholder = upsertUnmatchedGame(candidate);
         summary.unmatched += 1;
+        if (placeholder.created) summary.created += 1;
+        else summary.updated += 1;
         summary.processed += 1;
-        items.push({ candidate, status: "unmatched" });
+        items.push({ candidate, status: "unmatched", gameId: placeholder.game.id });
         onProgress?.({ current, total, folderPath: candidate.folderPath, filename: candidate.filename, stage: "skipped", message: "Sem match confiavel no LaunchBox" });
         continue;
       }
@@ -259,6 +262,39 @@ function upsertMatchedGame(game: LaunchBoxGame, candidate: RomFolderImportCandid
     play_status: "unplayed"
   };
   return upsertLaunchBoxGame(data);
+}
+
+function upsertUnmatchedGame(candidate: RomFolderImportCandidate) {
+  const data: Partial<GameCreateInput> & { title: string; platform_id: number } = {
+    title: candidate.titleCandidate,
+    platform_id: candidate.platformId,
+    publisher: null,
+    year: null,
+    genre: null,
+    rating: null,
+    notes: null,
+    box_art_path: null,
+    background_path: null,
+    screenshot_path: null,
+    launchbox_id: null,
+    rom_path: candidate.romPath,
+    favorite: false,
+    play_status: "unplayed"
+  };
+
+  try {
+    return upsertLaunchBoxGame(data);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("Titulo e obrigatorio")) throw error;
+    return {
+      game: createGame({
+        ...data,
+        title: candidate.filename,
+        notes: "Importado sem match no LaunchBox"
+      }),
+      created: true
+    };
+  }
 }
 
 const BOX_FRONT_REGION_PRIORITY = ["brazil", "north-america", "europe"];
