@@ -15,6 +15,7 @@ function txt(node: unknown): string {
 async function run() {
   const { metadataFile, indexFile } = workerData as { metadataFile: string; indexFile: string };
 
+  parentPort!.postMessage({ status: "indexing", current: 0, total: 0, filename: "Construindo índice" });
   const xml = fs.readFileSync(metadataFile, "utf8");
   const root = await parseStringPromise(xml, { explicitArray: true, trim: true });
   const top = (root.LaunchBox ?? root.Root ?? Object.values(root)[0]) as {

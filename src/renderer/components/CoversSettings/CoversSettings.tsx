@@ -223,12 +223,10 @@ export function CoversSettings() {
         </div>
         {updatingMetadata && (
           <>
-            <div className="covers-progress-track" aria-label="Progresso do Metadata.zip">
-              <span style={{ width: `${metadataProgress?.total ? Math.round((metadataProgress.current / metadataProgress.total) * 100) : 0}%` }} />
+            <div className={`covers-progress-track${metadataProgress?.status === "extracting" || metadataProgress?.status === "indexing" ? " covers-progress-indeterminate" : ""}`} aria-label="Progresso do Metadata.zip">
+              <span style={{ width: `${metadataProgressPercent(metadataProgress)}%` }} />
             </div>
-            <p className="covers-progress-text">
-              {metadataProgress ? `${formatMegabytesProgress(metadataProgress)} ${metadataProgress.filename ?? "Metadata.zip"}` : "Baixando Metadata.zip"}
-            </p>
+            <p className="covers-progress-text">{metadataProgressLabel(metadataProgress)}</p>
           </>
         )}
       </div>
@@ -303,6 +301,19 @@ export function CoversSettings() {
 
     </section>
   );
+}
+
+function metadataProgressLabel(progress: LaunchBoxProgress | null): string {
+  if (!progress) return "Baixando Metadata.zip";
+  if (progress.status === "extracting") return "Extraindo Metadata.zip...";
+  if (progress.status === "indexing") return "Construindo índice...";
+  return `${formatMegabytesProgress(progress)} ${progress.filename ?? "Metadata.zip"}`;
+}
+
+function metadataProgressPercent(progress: LaunchBoxProgress | null): number {
+  if (!progress || progress.status === "extracting" || progress.status === "indexing") return 100;
+  if (!progress.total) return 0;
+  return Math.round((progress.current / progress.total) * 100);
 }
 
 function formatMetadataDate(value: string | null): string {

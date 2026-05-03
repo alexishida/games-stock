@@ -1,3 +1,13 @@
+.progress-track--indeterminate span {
+  animation: notif-progress-pulse 1.4s ease-in-out infinite;
+  transition: none;
+}
+
+@keyframes notif-progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 .notification-center {
   position: fixed;
   right: 18px;

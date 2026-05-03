@@ -34,7 +34,7 @@ export async function ensureMetadata(force = false, onProgress?: ProgressCallbac
 
   await pipeline(body, dest);
 
-  await runExtractWorker(zipPath, cacheDir, metadataFile);
+  await runExtractWorker(zipPath, cacheDir, metadataFile, onProgress);
 
   fs.rmSync(zipPath, { force: true });
   fs.rmSync(getIndexFile(), { force: true });
@@ -59,7 +59,7 @@ export async function buildIndex(onProgress?: ProgressCallback): Promise<Record<
     }
   }
 
-  memoryIndex = await runIndexWorker(metadataFile, indexFile);
+  memoryIndex = await runIndexWorker(metadataFile, indexFile, onProgress);
   return memoryIndex;
 }
 
@@ -75,13 +75,18 @@ function needsUpdate(filePath: string): boolean {
   return ageMs > CACHE_AGE_H * 3_600_000;
 }
 
-function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: string): Promise<void> {
+function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: string, onProgress?: ProgressCallback): Promise<void> {
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "extract-worker.js");
     const worker = new Worker(workerPath, { workerData: { zipPath, cacheDir, metadataFile } });
-    worker.on("message", (result: { ok?: boolean; error?: string }) => {
-      if (result.error) reject(new Error(result.error));
-      else resolve();
+    worker.on("message", (result: { ok?: boolean; error?: string; status?: string }) => {
+      if (result.status) {
+        onProgress?.(result as Parameters<ProgressCallback>[0]);
+      } else if (result.error) {
+        reject(new Error(result.error));
+      } else {
+        resolve();
+      }
     });
     worker.on("error", reject);
     worker.on("exit", (code) => {
@@ -90,13 +95,18 @@ function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: strin
   });
 }
 
-function runIndexWorker(metadataFile: string, indexFile: string): Promise<Record<string, LaunchBoxGame>> {
+function runIndexWorker(metadataFile: string, indexFile: string, onProgress?: ProgressCallback): Promise<Record<string, LaunchBoxGame>> {
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "index-worker.js");
     const worker = new Worker(workerPath, { workerData: { metadataFile, indexFile } });
-    worker.on("message", (result: Record<string, LaunchBoxGame> | { error: string }) => {
-      if ("error" in result) reject(new Error((result as { error: string }).error));
-      else resolve(result as Record<string, LaunchBoxGame>);
+    worker.on("message", (result: Record<string, LaunchBoxGame> | { error: string; status?: never } | { status: string }) => {
+      if ("status" in result && result.status) {
+        onProgress?.(result as Parameters<ProgressCallback>[0]);
+      } else if ("error" in result) {
+        reject(new Error((result as { error: string }).error));
+      } else {
+        resolve(result as Record<string, LaunchBoxGame>);
+      }
     });
     worker.on("error", reject);
     worker.on("exit", (code) => {

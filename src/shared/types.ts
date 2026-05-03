@@ -139,7 +139,7 @@ export interface LaunchBoxProgress {
   current: number;
   total: number;
   filename?: string;
-  status: "downloading" | "skipped" | "done" | "error";
+  status: "downloading" | "extracting" | "indexing" | "skipped" | "done" | "error";
 }
 
 export interface LaunchBoxImportParams {

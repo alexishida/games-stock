@@ -107,6 +107,16 @@
   transition: width 0.18s ease;
 }
 
+.covers-progress-indeterminate span {
+  animation: covers-progress-pulse 1.4s ease-in-out infinite;
+  transition: none;
+}
+
+@keyframes covers-progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 .covers-rom-sync-card {
   display: grid;
   gap: 8px;

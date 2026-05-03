@@ -210,9 +210,11 @@ function NotificationCard({ item, onDismiss }: { item: NotificationItem; onDismi
 }
 
 function MediaNotificationCard({ item, onDismiss }: { item: MediaNotificationItem; onDismiss(): void }) {
+  const status = item.progress?.status;
+  const isIndeterminate = status === "extracting" || status === "indexing";
   const total = item.progress?.total || 1;
   const current = item.progress?.current || 0;
-  const percent = item.status === "completed" ? 100 : Math.min(100, Math.round((current / total) * 100));
+  const percent = item.status === "completed" ? 100 : isIndeterminate ? 100 : Math.min(100, Math.round((current / total) * 100));
   const progressText = item.status === "completed"
     ? "Concluido"
     : item.status === "failed"
@@ -230,13 +232,18 @@ function MediaNotificationCard({ item, onDismiss }: { item: MediaNotificationIte
         ) : null}
       </div>
       <p>{item.progress?.filename ?? "Aguardando progresso"}</p>
-      <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
+      <div className={`progress-track${isIndeterminate ? " progress-track--indeterminate" : ""}`}>
+        <span style={{ width: `${percent}%` }} />
+      </div>
       <small>{progressText}</small>
     </article>
   );
 }
 
 function formatMediaProgress(item: MediaNotificationItem, current: number, total: number): string {
+  const status = item.progress?.status;
+  if (status === "extracting") return "Extraindo";
+  if (status === "indexing") return "Construindo índice";
   if (item.progress?.filename?.toLowerCase() === "metadata.zip") {
     return `${formatMegabytes(current)} de ${formatMegabytes(total)}`;
   }

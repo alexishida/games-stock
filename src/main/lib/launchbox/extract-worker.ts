@@ -10,6 +10,7 @@ const { zipPath, cacheDir, metadataFile } = workerData as {
 };
 
 try {
+  parentPort!.postMessage({ status: "extracting", current: 0, total: 0, filename: "Extraindo Metadata.zip" });
   const zip = new AdmZip(zipPath);
   const entry = zip.getEntries().find((e) => e.entryName.endsWith(".xml"));
   if (!entry) throw new Error("Metadata.xml nao encontrado no ZIP");
