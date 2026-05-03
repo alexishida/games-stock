@@ -7,13 +7,13 @@ import { ProgressBar } from "./ProgressBar";
 import "./LaunchBoxImporter.css";
 
 const platformEntries = [
-  ["megadrive", "Mega Drive / Genesis"],
-  ["snes", "SNES"],
-  ["n64", "Nintendo 64"],
-  ["nes", "NES"],
   ["gb", "Game Boy"],
   ["gba", "Game Boy Advance"],
-  ["saturn", "Sega Saturn"]
+  ["megadrive", "Mega Drive / Genesis"],
+  ["nes", "NES"],
+  ["n64", "Nintendo 64"],
+  ["saturn", "Sega Saturn"],
+  ["snes", "SNES"],
 ];
 
 const imageTypes: LaunchBoxImageType[] = [
