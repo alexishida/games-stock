@@ -8,7 +8,7 @@ Lançamento de jogos da biblioteca diretamente no emulador configurado para a pl
 ### Requirement: Lançamento de jogo via IPC
 O sistema SHALL expor via `window.gameStockAPI.games` o método `launch(gameId)` que resolve o emulador padrão da plataforma do jogo e spawna o processo. O comando varia por tipo de emulador:
 - **Standalone** (`is_retroarch = 0`): `spawn(executable, [...parsedArgs, romPath])`
-- **RetroArch** (`is_retroarch = 1`): `spawn(executable, ['-L', corePath, romPath])`
+- **RetroArch** (`is_retroarch = 1`): `spawn(executable, [romPath])`
 
 #### Scenario: Lançar jogo com emulador standalone
 - **WHEN** `games.launch(gameId)` é chamado e o emulador padrão da plataforma tem `is_retroarch = 0`
@@ -16,11 +16,7 @@ O sistema SHALL expor via `window.gameStockAPI.games` o método `launch(gameId)`
 
 #### Scenario: Lançar jogo via RetroArch
 - **WHEN** `games.launch(gameId)` é chamado e o emulador padrão da plataforma tem `is_retroarch = 1`
-- **THEN** o processo é iniciado com `retroarch -L <core_path> <rom_path>` e retorna `{ success: true }`
-
-#### Scenario: Lançar jogo via RetroArch sem core configurado
-- **WHEN** `games.launch(gameId)` é chamado, o emulador padrão é RetroArch, mas `core_path` está vazio
-- **THEN** o sistema retorna erro "Core do RetroArch não configurado para esta plataforma"
+- **THEN** o processo é iniciado com `retroarch <rom_path>` e retorna `{ success: true }`
 
 #### Scenario: Lançar jogo sem ROM path
 - **WHEN** `games.launch(gameId)` é chamado para um jogo sem `rom_path`

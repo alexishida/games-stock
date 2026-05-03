@@ -108,11 +108,6 @@
   padding: 2px 0;
 }
 
-.emulator-core-path {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
 .emulator-link-btn {
   display: flex;
   align-items: center;

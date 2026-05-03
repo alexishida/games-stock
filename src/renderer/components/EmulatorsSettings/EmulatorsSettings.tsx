@@ -111,31 +111,16 @@ function LinkPlatformModal({
 }) {
   const [platformId, setPlatformId] = useState<number | "">(platforms[0]?.id ?? "");
   const [isDefault, setIsDefault] = useState(true);
-  const [corePath, setCorePath] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-
-  async function browseCore(): Promise<void> {
-    const result = await window.gameStockAPI.dialogs.openAnyFile();
-    if (result) setCorePath(result);
-  }
 
   async function save(e: FormEvent): Promise<void> {
     e.preventDefault();
     if (!platformId) return;
-    if (emulator.is_retroarch && !corePath.trim()) {
-      setError("Core do RetroArch é obrigatório");
-      return;
-    }
     setError("");
     setSaving(true);
     try {
-      await window.gameStockAPI.emulators.linkPlatform(
-        emulator.id,
-        Number(platformId),
-        isDefault,
-        emulator.is_retroarch ? corePath.trim() : null
-      );
+      await window.gameStockAPI.emulators.linkPlatform(emulator.id, Number(platformId), isDefault);
       onSaved();
       onClose();
     } catch (err) {
@@ -162,21 +147,6 @@ function LinkPlatformModal({
               ))}
             </select>
           </label>
-          {emulator.is_retroarch === 1 && (
-            <label>
-              Core <span className="emulator-label-hint">(.dll / .so)</span>
-              <div className="emulator-exe-row">
-                <input
-                  value={corePath}
-                  onChange={(e) => setCorePath(e.target.value)}
-                  placeholder="Caminho do arquivo de core"
-                />
-                <button type="button" className="icon-button" title="Selecionar core" onClick={browseCore}>
-                  <FolderOpen size={15} aria-hidden="true" />
-                </button>
-              </div>
-            </label>
-          )}
           <label className="emulator-checkbox-label">
             <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
             Definir como emulador padrão desta plataforma
@@ -279,11 +249,6 @@ function EmulatorRow({
                 <span>
                   {platformName(pe.platform_id)}
                   {pe.is_default === 1 && <span className="emulator-badge default">padrão</span>}
-                  {emulator.is_retroarch === 1 && pe.core_path && (
-                    <span className="emulator-core-path" title={pe.core_path}>
-                      · {pe.core_path.split(/[/\\]/).pop()}
-                    </span>
-                  )}
                 </span>
                 <button
                   type="button"

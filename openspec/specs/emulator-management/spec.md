@@ -1,12 +1,12 @@
 # emulator-management - Especificação
 
 ## Purpose
-Gerenciamento de emuladores e associação com plataformas, incluindo suporte nativo ao RetroArch com configuração de core por plataforma.
+Gerenciamento de emuladores e associação com plataformas, incluindo suporte nativo ao RetroArch sem configuração de core por plataforma.
 
 ## Requirements
 
 ### Requirement: Modelo de dados de emulador
-O sistema SHALL persistir emuladores com `id`, `name` (UNIQUE), `executable` (caminho do executável), `args` (argumentos padrão, pode ser vazio), `is_retroarch` (flag booleano) e `created_at`. A tabela `platform_emulators` SHALL associar emuladores a plataformas com flag `is_default` e campo opcional `core_path` (usado exclusivamente quando `is_retroarch = 1`). O banco SHALL conter um registro padrão de RetroArch com `is_retroarch = 1` e `executable` vazio.
+O sistema SHALL persistir emuladores com `id`, `name` (UNIQUE), `executable` (caminho do executável), `args` (argumentos padrão, pode ser vazio), `is_retroarch` (flag booleano) e `created_at`. A tabela `platform_emulators` SHALL associar emuladores a plataformas com flag `is_default`; o campo legado opcional `core_path`, quando existir, SHALL poder ficar nulo. O banco SHALL conter um registro padrão de RetroArch com `is_retroarch = 1` e `executable` vazio.
 
 #### Scenario: Criar emulador com nome duplicado
 - **WHEN** o usuário tenta criar um emulador com nome já existente
@@ -36,19 +36,19 @@ O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `list()`, 
 - **THEN** o sistema retorna erro "RetroArch não pode ser removido"
 
 ### Requirement: Gerenciamento de associações plataforma-emulador via IPC
-O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `linkPlatform(emulatorId, platformId, isDefault, corePath?)`, `unlinkPlatform(emulatorId, platformId)` e `listByPlatform(platformId)`. O parâmetro `corePath` é obrigatório quando `is_retroarch = 1` e ignorado caso contrário.
+O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `linkPlatform(emulatorId, platformId, isDefault, corePath?)`, `unlinkPlatform(emulatorId, platformId)` e `listByPlatform(platformId)`. O parâmetro `corePath` é opcional e não SHALL ser exigido para RetroArch.
 
 #### Scenario: Vincular emulador standalone a plataforma
 - **WHEN** `emulators.linkPlatform(emulatorId, platformId, true)` é chamado para emulador com `is_retroarch = 0`
 - **THEN** a associação é criada sem `core_path` e o emulador se torna padrão da plataforma
 
-#### Scenario: Vincular RetroArch a plataforma com core
-- **WHEN** `emulators.linkPlatform(retroarchId, platformId, true, '/cores/snes9x_libretro.dll')` é chamado
-- **THEN** a associação é criada com `core_path` preenchido e RetroArch se torna padrão da plataforma
+#### Scenario: Vincular RetroArch a plataforma sem core
+- **WHEN** `emulators.linkPlatform(retroarchId, platformId, true)` é chamado
+- **THEN** a associação é criada com `core_path` nulo e RetroArch se torna padrão da plataforma
 
 #### Scenario: Listar emuladores de uma plataforma
 - **WHEN** `emulators.listByPlatform(platformId)` é chamado
-- **THEN** retorna emuladores associados à plataforma com `is_default` e `core_path` de cada um
+- **THEN** retorna emuladores associados à plataforma com `is_default` e dados do emulador de cada um
 
 ### Requirement: UI de gerenciamento de emuladores no SettingsModal
 O sistema SHALL fornecer dentro do SettingsModal uma seção "Emuladores" com lista de emuladores, botão "Novo emulador" e ações inline de editar/excluir. Criar e editar SHALL abrir em modal flutuante arrastável conforme padrão do projeto.
@@ -73,18 +73,14 @@ O sistema SHALL fornecer dentro do SettingsModal uma seção "Emuladores" com li
 - **WHEN** o usuário clica no botão de pasta no campo "Executável"
 - **THEN** abre diálogo de arquivo filtrado por executáveis (`.exe`, `.bat`, `.cmd`, `.sh`) com opção "Todos os arquivos"
 
-#### Scenario: Selecionar core do RetroArch
-- **WHEN** o usuário clica no botão de pasta no campo "Core"
-- **THEN** abre diálogo de arquivo sem filtro de extensão, aceitando qualquer arquivo
-
 #### Scenario: Associar emulador standalone a plataforma pela UI
 - **WHEN** o usuário seleciona uma plataforma e vincula um emulador standalone como padrão
 - **THEN** o emulador aparece como padrão da plataforma na seção de associações
 
-#### Scenario: Associar RetroArch a plataforma com campo de core
+#### Scenario: Associar RetroArch a plataforma sem campo de core
 - **WHEN** o usuário seleciona RetroArch como emulador de uma plataforma
-- **THEN** o formulário de associação exibe campo adicional obrigatório "Core" para o caminho do arquivo de core
+- **THEN** o formulário de associação exibe somente plataforma e opção de emulador padrão
 
-#### Scenario: Salvar associação RetroArch sem core
-- **WHEN** o usuário tenta salvar a associação com RetroArch sem preencher o campo "Core"
-- **THEN** o sistema exibe erro de validação e não salva
+#### Scenario: Salvar associação RetroArch
+- **WHEN** o usuário salva a associação do RetroArch com uma plataforma
+- **THEN** o sistema salva a associação sem exigir core

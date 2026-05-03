@@ -24,6 +24,7 @@ type ProgressCallback = (progress: RomFolderImportProgress) => void;
 interface MatchEntry {
   game: LaunchBoxGame;
   normalizedName: string;
+  matchKeys: string[];
 }
 
 interface MatchContext {
@@ -205,7 +206,7 @@ export function matchCandidate(candidate: RomFolderImportCandidate, index: Recor
   if (exact.length > 1) return { ...candidate, status: "ambiguous", match: null, alternatives: exact.map((entry) => entry.game) };
 
   const ranked = context.platformMatches
-    .map((entry) => ({ game: entry.game, score: scoreMatch(normalizedQuery, entry.normalizedName) }))
+    .map((entry) => ({ game: entry.game, score: scoreEntry(normalizedQuery, entry) }))
     .filter((item) => item.score >= 0.72)
     .sort((a, b) => b.score - a.score || a.game.name.localeCompare(b.game.name));
 
@@ -220,13 +221,18 @@ function createMatchContext(platformName: string, index: Record<string, LaunchBo
   const platformKey = platformKeyForName(platformName);
   const platformMatches = Object.values(index)
     .filter((game) => isPlatformMatch(game.platform, platformName, platformKey))
-    .map((game) => ({ game, normalizedName: normalizeForMatch(game.name) }));
+    .map((game) => {
+      const normalizedName = normalizeForMatch(game.name);
+      return { game, normalizedName, matchKeys: buildMatchKeys(normalizedName) };
+    });
   const exactByName = new Map<string, MatchEntry[]>();
 
   for (const entry of platformMatches) {
-    const existing = exactByName.get(entry.normalizedName) ?? [];
-    existing.push(entry);
-    exactByName.set(entry.normalizedName, existing);
+    for (const key of entry.matchKeys) {
+      const existing = exactByName.get(key) ?? [];
+      existing.push(entry);
+      exactByName.set(key, existing);
+    }
   }
 
   return { platformMatches, exactByName };
@@ -355,6 +361,29 @@ function normalizeForMatch(value: string): string {
     .replace(/\b(?:the|a)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const OPTIONAL_TITLE_PREFIXES = [
+  "disney pixar s",
+  "disney pixar",
+  "disney s",
+  "disneys",
+  "disney"
+];
+
+function buildMatchKeys(normalizedName: string): string[] {
+  const keys = new Set([normalizedName]);
+  for (const prefix of OPTIONAL_TITLE_PREFIXES) {
+    if (!normalizedName.startsWith(`${prefix} `)) continue;
+    const withoutPrefix = normalizedName.slice(prefix.length).trim();
+    if (withoutPrefix.startsWith("s ")) continue;
+    keys.add(withoutPrefix);
+  }
+  return [...keys].filter(Boolean);
+}
+
+function scoreEntry(query: string, entry: MatchEntry): number {
+  return Math.max(...entry.matchKeys.map((key) => scoreMatch(query, key)));
 }
 
 function scoreMatch(query: string, title: string): number {

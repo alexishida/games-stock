@@ -124,8 +124,7 @@ function registerIpc(): void {
 
     let args: string[];
     if (emulator.is_retroarch) {
-      if (!pe.core_path?.trim()) throw new Error("Core do RetroArch não configurado para esta plataforma");
-      args = ["-L", pe.core_path, game.rom_path];
+      args = [game.rom_path];
     } else {
       const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
       args = [...parsedArgs, game.rom_path];
