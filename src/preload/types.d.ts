@@ -42,6 +42,7 @@ export interface GameStockAPI {
     openRomFile(): Promise<string | null>;
     openRomFiles(): Promise<string[]>;
     openImageFile(): Promise<string | null>;
+    saveImageFile(sourcePath: string, suggestedName: string): Promise<{ canceled: boolean; path: string | null }>;
     openRomFolder(): Promise<string | null>;
     openRomFolders(): Promise<string[]>;
   };

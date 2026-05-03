@@ -17,6 +17,7 @@ export const IPC_CHANNELS = {
     openRomFile: "dialogs:openRomFile",
     openRomFiles: "dialogs:openRomFiles",
     openImageFile: "dialogs:openImageFile",
+    saveImageFile: "dialogs:saveImageFile",
     openRomFolder: "dialogs:openRomFolder",
     openRomFolders: "dialogs:openRomFolders"
   },

@@ -129,6 +129,16 @@ function registerIpc(): void {
     return dest;
   });
 
+  ipcMain.handle(IPC_CHANNELS.dialogs.saveImageFile, async (_event, sourcePath: string, suggestedName: string) => {
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: suggestedName,
+      filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true, path: null };
+    fs.copyFileSync(sourcePath, result.filePath);
+    return { canceled: false, path: result.filePath };
+  });
+
   ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
 
   ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>

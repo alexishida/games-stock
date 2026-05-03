@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
+import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Download, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -16,13 +16,14 @@ export function GameDetail() {
   const screenshotUrl = localMediaUrl(game?.screenshot_path);
   const backgroundUrl = localMediaUrl(game?.background_path);
   const heroBgUrl = backgroundUrl ?? coverUrl;
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCoverLandscape, setIsCoverLandscape] = useState(false);
   const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
 
   useEffect(() => {
     setIsCoverLandscape(false);
+    setLightboxIndex(null);
   }, [selectedGameId]);
 
   useEffect(() => {
@@ -62,6 +63,15 @@ export function GameDetail() {
     backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null
   ].filter(Boolean) as GameMediaItem[];
   const galleryItems = (mediaItems.length ? mediaItems : fallbackMediaItems).filter((item) => item.kind !== "screenshot");
+  const saveNamePrefix = `${sanitizeFileNamePart(game.platform_name ?? "Sem plataforma")} - ${sanitizeFileNamePart(game.title)}`;
+  const lightboxImages = [
+    screenshotUrl && game.screenshot_path ? { url: screenshotUrl, path: game.screenshot_path, label: "Screenshot", fileName: buildSaveFileName(saveNamePrefix, getFileName(game.screenshot_path, "screenshot")) } : null,
+    ...galleryItems.map((item) => {
+      const url = localMediaUrl(item.path);
+      return url ? { url, path: item.path, label: item.label, fileName: buildSaveFileName(saveNamePrefix, getFileName(item.path, item.label)) } : null;
+    })
+  ].filter(Boolean) as Array<{ url: string; path: string; label: string; fileName: string }>;
+  const lightboxItem = lightboxIndex === null ? null : lightboxImages[lightboxIndex] ?? null;
 
   async function deleteGame(): Promise<void> {
     if (!game) return;
@@ -85,6 +95,28 @@ export function GameDetail() {
     const currentIndex = games.findIndex((item) => item.id === currentGame.id);
     const nextGame = games[(currentIndex + 1) % games.length];
     if (nextGame) setSelectedGameId(nextGame.id);
+  }
+
+  function openLightbox(url: string): void {
+    const index = lightboxImages.findIndex((item) => item.url === url);
+    setLightboxIndex(index >= 0 ? index : 0);
+  }
+
+  function showNextLightboxImage(): void {
+    if (!lightboxImages.length) return;
+    setLightboxIndex((current) => current === null ? 0 : (current + 1) % lightboxImages.length);
+  }
+
+  function showPreviousLightboxImage(): void {
+    if (!lightboxImages.length) return;
+    setLightboxIndex((current) => current === null ? 0 : (current - 1 + lightboxImages.length) % lightboxImages.length);
+  }
+
+  async function downloadLightboxImage(event: MouseEvent<HTMLButtonElement>): Promise<void> {
+    event.stopPropagation();
+    if (!lightboxItem) return;
+
+    await window.gameStockAPI.dialogs.saveImageFile(lightboxItem.path, lightboxItem.fileName);
   }
 
   return (
@@ -158,7 +190,7 @@ export function GameDetail() {
           {screenshotUrl && (
             <div className="detail-file-screenshot">
               <h3>Screenshot</h3>
-              <button type="button" className="detail-file-screenshot-button" onClick={() => setLightboxUrl(screenshotUrl)} aria-label="Visualizar screenshot">
+              <button type="button" className="detail-file-screenshot-button" onClick={() => openLightbox(screenshotUrl)} aria-label="Visualizar screenshot">
                 <img src={screenshotUrl} alt="Screenshot" />
               </button>
             </div>
@@ -190,7 +222,7 @@ export function GameDetail() {
                   type="button"
                   key={item.path}
                   className={"detail-gallery-thumb" + (item.kind === "background" ? " detail-gallery-wide" : "")}
-                  onClick={() => itemUrl && setLightboxUrl(itemUrl)}
+                  onClick={() => itemUrl && openLightbox(itemUrl)}
                   aria-label={item.label}
                 >
                   {itemUrl ? <img src={itemUrl} alt={item.label} /> : <Image aria-hidden="true" size={24} />}
@@ -207,12 +239,26 @@ export function GameDetail() {
         </section>
       </div>
 
-      {lightboxUrl && (
-        <div className="detail-lightbox" onClick={() => setLightboxUrl(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
-          <button type="button" className="detail-lightbox-close icon-button modal-close-button" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
+      {lightboxItem && (
+        <div className="detail-lightbox" onClick={() => setLightboxIndex(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
+          <button type="button" className="detail-lightbox-download text-button" onClick={downloadLightboxImage} aria-label="Salvar imagem" title="Salvar imagem">
+            <Download aria-hidden="true" size={18} />
+            Salvar
+          </button>
+          <button type="button" className="detail-lightbox-close icon-button modal-close-button" onClick={() => setLightboxIndex(null)} aria-label="Fechar">
             <X aria-hidden="true" size={20} />
           </button>
-          <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
+          {lightboxImages.length > 1 && (
+            <>
+              <button type="button" className="detail-lightbox-nav detail-lightbox-prev icon-button" onClick={(event) => { event.stopPropagation(); showPreviousLightboxImage(); }} aria-label="Imagem anterior" title="Imagem anterior">
+                <ArrowLeft aria-hidden="true" size={24} />
+              </button>
+              <button type="button" className="detail-lightbox-nav detail-lightbox-next icon-button" onClick={(event) => { event.stopPropagation(); showNextLightboxImage(); }} aria-label="Próxima imagem" title="Próxima imagem">
+                <ArrowRight aria-hidden="true" size={24} />
+              </button>
+            </>
+          )}
+          <img src={lightboxItem.url} alt={lightboxItem.label} onClick={(event) => { event.stopPropagation(); showNextLightboxImage(); }} title="Próxima imagem" />
         </div>
       )}
 
@@ -231,4 +277,18 @@ export function GameDetail() {
       )}
     </section>
   );
+}
+
+function getFileName(filePath: string, fallback: string): string {
+  const fileName = filePath.split(/[\\/]/).pop();
+  if (fileName) return fileName;
+  return `${fallback.toLowerCase().replace(/\s+/g, "-")}.jpg`;
+}
+
+function buildSaveFileName(prefix: string, fileName: string): string {
+  return `${prefix} - ${sanitizeFileNamePart(fileName)}`;
+}
+
+function sanitizeFileNamePart(value: string): string {
+  return value.replace(/[<>:"/\\|?*]/g, "-").replace(/\s+/g, " ").trim() || "imagem";
 }

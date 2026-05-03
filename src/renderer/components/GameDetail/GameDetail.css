@@ -456,16 +456,46 @@
   border-radius: 16px;
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.72);
   object-fit: contain;
-  cursor: default;
+  cursor: pointer;
 }
 
+.detail-lightbox-download,
 .detail-lightbox-close {
   position: absolute;
   top: 20px;
-  right: 20px;
   width: 32px;
   height: 32px;
   font-size: 20px;
+}
+
+.detail-lightbox-download {
+  right: 62px;
+  width: auto;
+  min-width: 78px;
+  padding: 0 10px;
+}
+
+.detail-lightbox-close {
+  right: 20px;
+}
+
+.detail-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.detail-lightbox-prev {
+  left: 24px;
+}
+
+.detail-lightbox-next {
+  right: 24px;
 }
 
 

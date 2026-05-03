@@ -35,6 +35,7 @@ const api = {
     openRomFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFile),
     openRomFiles: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFiles),
     openImageFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openImageFile),
+    saveImageFile: (sourcePath: string, suggestedName: string) => ipcRenderer.invoke(IPC_CHANNELS.dialogs.saveImageFile, sourcePath, suggestedName),
     openRomFolder: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolder),
     openRomFolders: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolders)
   },
