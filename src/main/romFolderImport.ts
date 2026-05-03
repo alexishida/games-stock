@@ -51,7 +51,9 @@ export const SUPPORTED_ROM_EXTENSIONS = [
   ".v64",
   ".gb",
   ".gbc",
-  ".gba"
+  ".gba",
+  ".sms",
+  ".sg"
 ];
 
 const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = [

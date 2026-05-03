@@ -11,7 +11,8 @@ const defaultPlatforms = [
   ["Sega Saturn", "Consoles"],
   ["Game Boy", "Portateis"],
   ["Super Nintendo", "Consoles"],
-  ["NES", "Consoles"]
+  ["NES", "Consoles"],
+  ["Sega Master System", "Consoles"]
 ];
 
 export function getUserDataDir(): string {
@@ -94,10 +95,7 @@ function addColumnIfMissing(database: Database.Database, table: string, column: 
 }
 
 function seedPlatforms(database: Database.Database): void {
-  const count = database.prepare("SELECT COUNT(*) as count FROM platforms").get() as { count: number };
-  if (count.count > 0) return;
-
-  const insert = database.prepare("INSERT INTO platforms (name, category) VALUES (?, ?)");
+  const insert = database.prepare("INSERT OR IGNORE INTO platforms (name, category) VALUES (?, ?)");
   const transaction = database.transaction(() => {
     for (const platform of defaultPlatforms) insert.run(platform[0], platform[1]);
   });
