@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -91,6 +91,12 @@ export function GameDetail() {
     reloadGames();
   }
 
+  function selectPreviousGame(): void {
+    const currentIndex = games.findIndex((item) => item.id === currentGame.id);
+    const prevGame = games[(currentIndex - 1 + games.length) % games.length];
+    if (prevGame) setSelectedGameId(prevGame.id);
+  }
+
   function selectNextGame(): void {
     const currentIndex = games.findIndex((item) => item.id === currentGame.id);
     const nextGame = games[(currentIndex + 1) % games.length];
@@ -126,13 +132,17 @@ export function GameDetail() {
         <div className="detail-hero-shade" />
         <div className="detail-top-actions">
           <button type="button" className="detail-top-button" onClick={() => setSelectedGameId(null)}>
-            <ArrowLeft aria-hidden="true" size={18} />
+            <Library aria-hidden="true" size={18} />
             Biblioteca
           </button>
+          {games.findIndex((item) => item.id === currentGame.id) > 0 && (
+            <button type="button" className="detail-top-button" onClick={selectPreviousGame} aria-label="Jogo anterior" title="Jogo anterior">
+              <ChevronLeft aria-hidden="true" size={18} />
+            </button>
+          )}
           {games.findIndex((item) => item.id === currentGame.id) < games.length - 1 && (
-            <button type="button" className="detail-top-button" onClick={selectNextGame}>
-              Próximo jogo
-              <ArrowRight aria-hidden="true" size={18} />
+            <button type="button" className="detail-top-button" onClick={selectNextGame} aria-label="Próximo jogo" title="Próximo jogo">
+              <ChevronRight aria-hidden="true" size={18} />
             </button>
           )}
         </div>

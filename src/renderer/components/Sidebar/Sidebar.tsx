@@ -1,4 +1,4 @@
-import { BookOpen, Gamepad2, Settings } from "lucide-react";
+import { Gamepad2, Library, Settings } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";
 import "./Sidebar.css";
@@ -19,7 +19,7 @@ export function Sidebar() {
       </div>
       <nav className="sidebar-nav" aria-label="Navegacao principal">
         <button type="button" className="nav-item active">
-          <BookOpen aria-hidden="true" size={18} />
+          <Library aria-hidden="true" size={18} />
           Biblioteca
         </button>
         <button type="button" className="nav-item">
