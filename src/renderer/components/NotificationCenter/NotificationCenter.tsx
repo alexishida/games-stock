@@ -57,10 +57,6 @@ export function NotificationCenter() {
 
   return (
     <aside className="notification-center" aria-label="Notificacoes de background">
-      <header>
-        <strong>Background</strong>
-        <span>{notifications.length}</span>
-      </header>
       {notifications.map((item) => (
         <NotificationCard
           key={item.jobId}

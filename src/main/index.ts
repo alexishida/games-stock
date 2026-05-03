@@ -142,6 +142,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.deleteFolderRecords, (_event, params: string | { folderPath: string; platformId?: number }) => {
+    // Remove only GameStock database records. Original ROM files and downloaded images stay on disk as cache.
     const folderPath = typeof params === "string" ? params : params.folderPath;
     const platformId = typeof params === "string" ? undefined : params.platformId;
     const byRomPath = games.deleteGamesByRomFolder(folderPath);
@@ -214,41 +215,10 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
   return job;
 }
 
-function createMenu(): void {
-  const template: Electron.MenuItemConstructorOptions[] = [
-    {
-      label: "Menu",
-      submenu: [
-        { label: "Importar Jogos", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
-        { label: "Novo Jogo Manual", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openCreateGame) },
-        { label: "Gerenciar Plataformas", click: () => mainWindow?.webContents.send(IPC_CHANNELS.library.openPlatformManager) },
-        { label: "Pasta de dados", click: () => shell.openPath(getUserDataDir()) },
-        { type: "separator" },
-        { label: "Sair", role: "quit" }
-      ]
-    },
-    {
-      label: "Ferramentas",
-      submenu: [
-        { label: "Importar pasta de ROMs", click: () => mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.openImporter) },
-        { label: "Importar do LaunchBox", click: () => mainWindow?.webContents.send(IPC_CHANNELS.launchbox.openImporter) }
-      ]
-    },
-    {
-      label: "Sobre",
-      submenu: [
-        { label: `GameStock v${app.getVersion()}`, enabled: false }
-      ]
-    }
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
-
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   registerMediaProtocol();
   registerIpc();
-  createMenu();
   void createWindow();
 });
 

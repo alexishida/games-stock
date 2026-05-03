@@ -20,6 +20,8 @@ const FOLDER_ENTRIES_KEY = "gamestock.romImport.folderEntries";
 
 export function RomFolderImporter({ onClose }: { onClose(): void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
+  const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
   const platforms = useGameStockStore((state) => state.platforms);
@@ -35,6 +37,7 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
     setFolderEntries(nextEntries);
     saveFolderEntries(nextEntries);
     setAddFolderOpen(false);
+    onClose();
   }
 
   function requestDeleteFolder(folderPath: string): void {
@@ -55,7 +58,9 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
       saveFolderEntries(nextEntries);
       setSelectedFolderPath(null);
       setSelectedGameId(null);
+      if (entry?.platformId === selectedPlatformId) setSelectedPlatformId(null);
       reloadGames();
+      reloadPlatforms();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -108,9 +113,9 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
           <div className="confirm-dialog">
             <div className="confirm-dialog-title">
               <AlertTriangle aria-hidden="true" size={22} />
-              <p>Remover pasta da biblioteca?</p>
+              <p>Remover pasta do GameStock?</p>
             </div>
-            <p className="confirm-message">Esta acao remove a pasta e todos os jogos importados dela. Os arquivos originais continuam no disco.</p>
+            <p className="confirm-message">Esta acao remove apenas os registros desta pasta no GameStock. As ROMs originais continuam na pasta, e as imagens baixadas ficam guardadas como cache.</p>
             <p className="confirm-path">{selectedFolderPath}</p>
             <div className="confirm-actions">
               <button type="button" onClick={() => setConfirmDelete(false)}>
@@ -119,7 +124,7 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
               </button>
               <button type="button" className="danger" onClick={confirmDeleteSelectedFolder}>
                 <Trash2 aria-hidden="true" size={16} />
-                Remover
+                Remover do GameStock
               </button>
             </div>
           </div>
@@ -388,7 +393,7 @@ function SummaryStep({
                 <button
                   type="button"
                   className="folder-table-delete"
-                  aria-label={`Deletar pasta ${entry.folderPath}`}
+                  aria-label={`Remover pasta ${entry.folderPath} do GameStock`}
                   disabled={busy}
                   onClick={(event) => {
                     event.stopPropagation();
