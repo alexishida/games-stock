@@ -107,6 +107,55 @@
   transition: width 0.18s ease;
 }
 
+.covers-rom-sync-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(0, 242, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 12px;
+}
+
+.covers-rom-sync-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.covers-rom-sync-card-header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.covers-rom-sync-card-header strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.covers-rom-sync-card-header span,
+.covers-rom-sync-card-header small,
+.covers-rom-sync-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.covers-rom-sync-card-header small {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.covers-rom-sync-card .covers-progress-track {
+  margin-top: 1px;
+}
+
 .spin {
   animation: covers-spin 0.9s linear infinite;
 }

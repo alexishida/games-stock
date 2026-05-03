@@ -38,6 +38,7 @@ export const IPC_CHANNELS = {
   romFolderImport: {
     scan: "romFolderImport:scan",
     import: "romFolderImport:import",
+    jobs: "romFolderImport:jobs",
     deleteFolderRecords: "romFolderImport:deleteFolderRecords",
     progress: "romFolderImport:progress",
     completed: "romFolderImport:completed",

@@ -63,6 +63,7 @@ const api = {
   romFolderImport: {
     scan: (params: RomFolderScanRequest) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.scan, params),
     import: (params: RomFolderImportRequest) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.import, params),
+    jobs: () => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.jobs),
     deleteFolderRecords: (params: string | { folderPath: string; platformId?: number }) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.deleteFolderRecords, params),
     onProgress: (callback: (progress: RomFolderImportProgress) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: RomFolderImportProgress) => callback(progress);

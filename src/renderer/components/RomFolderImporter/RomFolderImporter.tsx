@@ -18,7 +18,7 @@ const SOURCE_HISTORY_KEY = "gamestock.romImport.sources";
 const PLATFORM_HISTORY_KEY = "gamestock.romImport.platformId";
 const FOLDER_ENTRIES_KEY = "gamestock.romImport.folderEntries";
 
-export function RomFolderImporter({ onClose }: { onClose(): void }) {
+export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
@@ -37,7 +37,7 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
     setFolderEntries(nextEntries);
     saveFolderEntries(nextEntries);
     setAddFolderOpen(false);
-    onClose();
+    onImportStarted();
   }
 
   function requestDeleteFolder(folderPath: string): void {

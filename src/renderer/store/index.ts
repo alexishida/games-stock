@@ -1,7 +1,20 @@
 import { create } from "zustand";
-import { CollectionCounts, CollectionFilter, Game, GameListResult, GameSortBy, Platform, ViewMode } from "../../shared/types";
+import { CollectionCounts, CollectionFilter, Game, GameListResult, GameSortBy, Platform, RomFolderImportJob, ViewMode } from "../../shared/types";
 
 export type SettingsSection = "biblioteca" | "plataformas" | "covers";
+const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
+const LAST_MEDIA_SYNC_JOB_KEY = "gamestock.media.lastMediaSyncJob";
+
+export interface MediaSyncJob {
+  jobId: string;
+  title: string;
+  subtitle: string;
+  status: "running" | "completed" | "failed";
+  detail: string;
+  progressLabel: string;
+  percent: number;
+  startedAt: string;
+}
 
 interface GameStockState {
   selectedPlatformId: number | null;
@@ -24,6 +37,8 @@ interface GameStockState {
   reloadToken: number;
   platformsReloadToken: number;
   collectionCounts: CollectionCounts;
+  lastRomImportJob: RomFolderImportJob | null;
+  lastMediaSyncJob: MediaSyncJob | null;
   setSelectedPlatformId(value: number | null): void;
   setSearchQuery(value: string): void;
   setSelectedCategory(value: string): void;
@@ -41,6 +56,8 @@ interface GameStockState {
   openSettings(section: SettingsSection): void;
   setCreateGameOpen(value: boolean): void;
   setCollectionCounts(value: CollectionCounts): void;
+  setLastRomImportJob(value: RomFolderImportJob | null | ((current: RomFolderImportJob | null) => RomFolderImportJob | null)): void;
+  setLastMediaSyncJob(value: MediaSyncJob | null | ((current: MediaSyncJob | null) => MediaSyncJob | null)): void;
   reloadGames(): void;
   reloadPlatforms(): void;
 }
@@ -66,6 +83,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   reloadToken: 0,
   platformsReloadToken: 0,
   collectionCounts: { favorites: 0, playing: 0, completed: 0 },
+  lastRomImportJob: loadSavedRomImportJob(),
+  lastMediaSyncJob: loadSavedMediaSyncJob(),
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null }),
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
@@ -83,6 +102,30 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   openSettings: (settingsSection) => set({ settingsOpen: true, settingsSection }),
   setCreateGameOpen: (createGameOpen) => set({ createGameOpen }),
   setCollectionCounts: (collectionCounts) => set({ collectionCounts }),
+  setLastRomImportJob: (lastRomImportJob) => set((state) => ({
+    lastRomImportJob: typeof lastRomImportJob === "function" ? lastRomImportJob(state.lastRomImportJob) : lastRomImportJob
+  })),
+  setLastMediaSyncJob: (lastMediaSyncJob) => set((state) => ({
+    lastMediaSyncJob: typeof lastMediaSyncJob === "function" ? lastMediaSyncJob(state.lastMediaSyncJob) : lastMediaSyncJob
+  })),
   reloadGames: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
   reloadPlatforms: () => set((state) => ({ platformsReloadToken: state.platformsReloadToken + 1 }))
 }));
+
+function loadSavedRomImportJob(): RomFolderImportJob | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LAST_ROM_IMPORT_JOB_KEY) ?? "null") as RomFolderImportJob | null;
+    return parsed?.jobId ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadSavedMediaSyncJob(): MediaSyncJob | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LAST_MEDIA_SYNC_JOB_KEY) ?? "null") as MediaSyncJob | null;
+    return parsed?.jobId ? parsed : null;
+  } catch {
+    return null;
+  }
+}

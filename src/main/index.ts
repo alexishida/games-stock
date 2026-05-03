@@ -158,6 +158,7 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.jobs, () => Array.from(romFolderJobs.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt)));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.deleteFolderRecords, (_event, params: string | { folderPath: string; platformId?: number }) => {
     // Remove only GameStock database records. Original ROM files and downloaded images stay on disk as cache.
     const folderPath = typeof params === "string" ? params : params.folderPath;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { LaunchBoxProgress, RomFolderImportProgress, RomFolderImportResult } from "../../../shared/types";
+import { LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportResult } from "../../../shared/types";
+import { useGameStockStore } from "../../store";
 import "./NotificationCenter.css";
 
 interface RomNotificationItem {
@@ -22,15 +23,18 @@ interface MediaNotificationItem {
 }
 
 type NotificationItem = RomNotificationItem | MediaNotificationItem;
+const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const AUTO_DISMISS_MS = 5000;
 
 export function NotificationCenter() {
   const [items, setItems] = useState<Record<string, NotificationItem>>({});
   const activeMediaJob = useRef<string | null>(null);
+  const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const notifications = useMemo(() => Object.values(items).sort((a, b) => a.jobId.localeCompare(b.jobId)).reverse(), [items]);
 
   useEffect(() => window.gameStockAPI.romFolderImport.onProgress((progress) => {
     if (!progress.jobId) return;
+    setLastRomImportJob((current) => updateRomImportJob(current, progress));
     setItems((current) => ({
       ...current,
       [progress.jobId!]: {
@@ -43,7 +47,7 @@ export function NotificationCenter() {
         result: current[progress.jobId!]?.result
       }
     }));
-  }), []);
+  }), [setLastRomImportJob]);
 
   useEffect(() => {
     const removeProgress = window.gameStockAPI.launchbox.onProgress((progress) => {
@@ -116,6 +120,19 @@ export function NotificationCenter() {
       stage: "done",
       message: "Importacao concluida"
     };
+    const completedJob: RomFolderImportJob = {
+      jobId: result.jobId,
+      folderPaths: result.folderPaths,
+      romFilePaths: result.romFilePaths,
+      platformId: result.platformId,
+      platformName: result.platformName,
+      status: "completed",
+      startedAt: new Date().toISOString(),
+      progress,
+      result
+    };
+    setLastRomImportJob(completedJob);
+    window.localStorage.setItem(LAST_ROM_IMPORT_JOB_KEY, JSON.stringify(completedJob));
     setItems((current) => ({
       ...current,
       [result.jobId!]: {
@@ -128,7 +145,7 @@ export function NotificationCenter() {
         result
       }
     }));
-  }), []);
+  }), [setLastRomImportJob]);
 
   useEffect(() => {
     const completedIds = notifications
@@ -240,4 +257,19 @@ function labelForStage(stage: RomFolderImportProgress["stage"]): string {
     done: "concluido",
     error: "erro"
   }[stage];
+}
+
+function updateRomImportJob(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
+  return {
+    jobId: progress.jobId!,
+    folderPaths: current?.jobId === progress.jobId ? current.folderPaths : [],
+    romFilePaths: current?.jobId === progress.jobId ? current.romFilePaths : [],
+    platformId: current?.jobId === progress.jobId ? current.platformId : 0,
+    platformName: current?.jobId === progress.jobId ? current.platformName : "Biblioteca",
+    status: progress.stage === "error" ? "failed" : "running",
+    startedAt: current?.jobId === progress.jobId ? current.startedAt : new Date().toISOString(),
+    progress,
+    result: current?.jobId === progress.jobId ? current.result : undefined,
+    error: progress.stage === "error" ? progress.message : undefined
+  };
 }

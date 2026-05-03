@@ -12,7 +12,7 @@ import { useCollectionCounts } from "./hooks/useCollectionCounts";
 import { useGames } from "./hooks/useGames";
 import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
-import { CollectionFilter, GameSortBy } from "../shared/types";
+import { CollectionFilter, GameSortBy, RomFolderImportJob, RomFolderImportProgress, RomFolderImportResult } from "../shared/types";
 
 const COLLECTION_TABS: { value: CollectionFilter; label: string }[] = [
   { value: "all", label: "Todos os jogos" },
@@ -71,6 +71,9 @@ export default function App() {
   const setSortBy = useGameStockStore((state) => state.setSortBy);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
+  const setSettingsOpen = useGameStockStore((state) => state.setSettingsOpen);
+  const setSettingsSection = useGameStockStore((state) => state.setSettingsSection);
+  const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
 
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
@@ -81,6 +84,7 @@ export default function App() {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const unsub = window.gameStockAPI.romFolderImport.onProgress((progress) => {
+      if (progress.jobId) setLastRomImportJob((current) => updateRomImportJob(current, progress));
       if (progress.stage !== "done") return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
@@ -92,12 +96,21 @@ export default function App() {
       unsub();
       if (timer) clearTimeout(timer);
     };
-  }, [reloadGames, reloadPlatforms]);
+  }, [reloadGames, reloadPlatforms, setLastRomImportJob]);
 
   useEffect(() => window.gameStockAPI.romFolderImport.onCompleted(() => {
     reloadGames();
     reloadPlatforms();
   }), [reloadGames, reloadPlatforms]);
+
+  useEffect(() => window.gameStockAPI.romFolderImport.onCompleted((result) => {
+    if (!result.jobId) return;
+    const completedJob = completeRomImportJob(result);
+    setLastRomImportJob(completedJob);
+    window.localStorage.setItem("gamestock.media.lastRomImportJob", JSON.stringify(completedJob));
+    setSettingsOpen(true);
+    setSettingsSection("covers");
+  }), [setLastRomImportJob, setSettingsOpen, setSettingsSection]);
 
   return (
     <div className="app-shell">
@@ -114,4 +127,39 @@ export default function App() {
       <NotificationCenter />
     </div>
   );
+}
+
+function updateRomImportJob(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
+  return {
+    jobId: progress.jobId!,
+    folderPaths: current?.jobId === progress.jobId ? current.folderPaths : [],
+    romFilePaths: current?.jobId === progress.jobId ? current.romFilePaths : [],
+    platformId: current?.jobId === progress.jobId ? current.platformId : 0,
+    platformName: current?.jobId === progress.jobId ? current.platformName : "Biblioteca",
+    status: progress.stage === "error" ? "failed" : "running",
+    startedAt: current?.jobId === progress.jobId ? current.startedAt : new Date().toISOString(),
+    progress,
+    result: current?.jobId === progress.jobId ? current.result : undefined,
+    error: progress.stage === "error" ? progress.message : undefined
+  };
+}
+
+function completeRomImportJob(result: RomFolderImportResult): RomFolderImportJob {
+  return {
+    jobId: result.jobId!,
+    folderPaths: result.folderPaths,
+    romFilePaths: result.romFilePaths,
+    platformId: result.platformId,
+    platformName: result.platformName,
+    status: "completed",
+    startedAt: new Date().toISOString(),
+    progress: {
+      jobId: result.jobId,
+      current: result.summary.processed,
+      total: result.summary.processed,
+      stage: "done",
+      message: "Importacao concluida"
+    },
+    result
+  };
 }

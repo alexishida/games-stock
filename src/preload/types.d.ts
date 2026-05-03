@@ -66,6 +66,7 @@ export interface GameStockAPI {
   romFolderImport: {
     scan(params: RomFolderScanRequest): Promise<RomFolderScanResult>;
     import(params: RomFolderImportRequest): Promise<RomFolderImportJob>;
+    jobs(): Promise<RomFolderImportJob[]>;
     deleteFolderRecords(params: string | { folderPath: string; platformId?: number }): Promise<{ success: true; deleted: number }>;
     onProgress(callback: (progress: RomFolderImportProgress) => void): () => void;
     onCompleted(callback: (result: RomFolderImportResult) => void): () => void;

@@ -61,7 +61,7 @@ export function SettingsModal() {
 
           <div className="settings-body">
             {section === "biblioteca" && (
-              <RomFolderImporter onClose={() => setOpen(false)} />
+              <RomFolderImporter onImportStarted={() => setSection("covers")} />
             )}
             {section === "plataformas" && (
               <PlatformManager />
