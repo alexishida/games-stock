@@ -39,6 +39,7 @@ interface GameStockState {
   collectionCounts: CollectionCounts;
   lastRomImportJob: RomFolderImportJob | null;
   lastMediaSyncJob: MediaSyncJob | null;
+  metadataStartupRunning: boolean;
   setSelectedPlatformId(value: number | null): void;
   setSearchQuery(value: string): void;
   setSelectedCategory(value: string): void;
@@ -58,6 +59,7 @@ interface GameStockState {
   setCollectionCounts(value: CollectionCounts): void;
   setLastRomImportJob(value: RomFolderImportJob | null | ((current: RomFolderImportJob | null) => RomFolderImportJob | null)): void;
   setLastMediaSyncJob(value: MediaSyncJob | null | ((current: MediaSyncJob | null) => MediaSyncJob | null)): void;
+  setMetadataStartupRunning(value: boolean): void;
   reloadGames(): void;
   reloadPlatforms(): void;
 }
@@ -85,6 +87,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   collectionCounts: { favorites: 0, playing: 0, completed: 0 },
   lastRomImportJob: loadSavedRomImportJob(),
   lastMediaSyncJob: loadSavedMediaSyncJob(),
+  metadataStartupRunning: false,
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null }),
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
@@ -108,6 +111,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setLastMediaSyncJob: (lastMediaSyncJob) => set((state) => ({
     lastMediaSyncJob: typeof lastMediaSyncJob === "function" ? lastMediaSyncJob(state.lastMediaSyncJob) : lastMediaSyncJob
   })),
+  setMetadataStartupRunning: (metadataStartupRunning) => set({ metadataStartupRunning }),
   reloadGames: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
   reloadPlatforms: () => set((state) => ({ platformsReloadToken: state.platformsReloadToken + 1 }))
 }));

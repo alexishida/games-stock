@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
@@ -74,18 +74,25 @@ export default function App() {
   const setSettingsOpen = useGameStockStore((state) => state.setSettingsOpen);
   const setSettingsSection = useGameStockStore((state) => state.setSettingsSection);
   const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
+  const setMetadataStartupRunning = useGameStockStore((state) => state.setMetadataStartupRunning);
 
+  const metadataStarted = useRef(false);
   useEffect(() => {
+    if (metadataStarted.current) return;
+    metadataStarted.current = true;
     void (async () => {
       const exists = await window.gameStockAPI.launchbox.metadataExists();
       if (exists) return;
       const jobId = `metadata-startup-${Date.now()}`;
+      setMetadataStartupRunning(true);
       window.dispatchEvent(new CustomEvent("gamestock:media:start", { detail: { jobId, title: "Baixando base de dados" } }));
       try {
         await window.gameStockAPI.launchbox.ensureMetadata({ force: false });
         window.dispatchEvent(new CustomEvent("gamestock:media:finish", { detail: { jobId, status: "completed", title: "Base de dados pronta" } }));
       } catch (err) {
         window.dispatchEvent(new CustomEvent("gamestock:media:finish", { detail: { jobId, status: "failed", title: err instanceof Error ? err.message : "Falha ao baixar base de dados" } }));
+      } finally {
+        setMetadataStartupRunning(false);
       }
     })();
   }, []);

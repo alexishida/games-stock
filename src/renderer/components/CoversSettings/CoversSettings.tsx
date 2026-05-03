@@ -30,6 +30,23 @@ export function CoversSettings() {
   const setRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const mediaSyncJob = useGameStockStore((state) => state.lastMediaSyncJob);
   const setMediaSyncJob = useGameStockStore((state) => state.setLastMediaSyncJob);
+  const metadataStartupRunning = useGameStockStore((state) => state.metadataStartupRunning);
+  const startupTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (metadataStartupRunning) {
+      startupTrackedRef.current = true;
+      updatingMetadataRef.current = true;
+      setUpdatingMetadata(true);
+      setMetadataProgress(null);
+    } else if (startupTrackedRef.current) {
+      startupTrackedRef.current = false;
+      updatingMetadataRef.current = false;
+      setUpdatingMetadata(false);
+      setMetadataProgress(null);
+      void loadStats();
+    }
+  }, [metadataStartupRunning]);
 
   useEffect(() => {
     void loadStats();
