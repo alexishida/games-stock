@@ -38,8 +38,8 @@
 
 .detail-hero-bg {
   object-fit: cover;
-  filter: blur(22px) saturate(0.78);
-  transform: scale(1.1);
+  filter: blur(8px) saturate(0.95) contrast(1.06);
+  transform: scale(1.04);
 }
 
 .detail-hero-fallback {

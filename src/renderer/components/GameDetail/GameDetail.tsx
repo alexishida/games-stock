@@ -15,6 +15,7 @@ export function GameDetail() {
   const coverUrl = localMediaUrl(game?.box_art_path);
   const screenshotUrl = localMediaUrl(game?.screenshot_path);
   const backgroundUrl = localMediaUrl(game?.background_path);
+  const heroBgUrl = backgroundUrl ?? coverUrl;
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isCoverLandscape, setIsCoverLandscape] = useState(false);
 
@@ -52,7 +53,7 @@ export function GameDetail() {
   return (
     <section className="game-detail">
       <div className="detail-hero">
-        {coverUrl ? <img className="detail-hero-bg" src={coverUrl} alt="" aria-hidden="true" /> : <div className="detail-hero-bg detail-hero-fallback" />}
+        {heroBgUrl ? <img className="detail-hero-bg" src={heroBgUrl} alt="" aria-hidden="true" /> : <div className="detail-hero-bg detail-hero-fallback" />}
         <div className="detail-hero-shade" />
         <button type="button" className="detail-back" onClick={() => setSelectedGameId(null)}>
           <ArrowLeft aria-hidden="true" size={18} />
