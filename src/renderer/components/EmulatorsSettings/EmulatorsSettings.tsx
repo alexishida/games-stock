@@ -290,6 +290,7 @@ function EmulatorRow({
 
 export function EmulatorsSettings() {
   const platforms = useGameStockStore((state) => state.platforms);
+  const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const [emulatorList, setEmulatorList] = useState<Emulator[]>([]);
   const [modal, setModal] = useState<EmulatorModalMode | null>(null);
   const [error, setError] = useState("");
@@ -297,6 +298,7 @@ export function EmulatorsSettings() {
 
   function reload(): void {
     setReloadToken((t) => t + 1);
+    reloadPlatforms();
   }
 
   useEffect(() => {

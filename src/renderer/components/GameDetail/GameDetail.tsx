@@ -1,6 +1,6 @@
 import { type MouseEvent, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
-import { GameMediaItem } from "../../../shared/types";
+import { GameMediaItem, PlatformEmulator } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
@@ -16,6 +16,7 @@ export function GameDetail() {
   const removeGameFromStore = useGameStockStore((state) => state.removeGame);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadToken = useGameStockStore((state) => state.reloadToken);
+  const platformsReloadToken = useGameStockStore((state) => state.platformsReloadToken);
   const game = selectedGame;
   const coverUrl = localMediaUrl(game?.box_art_path);
   const screenshotUrl = localMediaUrl(game?.screenshot_path);
@@ -25,10 +26,16 @@ export function GameDetail() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCoverLandscape, setIsCoverLandscape] = useState(false);
   const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
+  const [defaultEmulator, setDefaultEmulator] = useState<PlatformEmulator | null>(null);
+  const [emulatorLoading, setEmulatorLoading] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState("");
 
   useEffect(() => {
     setIsCoverLandscape(false);
     setLightboxIndex(null);
+    setLaunchError("");
+    setLaunching(false);
   }, [selectedGameId]);
 
   useEffect(() => {
@@ -71,6 +78,32 @@ export function GameDetail() {
     };
   }, [selectedGameId]);
 
+  useEffect(() => {
+    let canceled = false;
+    setDefaultEmulator(null);
+    if (!game?.platform_id) {
+      setEmulatorLoading(false);
+      return undefined;
+    }
+
+    setEmulatorLoading(true);
+    window.gameStockAPI.emulators
+      .listByPlatform(game.platform_id)
+      .then((items) => {
+        if (!canceled) setDefaultEmulator(items.find((item) => item.is_default === 1) ?? null);
+      })
+      .catch(() => {
+        if (!canceled) setDefaultEmulator(null);
+      })
+      .finally(() => {
+        if (!canceled) setEmulatorLoading(false);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [game?.platform_id, platformsReloadToken]);
+
   if (!game) {
     return (
       <section className="game-detail">
@@ -89,7 +122,10 @@ export function GameDetail() {
   const year = game.year?.toString() ?? "Ano nao informado";
   const overview = game.notes?.trim() || "Sem descricao cadastrada para este jogo.";
   const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM nao associada";
-  const canOpenRom = Boolean(game.rom_path);
+  const hasRom = Boolean(game.rom_path?.trim());
+  const hasDefaultEmulator = Boolean(defaultEmulator);
+  const canLaunchGame = hasRom && hasDefaultEmulator && !emulatorLoading;
+  const playButtonTitle = launchError || getPlayButtonTitle(hasRom, emulatorLoading, defaultEmulator);
   const fallbackMediaItems = [
     backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null
   ].filter(Boolean) as GameMediaItem[];
@@ -122,6 +158,21 @@ export function GameDetail() {
     const updated = await window.gameStockAPI.games.update(currentGame.id, { play_status: currentGame.play_status === status ? "unplayed" : status });
     upsertGame(updated);
     reloadGames();
+  }
+
+  async function launchGame(): Promise<void> {
+    if (!canLaunchGame || launching) return;
+    setLaunchError("");
+    setLaunching(true);
+    try {
+      await window.gameStockAPI.games.launch(currentGame.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao lancar jogo";
+      setLaunchError(message);
+      setTimeout(() => setLaunchError(""), 4000);
+    } finally {
+      setLaunching(false);
+    }
   }
 
   function selectPreviousGame(): void {
@@ -202,10 +253,17 @@ export function GameDetail() {
             <p>{publisher} · {genre}</p>
           </div>
           <div className="detail-hero-actions" aria-label="Acoes do jogo">
-            <button type="button" className="detail-hero-play-button" disabled={!canOpenRom} onClick={() => game.rom_path && window.gameStockAPI.shell.openPath(game.rom_path)}>
+            <button
+              type="button"
+              className="detail-hero-play-button"
+              disabled={!canLaunchGame || launching}
+              onClick={() => void launchGame()}
+              title={playButtonTitle}
+            >
               <Play aria-hidden="true" size={18} />
-              Jogar
+              {launching ? "Abrindo..." : "Jogar"}
             </button>
+            {launchError && <span className="detail-hero-launch-error" role="status">{launchError}</span>}
             <button type="button" className={"detail-hero-icon-button" + (game.favorite ? " active" : "")} onClick={toggleFavorite} aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"} title={game.favorite ? "Remover favorito" : "Marcar favorito"}>
               <Star aria-hidden="true" size={18} />
             </button>
@@ -336,4 +394,11 @@ function buildSaveFileName(prefix: string, fileName: string): string {
 
 function sanitizeFileNamePart(value: string): string {
   return value.replace(/[<>:"/\\|?*]/g, "-").replace(/\s+/g, " ").trim() || "imagem";
+}
+
+function getPlayButtonTitle(hasRom: boolean, emulatorLoading: boolean, defaultEmulator: PlatformEmulator | null): string {
+  if (!hasRom) return "ROM nao configurada";
+  if (emulatorLoading) return "Verificando emulador da plataforma";
+  if (!defaultEmulator) return "Escolha um emulador padrao para esta plataforma";
+  return `Jogar com ${defaultEmulator.emulator?.name ?? "emulador padrao"}`;
 }
