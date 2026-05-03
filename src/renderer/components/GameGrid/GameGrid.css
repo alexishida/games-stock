@@ -3,8 +3,8 @@
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, 195px);
-  grid-auto-rows: 280px;
+  grid-template-columns: repeat(auto-fill, 212px);
+  grid-auto-rows: 304px;
   gap: 24px;
   align-content: start;
   justify-content: start;
@@ -12,8 +12,8 @@
 }
 
 .game-card {
-  width: 195px;
-  height: 280px;
+  width: 212px;
+  height: 304px;
   display: block;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -37,8 +37,8 @@
 }
 
 .game-card.landscape {
-  width: 195px;
-  height: 280px;
+  width: 212px;
+  height: 304px;
 }
 
 .game-card.landscape .cover-frame {
@@ -137,19 +137,19 @@
 
 @media (max-width: 1180px) {
   .game-grid-wrap {
-    grid-template-columns: repeat(auto-fill, 176px);
-    grid-auto-rows: 254px;
+    grid-template-columns: repeat(auto-fill, 188px);
+    grid-auto-rows: 270px;
     gap: 20px;
   }
 
   .game-card {
-    width: 176px;
-    height: 254px;
+    width: 188px;
+    height: 270px;
   }
 
   .game-card.landscape {
-    width: 176px;
-    height: 254px;
+    width: 188px;
+    height: 270px;
   }
 }
 
