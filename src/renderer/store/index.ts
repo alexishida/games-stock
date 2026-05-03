@@ -183,28 +183,29 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setCollectionCounts: (collectionCounts) => set({ collectionCounts }),
   setLastRomImportJob: (lastRomImportJob) => set((state) => {
     const nextJob = resolveSetterValue(lastRomImportJob, state.lastRomImportJob);
-    persistCompletedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
+    persistFinishedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
     return { lastRomImportJob: nextJob };
   }),
   hydrateRomImportJobs: (jobs) => set((state) => {
-    const nextJob = newestJob(jobs[0] ?? null, state.lastRomImportJob);
-    persistCompletedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
+    const runningJob = jobs.find((job) => job.status === "running") ?? null;
+    const nextJob = runningJob ?? state.lastRomImportJob;
+    persistFinishedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
     return { lastRomImportJob: nextJob };
   }),
   updateRomImportProgress: (progress) => set((state) => {
     if (!progress.jobId) return {};
     const nextJob = buildRomImportJobFromProgress(state.lastRomImportJob, progress);
-    persistCompletedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
+    persistFinishedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
     return { lastRomImportJob: nextJob };
   }),
   completeRomImportJob: (result) => set((state) => {
     if (!result.jobId) return {};
     const nextJob = buildCompletedRomImportJob(state.lastRomImportJob, result);
-    persistCompletedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
+    persistFinishedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
     return { lastRomImportJob: nextJob };
   }),
-  startMediaSyncJob: (job) => set({
-    lastMediaSyncJob: {
+  startMediaSyncJob: (job) => set(() => {
+    const nextJob: MediaSyncJob = {
       jobId: job.jobId,
       title: job.title,
       subtitle: job.subtitle ?? "Biblioteca",
@@ -214,12 +215,14 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       percent: job.percent ?? 0,
       startedAt: job.startedAt ?? new Date().toISOString(),
       indeterminate: job.indeterminate
-    }
+    };
+    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
+    return { lastMediaSyncJob: nextJob };
   }),
   updateMediaSyncProgress: (progress) => set((state) => {
     if (!state.lastMediaSyncJob || state.lastMediaSyncJob.status !== "running") return {};
     const nextJob = buildMediaJobFromProgress(state.lastMediaSyncJob, progress);
-    persistCompletedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
+    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
     return { lastMediaSyncJob: nextJob };
   }),
   finishMediaSyncJob: (jobId, result) => set((state) => {
@@ -235,7 +238,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       startedAt: current?.startedAt ?? new Date().toISOString(),
       indeterminate: false
     };
-    persistCompletedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
+    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
     return { lastMediaSyncJob: nextJob };
   }),
   failMediaSyncJob: (jobId, message) => set((state) => {
@@ -251,7 +254,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       startedAt: current?.startedAt ?? new Date().toISOString(),
       indeterminate: false
     };
-    persistCompletedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
+    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
     return { lastMediaSyncJob: nextJob };
   }),
   setMetadataStartupRunning: (metadataStartupRunning) => set({ metadataStartupRunning }),
@@ -262,12 +265,6 @@ export const useGameStockStore = create<GameStockState>((set) => ({
 
 function resolveSetterValue<T>(value: SetterValue<T>, current: T): T {
   return typeof value === "function" ? (value as (current: T) => T)(current) : value;
-}
-
-function newestJob<T extends { startedAt: string }>(first: T | null, second: T | null): T | null {
-  if (!first) return second;
-  if (!second) return first;
-  return timestamp(first.startedAt) >= timestamp(second.startedAt) ? first : second;
 }
 
 function buildRomImportJobFromProgress(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
@@ -348,15 +345,16 @@ function formatMegabytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function persistCompletedJob<T extends { status: "running" | "completed" | "failed" }>(key: string, job: T | null): void {
+function persistFinishedJob<T extends { status: "running" | "completed" | "failed" }>(key: string, job: T | null): void {
   try {
-    if (!job) {
+    if (typeof window === "undefined") return;
+    if (!job || job.status === "running") {
       window.localStorage.removeItem(key);
       return;
     }
-    if (job.status !== "running") window.localStorage.setItem(key, JSON.stringify(job));
+    window.localStorage.setItem(key, JSON.stringify(job));
   } catch {
-    // Local persistence is best effort; store state remains source of truth.
+    // Local persistence is best effort; runtime state remains source of truth.
   }
 }
 
@@ -370,6 +368,7 @@ function loadSavedMediaSyncJob(): MediaSyncJob | null {
 
 function loadSavedJob<T>(key: string, isValid: (value: unknown) => value is T): T | null {
   try {
+    if (typeof window === "undefined") return null;
     const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? "null");
     return isValid(parsed) ? parsed : null;
   } catch {

@@ -13,7 +13,7 @@ const AUTO_DISMISS_MS = 5000;
 export function NotificationCenter() {
   const romImportJob = useGameStockStore((state) => state.lastRomImportJob);
   const mediaSyncJob = useGameStockStore((state) => state.lastMediaSyncJob);
-  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => initialDismissedIds([romImportJob, mediaSyncJob]));
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
     if (romImportJob) items.push({ type: "rom", job: romImportJob });
@@ -49,6 +49,12 @@ export function NotificationCenter() {
       ))}
     </aside>
   );
+}
+
+function initialDismissedIds(jobs: Array<RomFolderImportJob | MediaSyncJob | null>): string[] {
+  return jobs
+    .filter((job): job is RomFolderImportJob | MediaSyncJob => Boolean(job && job.status !== "running"))
+    .map((job) => job.jobId);
 }
 
 function NotificationCard({ item, onDismiss }: { item: NotificationItem; onDismiss(): void }) {
