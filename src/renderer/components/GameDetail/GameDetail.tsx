@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -59,10 +59,9 @@ export function GameDetail() {
   const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM nao associada";
   const canOpenRom = Boolean(game.rom_path);
   const fallbackMediaItems = [
-    screenshotUrl ? { path: game.screenshot_path!, label: "Screenshot", kind: "screenshot" as const } : null,
     backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null
   ].filter(Boolean) as GameMediaItem[];
-  const galleryItems = mediaItems.length ? mediaItems : fallbackMediaItems;
+  const galleryItems = (mediaItems.length ? mediaItems : fallbackMediaItems).filter((item) => item.kind !== "screenshot");
 
   async function deleteGame(): Promise<void> {
     if (!game) return;
@@ -82,15 +81,27 @@ export function GameDetail() {
     reloadGames();
   }
 
+  function selectNextGame(): void {
+    const currentIndex = games.findIndex((item) => item.id === currentGame.id);
+    const nextGame = games[(currentIndex + 1) % games.length];
+    if (nextGame) setSelectedGameId(nextGame.id);
+  }
+
   return (
     <section className="game-detail">
       <div className="detail-hero">
         {heroBgUrl ? <img className="detail-hero-bg" src={heroBgUrl} alt="" aria-hidden="true" /> : <div className="detail-hero-bg detail-hero-fallback" />}
         <div className="detail-hero-shade" />
-        <button type="button" className="detail-back" onClick={() => setSelectedGameId(null)}>
-          <ArrowLeft aria-hidden="true" size={18} />
-          Biblioteca
-        </button>
+        <div className="detail-top-actions">
+          <button type="button" className="detail-top-button" onClick={() => setSelectedGameId(null)}>
+            <ArrowLeft aria-hidden="true" size={18} />
+            Biblioteca
+          </button>
+          <button type="button" className="detail-top-button" onClick={selectNextGame} disabled={games.length <= 1}>
+            Próximo jogo
+            <ArrowRight aria-hidden="true" size={18} />
+          </button>
+        </div>
         <div className="detail-hero-content">
           <div className={"detail-cover-card" + (isCoverLandscape ? " landscape" : "")}>
             {coverUrl
@@ -138,69 +149,72 @@ export function GameDetail() {
       </div>
 
       <div className="detail-content-grid">
-        <div className="detail-main-column">
-          <section className="detail-panel detail-about">
-            <h2>Sobre o jogo</h2>
-            <p>{overview}</p>
-          </section>
-        </div>
+        <section className="detail-panel detail-about">
+          <h2>Descrição</h2>
+          <p>{overview}</p>
+        </section>
 
-        <aside className="detail-side-column">
-          <section className="detail-panel">
-            <h3>Arquivo</h3>
-            <dl className="detail-info-list">
-              <div>
-                <dt>ROM</dt>
-                <dd>{fileName}</dd>
-              </div>
-              <div>
-                <dt>Box Art</dt>
-                <dd>{game.box_art_path ? "Associada" : "Nao associada"}</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd className={game.rom_path ? "detail-ok" : ""}>{game.rom_path ? "Pronto" : "Pendente"}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="detail-panel">
-            <h3>Galeria</h3>
-            <div className="detail-gallery">
-              {galleryItems.length ? galleryItems.map((item) => {
-                const itemUrl = localMediaUrl(item.path);
-                return (
-                  <button
-                    type="button"
-                    key={item.path}
-                    className={"detail-gallery-thumb" + (item.kind === "background" ? " detail-gallery-wide" : "")}
-                    onClick={() => itemUrl && setLightboxUrl(itemUrl)}
-                    aria-label={item.label}
-                  >
-                    {itemUrl ? <img src={itemUrl} alt={item.label} /> : <Image aria-hidden="true" size={24} />}
-                    <span className="detail-gallery-label">{item.label}</span>
-                  </button>
-                );
-              }) : (
-                <div className="detail-gallery-empty-state">
-                  <Monitor aria-hidden="true" size={24} />
-                  <span>Nenhuma imagem baixada</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {lightboxUrl && (
-            <div className="detail-lightbox" onClick={() => setLightboxUrl(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
-              <button type="button" className="detail-lightbox-close icon-button modal-close-button" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
-                <X aria-hidden="true" size={20} />
+        <section className="detail-panel">
+          {screenshotUrl && (
+            <div className="detail-file-screenshot">
+              <h3>Screenshot</h3>
+              <button type="button" className="detail-file-screenshot-button" onClick={() => setLightboxUrl(screenshotUrl)} aria-label="Visualizar screenshot">
+                <img src={screenshotUrl} alt="Screenshot" />
               </button>
-              <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
             </div>
           )}
+          <h2>Arquivo</h2>
+          <dl className="detail-info-list">
+            <div>
+              <dt>ROM</dt>
+              <dd>{fileName}</dd>
+            </div>
+            <div>
+              <dt>Box Art</dt>
+              <dd>{game.box_art_path ? "Associada" : "Nao associada"}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd className={game.rom_path ? "detail-ok" : ""}>{game.rom_path ? "Pronto" : "Pendente"}</dd>
+            </div>
+          </dl>
+        </section>
 
-        </aside>
+        <section className="detail-panel detail-gallery-panel">
+          <h2>Galeria</h2>
+          <div className="detail-gallery">
+            {galleryItems.length ? galleryItems.map((item) => {
+              const itemUrl = localMediaUrl(item.path);
+              return (
+                <button
+                  type="button"
+                  key={item.path}
+                  className={"detail-gallery-thumb" + (item.kind === "background" ? " detail-gallery-wide" : "")}
+                  onClick={() => itemUrl && setLightboxUrl(itemUrl)}
+                  aria-label={item.label}
+                >
+                  {itemUrl ? <img src={itemUrl} alt={item.label} /> : <Image aria-hidden="true" size={24} />}
+                  <span className="detail-gallery-label">{item.label}</span>
+                </button>
+              );
+            }) : (
+              <div className="detail-gallery-empty-state">
+                <Monitor aria-hidden="true" size={24} />
+                <span>Nenhuma imagem baixada</span>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
+
+      {lightboxUrl && (
+        <div className="detail-lightbox" onClick={() => setLightboxUrl(null)} role="dialog" aria-modal="true" aria-label="Visualizar imagem">
+          <button type="button" className="detail-lightbox-close icon-button modal-close-button" onClick={() => setLightboxUrl(null)} aria-label="Fechar">
+            <X aria-hidden="true" size={20} />
+          </button>
+          <img src={lightboxUrl} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       {isEditModalOpen && (
         <div className="detail-edit-backdrop" onMouseDown={() => setIsEditModalOpen(false)} role="presentation">
