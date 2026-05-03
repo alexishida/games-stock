@@ -20,7 +20,7 @@ O sistema SHALL exibir na tela inicial do RomFolderImporter uma tabela com todas
 - **THEN** o sistema inicia um job de importação em background para aquela pasta usando a plataforma já salva e fecha o overlay
 
 ### Requirement: Adicionar nova pasta de ROMs
-O sistema SHALL fornecer um fluxo de dois passos (configure → review) dentro de um overlay modal para adicionar uma nova pasta ao índice.
+O sistema SHALL fornecer um fluxo de dois passos (configure → review) dentro de um overlay modal para adicionar uma nova pasta ao índice. O scan aceita uma lista de `folderPaths` (pastas inteiras) e/ou `romFilePaths` (arquivos ROM individuais).
 
 #### Scenario: Abrir formulário de configuração
 - **WHEN** o usuário clica em "Adicionar Pasta"
@@ -62,15 +62,19 @@ O sistema SHALL permitir remover uma entrada da tabela, excluindo também os jog
 - **THEN** o sistema MUST NOT apagar a pasta física nem os arquivos ROM do disco
 
 ### Requirement: Descoberta de ROMs em pastas selecionadas
-O sistema SHALL escanear a pasta selecionada, detectar arquivos com extensões ROM suportadas e derivar um título candidato para cada arquivo via normalização do nome.
+O sistema SHALL escanear as pastas em `folderPaths` e processar os arquivos individuais em `romFilePaths`, detectar arquivos com extensões ROM suportadas e derivar um título candidato via normalização do nome. O resultado SHALL incluir `candidates`, `ignored` (contagem), `ignoredItems` (lista detalhada com `folderPath`, `romPath`, `filename` e `reason`), `folderPaths` e `romFilePaths`.
 
-#### Scenario: Descobrir ROMs suportadas
-- **WHEN** a pasta contém arquivos com extensões suportadas (.zip, .rom, .bin, .iso, .img, .cue, .nes, .snes, .sfc, .smc, .swc, .fig, .smd, .md, .n64, .z64, .v64, .gb, .gbc, .gba)
+#### Scenario: Descobrir ROMs suportadas por pasta
+- **WHEN** `folderPaths` contém pastas com arquivos de extensões suportadas (.zip, .rom, .bin, .iso, .img, .cue, .nes, .snes, .sfc, .smc, .swc, .fig, .smd, .md, .n64, .z64, .v64, .gb, .gbc, .gba)
 - **THEN** o scan retorna candidatos com `folderPath`, `romPath`, `filename`, `titleCandidate` e dados de plataforma
+
+#### Scenario: Descobrir ROMs individuais por `romFilePaths`
+- **WHEN** `romFilePaths` contém caminhos de arquivos ROM válidos
+- **THEN** cada arquivo é processado como candidato com `folderPath = dirname(romPath)`
 
 #### Scenario: Ignorar arquivos não suportados
 - **WHEN** a pasta contém arquivos com extensões não suportadas (ex: .txt, .jpg, .xml)
-- **THEN** esses arquivos são ignorados e contabilizados em `ignored`
+- **THEN** esses arquivos são ignorados, contabilizados em `ignored` e listados em `ignoredItems` com o campo `reason` descrevendo a extensão não suportada
 
 ### Requirement: Execução em background e progresso
 O sistema SHALL executar o job de importação de forma assíncrona no processo main, emitindo eventos de progresso e conclusão ao renderer via IPC.

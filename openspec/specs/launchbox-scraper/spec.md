@@ -67,6 +67,8 @@ O sistema SHALL manter um mapeamento interno de `platformKey` para os nomes de p
 ### Requirement: Download de imagens por tipo
 O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.launchbox-app.com/<filename>`. As imagens SHALL ser salvas em `%APPDATA%/GameStock/images/<platform>/<game>/`. Imagens existentes SHALL ser puladas.
 
+Os nomes de arquivo SHALL seguir o padrão: para tipos "Box -" → `{slug(type)}-{slug(region)}-{index_padded}.ext`; para demais tipos → `{slug(type)}-{slug(region)}.ext`. Após o download, um arquivo `metadata.json` com os dados do jogo é sempre gravado no diretório.
+
 #### Scenario: Download de tipos específicos
 - **WHEN** `launchbox:downloadImages` é chamado com tipos selecionados
 - **THEN** baixa apenas imagens dos tipos solicitados e retorna `{ success, skipped, failed, files }`
@@ -79,12 +81,27 @@ O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.laun
 - **WHEN** cada imagem é baixada
 - **THEN** o renderer recebe `launchbox:progress` com `{ current, total, filename, status }`
 
+### Requirement: Geração de preview de capa (cover.jpg)
+Após cada download, o sistema SHALL gerar um `cover.jpg` no diretório do jogo a partir da melhor imagem "Box - Front" disponível, usando `sharp`. A imagem de origem SHALL ser selecionada por prioridade de região: brazil → north-america → europe → world → united-states → no_region → primeiro arquivo. O tamanho SHALL ser 195×280 para capas portrait ou 280×195 para capas landscape, com `fit: inside`, sem ampliação e qualidade JPEG 85. O `cover.jpg` gerado SHALL ser incluído no início do array `files` retornado.
+
+#### Scenario: Capa portrait gerada
+- **WHEN** o download inclui ao menos uma imagem "Box - Front" com altura maior que largura
+- **THEN** `cover.jpg` é gerado com dimensões máximas 195×280 e adicionado em `files[0]`
+
+#### Scenario: Capa landscape gerada
+- **WHEN** a imagem "Box - Front" selecionada tem largura maior que altura
+- **THEN** `cover.jpg` é gerado com dimensões máximas 280×195
+
+#### Scenario: Sem Box - Front disponível
+- **WHEN** nenhuma imagem "Box - Front" foi baixada
+- **THEN** `cover.jpg` não é gerado e `files` não é alterado
+
 ### Requirement: Importação completa de jogo individual
 O sistema SHALL oferecer `launchbox:importGame` que busca o jogo pelo ID LaunchBox, baixa imagens selecionadas e cria ou atualiza o registro no SQLite com metadados e `box_art_path`.
 
 #### Scenario: Importar jogo novo
 - **WHEN** `launchbox:importGame` é chamado para um jogo sem correspondência no banco
-- **THEN** um novo registro é criado em `games` com metadados LaunchBox, `launchbox_id` preenchido e `box_art_path` apontando para a primeira "Box - Front" baixada
+- **THEN** um novo registro é criado em `games` com metadados LaunchBox, `launchbox_id` preenchido, `box_art_path` apontando para `cover.jpg` (ou primeiro arquivo Box - Front), `background_path` para o primeiro arquivo "fanart-background" e `screenshot_path` para o primeiro "screenshot-gameplay"
 
 #### Scenario: Atualizar jogo existente
 - **WHEN** `launchbox:importGame` é chamado para jogo já existente (mesmo `launchbox_id` e plataforma)
@@ -110,11 +127,11 @@ O sistema SHALL fornecer um modal de importação acessível pelo canal `launchb
 - **THEN** pode buscar e importar outro jogo sem fechar o modal
 
 ### Requirement: Correspondência em lote por título e plataforma
-O sistema SHALL fornecer lógica de match que recebe candidatos de título de ROM e uma plataforma selecionada, retornando o melhor match LaunchBox com base em score de similaridade. O threshold de match SHALL ser 0.72.
+O sistema SHALL fornecer lógica de match que recebe candidatos de título de ROM e uma plataforma selecionada, retornando o melhor match LaunchBox com base em score de similaridade. O threshold de match SHALL ser 0.72. Todos os resultados de match incluem um campo `alternatives` com até 5 jogos candidatos próximos.
 
 #### Scenario: Match exato por título normalizado
 - **WHEN** o título normalizado do candidato corresponde exatamente ao nome LaunchBox normalizado na plataforma selecionada
-- **THEN** o score é 1.0 e o candidato é marcado como "matched"
+- **THEN** o score é 1.0, o candidato é marcado como "matched" e `alternatives` contém o jogo correspondente
 
 #### Scenario: Match por substring
 - **WHEN** um dos títulos contém o outro após normalização
@@ -126,22 +143,22 @@ O sistema SHALL fornecer lógica de match que recebe candidatos de título de RO
 
 #### Scenario: Ambiguidade de match
 - **WHEN** múltiplos jogos LaunchBox atingem o mesmo score máximo
-- **THEN** o candidato é marcado como "ambiguous" e nenhum jogo é criado
+- **THEN** o candidato é marcado como "ambiguous", `match` é null e `alternatives` lista os candidatos empatados (até 5)
 
 #### Scenario: Sem match
 - **WHEN** nenhum jogo LaunchBox atinge score >= 0.72 para a plataforma selecionada
-- **THEN** o candidato é marcado como "unmatched" e incluído no resumo sem criar registro
+- **THEN** o candidato é marcado como "unmatched", `match` é null e `alternatives` lista os 5 primeiros jogos da plataforma
 
 #### Scenario: Reutilizar contexto em lotes grandes
 - **WHEN** uma pasta contém centenas de candidatos para a mesma plataforma
 - **THEN** o sistema constrói o contexto filtrado por plataforma uma vez e reutiliza para todos os candidatos do lote
 
 ### Requirement: Download do conjunto padrão de mídia para importação por pasta
-O sistema SHALL baixar para cada jogo com match os tipos "Box - Front", "Cart - Front", "Fanart - Background" e "Screenshot - Gameplay".
+O sistema SHALL baixar para cada jogo com match os tipos "Box - Back", "Box - Front", "Cart - Front", "Fanart - Background" e "Screenshot - Gameplay" (cinco tipos padrão).
 
 #### Scenario: Baixar tipos padrão
 - **WHEN** um candidato de lote tem match LaunchBox
-- **THEN** o sistema baixa as imagens disponíveis dos quatro tipos padrão
+- **THEN** o sistema baixa as imagens disponíveis dos cinco tipos padrão
 
 #### Scenario: Reutilizar mídia já baixada
 - **WHEN** uma imagem solicitada já existe localmente
