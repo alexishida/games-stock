@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Download, Gamepad2, Image, Monitor, Play, Star, Trash2, X } from "lucide-react";
+import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
@@ -18,9 +19,24 @@ export function GameDetail() {
   const heroBgUrl = backgroundUrl ?? coverUrl;
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isCoverLandscape, setIsCoverLandscape] = useState(false);
+  const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
 
   useEffect(() => {
     setIsCoverLandscape(false);
+  }, [selectedGameId]);
+
+  useEffect(() => {
+    let canceled = false;
+    setMediaItems([]);
+    if (!selectedGameId) return undefined;
+
+    window.gameStockAPI.games.listMedia(selectedGameId).then((items) => {
+      if (!canceled) setMediaItems(items);
+    });
+
+    return () => {
+      canceled = true;
+    };
   }, [selectedGameId]);
 
   if (!game) {
@@ -41,6 +57,11 @@ export function GameDetail() {
   const overview = game.notes?.trim() || "Sem descricao cadastrada para este jogo.";
   const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM nao associada";
   const canOpenRom = Boolean(game.rom_path);
+  const fallbackMediaItems = [
+    screenshotUrl ? { path: game.screenshot_path!, label: "Screenshot", kind: "screenshot" as const } : null,
+    backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null
+  ].filter(Boolean) as GameMediaItem[];
+  const galleryItems = mediaItems.length ? mediaItems : fallbackMediaItems;
 
   async function deleteGame(): Promise<void> {
     if (!game) return;
@@ -144,42 +165,26 @@ export function GameDetail() {
           <section className="detail-panel">
             <h3>Galeria</h3>
             <div className="detail-gallery">
-              <button
-                type="button"
-                className={"detail-gallery-thumb" + (screenshotUrl ? "" : " detail-gallery-empty")}
-                onClick={() => screenshotUrl && setLightboxUrl(screenshotUrl)}
-                disabled={!screenshotUrl}
-                aria-label="Screenshot"
-              >
-                {screenshotUrl
-                  ? <img src={screenshotUrl} alt="Screenshot" />
-                  : <Monitor aria-hidden="true" size={24} />}
-                <span className="detail-gallery-label">Screenshot</span>
-              </button>
-              <button
-                type="button"
-                className={"detail-gallery-thumb" + (coverUrl ? "" : " detail-gallery-empty")}
-                onClick={() => coverUrl && setLightboxUrl(coverUrl)}
-                disabled={!coverUrl}
-                aria-label="Box Art"
-              >
-                {coverUrl
-                  ? <img src={coverUrl} alt="Box Art" />
-                  : <Image aria-hidden="true" size={24} />}
-                <span className="detail-gallery-label">Box Art</span>
-              </button>
-              <button
-                type="button"
-                className={"detail-gallery-thumb detail-gallery-wide" + (backgroundUrl ? "" : " detail-gallery-empty")}
-                onClick={() => backgroundUrl && setLightboxUrl(backgroundUrl)}
-                disabled={!backgroundUrl}
-                aria-label="Background"
-              >
-                {backgroundUrl
-                  ? <img src={backgroundUrl} alt="Background" />
-                  : <Image aria-hidden="true" size={24} />}
-                <span className="detail-gallery-label">Background</span>
-              </button>
+              {galleryItems.length ? galleryItems.map((item) => {
+                const itemUrl = localMediaUrl(item.path);
+                return (
+                  <button
+                    type="button"
+                    key={item.path}
+                    className={"detail-gallery-thumb" + (item.kind === "background" ? " detail-gallery-wide" : "")}
+                    onClick={() => itemUrl && setLightboxUrl(itemUrl)}
+                    aria-label={item.label}
+                  >
+                    {itemUrl ? <img src={itemUrl} alt={item.label} /> : <Image aria-hidden="true" size={24} />}
+                    <span className="detail-gallery-label">{item.label}</span>
+                  </button>
+                );
+              }) : (
+                <div className="detail-gallery-empty-state">
+                  <Monitor aria-hidden="true" size={24} />
+                  <span>Nenhuma imagem baixada</span>
+                </div>
+              )}
             </div>
           </section>
 

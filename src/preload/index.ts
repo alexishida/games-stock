@@ -20,6 +20,7 @@ const api = {
   games: {
     list: (filters?: GameFilters) => ipcRenderer.invoke(IPC_CHANNELS.games.list, filters),
     get: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.get, id),
+    listMedia: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.listMedia, id),
     create: (data: Partial<GameCreateInput>) => ipcRenderer.invoke(IPC_CHANNELS.games.create, data),
     update: (id: number, data: GameUpdateInput) => ipcRenderer.invoke(IPC_CHANNELS.games.update, id, data),
     delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.delete, id)

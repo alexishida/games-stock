@@ -3,6 +3,7 @@ import {
   GameCreateInput,
   GameFilters,
   GameListResult,
+  GameMediaItem,
   GameSortBy,
   GameUpdateInput,
   LaunchBoxDownloadParams,
@@ -26,6 +27,7 @@ export interface GameStockAPI {
   games: {
     list(filters?: GameFilters): Promise<GameListResult>;
     get(id: number): Promise<Game | null>;
+    listMedia(id: number): Promise<GameMediaItem[]>;
     create(data: Partial<GameCreateInput>): Promise<Game>;
     update(id: number, data: GameUpdateInput): Promise<Game>;
     delete(id: number): Promise<{ success: true }>;

@@ -351,6 +351,20 @@
   opacity: 0.5;
 }
 
+.detail-gallery-empty-state {
+  grid-column: 1 / -1;
+  display: grid;
+  min-height: 104px;
+  place-items: center;
+  gap: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .detail-gallery-wide {
   grid-column: 1 / -1;
   aspect-ratio: 16 / 6;

@@ -8,7 +8,7 @@ import * as platforms from "./db/repositories/platforms";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
+import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -77,6 +77,7 @@ async function createWindow(): Promise<void> {
 function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.list, (_event, filters) => games.listGames(filters));
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
+  ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));
   ipcMain.handle(IPC_CHANNELS.games.delete, (_event, id: number) => games.deleteGame(id));
@@ -249,4 +250,71 @@ function registerMediaProtocol(): void {
 
     return net.fetch(pathToFileURL(normalized).toString());
   });
+}
+
+const MEDIA_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+function listGameMedia(id: number): GameMediaItem[] {
+  const game = games.getGame(id);
+  if (!game) return [];
+
+  const mediaPaths = [game.box_art_path, game.background_path, game.screenshot_path].filter(Boolean) as string[];
+  const mediaDir = mediaPaths.map((filePath) => path.dirname(filePath)).find((dir) => isPathAllowed(dir));
+  if (!mediaDir || !fs.existsSync(mediaDir)) return [];
+
+  return fs.readdirSync(mediaDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && MEDIA_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+    .map((entry) => path.join(mediaDir, entry.name))
+    .filter((filePath) => isPathAllowed(filePath))
+    .filter((filePath) => mediaKind(filePath) !== "cover")
+    .sort((a, b) => mediaSortWeight(a) - mediaSortWeight(b) || path.basename(a).localeCompare(path.basename(b)))
+    .map((filePath) => ({
+      path: filePath,
+      label: mediaLabel(filePath),
+      kind: mediaKind(filePath)
+    }));
+}
+
+function isPathAllowed(targetPath: string): boolean {
+  const normalized = path.resolve(targetPath);
+  const allowedRoot = path.resolve(getUserDataDir());
+  return normalized === allowedRoot || normalized.startsWith(`${allowedRoot}${path.sep}`);
+}
+
+function mediaKind(filePath: string): GameMediaItem["kind"] {
+  const filename = path.basename(filePath).toLowerCase();
+  if (filename === "cover.jpg") return "cover";
+  if (filename.startsWith("box-")) return "box-art";
+  if (filename.startsWith("cart-")) return "cart";
+  if (filename.startsWith("fanart-background")) return "background";
+  if (filename.startsWith("screenshot-")) return "screenshot";
+  return "other";
+}
+
+function mediaLabel(filePath: string): string {
+  const filename = path.basename(filePath, path.extname(filePath)).toLowerCase();
+  if (filename === "cover") return "Cover";
+  return filename
+    .replace(/-\d+$/g, "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function mediaSortWeight(filePath: string): number {
+  switch (mediaKind(filePath)) {
+    case "cover":
+      return 0;
+    case "box-art":
+      return 1;
+    case "cart":
+      return 2;
+    case "background":
+      return 3;
+    case "screenshot":
+      return 4;
+    case "other":
+      return 5;
+  }
 }

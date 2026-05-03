@@ -2,6 +2,7 @@ export const IPC_CHANNELS = {
   games: {
     list: "games:list",
     get: "games:get",
+    listMedia: "games:listMedia",
     create: "games:create",
     update: "games:update",
     delete: "games:delete"

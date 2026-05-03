@@ -50,6 +50,12 @@ export interface GameListResult {
   filtered: number;
 }
 
+export interface GameMediaItem {
+  path: string;
+  label: string;
+  kind: "box-art" | "cart" | "background" | "screenshot" | "cover" | "other";
+}
+
 export type LaunchBoxImageType =
   | "Box - 3D"
   | "Box - Front"
