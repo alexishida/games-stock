@@ -11,8 +11,9 @@
 
 .game-card {
   flex: none;
-  width: 162px;
-  height: 238px;
+  width: 195px;
+  height: 280px;
+  max-height: 280px;
   display: block;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -36,8 +37,9 @@
 }
 
 .game-card.landscape {
-  width: 238px;
-  height: 162px;
+  width: 280px;
+  height: 195px;
+  max-height: 195px;
 }
 
 .cover-frame {

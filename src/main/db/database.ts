@@ -33,6 +33,7 @@ export function getDatabase(): Database.Database {
   db.pragma("foreign_keys = ON");
   applySchema(db);
   seedPlatforms(db);
+  backfillCachedCoverPaths(db);
   return db;
 }
 
@@ -101,6 +102,38 @@ function seedPlatforms(database: Database.Database): void {
     for (const platform of defaultPlatforms) insert.run(platform[0], platform[1]);
   });
   transaction();
+}
+
+function backfillCachedCoverPaths(database: Database.Database): void {
+  const rows = database
+    .prepare(`
+      SELECT games.id, games.title, platforms.name as platform_name
+      FROM games
+      JOIN platforms ON platforms.id = games.platform_id
+      WHERE games.box_art_path IS NULL OR games.box_art_path = ''
+    `)
+    .all() as Array<{ id: number; title: string; platform_name: string }>;
+
+  if (!rows.length) return;
+
+  const update = database.prepare("UPDATE games SET box_art_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+  const repair = database.transaction((items: Array<{ id: number; title: string; platform_name: string }>) => {
+    for (const item of items) {
+      const coverPath = path.join(getImagesDir(), sanitizeMediaPath(item.platform_name), sanitizeMediaPath(item.title), "cover.jpg");
+      if (fs.existsSync(coverPath)) update.run(coverPath, item.id);
+    }
+  });
+
+  repair(rows);
+}
+
+function sanitizeMediaPath(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 120);
 }
 
 export function closeDatabase(): void {

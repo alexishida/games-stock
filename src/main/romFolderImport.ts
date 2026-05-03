@@ -253,7 +253,19 @@ function upsertMatchedGame(game: LaunchBoxGame, candidate: RomFolderImportCandid
   return upsertLaunchBoxGame(data);
 }
 
+const BOX_FRONT_REGION_PRIORITY = ["brazil", "north-america", "europe"];
+
 function findDownloadedMedia(files: string[], marker: string): string | null {
+  if (marker === "box-front") {
+    const cover = files.find((file) => path.basename(file).toLowerCase() === "cover.jpg");
+    if (cover) return cover;
+
+    for (const region of BOX_FRONT_REGION_PRIORITY) {
+      const match = files.find((file) => file.includes(`box-front-${region}`));
+      if (match) return match;
+    }
+    return files.find((file) => file.includes("box-front")) ?? null;
+  }
   return files.find((file) => file.includes(marker)) ?? null;
 }
 

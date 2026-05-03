@@ -3,6 +3,7 @@ import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import sharp from "sharp";
 import { getImagesDir } from "../../db/database";
 import { LaunchBoxDownloadResult, LaunchBoxGame, LaunchBoxImageType, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { IMAGES_BASE, PLATFORMS } from "./config";
@@ -41,8 +42,7 @@ export async function downloadImages(
 
   for (let index = 0; index < images.length; index += 1) {
     const image = images[index];
-    const ext = path.extname(image.filename) || ".jpg";
-    const filename = `${sanitize(image.type)}-${sanitize(image.region || "no_region")}${ext}`;
+    const filename = getImageFilename(image, index);
     const dest = path.join(gameDir, filename);
     const current = index + 1;
 
@@ -57,7 +57,9 @@ export async function downloadImages(
       onProgress?.({ current, total: images.length, filename, status: "downloading" });
       const response = await fetch(IMAGES_BASE + image.filename);
       if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+
       await pipeline(Readable.fromWeb(response.body as never), createWriteStream(dest));
+
       result.success += 1;
       result.files.push(dest);
       onProgress?.({ current, total: images.length, filename, status: "done" });
@@ -66,6 +68,9 @@ export async function downloadImages(
       onProgress?.({ current, total: images.length, filename, status: "error" });
     }
   }
+
+  const coverPath = await ensureCoverPreview(gameDir, result.files);
+  if (coverPath && !result.files.includes(coverPath)) result.files.unshift(coverPath);
 
   fs.writeFileSync(path.join(gameDir, "metadata.json"), JSON.stringify(game, null, 2), "utf8");
   return result;
@@ -82,4 +87,40 @@ function sanitize(value: string): string {
     .trim()
     .replace(/\s+/g, "-")
     .slice(0, 120);
+}
+
+function getImageFilename(image: Pick<LaunchBoxGame["images"][number], "filename" | "region" | "type">, index: number): string {
+  const ext = path.extname(image.filename) || ".jpg";
+  if (image.type === "Box - Front") {
+    return `box-front-${sanitize(image.region || "no_region")}-${String(index + 1).padStart(2, "0")}${ext}`;
+  }
+
+  return `${sanitize(image.type)}-${sanitize(image.region || "no_region")}${ext}`;
+}
+
+const BOX_FRONT_REGION_PRIORITY = ["brazil", "north-america", "europe", "world", "united-states", "no_region"];
+
+async function ensureCoverPreview(gameDir: string, files: string[]): Promise<string | null> {
+  const boxArtFiles = files.filter((file) => path.basename(file).toLowerCase().startsWith("box-front-"));
+  if (!boxArtFiles.length) return null;
+
+  const selected = selectPreferredBoxArt(boxArtFiles);
+  if (!selected) return null;
+
+  const coverPath = path.join(gameDir, "cover.jpg");
+  const metadata = await sharp(selected).metadata();
+  const isLandscape = (metadata.width ?? 0) > (metadata.height ?? 0);
+  const size = isLandscape ? { width: 280, height: 195 } : { width: 195, height: 280 };
+  await sharp(selected).resize({ ...size, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(coverPath);
+
+  return coverPath;
+}
+
+function selectPreferredBoxArt(files: string[]): string | null {
+  for (const region of BOX_FRONT_REGION_PRIORITY) {
+    const match = files.find((file) => path.basename(file).toLowerCase().includes(`box-front-${region}-`));
+    if (match) return match;
+  }
+
+  return files[0] ?? null;
 }

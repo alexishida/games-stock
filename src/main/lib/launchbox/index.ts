@@ -27,7 +27,7 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
 
   const platformId = params.platformId ?? resolvePlatformId(game.platform);
   const download = await downloadImages(game, getImagesDir(), params.imageTypes, onProgress);
-  const boxArtPath = download.files.find((file) => file.includes("box-front")) ?? download.files[0] ?? null;
+  const boxArtPath = download.files.find((file) => file.endsWith("cover.jpg")) ?? download.files.find((file) => file.includes("box-front")) ?? download.files[0] ?? null;
   const backgroundPath = download.files.find((file) => file.includes("fanart-background")) ?? null;
   const screenshotPath = download.files.find((file) => file.includes("screenshot-gameplay")) ?? null;
   const year = game.release ? Number(game.release.slice(0, 4)) || null : null;
