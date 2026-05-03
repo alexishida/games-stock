@@ -1,15 +1,19 @@
 import { getImagesDir } from "../../db/database";
-import { getCoverStats, listGamesMissingCovers, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
+import { getCoverStats, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
 import { findOrCreatePlatform, listPlatforms } from "../../db/repositories/platforms";
 import { CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { PLATFORMS } from "./config";
-import { buildIndex, ensureMetadata } from "./db";
+import { buildIndex, ensureMetadata, getMetadataDownloadedAt } from "./db";
 import { downloadImages, searchGames as searchIndex } from "./scraper";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;
 
 export { IMAGE_TYPE_LIST, PLATFORMS } from "./config";
 export { ensureMetadata, buildIndex };
+
+export function getLaunchBoxMetadataDownloadedAt(): string | null {
+  return getMetadataDownloadedAt();
+}
 
 export async function searchGames(params: LaunchBoxSearchParams) {
   const index = await buildIndex();
@@ -52,48 +56,67 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
 }
 
 export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<CoverSyncResult> {
-  const missing = listGamesMissingCovers();
+  const linkedGames = listLaunchBoxLinkedGames();
   const index = await buildIndex(onProgress);
   let downloadedNow = 0;
   let failed = 0;
   let skipped = 0;
+  let metadataUpdated = 0;
+  let metadataSkipped = 0;
 
-  for (let i = 0; i < missing.length; i += 1) {
-    const gameRecord = missing[i];
+  for (let i = 0; i < linkedGames.length; i += 1) {
+    const gameRecord = linkedGames[i];
     const launchBoxId = gameRecord.launchbox_id;
     const launchBoxGame = launchBoxId ? index[launchBoxId] : null;
     const current = i + 1;
 
     if (!launchBoxGame) {
-      skipped += 1;
-      onProgress?.({ current, total: missing.length, filename: gameRecord.title, status: "skipped" });
+      metadataSkipped += 1;
+      if (!gameRecord.box_art_path) skipped += 1;
+      onProgress?.({ current, total: linkedGames.length, filename: gameRecord.title, status: "skipped" });
       continue;
     }
 
-    const download = await downloadImages(launchBoxGame, getImagesDir(), ["Box - Front"], (progress) => {
-      onProgress?.({
-        current,
-        total: missing.length,
-        filename: progress.filename ?? gameRecord.title,
-        status: progress.status
-      });
+    updateGame(gameRecord.id, {
+      title: launchBoxGame.name || gameRecord.title,
+      publisher: launchBoxGame.publisher || null,
+      year: launchBoxGame.release ? Number(launchBoxGame.release.slice(0, 4)) || null : null,
+      genre: launchBoxGame.genres || null,
+      rating: launchBoxGame.rating || null,
+      notes: launchBoxGame.overview || null
     });
-    const boxArtPath = download.files.find((file) => file.endsWith("cover.jpg")) ?? download.files.find((file) => file.includes("box-front")) ?? null;
+    metadataUpdated += 1;
 
-    if (boxArtPath) {
-      updateGame(gameRecord.id, { box_art_path: boxArtPath });
-      downloadedNow += 1;
+    if (gameRecord.box_art_path) {
+      onProgress?.({ current, total: linkedGames.length, filename: gameRecord.title, status: "done" });
     } else {
-      failed += 1;
+      const download = await downloadImages(launchBoxGame, getImagesDir(), ["Box - Front"], (progress) => {
+        onProgress?.({
+          current,
+          total: linkedGames.length,
+          filename: progress.filename ?? gameRecord.title,
+          status: progress.status
+        });
+      });
+      const boxArtPath = download.files.find((file) => file.endsWith("cover.jpg")) ?? download.files.find((file) => file.includes("box-front")) ?? null;
+
+      if (boxArtPath) {
+        updateGame(gameRecord.id, { box_art_path: boxArtPath });
+        downloadedNow += 1;
+      } else {
+        failed += 1;
+      }
     }
   }
 
   return {
     ...getCoverStats(),
-    attempted: missing.length,
+    attempted: linkedGames.length,
     downloadedNow,
     failed,
-    skipped
+    skipped,
+    metadataUpdated,
+    metadataSkipped
   };
 }
 

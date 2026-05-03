@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
-import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers } from "./lib/launchbox";
+import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderScanRequest } from "../shared/types";
@@ -79,7 +79,10 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
   ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
   ipcMain.handle(IPC_CHANNELS.games.collectionCounts, () => games.getCollectionCounts());
-  ipcMain.handle(IPC_CHANNELS.games.coverStats, () => games.getCoverStats());
+  ipcMain.handle(IPC_CHANNELS.games.coverStats, () => ({
+    ...games.getCoverStats(),
+    metadataDownloadedAt: getLaunchBoxMetadataDownloadedAt()
+  }));
   ipcMain.handle(IPC_CHANNELS.games.syncCovers, () => syncMissingCovers(sendLaunchBoxProgress));
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));

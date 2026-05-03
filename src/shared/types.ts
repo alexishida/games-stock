@@ -13,6 +13,8 @@ export interface CoverSyncStats {
   downloaded: number;
   missing: number;
   syncable: number;
+  metadataSyncable: number;
+  metadataDownloadedAt: string | null;
 }
 
 export interface CoverSyncResult extends CoverSyncStats {
@@ -20,6 +22,8 @@ export interface CoverSyncResult extends CoverSyncStats {
   downloadedNow: number;
   failed: number;
   skipped: number;
+  metadataUpdated: number;
+  metadataSkipped: number;
 }
 export type GameSortBy = "title" | "year" | "recent";
 

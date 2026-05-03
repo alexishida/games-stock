@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { AlertTriangle, ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
@@ -68,22 +68,6 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
     }
   }
 
-  async function continueSelectedDownload(): Promise<void> {
-    const entry = folderEntries.find((item) => item.folderPath === selectedFolderPath);
-    if (!entry) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await window.gameStockAPI.romFolderImport.import({ folderPaths: [entry.folderPath], platformId: entry.platformId });
-      setSelectedPlatformId(entry.platformId);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="rom-folder-panel">
       {error ? <div className="import-alert">{error}</div> : null}
@@ -95,7 +79,6 @@ export function RomFolderImporter({ onClose }: { onClose(): void }) {
         onSelectFolder={setSelectedFolderPath}
         onAddFolder={() => setAddFolderOpen(true)}
         onDeleteFolder={requestDeleteFolder}
-        onContinueDownload={continueSelectedDownload}
       />
 
       {addFolderOpen ? (
@@ -357,8 +340,7 @@ function SummaryStep({
   busy,
   onSelectFolder,
   onAddFolder,
-  onDeleteFolder,
-  onContinueDownload
+  onDeleteFolder
 }: {
   entries: FolderEntry[];
   selectedFolderPath: string | null;
@@ -366,7 +348,6 @@ function SummaryStep({
   onSelectFolder(folderPath: string): void;
   onAddFolder(): void;
   onDeleteFolder(folderPath: string): void;
-  onContinueDownload(): void;
 }) {
   return (
     <div className="rom-folder-step">
@@ -416,10 +397,6 @@ function SummaryStep({
               Adicionar Pasta
             </button>
           </div>
-          <button type="button" className="text-button active import-action-button" onClick={onContinueDownload} disabled={busy || !selectedFolderPath}>
-            <RefreshCw aria-hidden="true" size={18} />
-            Syncronizar
-          </button>
         </div>
       </footer>
     </div>

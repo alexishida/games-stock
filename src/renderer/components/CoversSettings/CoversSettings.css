@@ -80,6 +80,14 @@
   font-size: 12px;
 }
 
+.covers-sync-header .text-button {
+  flex-shrink: 0;
+}
+
+.metadata-panel .text-button {
+  white-space: nowrap;
+}
+
 .covers-progress-track {
   overflow: hidden;
   height: 5px;

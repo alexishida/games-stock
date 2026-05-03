@@ -49,3 +49,7 @@ export function getCoverStats(): CoverSyncStats {
 export function listGamesMissingCovers(): Game[] {
   return gameDao().listMissingCovers();
 }
+
+export function listLaunchBoxLinkedGames(): Game[] {
+  return gameDao().listLaunchBoxLinked();
+}

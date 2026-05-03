@@ -106,6 +106,12 @@ export async function buildIndex(onProgress?: ProgressCallback): Promise<Record<
   return index;
 }
 
+export function getMetadataDownloadedAt(): string | null {
+  const metadataFile = getMetadataFile();
+  if (!fs.existsSync(metadataFile)) return null;
+  return new Date(fs.statSync(metadataFile).mtimeMs).toISOString();
+}
+
 function needsUpdate(filePath: string): boolean {
   if (!fs.existsSync(filePath)) return true;
   const ageMs = Date.now() - fs.statSync(filePath).mtimeMs;

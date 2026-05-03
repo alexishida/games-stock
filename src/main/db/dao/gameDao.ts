@@ -109,16 +109,19 @@ export class GameDao {
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN box_art_path IS NOT NULL AND box_art_path != '' THEN 1 ELSE 0 END) as downloaded,
-        SUM(CASE WHEN (box_art_path IS NULL OR box_art_path = '') AND launchbox_id IS NOT NULL AND launchbox_id != '' THEN 1 ELSE 0 END) as syncable
+        SUM(CASE WHEN (box_art_path IS NULL OR box_art_path = '') AND launchbox_id IS NOT NULL AND launchbox_id != '' THEN 1 ELSE 0 END) as syncable,
+        SUM(CASE WHEN launchbox_id IS NOT NULL AND launchbox_id != '' THEN 1 ELSE 0 END) as metadataSyncable
       FROM games
-    `).get() as { total: number; downloaded: number | null; syncable: number | null };
+    `).get() as { total: number; downloaded: number | null; syncable: number | null; metadataSyncable: number | null };
     const downloaded = row.downloaded ?? 0;
     const total = row.total ?? 0;
     return {
       total,
       downloaded,
       missing: Math.max(0, total - downloaded),
-      syncable: row.syncable ?? 0
+      syncable: row.syncable ?? 0,
+      metadataSyncable: row.metadataSyncable ?? 0,
+      metadataDownloadedAt: null
     };
   }
 
@@ -128,6 +131,18 @@ export class GameDao {
         ${baseSelect()}
         WHERE (games.box_art_path IS NULL OR games.box_art_path = '')
           AND games.launchbox_id IS NOT NULL
+          AND games.launchbox_id != ''
+        ORDER BY games.title COLLATE NOCASE
+      `)
+      .all()
+      .map((row) => mapGame(row as GameRow));
+  }
+
+  listLaunchBoxLinked(): Game[] {
+    return this.database
+      .prepare(`
+        ${baseSelect()}
+        WHERE games.launchbox_id IS NOT NULL
           AND games.launchbox_id != ''
         ORDER BY games.title COLLATE NOCASE
       `)

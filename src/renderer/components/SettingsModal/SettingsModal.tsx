@@ -8,13 +8,13 @@ import "./SettingsModal.css";
 const NAV_ITEMS: { id: SettingsSection; label: string; Icon: typeof FolderOpen }[] = [
   { id: "biblioteca", label: "Biblioteca", Icon: FolderOpen },
   { id: "plataformas", label: "Plataformas", Icon: Gamepad2 },
-  { id: "covers", label: "Covers", Icon: Images }
+  { id: "covers", label: "Mídia da biblioteca", Icon: Images }
 ];
 
 const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title: string }> = {
   biblioteca: { title: "Gerenciar biblioteca" },
   plataformas: { title: "Gerenciar plataformas" },
-  covers: { title: "Gerenciar covers" }
+  covers: { title: "Gerenciar mídia da biblioteca" }
 };
 
 export function SettingsModal() {
