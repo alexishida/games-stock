@@ -2,7 +2,8 @@ import { app } from "electron";
 import path from "node:path";
 import { LaunchBoxImageType } from "../../../shared/types";
 
-export const METADATA_URL = "https://gamesdb.launchbox-app.com/Metadata.zip";
+export const METADATA_URL_ORG = "https://gamesdb.launchbox-app.com/Metadata.zip";
+export const METADATA_URL = "http://s3.kanteoke.com/game-stock/Metadata.zip";
 export const IMAGES_BASE = "https://images.launchbox-app.com/";
 export const CACHE_AGE_H = 24;
 
