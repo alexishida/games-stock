@@ -75,6 +75,7 @@ export default function App() {
   const setSettingsSection = useGameStockStore((state) => state.setSettingsSection);
   const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const setMetadataStartupRunning = useGameStockStore((state) => state.setMetadataStartupRunning);
+  const setCoverStats = useGameStockStore((state) => state.setCoverStats);
 
   const metadataStarted = useRef(false);
   useEffect(() => {
@@ -97,6 +98,7 @@ export default function App() {
     })();
   }, []);
 
+  useEffect(() => window.gameStockAPI.games.onCoverStatsUpdated(setCoverStats), [setCoverStats]);
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
   useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => openSettings("biblioteca")), [openSettings]);

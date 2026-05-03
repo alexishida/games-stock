@@ -27,6 +27,23 @@ export interface CoverSyncResult extends CoverSyncStats {
 }
 export type GameSortBy = "title" | "year" | "recent";
 
+export interface Emulator {
+  id: number;
+  name: string;
+  executable: string;
+  args: string;
+  is_retroarch: number;
+  created_at: string;
+}
+
+export interface PlatformEmulator {
+  platform_id: number;
+  emulator_id: number;
+  is_default: number;
+  core_path: string | null;
+  emulator?: Emulator;
+}
+
 export interface Platform {
   id: number;
   name: string;

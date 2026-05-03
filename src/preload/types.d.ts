@@ -2,6 +2,7 @@ import {
   CollectionCounts,
   CoverSyncResult,
   CoverSyncStats,
+  Emulator,
   Game,
   GameCreateInput,
   GameFilters,
@@ -17,6 +18,7 @@ import {
   LaunchBoxProgress,
   LaunchBoxSearchParams,
   Platform,
+  PlatformEmulator,
   RomFolderImportJob,
   RomFolderImportProgress,
   RomFolderImportRequest,
@@ -33,10 +35,21 @@ export interface GameStockAPI {
     listMedia(id: number): Promise<GameMediaItem[]>;
     collectionCounts(): Promise<CollectionCounts>;
     coverStats(): Promise<CoverSyncStats>;
+    onCoverStatsUpdated(callback: (stats: CoverSyncStats) => void): () => void;
     syncCovers(): Promise<CoverSyncResult>;
     create(data: Partial<GameCreateInput>): Promise<Game>;
     update(id: number, data: GameUpdateInput): Promise<Game>;
     delete(id: number): Promise<{ success: true }>;
+    launch(id: number): Promise<{ success: true }>;
+  };
+  emulators: {
+    list(): Promise<Emulator[]>;
+    create(data: { name: string; executable: string; args: string; is_retroarch: number }): Promise<Emulator>;
+    update(id: number, data: { name?: string; executable?: string; args?: string }): Promise<Emulator>;
+    delete(id: number): Promise<{ success: true }>;
+    listByPlatform(platformId: number): Promise<PlatformEmulator[]>;
+    linkPlatform(emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null): Promise<PlatformEmulator>;
+    unlinkPlatform(emulatorId: number, platformId: number): Promise<{ success: true }>;
   };
   platforms: {
     list(): Promise<Platform[]>;
@@ -51,6 +64,8 @@ export interface GameStockAPI {
     saveImageFile(sourcePath: string, suggestedName: string): Promise<{ canceled: boolean; path: string | null }>;
     openRomFolder(): Promise<string | null>;
     openRomFolders(): Promise<string[]>;
+    openExecutableFile(): Promise<string | null>;
+    openAnyFile(): Promise<string | null>;
   };
   shell: {
     openPath(path: string): Promise<string>;

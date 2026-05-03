@@ -5,10 +5,21 @@ export const IPC_CHANNELS = {
     listMedia: "games:listMedia",
     collectionCounts: "games:collectionCounts",
     coverStats: "games:coverStats",
+    coverStatsUpdated: "games:coverStatsUpdated",
     syncCovers: "games:syncCovers",
     create: "games:create",
     update: "games:update",
-    delete: "games:delete"
+    delete: "games:delete",
+    launch: "games:launch"
+  },
+  emulators: {
+    list: "emulators:list",
+    create: "emulators:create",
+    update: "emulators:update",
+    delete: "emulators:delete",
+    linkPlatform: "emulators:linkPlatform",
+    unlinkPlatform: "emulators:unlinkPlatform",
+    listByPlatform: "emulators:listByPlatform"
   },
   platforms: {
     list: "platforms:list",
@@ -22,7 +33,9 @@ export const IPC_CHANNELS = {
     openImageFile: "dialogs:openImageFile",
     saveImageFile: "dialogs:saveImageFile",
     openRomFolder: "dialogs:openRomFolder",
-    openRomFolders: "dialogs:openRomFolders"
+    openRomFolders: "dialogs:openRomFolders",
+    openExecutableFile: "dialogs:openExecutableFile",
+    openAnyFile: "dialogs:openAnyFile"
   },
   shell: {
     openPath: "shell:openPath"

@@ -19,6 +19,7 @@ export function GameList() {
           <span>Publisher</span>
           <span>Ano</span>
           <span></span>
+          <span></span>
         </div>
         <div className="game-list-body">
           {games.map((game) => (

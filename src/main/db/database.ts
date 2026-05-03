@@ -49,6 +49,7 @@ export function getDatabase(): Database.Database {
   applySchema(db);
   migratePlatformAliases(db);
   seedPlatforms(db);
+  seedEmulators(db);
   backfillCachedCoverPaths(db);
   return db;
 }
@@ -86,6 +87,38 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
     CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform_id);
     CREATE INDEX IF NOT EXISTS idx_games_launchbox ON games(launchbox_id);
+
+    CREATE TABLE IF NOT EXISTS emulators (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT    NOT NULL UNIQUE,
+      executable   TEXT    NOT NULL DEFAULT '',
+      args         TEXT    NOT NULL DEFAULT '',
+      is_retroarch INTEGER NOT NULL DEFAULT 0,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS platform_emulators (
+      platform_id  INTEGER NOT NULL REFERENCES platforms(id) ON DELETE CASCADE,
+      emulator_id  INTEGER NOT NULL REFERENCES emulators(id) ON DELETE CASCADE,
+      is_default   INTEGER NOT NULL DEFAULT 0,
+      core_path    TEXT,
+      PRIMARY KEY (platform_id, emulator_id)
+    );
+
+    CREATE TRIGGER IF NOT EXISTS trg_platform_emulators_single_default_insert
+    BEFORE INSERT ON platform_emulators
+    WHEN NEW.is_default = 1
+    BEGIN
+      UPDATE platform_emulators SET is_default = 0 WHERE platform_id = NEW.platform_id;
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS trg_platform_emulators_single_default_update
+    BEFORE UPDATE OF is_default ON platform_emulators
+    WHEN NEW.is_default = 1
+    BEGIN
+      UPDATE platform_emulators SET is_default = 0
+      WHERE platform_id = NEW.platform_id AND emulator_id != NEW.emulator_id;
+    END;
   `);
 
   addColumnIfMissing(database, "games", "favorite", "INTEGER NOT NULL DEFAULT 0");
@@ -137,6 +170,10 @@ function seedPlatforms(database: Database.Database): void {
     }
   });
   transaction();
+}
+
+function seedEmulators(database: Database.Database): void {
+  database.prepare("INSERT OR IGNORE INTO emulators (name, executable, is_retroarch) VALUES ('RetroArch', '', 1)").run();
 }
 
 function backfillCachedCoverPaths(database: Database.Database): void {

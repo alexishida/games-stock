@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { CollectionCounts, CollectionFilter, Game, GameListResult, GameSortBy, Platform, RomFolderImportJob, ViewMode } from "../../shared/types";
+import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameListResult, GameSortBy, Platform, RomFolderImportJob, ViewMode } from "../../shared/types";
 
-export type SettingsSection = "biblioteca" | "plataformas" | "covers";
+export type SettingsSection = "biblioteca" | "plataformas" | "covers" | "emuladores";
 const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const LAST_MEDIA_SYNC_JOB_KEY = "gamestock.media.lastMediaSyncJob";
 
@@ -40,6 +40,7 @@ interface GameStockState {
   lastRomImportJob: RomFolderImportJob | null;
   lastMediaSyncJob: MediaSyncJob | null;
   metadataStartupRunning: boolean;
+  coverStats: CoverSyncStats | null;
   setSelectedPlatformId(value: number | null): void;
   setSearchQuery(value: string): void;
   setSelectedCategory(value: string): void;
@@ -60,6 +61,7 @@ interface GameStockState {
   setLastRomImportJob(value: RomFolderImportJob | null | ((current: RomFolderImportJob | null) => RomFolderImportJob | null)): void;
   setLastMediaSyncJob(value: MediaSyncJob | null | ((current: MediaSyncJob | null) => MediaSyncJob | null)): void;
   setMetadataStartupRunning(value: boolean): void;
+  setCoverStats(value: CoverSyncStats): void;
   reloadGames(): void;
   reloadPlatforms(): void;
 }
@@ -88,6 +90,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   lastRomImportJob: loadSavedRomImportJob(),
   lastMediaSyncJob: loadSavedMediaSyncJob(),
   metadataStartupRunning: false,
+  coverStats: null,
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null }),
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
@@ -112,6 +115,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     lastMediaSyncJob: typeof lastMediaSyncJob === "function" ? lastMediaSyncJob(state.lastMediaSyncJob) : lastMediaSyncJob
   })),
   setMetadataStartupRunning: (metadataStartupRunning) => set({ metadataStartupRunning }),
+  setCoverStats: (coverStats) => set({ coverStats }),
   reloadGames: () => set((state) => ({ reloadToken: state.reloadToken + 1 })),
   reloadPlatforms: () => set((state) => ({ platformsReloadToken: state.platformsReloadToken + 1 }))
 }));

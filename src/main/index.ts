@@ -3,8 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
+import { spawn } from "node:child_process";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
+import * as emulators from "./db/repositories/emulators";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
@@ -83,7 +85,10 @@ function registerIpc(): void {
     ...games.getCoverStats(),
     metadataDownloadedAt: getLaunchBoxMetadataDownloadedAt()
   }));
-  ipcMain.handle(IPC_CHANNELS.games.syncCovers, () => syncMissingCovers(sendLaunchBoxProgress));
+  ipcMain.handle(IPC_CHANNELS.games.syncCovers, () => syncMissingCovers((progress) => {
+    sendLaunchBoxProgress(progress);
+    sendCoverStats();
+  }));
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));
   ipcMain.handle(IPC_CHANNELS.games.delete, (_event, id: number) => games.deleteGame(id));
@@ -92,6 +97,62 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.platforms.create, (_event, data: platforms.PlatformInput) => platforms.createPlatform(data));
   ipcMain.handle(IPC_CHANNELS.platforms.update, (_event, id: number, data: Partial<platforms.PlatformInput>) => platforms.updatePlatform(id, data));
   ipcMain.handle(IPC_CHANNELS.platforms.delete, (_event, id: number) => platforms.deletePlatform(id));
+
+  ipcMain.handle(IPC_CHANNELS.emulators.list, () => emulators.listEmulators());
+  ipcMain.handle(IPC_CHANNELS.emulators.create, (_event, data: emulators.EmulatorInput) => emulators.createEmulator(data));
+  ipcMain.handle(IPC_CHANNELS.emulators.update, (_event, id: number, data: Partial<emulators.EmulatorInput>) => emulators.updateEmulator(id, data));
+  ipcMain.handle(IPC_CHANNELS.emulators.delete, (_event, id: number) => emulators.deleteEmulator(id));
+  ipcMain.handle(IPC_CHANNELS.emulators.listByPlatform, (_event, platformId: number) => emulators.listEmulatorsByPlatform(platformId));
+  ipcMain.handle(IPC_CHANNELS.emulators.linkPlatform, (_event, emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null) =>
+    emulators.linkEmulatorToPlatform(emulatorId, platformId, isDefault, corePath)
+  );
+  ipcMain.handle(IPC_CHANNELS.emulators.unlinkPlatform, (_event, emulatorId: number, platformId: number) =>
+    emulators.unlinkEmulatorFromPlatform(emulatorId, platformId)
+  );
+
+  ipcMain.handle(IPC_CHANNELS.games.launch, async (_event, gameId: number) => {
+    const game = games.getGame(gameId);
+    if (!game) throw new Error("Jogo não encontrado");
+    if (!game.rom_path?.trim()) throw new Error("Jogo não possui caminho de ROM configurado");
+
+    const pe = emulators.getDefaultEmulator(game.platform_id);
+    if (!pe) throw new Error("Nenhum emulador padrão configurado para esta plataforma");
+
+    const emulator = pe.emulator!;
+    if (!emulator.executable?.trim()) throw new Error("Executável do emulador não configurado");
+    if (!fs.existsSync(emulator.executable)) throw new Error(`Executável do emulador não encontrado: ${emulator.executable}`);
+
+    let args: string[];
+    if (emulator.is_retroarch) {
+      if (!pe.core_path?.trim()) throw new Error("Core do RetroArch não configurado para esta plataforma");
+      args = ["-L", pe.core_path, game.rom_path];
+    } else {
+      const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
+      args = [...parsedArgs, game.rom_path];
+    }
+
+    spawn(emulator.executable, args, { detached: true, stdio: "ignore" }).unref();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.dialogs.openExecutableFile, async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ["openFile"],
+      filters: [
+        { name: "Executáveis", extensions: ["exe", "bat", "cmd", "sh", "AppImage"] },
+        { name: "Todos os arquivos", extensions: ["*"] }
+      ]
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.dialogs.openAnyFile, async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ["openFile"],
+      filters: [{ name: "Todos os arquivos", extensions: ["*"] }]
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
 
   ipcMain.handle(IPC_CHANNELS.dialogs.openRomFile, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
@@ -180,6 +241,13 @@ function sendLaunchBoxProgress(progress: LaunchBoxProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.launchbox.progress, progress);
 }
 
+function sendCoverStats(): void {
+  mainWindow?.webContents.send(IPC_CHANNELS.games.coverStatsUpdated, {
+    ...games.getCoverStats(),
+    metadataDownloadedAt: getLaunchBoxMetadataDownloadedAt()
+  });
+}
+
 function sendRomFolderImportProgress(progress: RomFolderImportProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.progress, progress);
 }
@@ -211,6 +279,9 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
     const nextProgress = { ...progress, jobId };
     job.progress = nextProgress;
     sendRomFolderImportProgress(nextProgress);
+    if (progress.stage === "saving" || progress.stage === "done") {
+      sendCoverStats();
+    }
   })
     .then((result) => {
       job.status = "completed";

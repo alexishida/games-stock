@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import {
+  CoverSyncStats,
   GameCreateInput,
   GameFilters,
   GameUpdateInput,
@@ -23,10 +24,29 @@ const api = {
     listMedia: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.listMedia, id),
     collectionCounts: () => ipcRenderer.invoke(IPC_CHANNELS.games.collectionCounts),
     coverStats: () => ipcRenderer.invoke(IPC_CHANNELS.games.coverStats),
+    onCoverStatsUpdated: (callback: (stats: CoverSyncStats) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, stats: CoverSyncStats) => callback(stats);
+      ipcRenderer.on(IPC_CHANNELS.games.coverStatsUpdated, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.games.coverStatsUpdated, listener);
+    },
     syncCovers: () => ipcRenderer.invoke(IPC_CHANNELS.games.syncCovers),
     create: (data: Partial<GameCreateInput>) => ipcRenderer.invoke(IPC_CHANNELS.games.create, data),
     update: (id: number, data: GameUpdateInput) => ipcRenderer.invoke(IPC_CHANNELS.games.update, id, data),
-    delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.delete, id)
+    delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.delete, id),
+    launch: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.launch, id)
+  },
+  emulators: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.emulators.list),
+    create: (data: { name: string; executable: string; args: string; is_retroarch: number }) =>
+      ipcRenderer.invoke(IPC_CHANNELS.emulators.create, data),
+    update: (id: number, data: { name?: string; executable?: string; args?: string }) =>
+      ipcRenderer.invoke(IPC_CHANNELS.emulators.update, id, data),
+    delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.delete, id),
+    listByPlatform: (platformId: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.listByPlatform, platformId),
+    linkPlatform: (emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null) =>
+      ipcRenderer.invoke(IPC_CHANNELS.emulators.linkPlatform, emulatorId, platformId, isDefault, corePath),
+    unlinkPlatform: (emulatorId: number, platformId: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.emulators.unlinkPlatform, emulatorId, platformId)
   },
   platforms: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.platforms.list),
@@ -40,7 +60,9 @@ const api = {
     openImageFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openImageFile),
     saveImageFile: (sourcePath: string, suggestedName: string) => ipcRenderer.invoke(IPC_CHANNELS.dialogs.saveImageFile, sourcePath, suggestedName),
     openRomFolder: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolder),
-    openRomFolders: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolders)
+    openRomFolders: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFolders),
+    openExecutableFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openExecutableFile),
+    openAnyFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openAnyFile)
   },
   shell: {
     openPath: (targetPath: string) => ipcRenderer.invoke(IPC_CHANNELS.shell.openPath, targetPath)

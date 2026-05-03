@@ -1,6 +1,6 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { Platform } from "../../../shared/types";
+import { Platform, PlatformEmulator } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 
@@ -85,6 +85,18 @@ export function PlatformManager() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const [modal, setModal] = useState<ModalMode | null>(null);
   const [error, setError] = useState("");
+  const [defaultEmulators, setDefaultEmulators] = useState<Record<number, PlatformEmulator | null>>({});
+
+  useEffect(() => {
+    if (!platforms.length) return;
+    void Promise.all(
+      platforms.map((p) =>
+        window.gameStockAPI.emulators
+          .listByPlatform(p.id)
+          .then((list) => [p.id, list.find((pe) => pe.is_default === 1) ?? null] as const)
+      )
+    ).then((entries) => setDefaultEmulators(Object.fromEntries(entries)));
+  }, [platforms]);
 
   async function remove(platform: Platform): Promise<void> {
     if (!window.confirm(`Remover a plataforma "${platform.name}"?`)) return;
@@ -110,7 +122,11 @@ export function PlatformManager() {
           <div className="platform-row" key={platform.id}>
             <div className="platform-row-info">
               <strong>{platform.name}</strong>
-              <span>{platform.category} &middot; {platform.gameCount ?? 0} jogos</span>
+              <span>
+                {platform.category} &middot; {platform.gameCount ?? 0} jogos
+                {" · "}
+                {defaultEmulators[platform.id]?.emulator?.name ?? <em>Sem emulador</em>}
+              </span>
             </div>
             <div className="platform-row-actions">
               <button

@@ -9,7 +9,7 @@
 .game-list-header,
 .game-list-row {
   display: grid;
-  grid-template-columns: 60px minmax(160px, 1.5fr) minmax(90px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr) 52px 64px;
+  grid-template-columns: 60px minmax(160px, 1.5fr) minmax(90px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr) 52px 64px 36px;
   align-items: center;
   gap: 10px;
 }
@@ -106,4 +106,44 @@
 
 .icon-completed {
   color: #4ade80;
+}
+
+.col-launch {
+  display: flex;
+  justify-content: center;
+}
+
+.list-launch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(0, 242, 255, 0.35);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accent);
+  opacity: 0;
+  padding: 0;
+  transition: opacity 140ms ease, background 120ms ease;
+}
+
+.game-list-row:hover .list-launch-btn {
+  opacity: 1;
+}
+
+.list-launch-btn:hover:not(:disabled) {
+  background: rgba(0, 242, 255, 0.14);
+}
+
+.list-launch-btn.disabled,
+.list-launch-btn:disabled {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.25);
+  cursor: not-allowed;
+}
+
+.list-launch-btn.launching {
+  opacity: 1;
+  animation: launch-pulse 700ms ease infinite alternate;
 }
