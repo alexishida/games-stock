@@ -120,7 +120,7 @@ export interface LaunchBoxGame {
 
 export interface LaunchBoxSearchParams {
   query: string;
-  platformKey?: string | null;
+  platformName?: string | null;
 }
 
 export interface LaunchBoxDownloadParams {

@@ -14,7 +14,7 @@ export function useLaunchBoxImporter() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const [query, setQuery] = useState("");
-  const [platformKey, setPlatformKey] = useState("");
+  const [platformName, setPlatformName] = useState("");
   const [results, setResults] = useState<LaunchBoxGame[]>([]);
   const [selectedGame, setSelectedGame] = useState<LaunchBoxGame | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<LaunchBoxImageType[]>(defaultImageTypes);
@@ -33,7 +33,7 @@ export function useLaunchBoxImporter() {
   async function search(): Promise<void> {
     setLoading(true);
     try {
-      const found = await window.gameStockAPI.launchbox.searchGames({ query, platformKey: platformKey || null });
+      const found = await window.gameStockAPI.launchbox.searchGames({ query, platformName: platformName || null });
       setResults(found);
     } finally {
       setLoading(false);
@@ -55,8 +55,8 @@ export function useLaunchBoxImporter() {
   return {
     query,
     setQuery,
-    platformKey,
-    setPlatformKey,
+    platformName,
+    setPlatformName,
     results,
     selectedGame,
     setSelectedGame,

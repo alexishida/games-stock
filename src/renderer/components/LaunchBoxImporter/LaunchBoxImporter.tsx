@@ -6,16 +6,6 @@ import { useGameStockStore } from "../../store";
 import { ProgressBar } from "./ProgressBar";
 import "./LaunchBoxImporter.css";
 
-const platformEntries = [
-  ["gb", "Game Boy"],
-  ["gba", "Game Boy Advance"],
-  ["megadrive", "Mega Drive / Genesis"],
-  ["nes", "NES"],
-  ["n64", "Nintendo 64"],
-  ["saturn", "Sega Saturn"],
-  ["snes", "SNES"],
-];
-
 const imageTypes: LaunchBoxImageType[] = [
   "Box - Back",
   "Box - Front",
@@ -27,6 +17,7 @@ const imageTypes: LaunchBoxImageType[] = [
 export function LaunchBoxImporter() {
   const importerOpen = useGameStockStore((state) => state.importerOpen);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
+  const platforms = useGameStockStore((state) => state.platforms);
   const importer = useLaunchBoxImporter();
 
   useEffect(() => {
@@ -46,9 +37,9 @@ export function LaunchBoxImporter() {
         </header>
         <div className="importer-search">
           <input value={importer.query} onChange={(event) => importer.setQuery(event.target.value)} placeholder="Buscar jogo" />
-          <select value={importer.platformKey} onChange={(event) => importer.setPlatformKey(event.target.value)}>
+          <select value={importer.platformName} onChange={(event) => importer.setPlatformName(event.target.value)}>
             <option value="">Todas plataformas</option>
-            {platformEntries.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            {platforms.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
           </select>
           <button type="button" className="text-button active" onClick={importer.search} disabled={importer.loading}>Buscar</button>
         </div>

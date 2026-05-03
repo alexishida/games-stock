@@ -14,8 +14,8 @@ export function searchGames(index: Record<string, LaunchBoxGame>, params: Launch
   const query = params.query.trim().toLowerCase();
   if (!query) return [];
 
-  const allowedPlatforms = params.platformKey && PLATFORMS[params.platformKey]
-    ? PLATFORMS[params.platformKey].map((platform) => platform.toLowerCase())
+  const allowedPlatforms = params.platformName
+    ? resolveAllowedPlatforms(params.platformName)
     : null;
 
   return Object.values(index)
@@ -26,6 +26,16 @@ export function searchGames(index: Record<string, LaunchBoxGame>, params: Launch
     })
     .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, 100);
+}
+
+function resolveAllowedPlatforms(platformName: string): string[] {
+  const normalized = platformName.toLowerCase();
+  const entry = Object.entries(PLATFORMS).find(([, aliases]) =>
+    aliases.some((alias) => alias.toLowerCase() === normalized)
+  );
+  const aliases = entry ? PLATFORMS[entry[0]].map((a) => a.toLowerCase()) : [];
+  if (!aliases.includes(normalized)) aliases.push(normalized);
+  return aliases;
 }
 
 export async function downloadImages(
