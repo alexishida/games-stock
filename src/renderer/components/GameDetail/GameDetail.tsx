@@ -129,10 +129,12 @@ export function GameDetail() {
             <ArrowLeft aria-hidden="true" size={18} />
             Biblioteca
           </button>
-          <button type="button" className="detail-top-button" onClick={selectNextGame} disabled={games.length <= 1}>
-            Próximo jogo
-            <ArrowRight aria-hidden="true" size={18} />
-          </button>
+          {games.findIndex((item) => item.id === currentGame.id) < games.length - 1 && (
+            <button type="button" className="detail-top-button" onClick={selectNextGame}>
+              Próximo jogo
+              <ArrowRight aria-hidden="true" size={18} />
+            </button>
+          )}
         </div>
         <div className="detail-hero-content">
           <div className={"detail-cover-card" + (isCoverLandscape ? " landscape" : "")}>
@@ -197,7 +199,7 @@ export function GameDetail() {
           )}
           <h2>Arquivo</h2>
           <dl className="detail-info-list">
-            <div>
+            <div className="detail-info-row-wrap">
               <dt>ROM</dt>
               <dd>{fileName}</dd>
             </div>
