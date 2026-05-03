@@ -35,7 +35,7 @@ export function GameCard({ game }: { game: Game }) {
                 setIsLandscape(img.naturalWidth > img.naturalHeight);
               }}
             />
-          : <GameCardPlaceholder platformName={game.platform_name} />
+          : <GameCardPlaceholder />
         }
         <div className="card-gradient" />
         <div className="card-copy">
