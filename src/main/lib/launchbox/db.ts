@@ -39,7 +39,6 @@ export async function ensureMetadata(force = false, onProgress?: ProgressCallbac
   fs.rmSync(zipPath, { force: true });
   fs.rmSync(getIndexFile(), { force: true });
   memoryIndex = null;
-  onProgress?.({ current: total, total, filename: "Metadata.zip", status: "done" });
   return { status: "downloaded" };
 }
 

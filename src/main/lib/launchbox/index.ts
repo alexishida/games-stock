@@ -130,5 +130,10 @@ function resolvePlatformId(launchBoxPlatform: string): number {
 }
 
 export async function ensureLaunchBoxMetadata(force = false, onProgress?: ProgressCallback) {
-  return ensureMetadata(force, onProgress);
+  const result = await ensureMetadata(force, onProgress);
+  if (result.status === "downloaded") {
+    await buildIndex(onProgress);
+    onProgress?.({ current: 1, total: 1, status: "done", filename: "Metadata.zip" });
+  }
+  return result;
 }
