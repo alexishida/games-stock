@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
+import { FolderOpen, ImagePlus, Save, Unlink, X } from "lucide-react";
 import { Game } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 
-export function GameForm({ game }: { game: Game }) {
+export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: () => void; onSaved?: () => void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const [draft, setDraft] = useState(game);
 
@@ -12,6 +13,7 @@ export function GameForm({ game }: { game: Game }) {
     event.preventDefault();
     await window.gameStockAPI.games.update(game.id, draft);
     reloadGames();
+    onSaved?.();
   }
 
   async function associateRom(): Promise<void> {
@@ -39,7 +41,7 @@ export function GameForm({ game }: { game: Game }) {
   }
 
   return (
-    <form className="game-form" onSubmit={save}>
+    <form className="management-form detail-edit-form" onSubmit={save}>
       <label>Titulo<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
       <label className="checkbox-row">
         <input type="checkbox" checked={draft.favorite} onChange={(event) => setDraft({ ...draft, favorite: event.target.checked })} />
@@ -57,12 +59,30 @@ export function GameForm({ game }: { game: Game }) {
       <label>Genero<input value={draft.genre ?? ""} onChange={(event) => setDraft({ ...draft, genre: event.target.value })} /></label>
       <label>Rating<input value={draft.rating ?? ""} onChange={(event) => setDraft({ ...draft, rating: event.target.value })} /></label>
       <label>Notas<textarea value={draft.notes ?? ""} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
-      <div className="detail-actions">
-        <button type="button" className="text-button" onClick={associateRom}>Associar ROM</button>
-        <button type="button" className="text-button" onClick={removeRom} disabled={!draft.rom_path}>Remover ROM</button>
-        <button type="button" className="text-button" onClick={importBoxArt}>Importar Box Art</button>
-        <button type="submit" className="text-button active">Salvar</button>
-      </div>
+      <footer>
+        <button type="button" className="text-button" onClick={associateRom}>
+          <FolderOpen size={14} aria-hidden="true" />
+          Associar ROM
+        </button>
+        <button type="button" className="text-button danger" onClick={removeRom} disabled={!draft.rom_path}>
+          <Unlink size={14} aria-hidden="true" />
+          Remover ROM
+        </button>
+        <button type="button" className="text-button" onClick={importBoxArt}>
+          <ImagePlus size={14} aria-hidden="true" />
+          Box Art
+        </button>
+        {onCancel && (
+          <button type="button" className="text-button danger form-action-button" onClick={onCancel}>
+            <X size={14} aria-hidden="true" />
+            Cancelar
+          </button>
+        )}
+        <button type="submit" className="text-button active form-action-button">
+          <Save size={14} aria-hidden="true" />
+          Salvar
+        </button>
+      </footer>
     </form>
   );
 }

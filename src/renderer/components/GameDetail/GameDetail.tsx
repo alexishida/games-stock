@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Gamepad2, Image, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
@@ -17,9 +17,9 @@ export function GameDetail() {
   const backgroundUrl = localMediaUrl(game?.background_path);
   const heroBgUrl = backgroundUrl ?? coverUrl;
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCoverLandscape, setIsCoverLandscape] = useState(false);
   const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
-  const editSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setIsCoverLandscape(false);
@@ -82,10 +82,6 @@ export function GameDetail() {
     reloadGames();
   }
 
-  function scrollToEdit(): void {
-    editSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <section className="game-detail">
       <div className="detail-hero">
@@ -131,7 +127,7 @@ export function GameDetail() {
             <button type="button" className={"detail-hero-icon-button" + (game.play_status === "playing" ? " active" : "")} onClick={() => togglePlayStatus("playing")} aria-label="Jogando" title="Jogando">
               <Gamepad2 aria-hidden="true" size={18} />
             </button>
-            <button type="button" className="detail-hero-icon-button" onClick={scrollToEdit} aria-label="Editar" title="Editar">
+            <button type="button" className="detail-hero-icon-button" onClick={() => setIsEditModalOpen(true)} aria-label="Editar" title="Editar">
               <Pencil aria-hidden="true" size={18} />
             </button>
             <button type="button" className="detail-hero-icon-button danger" onClick={deleteGame} aria-label="Excluir" title="Excluir">
@@ -146,11 +142,6 @@ export function GameDetail() {
           <section className="detail-panel detail-about">
             <h2>Sobre o jogo</h2>
             <p>{overview}</p>
-          </section>
-
-          <section className="detail-panel" ref={editSectionRef}>
-            <h2>Editar cadastro</h2>
-            <GameForm game={game} />
           </section>
         </div>
 
@@ -210,6 +201,20 @@ export function GameDetail() {
 
         </aside>
       </div>
+
+      {isEditModalOpen && (
+        <div className="detail-edit-backdrop" onMouseDown={() => setIsEditModalOpen(false)} role="presentation">
+          <section className="management-modal detail-edit-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="detail-edit-title">
+            <header>
+              <h2 id="detail-edit-title">Editar cadastro</h2>
+              <button type="button" className="icon-button modal-close-button" onClick={() => setIsEditModalOpen(false)} aria-label="Fechar">
+                <X aria-hidden="true" size={18} />
+              </button>
+            </header>
+            <GameForm game={game} onCancel={() => setIsEditModalOpen(false)} onSaved={() => setIsEditModalOpen(false)} />
+          </section>
+        </div>
+      )}
     </section>
   );
 }

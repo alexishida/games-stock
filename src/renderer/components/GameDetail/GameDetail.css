@@ -413,42 +413,6 @@
 }
 
 
-.game-form {
-  display: grid;
-  gap: 10px;
-}
-
-.game-form label {
-  display: grid;
-  gap: 5px;
-  color: var(--text-secondary);
-  font-size: var(--form-label-font-size);
-  font-weight: 800;
-}
-
-.game-form input,
-.game-form textarea {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-primary);
-  padding: 8px;
-  font-size: var(--form-control-font-size);
-}
-
-.game-form select {
-  width: 100%;
-  min-height: 34px;
-  padding: 0 34px 0 10px;
-  font-size: var(--form-control-font-size);
-}
-
-.game-form textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
 .checkbox-row {
   display: flex !important;
   flex-direction: row;
@@ -460,11 +424,40 @@
   width: auto;
 }
 
-.detail-actions {
-  display: flex;
+.detail-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  padding: 24px;
+}
+
+.detail-edit-modal {
+  width: min(680px, calc(100vw - 48px));
+}
+
+.detail-edit-modal h2 {
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.detail-edit-form textarea {
+  min-height: 110px;
+}
+
+.detail-edit-form footer {
   flex-wrap: wrap;
-  gap: 6px;
-  padding-top: 4px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.detail-edit-form footer .text-button:first-child {
+  margin-right: auto;
 }
 
 @media (max-width: 1060px) {
