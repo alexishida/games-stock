@@ -6,7 +6,7 @@ import { localMediaUrl } from "../../utils/media";
 
 export function GameListRow({ game }: { game: Game }) {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
-  const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
+  const selectGame = useGameStockStore((state) => state.selectGame);
   const coverUrl = localMediaUrl(game.box_art_path);
   const [isLandscape, setIsLandscape] = useState(false);
   const [launching, setLaunching] = useState(false);
@@ -34,7 +34,7 @@ export function GameListRow({ game }: { game: Game }) {
     <button
       type="button"
       className={selectedGameId === game.id ? "game-list-row selected" : "game-list-row"}
-      onClick={() => setSelectedGameId(game.id)}
+      onClick={() => selectGame(game)}
     >
       <span className={isLandscape ? "thumb landscape" : "thumb"}>
         {coverUrl

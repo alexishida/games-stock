@@ -7,7 +7,7 @@ import { GameCardPlaceholder } from "./GameCardPlaceholder";
 
 export function GameCard({ game }: { game: Game }) {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
-  const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
+  const selectGame = useGameStockStore((state) => state.selectGame);
   const coverUrl = localMediaUrl(game.box_art_path);
   const [isLandscape, setIsLandscape] = useState(false);
   const [launching, setLaunching] = useState(false);
@@ -41,7 +41,7 @@ export function GameCard({ game }: { game: Game }) {
     <button
       type="button"
       className={classes}
-      onClick={() => setSelectedGameId(game.id)}
+      onClick={() => selectGame(game)}
     >
       <div className="cover-frame">
         {coverUrl

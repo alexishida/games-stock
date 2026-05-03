@@ -122,6 +122,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   onCancel(): void;
   onAdded(entry: FolderEntry): void;
 }) {
+  const setRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [folderPath, setFolderPath] = useState("");
   const [platformId, setPlatformId] = useState<number | "">(loadSavedPlatformId);
@@ -201,7 +202,8 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
     setBusy(true);
     setError(null);
     try {
-      await window.gameStockAPI.romFolderImport.import({ folderPaths: scan.folderPaths, romFilePaths: scan.romFilePaths, platformId });
+      const job = await window.gameStockAPI.romFolderImport.import({ folderPaths: scan.folderPaths, romFilePaths: scan.romFilePaths, platformId });
+      setRomImportJob(job);
       const platform = platforms.find((p) => p.id === platformId);
       onAdded({
         folderPath: scan.folderPaths[0],

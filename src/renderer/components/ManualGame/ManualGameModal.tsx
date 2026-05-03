@@ -19,7 +19,7 @@ export function ManualGameModal() {
   const open = useGameStockStore((state) => state.createGameOpen);
   const platforms = useGameStockStore((state) => state.platforms);
   const setOpen = useGameStockStore((state) => state.setCreateGameOpen);
-  const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
+  const setSelectedGame = useGameStockStore((state) => state.setSelectedGame);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const [draft, setDraft] = useState<Partial<GameCreateInput>>(emptyDraft);
   const [error, setError] = useState("");
@@ -49,8 +49,8 @@ export function ManualGameModal() {
     setSaving(true);
     try {
       const game = await window.gameStockAPI.games.create(draft);
+      setSelectedGame(game);
       reloadGames();
-      setSelectedGameId(game.id);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel criar o jogo");

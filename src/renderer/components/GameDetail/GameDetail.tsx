@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
 import { GameMediaItem } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
@@ -9,9 +9,14 @@ import "./GameDetail.css";
 export function GameDetail() {
   const games = useGameStockStore((state) => state.games);
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
+  const selectedGame = useGameStockStore((state) => state.selectedGame);
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
+  const setSelectedGame = useGameStockStore((state) => state.setSelectedGame);
+  const upsertGame = useGameStockStore((state) => state.upsertGame);
+  const removeGameFromStore = useGameStockStore((state) => state.removeGame);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
-  const game = useMemo(() => games.find((item) => item.id === selectedGameId) ?? null, [games, selectedGameId]);
+  const reloadToken = useGameStockStore((state) => state.reloadToken);
+  const game = selectedGame;
   const coverUrl = localMediaUrl(game?.box_art_path);
   const screenshotUrl = localMediaUrl(game?.screenshot_path);
   const backgroundUrl = localMediaUrl(game?.background_path);
@@ -28,12 +33,38 @@ export function GameDetail() {
 
   useEffect(() => {
     let canceled = false;
+    if (!selectedGameId) {
+      setSelectedGame(null);
+      return undefined;
+    }
+
+    window.gameStockAPI.games
+      .get(selectedGameId)
+      .then((nextGame) => {
+        if (!canceled) setSelectedGame(nextGame);
+      })
+      .catch(() => {
+        if (!canceled) setSelectedGame(null);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [reloadToken, selectedGameId, setSelectedGame]);
+
+  useEffect(() => {
+    let canceled = false;
     setMediaItems([]);
     if (!selectedGameId) return undefined;
 
-    window.gameStockAPI.games.listMedia(selectedGameId).then((items) => {
-      if (!canceled) setMediaItems(items);
-    });
+    window.gameStockAPI.games
+      .listMedia(selectedGameId)
+      .then((items) => {
+        if (!canceled) setMediaItems(items);
+      })
+      .catch(() => {
+        if (!canceled) setMediaItems([]);
+      });
 
     return () => {
       canceled = true;
@@ -77,17 +108,19 @@ export function GameDetail() {
     if (!game) return;
     if (!window.confirm(`Excluir "${game.title}" da biblioteca?`)) return;
     await window.gameStockAPI.games.delete(game.id);
-    setSelectedGameId(null);
+    removeGameFromStore(game.id);
     reloadGames();
   }
 
   async function toggleFavorite(): Promise<void> {
-    await window.gameStockAPI.games.update(currentGame.id, { favorite: !currentGame.favorite });
+    const updated = await window.gameStockAPI.games.update(currentGame.id, { favorite: !currentGame.favorite });
+    upsertGame(updated);
     reloadGames();
   }
 
   async function togglePlayStatus(status: typeof currentGame.play_status): Promise<void> {
-    await window.gameStockAPI.games.update(currentGame.id, { play_status: currentGame.play_status === status ? "unplayed" : status });
+    const updated = await window.gameStockAPI.games.update(currentGame.id, { play_status: currentGame.play_status === status ? "unplayed" : status });
+    upsertGame(updated);
     reloadGames();
   }
 

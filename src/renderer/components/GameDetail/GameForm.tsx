@@ -5,13 +5,15 @@ import { useGameStockStore } from "../../store";
 
 export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: () => void; onSaved?: () => void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const upsertGame = useGameStockStore((state) => state.upsertGame);
   const [draft, setDraft] = useState(game);
 
   useEffect(() => setDraft(game), [game]);
 
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault();
-    await window.gameStockAPI.games.update(game.id, draft);
+    const updated = await window.gameStockAPI.games.update(game.id, draft);
+    upsertGame(updated);
     reloadGames();
     onSaved?.();
   }
@@ -20,7 +22,8 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
     const romPath = await window.gameStockAPI.dialogs.openRomFile();
     if (!romPath) return;
     setDraft((current) => ({ ...current, rom_path: romPath }));
-    await window.gameStockAPI.games.update(game.id, { rom_path: romPath });
+    const updated = await window.gameStockAPI.games.update(game.id, { rom_path: romPath });
+    upsertGame(updated);
     reloadGames();
   }
 
@@ -28,7 +31,8 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
     const boxArtPath = await window.gameStockAPI.dialogs.openImageFile();
     if (!boxArtPath) return;
     setDraft((current) => ({ ...current, box_art_path: boxArtPath }));
-    await window.gameStockAPI.games.update(game.id, { box_art_path: boxArtPath });
+    const updated = await window.gameStockAPI.games.update(game.id, { box_art_path: boxArtPath });
+    upsertGame(updated);
     reloadGames();
   }
 
@@ -36,7 +40,8 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
     if (!draft.rom_path) return;
     if (!window.confirm("Remover a ROM associada deste jogo?")) return;
     setDraft((current) => ({ ...current, rom_path: null }));
-    await window.gameStockAPI.games.update(game.id, { rom_path: null });
+    const updated = await window.gameStockAPI.games.update(game.id, { rom_path: null });
+    upsertGame(updated);
     reloadGames();
   }
 

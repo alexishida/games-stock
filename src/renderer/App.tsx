@@ -12,7 +12,7 @@ import { useCollectionCounts } from "./hooks/useCollectionCounts";
 import { useGames } from "./hooks/useGames";
 import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
-import { CollectionFilter, GameSortBy, RomFolderImportJob, RomFolderImportProgress, RomFolderImportResult } from "../shared/types";
+import { CollectionFilter, GameSortBy } from "../shared/types";
 
 const COLLECTION_TABS: { value: CollectionFilter; label: string }[] = [
   { value: "all", label: "Todos os jogos" },
@@ -73,32 +73,61 @@ export default function App() {
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   const setSettingsOpen = useGameStockStore((state) => state.setSettingsOpen);
   const setSettingsSection = useGameStockStore((state) => state.setSettingsSection);
-  const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
+  const hydrateRomImportJobs = useGameStockStore((state) => state.hydrateRomImportJobs);
+  const updateRomImportProgress = useGameStockStore((state) => state.updateRomImportProgress);
+  const completeRomImportJob = useGameStockStore((state) => state.completeRomImportJob);
   const setMetadataStartupRunning = useGameStockStore((state) => state.setMetadataStartupRunning);
   const setCoverStats = useGameStockStore((state) => state.setCoverStats);
+  const startMediaSyncJob = useGameStockStore((state) => state.startMediaSyncJob);
+  const updateMediaSyncProgress = useGameStockStore((state) => state.updateMediaSyncProgress);
+  const finishMediaSyncJob = useGameStockStore((state) => state.finishMediaSyncJob);
+  const failMediaSyncJob = useGameStockStore((state) => state.failMediaSyncJob);
 
   const metadataStarted = useRef(false);
   useEffect(() => {
     if (metadataStarted.current) return;
     metadataStarted.current = true;
     void (async () => {
-      const exists = await window.gameStockAPI.launchbox.metadataExists();
-      if (exists) return;
       const jobId = `metadata-startup-${Date.now()}`;
-      setMetadataStartupRunning(true);
-      window.dispatchEvent(new CustomEvent("gamestock:media:start", { detail: { jobId, title: "Baixando base de dados" } }));
+      let jobStarted = false;
       try {
+        const exists = await window.gameStockAPI.launchbox.metadataExists();
+        if (exists) return;
+        jobStarted = true;
+        setMetadataStartupRunning(true);
+        startMediaSyncJob({
+          jobId,
+          title: "Baixando base de dados",
+          subtitle: "LaunchBox",
+          detail: "Baixando Metadata.zip",
+          progressLabel: "Iniciando"
+        });
         await window.gameStockAPI.launchbox.ensureMetadata({ force: false });
-        window.dispatchEvent(new CustomEvent("gamestock:media:finish", { detail: { jobId, status: "completed", title: "Base de dados pronta" } }));
+        setCoverStats(await window.gameStockAPI.games.coverStats());
+        finishMediaSyncJob(jobId, {
+          title: "Base de dados pronta",
+          detail: "Metadata.zip disponivel",
+          progressLabel: "Concluido"
+        });
       } catch (err) {
-        window.dispatchEvent(new CustomEvent("gamestock:media:finish", { detail: { jobId, status: "failed", title: err instanceof Error ? err.message : "Falha ao baixar base de dados" } }));
+        if (jobStarted) failMediaSyncJob(jobId, err instanceof Error ? err.message : "Falha ao baixar base de dados");
       } finally {
-        setMetadataStartupRunning(false);
+        if (jobStarted) setMetadataStartupRunning(false);
       }
     })();
-  }, []);
+  }, [failMediaSyncJob, finishMediaSyncJob, setCoverStats, setMetadataStartupRunning, startMediaSyncJob]);
 
   useEffect(() => window.gameStockAPI.games.onCoverStatsUpdated(setCoverStats), [setCoverStats]);
+  useEffect(() => window.gameStockAPI.launchbox.onProgress(updateMediaSyncProgress), [updateMediaSyncProgress]);
+  useEffect(() => {
+    let canceled = false;
+    void window.gameStockAPI.romFolderImport.jobs().then((jobs) => {
+      if (!canceled) hydrateRomImportJobs(jobs);
+    });
+    return () => {
+      canceled = true;
+    };
+  }, [hydrateRomImportJobs]);
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
   useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => openSettings("biblioteca")), [openSettings]);
@@ -108,7 +137,7 @@ export default function App() {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const unsub = window.gameStockAPI.romFolderImport.onProgress((progress) => {
-      if (progress.jobId) setLastRomImportJob((current) => updateRomImportJob(current, progress));
+      updateRomImportProgress(progress);
       if (progress.stage !== "done") return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
@@ -120,21 +149,17 @@ export default function App() {
       unsub();
       if (timer) clearTimeout(timer);
     };
-  }, [reloadGames, reloadPlatforms, setLastRomImportJob]);
-
-  useEffect(() => window.gameStockAPI.romFolderImport.onCompleted(() => {
-    reloadGames();
-    reloadPlatforms();
-  }), [reloadGames, reloadPlatforms]);
+  }, [reloadGames, reloadPlatforms, updateRomImportProgress]);
 
   useEffect(() => window.gameStockAPI.romFolderImport.onCompleted((result) => {
     if (!result.jobId) return;
-    const completedJob = completeRomImportJob(result);
-    setLastRomImportJob(completedJob);
-    window.localStorage.setItem("gamestock.media.lastRomImportJob", JSON.stringify(completedJob));
+    completeRomImportJob(result);
+    reloadGames();
+    reloadPlatforms();
+    void window.gameStockAPI.games.coverStats().then(setCoverStats).catch(() => undefined);
     setSettingsOpen(true);
     setSettingsSection("covers");
-  }), [setLastRomImportJob, setSettingsOpen, setSettingsSection]);
+  }), [completeRomImportJob, reloadGames, reloadPlatforms, setCoverStats, setSettingsOpen, setSettingsSection]);
 
   return (
     <div className="app-shell">
@@ -151,40 +176,4 @@ export default function App() {
       <NotificationCenter />
     </div>
   );
-}
-
-function updateRomImportJob(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
-  const prev = current?.jobId === progress.jobId ? current : null;
-  return {
-    jobId: progress.jobId!,
-    folderPaths: prev ? prev.folderPaths : [],
-    romFilePaths: prev ? prev.romFilePaths : [],
-    platformId: prev ? prev.platformId : 0,
-    platformName: prev ? prev.platformName : "Biblioteca",
-    status: progress.stage === "error" ? "failed" : "running",
-    startedAt: prev ? prev.startedAt : new Date().toISOString(),
-    progress,
-    result: prev ? prev.result : undefined,
-    error: progress.stage === "error" ? progress.message : undefined
-  };
-}
-
-function completeRomImportJob(result: RomFolderImportResult): RomFolderImportJob {
-  return {
-    jobId: result.jobId!,
-    folderPaths: result.folderPaths,
-    romFilePaths: result.romFilePaths,
-    platformId: result.platformId,
-    platformName: result.platformName,
-    status: "completed",
-    startedAt: new Date().toISOString(),
-    progress: {
-      jobId: result.jobId,
-      current: result.summary.processed,
-      total: result.summary.processed,
-      stage: "done",
-      message: "Importacao concluida"
-    },
-    result
-  };
 }

@@ -279,7 +279,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
     const nextProgress = { ...progress, jobId };
     job.progress = nextProgress;
     sendRomFolderImportProgress(nextProgress);
-    if (progress.stage === "saving" || progress.stage === "done") {
+    if (progress.stage === "done" || progress.stage === "skipped") {
       sendCoverStats();
     }
   })

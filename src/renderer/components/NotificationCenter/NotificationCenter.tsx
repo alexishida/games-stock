@@ -1,170 +1,36 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportResult } from "../../../shared/types";
-import { useGameStockStore } from "../../store";
+import { RomFolderImportJob, RomFolderImportProgress } from "../../../shared/types";
+import { MediaSyncJob, useGameStockStore } from "../../store";
 import "./NotificationCenter.css";
 
-interface RomNotificationItem {
-  type: "rom";
-  jobId: string;
-  folderCount: number;
-  platformName?: string;
-  status: "running" | "completed" | "failed";
-  progress: RomFolderImportProgress;
-  result?: RomFolderImportResult;
-}
+type NotificationItem =
+  | { type: "rom"; job: RomFolderImportJob }
+  | { type: "media"; job: MediaSyncJob };
 
-interface MediaNotificationItem {
-  type: "media";
-  jobId: string;
-  title: string;
-  status: "running" | "completed" | "failed";
-  progress: LaunchBoxProgress | null;
-}
-
-type NotificationItem = RomNotificationItem | MediaNotificationItem;
-const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const AUTO_DISMISS_MS = 5000;
 
 export function NotificationCenter() {
-  const [items, setItems] = useState<Record<string, NotificationItem>>({});
-  const activeMediaJob = useRef<string | null>(null);
-  const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
-  const notifications = useMemo(() => Object.values(items).sort((a, b) => a.jobId.localeCompare(b.jobId)).reverse(), [items]);
-
-  useEffect(() => window.gameStockAPI.romFolderImport.onProgress((progress) => {
-    if (!progress.jobId) return;
-    setLastRomImportJob((current) => updateRomImportJob(current, progress));
-    setItems((current) => {
-      const prev = current[progress.jobId!];
-      const prevRom = prev?.type === "rom" ? prev : undefined;
-      return {
-        ...current,
-        [progress.jobId!]: {
-          type: "rom",
-          jobId: progress.jobId!,
-          folderCount: prevRom?.folderCount || (progress.folderPath ? 1 : 0),
-          platformName: prevRom?.platformName,
-          status: progress.stage === "error" ? "failed" : prev?.status ?? "running",
-          progress,
-          result: prevRom?.result
-        }
-      };
-    });
-  }), [setLastRomImportJob]);
-
-  useEffect(() => {
-    const removeProgress = window.gameStockAPI.launchbox.onProgress((progress) => {
-      const jobId = activeMediaJob.current;
-      if (!jobId) return;
-      setItems((current) => {
-        const item = current[jobId];
-        if (!item || item.type !== "media") return current;
-        return {
-          ...current,
-          [jobId]: {
-            ...item,
-            status: progress.status === "error" ? "failed" : item.status,
-            progress
-          }
-        };
-      });
-    });
-
-    function onStart(event: Event): void {
-      const detail = (event as CustomEvent<{ jobId: string; title: string }>).detail;
-      activeMediaJob.current = detail.jobId;
-      setItems((current) => ({
-        ...current,
-        [detail.jobId]: {
-          type: "media",
-          jobId: detail.jobId,
-          title: detail.title,
-          status: "running",
-          progress: null
-        }
-      }));
-    }
-
-    function onFinish(event: Event): void {
-      const detail = (event as CustomEvent<{ jobId: string; title: string; status: "completed" | "failed" }>).detail;
-      activeMediaJob.current = activeMediaJob.current === detail.jobId ? null : activeMediaJob.current;
-      setItems((current) => {
-        const item = current[detail.jobId];
-        if (!item || item.type !== "media") return current;
-        return {
-          ...current,
-          [detail.jobId]: {
-            ...item,
-            title: detail.title,
-            status: detail.status,
-            progress: item.progress
-              ? { ...item.progress, current: item.progress.total || item.progress.current, status: detail.status === "completed" ? "done" : "error" }
-              : { current: 1, total: 1, filename: detail.title, status: detail.status === "completed" ? "done" : "error" }
-          }
-        };
-      });
-    }
-
-    window.addEventListener("gamestock:media:start", onStart);
-    window.addEventListener("gamestock:media:finish", onFinish);
-    return () => {
-      removeProgress();
-      window.removeEventListener("gamestock:media:start", onStart);
-      window.removeEventListener("gamestock:media:finish", onFinish);
-    };
-  }, []);
-
-  useEffect(() => window.gameStockAPI.romFolderImport.onCompleted((result) => {
-    if (!result.jobId) return;
-    const progress: RomFolderImportProgress = {
-      jobId: result.jobId,
-      current: result.summary.processed,
-      total: result.summary.processed,
-      stage: "done",
-      message: "Importacao concluida"
-    };
-    const completedJob: RomFolderImportJob = {
-      jobId: result.jobId,
-      folderPaths: result.folderPaths,
-      romFilePaths: result.romFilePaths,
-      platformId: result.platformId,
-      platformName: result.platformName,
-      status: "completed",
-      startedAt: new Date().toISOString(),
-      progress,
-      result
-    };
-    setLastRomImportJob(completedJob);
-    window.localStorage.setItem(LAST_ROM_IMPORT_JOB_KEY, JSON.stringify(completedJob));
-    setItems((current) => ({
-      ...current,
-      [result.jobId!]: {
-        type: "rom",
-        jobId: result.jobId!,
-        folderCount: result.folderPaths.length,
-        platformName: result.platformName,
-        status: "completed",
-        progress,
-        result
-      }
-    }));
-  }), [setLastRomImportJob]);
+  const romImportJob = useGameStockStore((state) => state.lastRomImportJob);
+  const mediaSyncJob = useGameStockStore((state) => state.lastMediaSyncJob);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const notifications = useMemo(() => {
+    const items: NotificationItem[] = [];
+    if (romImportJob) items.push({ type: "rom", job: romImportJob });
+    if (mediaSyncJob) items.push({ type: "media", job: mediaSyncJob });
+    return items
+      .filter((item) => !dismissedIds.includes(item.job.jobId))
+      .sort((a, b) => timestamp(b.job.startedAt) - timestamp(a.job.startedAt));
+  }, [dismissedIds, mediaSyncJob, romImportJob]);
 
   useEffect(() => {
     const completedIds = notifications
-      .filter((item) => item.status !== "running")
-      .map((item) => item.jobId);
+      .filter((item) => item.job.status !== "running")
+      .map((item) => item.job.jobId);
     if (!completedIds.length) return undefined;
 
     const timer = setTimeout(() => {
-      setItems((current) => {
-        const next = { ...current };
-        for (const jobId of completedIds) {
-          if (next[jobId]?.status !== "running") delete next[jobId];
-        }
-        return next;
-      });
+      setDismissedIds((current) => [...new Set([...current, ...completedIds])]);
     }, AUTO_DISMISS_MS);
 
     return () => clearTimeout(timer);
@@ -176,12 +42,9 @@ export function NotificationCenter() {
     <aside className="notification-center" aria-label="Notificacoes de background">
       {notifications.map((item) => (
         <NotificationCard
-          key={item.jobId}
+          key={item.job.jobId}
           item={item}
-          onDismiss={() => setItems((current) => {
-            const { [item.jobId]: _, ...rest } = current;
-            return rest;
-          })}
+          onDismiss={() => setDismissedIds((current) => current.includes(item.job.jobId) ? current : [...current, item.job.jobId])}
         />
       ))}
     </aside>
@@ -189,54 +52,57 @@ export function NotificationCenter() {
 }
 
 function NotificationCard({ item, onDismiss }: { item: NotificationItem; onDismiss(): void }) {
-  if (item.type === "media") return <MediaNotificationCard item={item} onDismiss={onDismiss} />;
+  if (item.type === "media") return <MediaNotificationCard job={item.job} onDismiss={onDismiss} />;
+  return <RomNotificationCard job={item.job} onDismiss={onDismiss} />;
+}
 
-  const total = item.progress.total || 1;
-  const percent = Math.min(100, Math.round((item.progress.current / total) * 100));
-  const title = item.result ? `${item.result.summary.created} criados, ${item.result.summary.updated} atualizados` : item.progress.message ?? "Importando ROMs";
+function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDismiss(): void }) {
+  const total = job.progress.total || 1;
+  const percent = job.status === "completed" ? 100 : Math.min(100, Math.round((job.progress.current / total) * 100));
+  const title = job.result
+    ? `${job.result.summary.created} criados, ${job.result.summary.updated} atualizados`
+    : job.status === "failed"
+      ? job.error ?? job.progress.message ?? "Importacao de ROMs falhou"
+      : job.progress.message ?? "Importando ROMs";
 
   return (
-    <article className={`notification-card ${item.status}`}>
+    <article className={`notification-card ${job.status}`}>
       <div className="notification-title">
         <strong>{title}</strong>
-        {item.status !== "running" ? (
+        {job.status !== "running" ? (
           <button type="button" onClick={onDismiss} aria-label="Dispensar">
             <X aria-hidden="true" size={14} />
           </button>
         ) : null}
       </div>
-      <p>{item.progress.filename ?? `${item.folderCount || item.result?.folderPaths.length || 0} pasta(s)`}</p>
-      {item.progress.imageFilename ? <span>{item.progress.imageFilename}</span> : null}
+      <p>{job.progress.filename ?? `${folderCount(job)} pasta(s)`}</p>
+      {job.progress.imageFilename ? <span>{job.progress.imageFilename}</span> : null}
       <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
-      <small>{item.status === "completed" ? "Concluido" : `${item.progress.current} de ${item.progress.total} - ${labelForStage(item.progress.stage)}`}</small>
+      <small>{statusLabel(job.status, job.progress)}</small>
     </article>
   );
 }
 
-function MediaNotificationCard({ item, onDismiss }: { item: MediaNotificationItem; onDismiss(): void }) {
-  const status = item.progress?.status;
-  const isIndeterminate = status === "extracting" || status === "indexing";
-  const total = item.progress?.total || 1;
-  const current = item.progress?.current || 0;
-  const percent = item.status === "completed" ? 100 : isIndeterminate ? 100 : Math.min(100, Math.round((current / total) * 100));
-  const progressText = item.status === "completed"
+function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismiss(): void }) {
+  const percent = job.status === "running" ? job.percent : 100;
+  const progressText = job.status === "completed"
     ? "Concluido"
-    : item.status === "failed"
+    : job.status === "failed"
       ? "Erro"
-      : formatMediaProgress(item, current, total);
+      : job.progressLabel;
 
   return (
-    <article className={`notification-card ${item.status}`}>
+    <article className={`notification-card ${job.status}`}>
       <div className="notification-title">
-        <strong>{item.title}</strong>
-        {item.status !== "running" ? (
+        <strong>{job.title}</strong>
+        {job.status !== "running" ? (
           <button type="button" onClick={onDismiss} aria-label="Dispensar">
             <X aria-hidden="true" size={14} />
           </button>
         ) : null}
       </div>
-      <p>{item.progress?.filename ?? "Aguardando progresso"}</p>
-      <div className={`progress-track${isIndeterminate ? " progress-track--indeterminate" : ""}`}>
+      <p>{job.detail}</p>
+      <div className={`progress-track${job.indeterminate ? " progress-track--indeterminate" : ""}`}>
         <span style={{ width: `${percent}%` }} />
       </div>
       <small>{progressText}</small>
@@ -244,18 +110,15 @@ function MediaNotificationCard({ item, onDismiss }: { item: MediaNotificationIte
   );
 }
 
-function formatMediaProgress(item: MediaNotificationItem, current: number, total: number): string {
-  const status = item.progress?.status;
-  if (status === "extracting") return "Extraindo";
-  if (status === "indexing") return "Construindo índice";
-  if (item.progress?.filename?.toLowerCase() === "metadata.zip") {
-    return `${formatMegabytes(current)} de ${formatMegabytes(total)}`;
-  }
-  return `${current} de ${total}`;
+function folderCount(job: RomFolderImportJob): number {
+  if (job.folderPaths.length) return job.folderPaths.length;
+  return job.progress.folderPath ? 1 : 0;
 }
 
-function formatMegabytes(bytes: number): string {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+function statusLabel(status: RomFolderImportJob["status"], progress: RomFolderImportProgress): string {
+  if (status === "completed") return "Concluido";
+  if (status === "failed") return "Erro";
+  return `${progress.current} de ${progress.total} - ${labelForStage(progress.stage)}`;
 }
 
 function labelForStage(stage: RomFolderImportProgress["stage"]): string {
@@ -270,18 +133,8 @@ function labelForStage(stage: RomFolderImportProgress["stage"]): string {
   }[stage];
 }
 
-function updateRomImportJob(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
-  const prev = current?.jobId === progress.jobId ? current : null;
-  return {
-    jobId: progress.jobId!,
-    folderPaths: prev ? prev.folderPaths : [],
-    romFilePaths: prev ? prev.romFilePaths : [],
-    platformId: prev ? prev.platformId : 0,
-    platformName: prev ? prev.platformName : "Biblioteca",
-    status: progress.stage === "error" ? "failed" : "running",
-    startedAt: prev ? prev.startedAt : new Date().toISOString(),
-    progress,
-    result: prev ? prev.result : undefined,
-    error: progress.stage === "error" ? progress.message : undefined
-  };
+function timestamp(value: string | undefined): number {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
 }
