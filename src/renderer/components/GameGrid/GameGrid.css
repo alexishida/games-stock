@@ -141,43 +141,77 @@
   -webkit-line-clamp: 2;
 }
 
-.card-launch-btn {
+.card-hover-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   display: flex;
+  gap: 8px;
+}
+
+.card-action-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(0, 242, 255, 0.4);
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(132, 148, 149, 0.38);
+  border-radius: 6px;
   background: rgba(0, 0, 0, 0.6);
-  color: var(--accent);
+  color: var(--text-primary);
   opacity: 0;
-  transition: opacity 160ms ease, background 120ms ease, transform 120ms ease;
+  transition: opacity 160ms ease, background 120ms ease, border-color 120ms ease, transform 120ms ease, color 120ms ease;
   backdrop-filter: blur(4px);
   padding: 0;
 }
 
-.game-card:hover .card-launch-btn {
+.game-card:hover .card-action-btn,
+.card-action-btn.active,
+.card-action-btn.launching {
   opacity: 1;
 }
 
-.card-launch-btn:hover:not(:disabled) {
-  background: rgba(0, 242, 255, 0.18);
-  transform: scale(1.1);
+.card-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
-.card-launch-btn.disabled,
-.card-launch-btn:disabled {
+.card-launch-btn {
+  border-color: rgba(74, 222, 128, 0.42);
+  background: rgba(10, 54, 26, 0.88);
+  color: #86efac;
+}
+
+.card-launch-btn:hover:not(:disabled) {
+  border-color: rgba(74, 222, 128, 0.8);
+  background: rgba(21, 128, 61, 0.92);
+  color: #dcfce7;
+  transform: translateY(-1px) scale(1.04);
+}
+
+.card-favorite-btn.active {
+  border-color: rgba(250, 204, 21, 0.58);
+  background: rgba(113, 63, 18, 0.88);
+  color: #fde68a;
+}
+
+.card-favorite-btn:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, 0.64);
+  background: rgba(66, 56, 18, 0.92);
+  color: #fde68a;
+}
+
+.card-action-btn.disabled,
+.card-action-btn:disabled {
   border-color: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
 }
 
+.card-action-btn:disabled:not(.active) {
+  background: rgba(0, 0, 0, 0.52);
+}
+
 .card-launch-btn.launching {
-  opacity: 1;
   animation: launch-pulse 700ms ease infinite alternate;
 }
 
