@@ -17,11 +17,12 @@ export function Sidebar() {
   const openSettings = useGameStockStore((state) => state.openSettings);
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const collectionCounts = useGameStockStore((state) => state.collectionCounts);
-  const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
 
-  const isLibraryActive = selectedPlatformId === null && collectionFilter === "all";
+  // Toda navegacao atual pertence a Biblioteca.
+  // So deve perder estado ativo quando existir fluxo real de Inventario.
+  const isLibraryActive = true;
 
   return (
     <aside className="sidebar">
