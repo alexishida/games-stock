@@ -98,6 +98,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.platforms.create, (_event, data: platforms.PlatformInput) => platforms.createPlatform(data));
   ipcMain.handle(IPC_CHANNELS.platforms.update, (_event, id: number, data: Partial<platforms.PlatformInput>) => platforms.updatePlatform(id, data));
   ipcMain.handle(IPC_CHANNELS.platforms.delete, (_event, id: number) => platforms.deletePlatform(id));
+  ipcMain.handle(IPC_CHANNELS.platforms.getMappings, (_event, platformId: number) => platforms.getPlatformMappings(platformId));
+  ipcMain.handle(IPC_CHANNELS.platforms.saveMappings, (_event, platformId: number, data) => platforms.savePlatformMappings(platformId, data));
 
   ipcMain.handle(IPC_CHANNELS.emulators.list, () => emulators.listEmulators());
   ipcMain.handle(IPC_CHANNELS.emulators.create, (_event, data: emulators.EmulatorInput) => emulators.createEmulator(data));

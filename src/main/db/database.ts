@@ -2,32 +2,9 @@ import Database from "better-sqlite3";
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import { LEGACY_PLATFORM_ALIASES, PLATFORM_CATALOG } from "./platformCatalog";
 
 let db: Database.Database | null = null;
-
-const defaultPlatforms = [
-  ["Sega Mega Drive", "Consoles"],
-  ["Super Nintendo", "Consoles"],
-  ["Nintendo 64", "Consoles"],
-  ["Nintendo Entertainment System", "Consoles"],
-  ["Game Boy Advance", "Portateis"],
-  ["Game Boy", "Portateis"],
-  ["Game Boy Color", "Portateis"],
-  ["PlayStation", "Consoles"],
-  ["PlayStation 2", "Consoles"],
-  ["Sega Master System", "Consoles"],
-  ["Sega Game Gear", "Portateis"],
-  ["Atari 2600", "Consoles"],
-  ["Sega Saturn", "Consoles"],
-  ["Sega Dreamcast", "Consoles"],
-  ["Nintendo DS", "Portateis"],
-];
-
-// oldName → canonical name in defaultPlatforms
-const platformAliases: [string, string][] = [
-  ["Sega Genesis", "Sega Mega Drive"],
-  ["NES", "Nintendo Entertainment System"],
-];
 
 export function getUserDataDir(): string {
   return path.join(app.getPath("appData"), "GameStock");
@@ -49,6 +26,7 @@ export function getDatabase(): Database.Database {
   applySchema(db);
   migratePlatformAliases(db);
   seedPlatforms(db);
+  seedPlatformMappings(db);
   seedEmulators(db);
   backfillCachedCoverPaths(db);
   return db;
@@ -87,6 +65,23 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
     CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform_id);
     CREATE INDEX IF NOT EXISTS idx_games_launchbox ON games(launchbox_id);
+
+    CREATE TABLE IF NOT EXISTS platform_launchbox_aliases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      platform_id INTEGER NOT NULL REFERENCES platforms(id) ON DELETE CASCADE,
+      alias TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS platform_rom_extensions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      platform_id INTEGER NOT NULL REFERENCES platforms(id) ON DELETE CASCADE,
+      extension TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT '',
+      is_primary INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(platform_id, extension)
+    );
 
     CREATE TABLE IF NOT EXISTS emulators (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,7 +140,7 @@ function addColumnIfMissing(database: Database.Database, table: string, column: 
 
 function migratePlatformAliases(database: Database.Database): void {
   const transaction = database.transaction(() => {
-    for (const [oldName, canonicalName] of platformAliases) {
+    for (const [oldName, canonicalName] of LEGACY_PLATFORM_ALIASES) {
       const old = database.prepare("SELECT id FROM platforms WHERE name = ?").get(oldName) as { id: number } | undefined;
       if (!old) continue;
       const canonical = database.prepare("SELECT id FROM platforms WHERE name = ?").get(canonicalName) as { id: number } | undefined;
@@ -164,11 +159,38 @@ function seedPlatforms(database: Database.Database): void {
   const insert = database.prepare("INSERT OR IGNORE INTO platforms (name, category, is_default) VALUES (?, ?, 1)");
   const update = database.prepare("UPDATE platforms SET is_default = 1 WHERE name = ? AND is_default = 0");
   const transaction = database.transaction(() => {
-    for (const platform of defaultPlatforms) {
-      insert.run(platform[0], platform[1]);
-      update.run(platform[0]);
+    for (const platform of PLATFORM_CATALOG) {
+      insert.run(platform.name, platform.category);
+      update.run(platform.name);
     }
   });
+  transaction();
+}
+
+function seedPlatformMappings(database: Database.Database): void {
+  const findPlatformId = database.prepare("SELECT id FROM platforms WHERE name = ?");
+  const insertAlias = database.prepare("INSERT OR IGNORE INTO platform_launchbox_aliases (platform_id, alias) VALUES (?, ?)");
+  const insertExtension = database.prepare(`
+    INSERT OR IGNORE INTO platform_rom_extensions (platform_id, extension, kind, is_primary)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  const transaction = database.transaction(() => {
+    for (const platform of PLATFORM_CATALOG) {
+      const row = findPlatformId.get(platform.name) as { id: number } | undefined;
+      if (!row) continue;
+
+      insertAlias.run(row.id, platform.name);
+      for (const alias of platform.launchboxAliases) {
+        insertAlias.run(row.id, alias);
+      }
+
+      for (const extension of platform.romExtensions) {
+        insertExtension.run(row.id, extension.extension.toLowerCase(), extension.kind, extension.isPrimary ? 1 : 0);
+      }
+    }
+  });
+
   transaction();
 }
 

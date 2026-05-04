@@ -1,14 +1,13 @@
 import { getImagesDir } from "../../db/database";
 import { getCoverStats, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
-import { findOrCreatePlatform, listPlatforms } from "../../db/repositories/platforms";
+import { findOrCreatePlatform, getLaunchBoxAliasesForPlatformName, listPlatforms, resolvePlatformByLaunchBoxName } from "../../db/repositories/platforms";
 import { CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
-import { PLATFORMS } from "./config";
 import { buildIndex, ensureMetadata, getMetadataDownloadedAt, metadataExists } from "./db";
 import { downloadImages, searchGames as searchIndex } from "./scraper";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;
 
-export { IMAGE_TYPE_LIST, PLATFORMS } from "./config";
+export { IMAGE_TYPE_LIST } from "./config";
 export { ensureMetadata, buildIndex, metadataExists };
 
 export function getLaunchBoxMetadataDownloadedAt(): string | null {
@@ -17,7 +16,10 @@ export function getLaunchBoxMetadataDownloadedAt(): string | null {
 
 export async function searchGames(params: LaunchBoxSearchParams) {
   const index = await buildIndex();
-  return searchIndex(index, params);
+  const allowedPlatformNames = params.platformName
+    ? getLaunchBoxAliasesForPlatformName(params.platformName)
+    : null;
+  return searchIndex(index, params.query, allowedPlatformNames);
 }
 
 export async function downloadLaunchBoxImages(params: LaunchBoxDownloadParams, onProgress?: ProgressCallback) {
@@ -121,12 +123,12 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
 }
 
 function resolvePlatformId(launchBoxPlatform: string): number {
+  const existing = resolvePlatformByLaunchBoxName(launchBoxPlatform);
+  if (existing) return existing.id;
+
   const platforms = listPlatforms();
-  const lower = launchBoxPlatform.toLowerCase();
-  const alias = Object.values(PLATFORMS).flat().find((name) => lower.includes(name.toLowerCase()));
-  const name = alias ?? launchBoxPlatform;
-  const existing = platforms.find((platform) => platform.name.toLowerCase() === name.toLowerCase());
-  return existing?.id ?? findOrCreatePlatform(name).id;
+  const byName = platforms.find((platform) => platform.name.toLowerCase() === launchBoxPlatform.toLowerCase());
+  return byName?.id ?? findOrCreatePlatform(launchBoxPlatform).id;
 }
 
 export async function ensureLaunchBoxMetadata(force = false, onProgress?: ProgressCallback) {

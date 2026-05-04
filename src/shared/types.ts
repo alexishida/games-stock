@@ -60,6 +60,36 @@ export interface Platform {
   gameCount?: number;
 }
 
+export interface PlatformLaunchBoxAlias {
+  id?: number;
+  platform_id: number;
+  platform_name?: string;
+  alias: string;
+}
+
+export interface PlatformRomExtension {
+  id?: number;
+  platform_id: number;
+  platform_name?: string;
+  extension: string;
+  kind: string;
+  is_primary: number;
+}
+
+export interface PlatformMappings {
+  aliases: PlatformLaunchBoxAlias[];
+  romExtensions: PlatformRomExtension[];
+}
+
+export interface PlatformMappingsInput {
+  aliases: string[];
+  romExtensions: Array<{
+    extension: string;
+    kind: string;
+    is_primary: boolean;
+  }>;
+}
+
 export interface Game {
   id: number;
   title: string;

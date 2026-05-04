@@ -19,6 +19,8 @@ import {
   LaunchBoxSearchParams,
   Platform,
   PlatformEmulator,
+  PlatformMappings,
+  PlatformMappingsInput,
   RetroArchCoreInventory,
   RomFolderImportJob,
   RomFolderImportProgress,
@@ -60,6 +62,8 @@ export interface GameStockAPI {
     create(data: { name: string; category: string }): Promise<Platform>;
     update(id: number, data: { name?: string; category?: string }): Promise<Platform>;
     delete(id: number): Promise<{ success: true }>;
+    getMappings(platformId: number): Promise<PlatformMappings>;
+    saveMappings(platformId: number, data: PlatformMappingsInput): Promise<PlatformMappings>;
   };
   dialogs: {
     openRomFile(): Promise<string | null>;

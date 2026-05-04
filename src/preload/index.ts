@@ -5,6 +5,8 @@ import {
   GameCreateInput,
   GameFilters,
   GameUpdateInput,
+  PlatformMappings,
+  PlatformMappingsInput,
   LaunchBoxDownloadParams,
   LaunchBoxImportParams,
   LaunchBoxProgress,
@@ -54,7 +56,10 @@ const api = {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.platforms.list),
     create: (data: { name: string; category: string }) => ipcRenderer.invoke(IPC_CHANNELS.platforms.create, data),
     update: (id: number, data: { name?: string; category?: string }) => ipcRenderer.invoke(IPC_CHANNELS.platforms.update, id, data),
-    delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.platforms.delete, id)
+    delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.platforms.delete, id),
+    getMappings: (platformId: number) => ipcRenderer.invoke(IPC_CHANNELS.platforms.getMappings, platformId) as Promise<PlatformMappings>,
+    saveMappings: (platformId: number, data: PlatformMappingsInput) =>
+      ipcRenderer.invoke(IPC_CHANNELS.platforms.saveMappings, platformId, data) as Promise<PlatformMappings>
   },
   dialogs: {
     openRomFile: () => ipcRenderer.invoke(IPC_CHANNELS.dialogs.openRomFile),

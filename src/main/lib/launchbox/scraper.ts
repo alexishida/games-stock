@@ -5,37 +5,33 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
 import { getImagesDir } from "../../db/database";
-import { LaunchBoxDownloadResult, LaunchBoxGame, LaunchBoxImageType, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
-import { IMAGES_BASE, PLATFORMS } from "./config";
+import { LaunchBoxDownloadResult, LaunchBoxGame, LaunchBoxImageType, LaunchBoxProgress } from "../../../shared/types";
+import { IMAGES_BASE } from "./config";
 
 type ProgressCallback = (progress: LaunchBoxProgress) => void;
 
-export function searchGames(index: Record<string, LaunchBoxGame>, params: LaunchBoxSearchParams): LaunchBoxGame[] {
-  const query = params.query.trim().toLowerCase();
+export function searchGames(
+  index: Record<string, LaunchBoxGame>,
+  queryText: string,
+  allowedPlatformNames: string[] | null = null
+): LaunchBoxGame[] {
+  const query = queryText.trim().toLowerCase();
   if (!query) return [];
 
-  const allowedPlatforms = params.platformName
-    ? resolveAllowedPlatforms(params.platformName)
-    : null;
+  const allowedPlatforms = allowedPlatformNames?.map((name) => name.toLowerCase()) ?? null;
 
   return Object.values(index)
     .filter((game) => {
       if (!game.name.toLowerCase().includes(query)) return false;
-      if (!allowedPlatforms) return true;
-      return allowedPlatforms.some((platform) => game.platform.toLowerCase().includes(platform));
+      if (!allowedPlatforms?.length) return true;
+      const gamePlatform = game.platform.toLowerCase();
+      return allowedPlatforms.some((platform) => {
+        if (gamePlatform === platform) return true;
+        return platform.length > 4 && gamePlatform.includes(platform);
+      });
     })
     .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, 100);
-}
-
-function resolveAllowedPlatforms(platformName: string): string[] {
-  const normalized = platformName.toLowerCase();
-  const entry = Object.entries(PLATFORMS).find(([, aliases]) =>
-    aliases.some((alias) => alias.toLowerCase() === normalized)
-  );
-  const aliases = entry ? PLATFORMS[entry[0]].map((a) => a.toLowerCase()) : [];
-  if (!aliases.includes(normalized)) aliases.push(normalized);
-  return aliases;
 }
 
 export async function downloadImages(

@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { Platform } from "../../../shared/types";
+import { Platform, PlatformLaunchBoxAlias, PlatformMappingsInput, PlatformRomExtension } from "../../../shared/types";
 
 export type PlatformInput = Pick<Platform, "name" | "category">;
 
@@ -60,7 +60,107 @@ export class PlatformDao {
     return existing ?? this.create({ name, category });
   }
 
+  listLaunchBoxAliases(platformId?: number): PlatformLaunchBoxAlias[] {
+    const sql = `
+      SELECT
+        platform_launchbox_aliases.id,
+        platform_launchbox_aliases.platform_id,
+        platforms.name as platform_name,
+        platform_launchbox_aliases.alias
+      FROM platform_launchbox_aliases
+      JOIN platforms ON platforms.id = platform_launchbox_aliases.platform_id
+      ${platformId ? "WHERE platform_launchbox_aliases.platform_id = ?" : ""}
+      ORDER BY platforms.name COLLATE NOCASE, platform_launchbox_aliases.alias COLLATE NOCASE
+    `;
+    return (platformId
+      ? this.database.prepare(sql).all(platformId)
+      : this.database.prepare(sql).all()) as PlatformLaunchBoxAlias[];
+  }
+
+  listRomExtensions(platformId?: number, primaryOnly = false): PlatformRomExtension[] {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (platformId) {
+      clauses.push("platform_rom_extensions.platform_id = ?");
+      params.push(platformId);
+    }
+    if (primaryOnly) {
+      clauses.push("platform_rom_extensions.is_primary = 1");
+    }
+
+    const sql = `
+      SELECT
+        platform_rom_extensions.id,
+        platform_rom_extensions.platform_id,
+        platforms.name as platform_name,
+        platform_rom_extensions.extension,
+        platform_rom_extensions.kind,
+        platform_rom_extensions.is_primary
+      FROM platform_rom_extensions
+      JOIN platforms ON platforms.id = platform_rom_extensions.platform_id
+      ${clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""}
+      ORDER BY platforms.name COLLATE NOCASE, platform_rom_extensions.extension COLLATE NOCASE
+    `;
+
+    return this.database.prepare(sql).all(...params) as PlatformRomExtension[];
+  }
+
   get(id: number): Platform | null {
     return (this.database.prepare("SELECT *, 0 as gameCount FROM platforms WHERE id = ?").get(id) as Platform | undefined) ?? null;
   }
+
+  saveMappings(platformId: number, input: PlatformMappingsInput): void {
+    const platform = this.get(platformId);
+    if (!platform) throw new Error("Plataforma nao encontrada");
+
+    const normalizedAliases = Array.from(
+      new Set(
+        input.aliases
+          .map((alias) => alias.trim())
+          .filter(Boolean)
+      )
+    );
+    if (!normalizedAliases.length) throw new Error("Informe ao menos um alias do LaunchBox");
+
+    const normalizedExtensions = Array.from(
+      new Map(
+        input.romExtensions
+          .map((entry) => ({
+            extension: normalizeExtension(entry.extension),
+            kind: entry.kind.trim(),
+            is_primary: entry.is_primary ? 1 : 0
+          }))
+          .filter((entry) => entry.extension)
+          .map((entry) => [entry.extension, entry])
+      ).values()
+    );
+    if (!normalizedExtensions.length) throw new Error("Informe ao menos uma extensao principal de ROM");
+    if (!normalizedExtensions.some((entry) => entry.is_primary === 1)) throw new Error("Marque ao menos uma extensao principal");
+
+    const insertAlias = this.database.prepare("INSERT INTO platform_launchbox_aliases (platform_id, alias) VALUES (?, ?)");
+    const insertExtension = this.database.prepare(`
+      INSERT INTO platform_rom_extensions (platform_id, extension, kind, is_primary)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    this.database.transaction(() => {
+      this.database.prepare("DELETE FROM platform_launchbox_aliases WHERE platform_id = ?").run(platformId);
+      this.database.prepare("DELETE FROM platform_rom_extensions WHERE platform_id = ?").run(platformId);
+
+      for (const alias of normalizedAliases) {
+        insertAlias.run(platformId, alias);
+      }
+
+      for (const extension of normalizedExtensions) {
+        insertExtension.run(platformId, extension.extension, extension.kind, extension.is_primary);
+      }
+    })();
+  }
+}
+
+function normalizeExtension(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return "";
+  return trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
 }

@@ -26,7 +26,9 @@ export const IPC_CHANNELS = {
     list: "platforms:list",
     create: "platforms:create",
     update: "platforms:update",
-    delete: "platforms:delete"
+    delete: "platforms:delete",
+    getMappings: "platforms:getMappings",
+    saveMappings: "platforms:saveMappings"
   },
   dialogs: {
     openRomFile: "dialogs:openRomFile",
