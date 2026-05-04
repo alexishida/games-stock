@@ -4,11 +4,13 @@
   z-index: 20;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.58);
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
 }
 
 .modal-backdrop ~ .modal-backdrop {
   background: rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(4px);
 }
 
 .importer-modal {

@@ -192,6 +192,27 @@ Toda seção do modal de configurações deve iniciar com o componente `<Section
 - O componente adiciona `margin-bottom: 12px` após o `<p>` para separar o intro do conteúdo seguinte.
 - Não duplicar os estilos em CSS local — o componente centraliza tudo em `SectionIntro.css`.
 
+### Padrão: overlay de modal (backdrop)
+
+Todo overlay que abre um modal deve usar `background: rgba(0, 0, 0, 0.68)` com `backdrop-filter: blur(8px)`. Isso cria o efeito glassmorphism consistente em toda a UI.
+
+```css
+/* overlay primário — toda abertura de modal */
+.meu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: <adequado>;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+}
+```
+
+Quando um **segundo modal** abre sobre um já aberto, o overlay secundário usa camada mais leve para não escurecer demais: `background: rgba(0, 0, 0, 0.46); backdrop-filter: blur(4px)`. Isso é tratado automaticamente pelo seletor CSS `.modal-backdrop ~ .modal-backdrop`.
+
+Classe utilitária reutilizável: `.modal-backdrop` (definida em `LaunchBoxImporter.css`, carregada globalmente via Vite). Use-a para qualquer modal que não tenha necessidade de sobreposição especial.
+
 ### Padrão: botões de fechar modal
 
 Todo botão de fechar modal deve usar `icon-button` com ícone `X` do `lucide-react`, tamanho 26px, sem padding e SVG centralizado. O botão inteiro deve ser vermelho, não apenas o ícone: borda `rgba(248, 113, 113, 0.55)`, fundo `rgba(127, 29, 29, 0.38)` e cor `#fecaca`. No hover, intensificar para borda `rgba(248, 113, 113, 0.8)`, fundo `rgba(185, 28, 28, 0.58)` e cor `#fff1f2`.

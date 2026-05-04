@@ -588,7 +588,8 @@
   z-index: 10;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.46);
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
   border-radius: 8px;
 }
 
