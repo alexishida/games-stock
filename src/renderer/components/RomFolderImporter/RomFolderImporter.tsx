@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { AlertTriangle, ArrowLeft, CircleX, FolderCheck, FolderOpen, FolderPlus, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown, CircleX, FolderCheck, FolderOpen, FolderPlus, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import "./RomFolderImporter.css";
@@ -148,10 +148,34 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const [reviewView, setReviewView] = useState<"candidates" | "ignored">("candidates");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [platformPickerOpen, setPlatformPickerOpen] = useState(false);
   const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const platformPickerRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
   const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
+  const sortedPlatforms = [...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  const selectedPlatform = typeof platformId === "number" ? sortedPlatforms.find((platform) => platform.id === platformId) ?? null : null;
+
+  useEffect(() => {
+    if (!platformPickerOpen) return undefined;
+
+    function handlePointerDown(event: PointerEvent): void {
+      if (platformPickerRef.current?.contains(event.target as Node)) return;
+      setPlatformPickerOpen(false);
+    }
+
+    function handleEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") setPlatformPickerOpen(false);
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [platformPickerOpen]);
 
   function clampDialogOffset(x: number, y: number): { x: number; y: number } {
     const rect = dialogRef.current?.getBoundingClientRect();
@@ -196,6 +220,11 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   async function chooseFolder(): Promise<void> {
     const selected = await window.gameStockAPI.dialogs.openRomFolder();
     if (selected) setFolderPath(selected);
+  }
+
+  function choosePlatform(nextPlatformId: number | ""): void {
+    setPlatformId(nextPlatformId);
+    setPlatformPickerOpen(false);
   }
 
   async function scanFolder(): Promise<void> {
@@ -271,10 +300,41 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
 
           <label className="assistant-platform large">
             <span>Plataforma</span>
-            <select value={platformId} onChange={(e) => setPlatformId(e.target.value ? Number(e.target.value) : "")}>
-              <option value="">Selecione uma plataforma</option>
-              {[...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <div ref={platformPickerRef} className={`platform-picker ${platformPickerOpen ? "open" : ""}`}>
+              <button
+                type="button"
+                className="platform-picker-trigger"
+                aria-haspopup="listbox"
+                aria-expanded={platformPickerOpen}
+                aria-label="Selecionar plataforma"
+                onClick={() => setPlatformPickerOpen((current) => !current)}
+                disabled={busy}
+              >
+                <span>{selectedPlatform?.name ?? "Selecione uma plataforma"}</span>
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+              {platformPickerOpen ? (
+                <div className="platform-picker-menu" role="listbox" aria-label="Plataformas">
+                  <button
+                    type="button"
+                    className={`platform-picker-option ${!selectedPlatform ? "selected" : ""}`}
+                    onClick={() => choosePlatform("")}
+                  >
+                    Selecione uma plataforma
+                  </button>
+                  {sortedPlatforms.map((platform) => (
+                    <button
+                      key={platform.id}
+                      type="button"
+                      className={`platform-picker-option ${platform.id === platformId ? "selected" : ""}`}
+                      onClick={() => choosePlatform(platform.id)}
+                    >
+                      {platform.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </label>
         </div>
       ) : null}

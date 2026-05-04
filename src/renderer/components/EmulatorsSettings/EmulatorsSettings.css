@@ -119,14 +119,58 @@
   font-size: 11px;
 }
 
+.emulator-assoc-table {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(132, 148, 149, 0.16);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.emulator-assoc-head,
 .emulator-assoc-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(140px, 1.2fr) minmax(0, 1fr) 44px;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   font-size: 12px;
+  padding: 8px 10px;
+}
+
+.emulator-assoc-head {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.emulator-assoc-row {
   color: var(--text-primary);
-  padding: 2px 0;
+  border-top: 1px solid rgba(132, 148, 149, 0.12);
+}
+
+.emulator-assoc-row:first-of-type {
+  border-top: 1px solid rgba(132, 148, 149, 0.12);
+}
+
+.emulator-assoc-platform,
+.emulator-assoc-core {
+  min-width: 0;
+}
+
+.emulator-assoc-platform {
+  font-weight: 700;
+}
+
+.emulator-assoc-core {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .emulator-link-btn {

@@ -435,22 +435,27 @@ function EmulatorRow({
           {associations.length === 0 ? (
             <p className="emulator-assoc-empty">Nenhuma plataforma vinculada.</p>
           ) : (
-            associations.map((pe) => (
-              <div key={pe.platform_id} className="emulator-assoc-row">
-                <span>
-                  {platformName(pe.platform_id)}
-                  {pe.core_path && <em className="emulator-core-path">{pe.core_path}</em>}
-                </span>
-                <button
-                  type="button"
-                  className="icon-button danger"
-                  title="Desvincular"
-                  onClick={() => void unlink(pe.platform_id)}
-                >
-                  <Unlink size={12} aria-hidden="true" />
-                </button>
+            <div className="emulator-assoc-table">
+              <div className="emulator-assoc-head">
+                <span>Plataforma</span>
+                <span>Core</span>
+                <span>Acoes</span>
               </div>
-            ))
+              {associations.map((pe) => (
+                <div key={pe.platform_id} className="emulator-assoc-row">
+                  <span className="emulator-assoc-platform">{platformName(pe.platform_id)}</span>
+                  <span className="emulator-assoc-core">{pe.core_path ?? "-"}</span>
+                  <button
+                    type="button"
+                    className="icon-button danger"
+                    title="Desvincular"
+                    onClick={() => void unlink(pe.platform_id)}
+                  >
+                    <Unlink size={12} aria-hidden="true" />
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
           <button
             type="button"
@@ -854,6 +859,14 @@ export function EmulatorsSettings() {
     [emulatorList]
   );
 
+  const orderedEmulators = useMemo(() => {
+    const retroArchEntry = emulatorList.find((emulator) => emulator.is_retroarch === 1) ?? null;
+    const others = emulatorList
+      .filter((emulator) => emulator.is_retroarch !== 1)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    return retroArchEntry ? [retroArchEntry, ...others] : others;
+  }, [emulatorList]);
+
   async function remove(emulator: Emulator): Promise<void> {
     if (!window.confirm(`Remover o emulador "${emulator.name}"?`)) return;
     setError("");
@@ -872,10 +885,10 @@ export function EmulatorsSettings() {
         description="Configure emuladores e vincule-os às plataformas para lançar jogos diretamente da biblioteca."
       />
       <div className="platform-list">
-        {emulatorList.length === 0 && (
+        {orderedEmulators.length === 0 && (
           <p className="platform-list-empty">Nenhum emulador cadastrado.</p>
         )}
-        {emulatorList.map((emulator) => (
+        {orderedEmulators.map((emulator) => (
           <EmulatorRow
             key={emulator.id}
             emulator={emulator}
