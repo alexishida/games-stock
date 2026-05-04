@@ -9,14 +9,14 @@ O sistema SHALL persistir plataformas com `id`, `name`, `category` e `created_at
 
 #### Scenario: Plataformas pré-carregadas
 - **WHEN** o banco é criado pela primeira vez
-- **THEN** as seguintes plataformas padrão são inseridas: Sega Genesis (Consoles), Nintendo 64 (Consoles), Sega Saturn (Consoles), Game Boy (Portáteis), Super Nintendo (Consoles) e NES (Consoles)
+- **THEN** plataformas padrão como Sega Mega Drive, Super Nintendo, Nintendo 64, Nintendo Entertainment System, Game Boy, Game Boy Advance, PlayStation e outras do catálogo inicial são inseridas automaticamente
 
 #### Scenario: Plataforma com nome duplicado
 - **WHEN** o usuário tenta criar plataforma com nome já existente
 - **THEN** o sistema retorna erro "Plataforma já existe"
 
 ### Requirement: CRUD de plataformas via IPC
-O sistema SHALL expor via `window.gameStockAPI.platforms` os métodos `list()`, `create(data)`, `update(id, data)` e `delete(id)`. `list()` SHALL retornar plataformas com o campo `gameCount` calculado via LEFT JOIN.
+O sistema SHALL expor via `window.gameStockAPI.platforms` os métodos `list()`, `create(data)`, `update(id, data)`, `delete(id)`, `getMappings(platformId)` e `saveMappings(platformId, data)`. `list()` SHALL retornar plataformas com o campo `gameCount` calculado via LEFT JOIN.
 
 #### Scenario: Listar plataformas com contagem
 - **WHEN** `platforms.list()` é chamado
@@ -25,6 +25,25 @@ O sistema SHALL expor via `window.gameStockAPI.platforms` os métodos `list()`, 
 #### Scenario: Deletar plataforma com jogos
 - **WHEN** `platforms.delete(id)` é chamado em plataforma que possui jogos
 - **THEN** retorna erro "Não é possível remover plataforma com jogos associados"
+
+### Requirement: Mapeamentos de aliases e extensões por plataforma
+O sistema SHALL persistir aliases de busca e extensões de ROM por plataforma em tabelas dedicadas. Os aliases SHALL permitir casar nomes equivalentes usados por fontes externas de metadados, e as extensões SHALL definir quais arquivos são aceitos no importador de pasta para cada plataforma.
+
+#### Scenario: Carregar mapeamentos de plataforma
+- **WHEN** `platforms.getMappings(platformId)` é chamado
+- **THEN** o sistema retorna listas de `aliases` e `romExtensions` vinculadas à plataforma
+
+#### Scenario: Salvar aliases e extensões
+- **WHEN** `platforms.saveMappings(platformId, data)` é chamado com aliases válidos e ao menos uma extensão principal
+- **THEN** os mapeamentos anteriores da plataforma são substituídos pelos novos valores persistidos
+
+#### Scenario: Bloquear plataforma sem alias
+- **WHEN** `platforms.saveMappings(platformId, data)` é chamado sem nenhum alias preenchido
+- **THEN** o sistema retorna erro informando que é necessário ao menos um alias
+
+#### Scenario: Bloquear plataforma sem extensão principal
+- **WHEN** `platforms.saveMappings(platformId, data)` é chamado sem nenhuma extensão marcada como principal
+- **THEN** o sistema retorna erro informando que é necessário ao menos uma extensão principal
 
 ### Requirement: Categorias de plataforma
 O sistema SHALL aceitar as categorias "Console", "Portátil" e "PC" no formulário de criação e edição de plataformas.
@@ -58,6 +77,21 @@ O sistema SHALL fornecer dentro do SettingsModal uma lista completa de plataform
 #### Scenario: Excluir plataforma com jogos
 - **WHEN** o usuário tenta excluir plataforma com `gameCount > 0`
 - **THEN** o sistema exibe a mensagem de validação e mantém a plataforma
+
+### Requirement: UI de aliases e extensões por plataforma
+O sistema SHALL fornecer no PlatformManager uma ação por linha para abrir um modal de mapeamentos da plataforma. Esse modal SHALL permitir editar aliases e extensões de ROM, adicionando e removendo linhas dinamicamente.
+
+#### Scenario: Abrir modal de mapeamentos
+- **WHEN** o usuário clica na ação de aliases/extensões de uma plataforma
+- **THEN** o modal "Vínculos de plataforma" abre carregando os aliases e extensões já persistidos
+
+#### Scenario: Editar aliases pela UI
+- **WHEN** o usuário adiciona ou remove aliases e salva o modal
+- **THEN** os novos nomes equivalentes passam a ser usados nas buscas e correspondências de metadados da plataforma
+
+#### Scenario: Editar extensões pela UI
+- **WHEN** o usuário altera as extensões de ROM e salva o modal
+- **THEN** o importador de pasta passa a aceitar apenas as extensões principais configuradas para essa plataforma
 
 ### Requirement: Exibição de emulador padrão na lista de plataformas
 O sistema SHALL exibir na lista de plataformas do SettingsModal o nome do emulador padrão de cada plataforma (se configurado).

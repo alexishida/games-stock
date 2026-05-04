@@ -16,7 +16,7 @@ O sistema SHALL criar uma janela Electron principal com dimensões mínimas de 1
 - **THEN** a janela restaura a posição e o tamanho anteriores
 
 ### Requirement: Isolamento de processo com contextBridge
-O sistema SHALL usar `contextIsolation: true` e `nodeIntegration: false`. O preload SHALL expor `window.gameStockAPI` via `contextBridge.exposeInMainWorld` com os namespaces `games`, `platforms`, `dialogs`, `shell`, `launchbox` e `romFolderImport`.
+O sistema SHALL usar `contextIsolation: true` e `nodeIntegration: false`. O preload SHALL expor `window.gameStockAPI` via `contextBridge.exposeInMainWorld` com os namespaces `games`, `platforms`, `emulators`, `dialogs`, `shell`, `launchbox`, `romFolderImport`, `view` e `library`.
 
 #### Scenario: Acesso seguro ao IPC
 - **WHEN** o renderer invoca `window.gameStockAPI.games.list()`
@@ -31,7 +31,7 @@ O sistema SHALL criar ou abrir o banco SQLite em `%APPDATA%/GameStock/gamestock.
 
 #### Scenario: Primeiro uso
 - **WHEN** o app é aberto pela primeira vez
-- **THEN** o arquivo `gamestock.db` é criado com as tabelas `platforms` e `games` e as plataformas padrão são inseridas
+- **THEN** o arquivo `gamestock.db` é criado com as tabelas principais do app, incluindo `platforms`, `games`, `platform_launchbox_aliases` e `platform_rom_extensions`, e as plataformas padrão são inseridas com seu catálogo inicial
 
 #### Scenario: Uso subsequente
 - **WHEN** o app é aberto com banco existente
