@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { Check, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
-import { Emulator, Platform, PlatformEmulator } from "../../../shared/types";
-import { getRetroArchCoreForPlatform, RETROARCH_CORE_NAMES } from "../../../shared/retroarch";
+import { ChevronDown, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
+import { Emulator, Platform, PlatformEmulator, RetroArchCoreInventory } from "../../../shared/types";
+import { getRetroArchCoreCandidatesForPlatform, getRetroArchCoreForPlatform, RETROARCH_CORE_NAMES } from "../../../shared/retroarch";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./EmulatorsSettings.css";
@@ -10,7 +10,42 @@ import "./EmulatorsSettings.css";
 interface PlatformRetroArchConfig {
   platform: Platform;
   retroArchLink: PlatformEmulator | null;
-  defaultEmulator: PlatformEmulator | null;
+}
+
+function normalizeCoreName(coreName: string | null | undefined): string {
+  return coreName?.trim().toLowerCase() ?? "";
+}
+
+function toDllLabel(coreName: string): string {
+  return coreName.toLowerCase().endsWith(".dll") ? coreName : `${coreName}.dll`;
+}
+
+function getCoreDisplayLabel(coreName: string): string {
+  return coreName.includes("\\") || coreName.includes("/") ? coreName : toDllLabel(coreName);
+}
+
+function buildCoreOptions(
+  platformName: string,
+  installedCores: string[],
+  currentValue: string
+): { recommended: Array<{ value: string; installed: boolean }>; installed: string[] } {
+  const recommended = getRetroArchCoreCandidatesForPlatform(platformName).map((coreName) => ({
+    value: coreName,
+    installed: installedCores.some((installedCore) => normalizeCoreName(installedCore) === normalizeCoreName(coreName))
+  }));
+
+  const installed = installedCores.filter((coreName) =>
+    !recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(coreName))
+  );
+
+  if (currentValue.trim()) {
+    const currentExists =
+      recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(currentValue)) ||
+      installed.some((entry) => normalizeCoreName(entry) === normalizeCoreName(currentValue));
+    if (!currentExists) installed.unshift(currentValue.trim());
+  }
+
+  return { recommended, installed };
 }
 
 function useDraggableDialog() {
@@ -362,10 +397,7 @@ function EmulatorRow({
     <>
       <div className="platform-row emulator-row">
         <div className="platform-row-info">
-          <strong>
-            {emulator.name}
-            {emulator.is_retroarch === 1 && <span className="emulator-badge retroarch">RetroArch</span>}
-          </strong>
+          <strong>{emulator.name}</strong>
           <span>{emulator.executable || <em>Executável não configurado</em>}</span>
         </div>
         <div className="platform-row-actions">
@@ -408,7 +440,6 @@ function EmulatorRow({
                 <span>
                   {platformName(pe.platform_id)}
                   {pe.core_path && <em className="emulator-core-path">{pe.core_path}</em>}
-                  {pe.is_default === 1 && <span className="emulator-badge default">padrão</span>}
                 </span>
                 <button
                   type="button"
@@ -463,10 +494,12 @@ function RetroArchPlatformCores({
 }) {
   const [configs, setConfigs] = useState<PlatformRetroArchConfig[]>([]);
   const [coreDrafts, setCoreDrafts] = useState<Record<number, string>>({});
-  const [savingPlatformId, setSavingPlatformId] = useState<number | null>(null);
+  const [editedPlatformIds, setEditedPlatformIds] = useState<Record<number, true>>({});
+  const [coreInventory, setCoreInventory] = useState<RetroArchCoreInventory | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
   const [error, setError] = useState("");
-  const [successPlatformId, setSuccessPlatformId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [openCorePickerPlatformId, setOpenCorePickerPlatformId] = useState<number | null>(null);
   const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
@@ -476,13 +509,14 @@ function RetroArchPlatformCores({
     const query = search.trim().toLowerCase();
     if (!query) return configs;
     return configs.filter((config) => {
-      const suggestedCore = getRetroArchCoreForPlatform(config.platform.name) ?? "";
+      const suggestedCore = getRetroArchCoreCandidatesForPlatform(config.platform.name).join(" ");
       const currentCore = config.retroArchLink?.core_path ?? "";
-      return [config.platform.name, suggestedCore, currentCore].some((value) =>
+      const installedCoreNames = coreInventory?.installedCores.join(" ") ?? "";
+      return [config.platform.name, suggestedCore, currentCore, installedCoreNames].some((value) =>
         value.toLowerCase().includes(query)
       );
     });
-  }, [configs, search]);
+  }, [configs, coreInventory?.installedCores, search]);
 
   function clampDialogOffset(x: number, y: number): { x: number; y: number } {
     const rect = dialogRef.current?.getBoundingClientRect();
@@ -525,23 +559,42 @@ function RetroArchPlatformCores({
   }
 
   useEffect(() => {
+    if (openCorePickerPlatformId === null) return;
+
+    function handlePointerDown(event: PointerEvent): void {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".retroarch-core-picker")) return;
+      setOpenCorePickerPlatformId(null);
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openCorePickerPlatformId]);
+
+  useEffect(() => {
     if (!platforms.length) {
       setConfigs([]);
       setCoreDrafts({});
+      setEditedPlatformIds({});
+      setCoreInventory(null);
       return;
     }
 
     let active = true;
-    void Promise.all(
-      platforms.map(async (platform) => {
-        const links = await window.gameStockAPI.emulators.listByPlatform(platform.id);
-        const retroArchLink = links.find((entry) => entry.emulator_id === retroArch.id) ?? null;
-        const defaultEmulator = links.find((entry) => entry.is_default === 1) ?? null;
-        return { platform, retroArchLink, defaultEmulator };
-      })
-    ).then((nextConfigs) => {
+    void Promise.all([
+      Promise.all(
+        platforms.map(async (platform) => {
+          const links = await window.gameStockAPI.emulators.listByPlatform(platform.id);
+          const retroArchLink = links.find((entry) => entry.emulator_id === retroArch.id) ?? null;
+          return { platform, retroArchLink };
+        })
+      ),
+      window.gameStockAPI.emulators.listRetroArchCores(retroArch.id)
+    ]).then(([nextConfigs, inventory]) => {
       if (!active) return;
       setConfigs(nextConfigs);
+      setCoreInventory(inventory);
+      setOpenCorePickerPlatformId(null);
       setCoreDrafts((current) => {
         const nextDrafts: Record<number, string> = {};
         for (const config of nextConfigs) {
@@ -553,8 +606,13 @@ function RetroArchPlatformCores({
         }
         return nextDrafts;
       });
+      setEditedPlatformIds({});
     }).catch(() => {
-      if (active) setConfigs([]);
+      if (active) {
+        setConfigs([]);
+        setCoreInventory(null);
+        setOpenCorePickerPlatformId(null);
+      }
     });
 
     return () => {
@@ -562,37 +620,36 @@ function RetroArchPlatformCores({
     };
   }, [platforms, reloadToken, retroArch.id]);
 
-  async function browseCorePath(platformId: number): Promise<void> {
-    const result = await window.gameStockAPI.dialogs.openAnyFile();
-    if (result) {
-      setCoreDrafts((current) => ({ ...current, [platformId]: result }));
-      setSuccessPlatformId(null);
+  async function saveAllCores(): Promise<void> {
+    const configsToSave = configs.filter((config) => editedPlatformIds[config.platform.id]);
+    if (!configsToSave.length) {
+      setError("Nenhuma alteracao para salvar");
+      return;
     }
-  }
 
-  async function savePlatformCore(config: PlatformRetroArchConfig): Promise<void> {
-    const corePath = coreDrafts[config.platform.id]?.trim() ?? "";
-    if (!corePath) {
-      setError("Core do RetroArch e obrigatorio");
+    const missingCore = configsToSave.find((config) => !(coreDrafts[config.platform.id]?.trim()));
+    if (missingCore) {
+      setError(`Selecione um core para ${missingCore.platform.name}`);
       return;
     }
 
     setError("");
-    setSuccessPlatformId(null);
-    setSavingPlatformId(config.platform.id);
+    setSavingAll(true);
     try {
-      await window.gameStockAPI.emulators.linkPlatform(
-        retroArch.id,
-        config.platform.id,
-        config.retroArchLink?.is_default === 1,
-        corePath
-      );
-      setSuccessPlatformId(config.platform.id);
+      for (const config of configsToSave) {
+        await window.gameStockAPI.emulators.linkPlatform(
+          retroArch.id,
+          config.platform.id,
+          config.retroArchLink?.is_default === 1,
+          coreDrafts[config.platform.id].trim()
+        );
+      }
+      setEditedPlatformIds({});
       onReload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar core do RetroArch");
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar cores do RetroArch");
     } finally {
-      setSavingPlatformId(null);
+      setSavingAll(false);
     }
   }
 
@@ -610,7 +667,7 @@ function RetroArchPlatformCores({
         <header className="retroarch-core-dialog-header">
           <div>
             <h3>Cores do RetroArch</h3>
-            <p>Configure o core usado por plataforma sem trocar o emulador padrao atual.</p>
+            <p>Escolha cores recomendados ou DLLs instaladas e salve tudo de uma vez.</p>
           </div>
           <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
             <X size={18} aria-hidden="true" />
@@ -635,62 +692,112 @@ function RetroArchPlatformCores({
         )}
         {filteredConfigs.map((config) => {
           const platformId = config.platform.id;
-          const saving = savingPlatformId === platformId;
-          const defaultSuggestedCore = getRetroArchCoreForPlatform(config.platform.name);
-          const isRetroArchDefault = config.defaultEmulator?.emulator_id === retroArch.id;
+          const recommendedCores = getRetroArchCoreCandidatesForPlatform(config.platform.name);
+          const defaultSuggestedCore = recommendedCores[0] ?? getRetroArchCoreForPlatform(config.platform.name);
           const draftValue = coreDrafts[platformId] ?? "";
           const currentCore = config.retroArchLink?.core_path?.trim() ?? "";
+          const suggestedMatchesCurrent =
+            Boolean(defaultSuggestedCore) && normalizeCoreName(defaultSuggestedCore) === normalizeCoreName(currentCore);
+          const options = buildCoreOptions(config.platform.name, coreInventory?.installedCores ?? [], draftValue);
+          const primaryRecommendedInstalled = defaultSuggestedCore
+            ? (coreInventory?.installedCores ?? []).some((installedCore) => normalizeCoreName(installedCore) === normalizeCoreName(defaultSuggestedCore))
+            : true;
+          const edited = Boolean(editedPlatformIds[platformId]);
+          const isPickerOpen = openCorePickerPlatformId === platformId;
 
           return (
             <div key={platformId} className="retroarch-core-row">
               <div className="retroarch-core-info">
                 <strong>{config.platform.name}</strong>
-                <span>
-                  {isRetroArchDefault ? "RetroArch padrao" : `Padrao atual: ${config.defaultEmulator?.emulator?.name ?? "Sem emulador"}`}
-                  {defaultSuggestedCore && (
-                    <>
-                      {" · "}
-                      Sugestao: {defaultSuggestedCore}
-                    </>
-                  )}
-                </span>
-                {currentCore && <em className="retroarch-core-current">Core salvo: {currentCore}</em>}
+                {suggestedMatchesCurrent ? (
+                  <span>Core recomendado e ja salvo: {defaultSuggestedCore}</span>
+                ) : (
+                  <>
+                    {!defaultSuggestedCore && <span>Defina core usado pelo RetroArch nesta plataforma</span>}
+                    {currentCore && <em className="retroarch-core-current">Core salvo: {currentCore}</em>}
+                  </>
+                )}
+                {!primaryRecommendedInstalled && defaultSuggestedCore && (
+                  <em className="retroarch-core-warning">
+                    Core recomendado {defaultSuggestedCore} nao instalado. Baixe no RetroArch.
+                  </em>
+                )}
+                {edited && <em className="retroarch-core-pending">Alteracao pendente</em>}
               </div>
               <div className="retroarch-core-controls">
                 <label className="retroarch-core-field">
-                  <span>Core</span>
-                  <input
-                    list={`retroarch-platform-core-options-${platformId}`}
-                    value={draftValue}
-                    onChange={(e) => {
-                      setCoreDrafts((current) => ({ ...current, [platformId]: e.target.value }));
-                      setSuccessPlatformId(null);
-                    }}
-                    placeholder="Nome ou caminho do core libretro"
-                  />
+                  <span className="retroarch-core-field-header">
+                    <span>Core</span>
+                    {defaultSuggestedCore && !suggestedMatchesCurrent && (
+                      <em className="retroarch-core-suggestion">Sugestao: {defaultSuggestedCore}</em>
+                    )}
+                  </span>
+                  <div className={`retroarch-core-picker ${isPickerOpen ? "open" : ""}`}>
+                    <button
+                      type="button"
+                      className="retroarch-core-picker-trigger"
+                      onClick={() => setOpenCorePickerPlatformId((current) => current === platformId ? null : platformId)}
+                    >
+                      <span>{draftValue ? getCoreDisplayLabel(draftValue) : "Selecione um core"}</span>
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </button>
+                    {isPickerOpen && (
+                      <div className="retroarch-core-picker-menu">
+                        <button
+                          type="button"
+                          className={`retroarch-core-option ${!draftValue ? "selected" : ""}`}
+                          onClick={() => {
+                            setCoreDrafts((current) => ({ ...current, [platformId]: "" }));
+                            setEditedPlatformIds((current) => ({ ...current, [platformId]: true }));
+                            setOpenCorePickerPlatformId(null);
+                          }}
+                        >
+                          Selecione um core
+                        </button>
+                        {options.recommended.length > 0 && (
+                          <div className="retroarch-core-group">
+                            <strong>Recomendados</strong>
+                            {options.recommended.map((entry) => (
+                              <button
+                                key={`recommended-${platformId}-${entry.value}`}
+                                type="button"
+                                className={`retroarch-core-option ${normalizeCoreName(draftValue) === normalizeCoreName(entry.value) ? "selected" : ""} ${!entry.installed ? "disabled" : ""}`}
+                                onClick={() => {
+                                  if (!entry.installed) return;
+                                  setCoreDrafts((current) => ({ ...current, [platformId]: entry.value }));
+                                  setEditedPlatformIds((current) => ({ ...current, [platformId]: true }));
+                                  setOpenCorePickerPlatformId(null);
+                                }}
+                                disabled={!entry.installed}
+                              >
+                                {entry.installed ? getCoreDisplayLabel(entry.value) : `${entry.value} (baixar no RetroArch)`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {options.installed.length > 0 && (
+                          <div className="retroarch-core-group">
+                            <strong>Instalados</strong>
+                            {options.installed.map((coreName) => (
+                              <button
+                                key={`installed-${platformId}-${coreName}`}
+                                type="button"
+                                className={`retroarch-core-option ${normalizeCoreName(draftValue) === normalizeCoreName(coreName) ? "selected" : ""}`}
+                                onClick={() => {
+                                  setCoreDrafts((current) => ({ ...current, [platformId]: coreName }));
+                                  setEditedPlatformIds((current) => ({ ...current, [platformId]: true }));
+                                  setOpenCorePickerPlatformId(null);
+                                }}
+                              >
+                                {getCoreDisplayLabel(coreName)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </label>
-                <datalist id={`retroarch-platform-core-options-${platformId}`}>
-                  {RETROARCH_CORE_NAMES.map((coreName) => (
-                    <option key={coreName} value={coreName} />
-                  ))}
-                </datalist>
-                <button
-                  type="button"
-                  className="icon-button"
-                  title="Selecionar core"
-                  onClick={() => void browseCorePath(platformId)}
-                >
-                  <FolderOpen size={15} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="text-button active retroarch-core-save"
-                  onClick={() => void savePlatformCore(config)}
-                  disabled={saving || !draftValue.trim()}
-                >
-                  {successPlatformId === platformId ? <Check size={14} aria-hidden="true" /> : <Save size={14} aria-hidden="true" />}
-                  {saving ? "Salvando..." : successPlatformId === platformId ? "Salvo" : "Salvar"}
-                </button>
               </div>
             </div>
           );
@@ -698,10 +805,25 @@ function RetroArchPlatformCores({
         </div>
 
         <footer className="retroarch-core-dialog-footer">
+          {coreInventory && !coreInventory.executableConfigured && (
+            <p className="form-error">Configure executavel do RetroArch antes de selecionar cores.</p>
+          )}
+          {coreInventory?.executableConfigured && !coreInventory.coresDirExists && (
+            <p className="form-error">Pasta de cores nao encontrada ao lado do RetroArch.</p>
+          )}
           {error && <p className="form-error">{error}</p>}
           <button type="button" className="text-button danger form-action-button" onClick={onClose}>
             <X size={14} aria-hidden="true" />
             Fechar
+          </button>
+          <button
+            type="button"
+            className="text-button active form-action-button"
+            onClick={() => void saveAllCores()}
+            disabled={savingAll || !Object.keys(editedPlatformIds).length}
+          >
+            <Save size={14} aria-hidden="true" />
+            {savingAll ? "Salvando..." : "Salvar"}
           </button>
         </footer>
       </div>

@@ -19,7 +19,8 @@ export const IPC_CHANNELS = {
     delete: "emulators:delete",
     linkPlatform: "emulators:linkPlatform",
     unlinkPlatform: "emulators:unlinkPlatform",
-    listByPlatform: "emulators:listByPlatform"
+    listByPlatform: "emulators:listByPlatform",
+    listRetroArchCores: "emulators:listRetroArchCores"
   },
   platforms: {
     list: "platforms:list",

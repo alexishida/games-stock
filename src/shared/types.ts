@@ -36,6 +36,13 @@ export interface Emulator {
   created_at: string;
 }
 
+export interface RetroArchCoreInventory {
+  coresDir: string | null;
+  coresDirExists: boolean;
+  executableConfigured: boolean;
+  installedCores: string[];
+}
+
 export interface PlatformEmulator {
   platform_id: number;
   emulator_id: number;

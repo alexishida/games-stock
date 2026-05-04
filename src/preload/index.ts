@@ -44,6 +44,7 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.emulators.update, id, data),
     delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.delete, id),
     listByPlatform: (platformId: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.listByPlatform, platformId),
+    listRetroArchCores: (emulatorId: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.listRetroArchCores, emulatorId),
     linkPlatform: (emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null) =>
       ipcRenderer.invoke(IPC_CHANNELS.emulators.linkPlatform, emulatorId, platformId, isDefault, corePath),
     unlinkPlatform: (emulatorId: number, platformId: number) =>

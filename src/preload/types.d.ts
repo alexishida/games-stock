@@ -19,6 +19,7 @@ import {
   LaunchBoxSearchParams,
   Platform,
   PlatformEmulator,
+  RetroArchCoreInventory,
   RomFolderImportJob,
   RomFolderImportProgress,
   RomFolderImportRequest,
@@ -50,6 +51,7 @@ export interface GameStockAPI {
     update(id: number, data: { name?: string; executable?: string; args?: string }): Promise<Emulator>;
     delete(id: number): Promise<{ success: true }>;
     listByPlatform(platformId: number): Promise<PlatformEmulator[]>;
+    listRetroArchCores(emulatorId: number): Promise<RetroArchCoreInventory>;
     linkPlatform(emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null): Promise<PlatformEmulator>;
     unlinkPlatform(emulatorId: number, platformId: number): Promise<{ success: true }>;
   };

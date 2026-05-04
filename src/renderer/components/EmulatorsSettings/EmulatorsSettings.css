@@ -79,30 +79,6 @@
   accent-color: var(--accent);
 }
 
-.emulator-badge {
-  display: inline-block;
-  margin-left: 7px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
-
-.emulator-badge.retroarch {
-  background: rgba(0, 220, 230, 0.15);
-  color: var(--accent);
-  border: 1px solid rgba(0, 220, 230, 0.3);
-}
-
-.emulator-badge.default {
-  background: rgba(100, 220, 100, 0.12);
-  color: #6dde6d;
-  border: 1px solid rgba(100, 220, 100, 0.25);
-}
-
 .emulator-row .platform-row-info em {
   color: var(--text-secondary);
   font-style: italic;
@@ -319,9 +295,21 @@
   font-style: normal;
 }
 
+.retroarch-core-warning {
+  color: #ff7b7b;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.retroarch-core-pending {
+  color: var(--accent);
+  font-size: 10px;
+  font-style: normal;
+}
+
 .retroarch-core-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 26px auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   align-items: end;
 }
@@ -341,7 +329,113 @@
   line-height: 1;
 }
 
-.retroarch-core-controls input {
+.retroarch-core-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.retroarch-core-suggestion {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.retroarch-core-picker {
+  position: relative;
+}
+
+.retroarch-core-picker-trigger {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.retroarch-core-picker-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.retroarch-core-picker.open .retroarch-core-picker-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.18);
+}
+
+.retroarch-core-picker-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-modal);
+  padding: 8px;
+}
+
+.retroarch-core-group {
+  display: grid;
+  gap: 4px;
+}
+
+.retroarch-core-group strong {
+  color: #d6e3e4;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.retroarch-core-option {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.retroarch-core-option:hover:not(:disabled),
+.retroarch-core-option.selected {
+  border-color: rgba(0, 220, 230, 0.28);
+  background: rgba(0, 220, 230, 0.08);
+}
+
+.retroarch-core-option.disabled,
+.retroarch-core-option:disabled {
+  color: #ff7b7b;
+  opacity: 1;
+  font-weight: 600;
+}
+
+.retroarch-core-controls input,
+.retroarch-core-controls select {
   min-width: 0;
   width: 100%;
   border: 1px solid var(--border);
@@ -355,14 +449,11 @@
   color: var(--text-muted);
 }
 
-.retroarch-core-controls input:focus-visible {
+.retroarch-core-controls input:focus-visible,
+.retroarch-core-controls select:focus-visible {
   outline: 0;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0, 242, 255, 0.18);
-}
-
-.retroarch-core-save {
-  min-width: 92px;
 }
 
 .retroarch-core-dialog-footer {
@@ -379,11 +470,6 @@
 
 @media (max-width: 900px) {
   .retroarch-core-controls {
-    grid-template-columns: minmax(0, 1fr) 26px;
-  }
-
-  .retroarch-core-save {
-    grid-column: 1 / -1;
-    justify-self: flex-start;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

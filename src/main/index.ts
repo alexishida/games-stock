@@ -10,7 +10,7 @@ import * as emulators from "./db/repositories/emulators";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
+import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 
 let mainWindow: BrowserWindow | null = null;
@@ -104,6 +104,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.emulators.update, (_event, id: number, data: Partial<emulators.EmulatorInput>) => emulators.updateEmulator(id, data));
   ipcMain.handle(IPC_CHANNELS.emulators.delete, (_event, id: number) => emulators.deleteEmulator(id));
   ipcMain.handle(IPC_CHANNELS.emulators.listByPlatform, (_event, platformId: number) => emulators.listEmulatorsByPlatform(platformId));
+  ipcMain.handle(IPC_CHANNELS.emulators.listRetroArchCores, (_event, emulatorId: number) => listRetroArchCores(emulatorId));
   ipcMain.handle(IPC_CHANNELS.emulators.linkPlatform, (_event, emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null) =>
     emulators.linkEmulatorToPlatform(emulatorId, platformId, isDefault, corePath)
   );
@@ -483,4 +484,44 @@ function resolveRetroArchCoreCandidate(coreCandidate: string, coresDir: string):
 function getRetroArchCoreFileNames(coreName: string): string[] {
   if (path.extname(coreName)) return [coreName];
   return [".dll", ".so", ".dylib"].map((extension) => `${coreName}${extension}`);
+}
+
+function listRetroArchCores(emulatorId: number): RetroArchCoreInventory {
+  const emulator = emulators.listEmulators().find((entry) => entry.id === emulatorId && entry.is_retroarch === 1);
+  if (!emulator) throw new Error("RetroArch nao encontrado");
+
+  const executable = emulator.executable.trim();
+  if (!executable) {
+    return {
+      coresDir: null,
+      coresDirExists: false,
+      executableConfigured: false,
+      installedCores: []
+    };
+  }
+
+  const coresDir = path.join(path.dirname(executable), "cores");
+  if (!fs.existsSync(coresDir)) {
+    return {
+      coresDir,
+      coresDirExists: false,
+      executableConfigured: true,
+      installedCores: []
+    };
+  }
+
+  const installedCores = Array.from(
+    new Set(
+      fs.readdirSync(coresDir)
+        .filter((fileName) => [".dll", ".so", ".dylib"].includes(path.extname(fileName).toLowerCase()))
+        .map((fileName) => path.basename(fileName, path.extname(fileName)))
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  return {
+    coresDir,
+    coresDirExists: true,
+    executableConfigured: true,
+    installedCores
+  };
 }
