@@ -71,8 +71,7 @@ export default function App() {
   const setSortBy = useGameStockStore((state) => state.setSortBy);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
-  const setSettingsOpen = useGameStockStore((state) => state.setSettingsOpen);
-  const setSettingsSection = useGameStockStore((state) => state.setSettingsSection);
+
   const hydrateRomImportJobs = useGameStockStore((state) => state.hydrateRomImportJobs);
   const updateRomImportProgress = useGameStockStore((state) => state.updateRomImportProgress);
   const completeRomImportJob = useGameStockStore((state) => state.completeRomImportJob);
@@ -157,9 +156,7 @@ export default function App() {
     reloadGames();
     reloadPlatforms();
     void window.gameStockAPI.games.coverStats().then(setCoverStats).catch(() => undefined);
-    setSettingsOpen(true);
-    setSettingsSection("covers");
-  }), [completeRomImportJob, reloadGames, reloadPlatforms, setCoverStats, setSettingsOpen, setSettingsSection]);
+  }), [completeRomImportJob, reloadGames, reloadPlatforms, setCoverStats]);
 
   return (
     <div className="app-shell">
