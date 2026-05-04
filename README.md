@@ -5,16 +5,19 @@ GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jog
 ## Funcionalidades
 
 - **Biblioteca de jogos**: crie, edite, exclua e consulte jogos com titulo, plataforma, publisher, ano, genero, classificacao, notas, favorito e status de jogo.
-- **Grade e lista**: navegue por cards com capas ou por uma lista compacta, com paginacao e ordenacao.
+- **Grade e lista**: navegue por cards com capas ou por uma lista compacta, com paginacao, ordenacao e navegacao por teclado.
 - **Detalhe do jogo**: veja capa, background, screenshot, metadados, caminho da ROM e formulario de edicao em uma tela dedicada.
+- **Importacao de metadados no formulario**: busque e importe metadados da LaunchBox diretamente pelo formulario de edicao do jogo.
 - **Filtros de colecao**: filtre por todos, favoritos, jogando, concluidos e nao jogados.
 - **Busca e plataformas**: pesquise por titulo e navegue pela sidebar com plataformas agrupadas por categoria.
-- **Gerenciador de plataformas**: cadastre, edite e remova plataformas usadas pela biblioteca.
+- **Gerenciador de plataformas**: cadastre, edite e remova plataformas; configure aliases LaunchBox para correspondencia de metadados e extensoes de ROM aceitas por plataforma.
+- **Gerenciador de emuladores**: cadastre emuladores por plataforma, defina o emulador padrao e lance jogos diretamente pela tela de detalhe.
+- **Integracao RetroArch**: detecte cores instalados, configure o core padrao por plataforma e lance jogos com o core correto automaticamente.
 - **Cadastro manual**: adicione jogos sem depender da LaunchBox.
 - **Associacao de ROMs**: selecione arquivos ROM por dialogos nativos do sistema.
 - **Importador LaunchBox**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
 - **Importacao por pasta de ROMs**: escaneie pastas ou arquivos, revise candidatos, rode importacao em background e acompanhe progresso.
-- **Sincronizacao de capas**: atualize midias de jogos vinculados a LaunchBox e acompanhe estatisticas de capas.
+- **Sincronizacao de capas**: atualize midias de jogos vinculados a LaunchBox, acompanhe multiplos jobs simultaneos e veja estatisticas de capas.
 - **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI.
 - **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/GameStock/`.
 
