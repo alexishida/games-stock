@@ -264,8 +264,8 @@ export function GameDetail() {
               {launching ? "Abrindo..." : "Jogar"}
             </button>
             {launchError && <span className="detail-hero-launch-error" role="status">{launchError}</span>}
-            <button type="button" className={"detail-hero-icon-button" + (game.favorite ? " active" : "")} onClick={toggleFavorite} aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"} title={game.favorite ? "Remover favorito" : "Marcar favorito"}>
-              <Star aria-hidden="true" size={18} />
+            <button type="button" className={"detail-hero-icon-button detail-favorite-button" + (game.favorite ? " active" : "")} onClick={toggleFavorite} aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"} title={game.favorite ? "Remover favorito" : "Marcar favorito"}>
+              <Star aria-hidden="true" size={18} fill={game.favorite ? "#facc15" : "none"} color={game.favorite ? "#facc15" : undefined} />
             </button>
             <button type="button" className={"detail-hero-icon-button" + (game.play_status === "completed" ? " active" : "")} onClick={() => togglePlayStatus("completed")} aria-label="Concluido" title="Concluido">
               <CheckCircle2 aria-hidden="true" size={18} />

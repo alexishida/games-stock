@@ -198,6 +198,7 @@ export interface LaunchBoxProgress {
 
 export interface LaunchBoxImportParams {
   launchboxGameId: string;
+  targetGameId?: number | null;
   platformId?: number | null;
   imageTypes: LaunchBoxImageType[];
 }

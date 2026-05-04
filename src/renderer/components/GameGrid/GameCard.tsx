@@ -91,6 +91,11 @@ export function GameCard({ game }: { game: Game }) {
           <span className="card-platform">{game.platform_name ?? "Sem plataforma"}</span>
           <strong>{game.title}</strong>
         </div>
+        {game.favorite && (
+          <div className="card-favorite-indicator" aria-label="Favorito" title="Favorito">
+            <Star size={18} fill="#facc15" color="#facc15" aria-hidden="true" />
+          </div>
+        )}
         <div className="card-hover-actions">
           <button
             type="button"
@@ -100,7 +105,7 @@ export function GameCard({ game }: { game: Game }) {
             onClick={toggleFavorite}
             aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"}
           >
-            <Star size={14} fill={game.favorite ? "currentColor" : "none"} aria-hidden="true" />
+            <Star size={14} fill={game.favorite ? "#facc15" : "none"} color={game.favorite ? "#facc15" : undefined} aria-hidden="true" />
           </button>
           <button
             type="button"
