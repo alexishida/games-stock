@@ -18,6 +18,7 @@ export type SettingsSection = "biblioteca" | "plataformas" | "covers" | "emulado
 
 const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const LAST_MEDIA_SYNC_JOB_KEY = "gamestock.media.lastMediaSyncJob";
+const LAST_MEDIA_SYNC_JOBS_KEY = "gamestock.media.lastMediaSyncJobs";
 
 type SetterValue<T> = T | ((current: T) => T);
 
@@ -74,7 +75,7 @@ interface GameStockState {
   platformsReloadToken: number;
   collectionCounts: CollectionCounts;
   lastRomImportJob: RomFolderImportJob | null;
-  lastMediaSyncJob: MediaSyncJob | null;
+  mediaSyncJobs: MediaSyncJob[];
   metadataStartupRunning: boolean;
   coverStats: CoverSyncStats | null;
   setSelectedPlatformId(value: number | null): void;
@@ -135,7 +136,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   platformsReloadToken: 0,
   collectionCounts: { favorites: 0, playing: 0, completed: 0 },
   lastRomImportJob: loadSavedRomImportJob(),
-  lastMediaSyncJob: loadSavedMediaSyncJob(),
+  mediaSyncJobs: loadSavedMediaSyncJobs(),
   metadataStartupRunning: false,
   coverStats: null,
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null, selectedGame: null }),
@@ -204,8 +205,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     persistFinishedJob(LAST_ROM_IMPORT_JOB_KEY, nextJob);
     return { lastRomImportJob: nextJob };
   }),
-  startMediaSyncJob: (job) => set(() => {
-    const nextJob: MediaSyncJob = {
+  startMediaSyncJob: (job) => set((state) => {
+    const newJob: MediaSyncJob = {
       jobId: job.jobId,
       title: job.title,
       subtitle: job.subtitle ?? "Biblioteca",
@@ -216,17 +217,21 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       startedAt: job.startedAt ?? new Date().toISOString(),
       indeterminate: job.indeterminate
     };
-    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
-    return { lastMediaSyncJob: nextJob };
+    return { mediaSyncJobs: [...state.mediaSyncJobs, newJob] };
   }),
   updateMediaSyncProgress: (progress) => set((state) => {
-    if (!state.lastMediaSyncJob || state.lastMediaSyncJob.status !== "running") return {};
-    const nextJob = buildMediaJobFromProgress(state.lastMediaSyncJob, progress);
-    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
-    return { lastMediaSyncJob: nextJob };
+    const running = state.mediaSyncJobs.filter((j) => j.status === "running");
+    if (!running.length) return {};
+    const target = running.length === 1 ? running[0] : routeProgressToJob(progress, running);
+    if (!target) return {};
+    return {
+      mediaSyncJobs: state.mediaSyncJobs.map((j) =>
+        j.jobId === target.jobId ? buildMediaJobFromProgress(j, progress) : j
+      )
+    };
   }),
   finishMediaSyncJob: (jobId, result) => set((state) => {
-    const current = state.lastMediaSyncJob?.jobId === jobId ? state.lastMediaSyncJob : null;
+    const current = state.mediaSyncJobs.find((j) => j.jobId === jobId) ?? null;
     const nextJob: MediaSyncJob = {
       jobId,
       title: result.title,
@@ -238,11 +243,12 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       startedAt: current?.startedAt ?? new Date().toISOString(),
       indeterminate: false
     };
-    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
-    return { lastMediaSyncJob: nextJob };
+    const updated = state.mediaSyncJobs.map((j) => j.jobId === jobId ? nextJob : j);
+    persistMediaSyncJobs(updated);
+    return { mediaSyncJobs: updated };
   }),
   failMediaSyncJob: (jobId, message) => set((state) => {
-    const current = state.lastMediaSyncJob?.jobId === jobId ? state.lastMediaSyncJob : null;
+    const current = state.mediaSyncJobs.find((j) => j.jobId === jobId) ?? null;
     const nextJob: MediaSyncJob = {
       jobId,
       title: current?.title ? `${current.title} falhou` : "Sincronizacao falhou",
@@ -254,8 +260,9 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       startedAt: current?.startedAt ?? new Date().toISOString(),
       indeterminate: false
     };
-    persistFinishedJob(LAST_MEDIA_SYNC_JOB_KEY, nextJob);
-    return { lastMediaSyncJob: nextJob };
+    const updated = state.mediaSyncJobs.map((j) => j.jobId === jobId ? nextJob : j);
+    persistMediaSyncJobs(updated);
+    return { mediaSyncJobs: updated };
   }),
   setMetadataStartupRunning: (metadataStartupRunning) => set({ metadataStartupRunning }),
   setCoverStats: (coverStats) => set({ coverStats }),
@@ -362,8 +369,39 @@ function loadSavedRomImportJob(): RomFolderImportJob | null {
   return loadSavedJob<RomFolderImportJob>(LAST_ROM_IMPORT_JOB_KEY, isRomImportJob);
 }
 
-function loadSavedMediaSyncJob(): MediaSyncJob | null {
-  return loadSavedJob<MediaSyncJob>(LAST_MEDIA_SYNC_JOB_KEY, isMediaSyncJob);
+function loadSavedMediaSyncJobs(): MediaSyncJob[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = window.localStorage.getItem(LAST_MEDIA_SYNC_JOBS_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter(isMediaSyncJob);
+    }
+    // migrate legacy single-job key
+    const legacy = loadSavedJob<MediaSyncJob>(LAST_MEDIA_SYNC_JOB_KEY, isMediaSyncJob);
+    return legacy ? [legacy] : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistMediaSyncJobs(jobs: MediaSyncJob[]): void {
+  try {
+    if (typeof window === "undefined") return;
+    const finished = jobs.filter((j) => j.status !== "running");
+    if (!finished.length) {
+      window.localStorage.removeItem(LAST_MEDIA_SYNC_JOBS_KEY);
+    } else {
+      window.localStorage.setItem(LAST_MEDIA_SYNC_JOBS_KEY, JSON.stringify(finished));
+    }
+  } catch {
+    // best effort
+  }
+}
+
+function routeProgressToJob(progress: LaunchBoxProgress, running: MediaSyncJob[]): MediaSyncJob | null {
+  const isMetadata = progress.status === "extracting" || progress.status === "indexing" || isMetadataProgress(progress);
+  return running.find((j) => isMetadata ? j.jobId.startsWith("metadata-") : j.jobId.startsWith("media-sync-")) ?? running[0];
 }
 
 function loadSavedJob<T>(key: string, isValid: (value: unknown) => value is T): T | null {

@@ -21,17 +21,17 @@ export function CoversSettings() {
   const [error, setError] = useState<string | null>(null);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const romImportJob = useGameStockStore((state) => state.lastRomImportJob);
-  const mediaSyncJob = useGameStockStore((state) => state.lastMediaSyncJob);
+  const mediaSyncJobs = useGameStockStore((state) => state.mediaSyncJobs);
   const startMediaSyncJob = useGameStockStore((state) => state.startMediaSyncJob);
   const finishMediaSyncJob = useGameStockStore((state) => state.finishMediaSyncJob);
   const failMediaSyncJob = useGameStockStore((state) => state.failMediaSyncJob);
   const metadataStartupRunning = useGameStockStore((state) => state.metadataStartupRunning);
   const startupTrackedRef = useRef(false);
-  const activeMediaJob = mediaSyncJob?.status === "running" ? mediaSyncJob : null;
-  const syncing = activeMediaJob?.jobId.startsWith("media-sync-") ?? false;
-  const updatingMetadata = metadataStartupRunning || Boolean(activeMediaJob?.jobId.startsWith("metadata-"));
-  const metadataJob = activeMediaJob?.jobId.startsWith("metadata-") ? activeMediaJob : null;
-  const mediaLibraryJob = mediaSyncJob?.jobId.startsWith("media-sync-") ? mediaSyncJob : null;
+  const runningMediaJobs = mediaSyncJobs.filter((j) => j.status === "running");
+  const syncing = runningMediaJobs.some((j) => j.jobId.startsWith("media-sync-"));
+  const updatingMetadata = metadataStartupRunning || runningMediaJobs.some((j) => j.jobId.startsWith("metadata-"));
+  const metadataJob = runningMediaJobs.find((j) => j.jobId.startsWith("metadata-")) ?? null;
+  const mediaLibraryJobs = mediaSyncJobs.filter((j) => j.jobId.startsWith("media-sync-"));
 
   useEffect(() => {
     if (metadataStartupRunning) {
@@ -108,7 +108,6 @@ export function CoversSettings() {
     }
   }
 
-  const currentMediaSyncJob = mediaLibraryJob;
   const romImportRunning = romImportJob?.status === "running";
   const romProgress = romImportJob?.progress ?? null;
   const romResult = romImportJob?.result;
@@ -132,12 +131,6 @@ export function CoversSettings() {
         ? "Erro"
         : `${romProgress?.current ?? 0} de ${romProgress?.total ?? 0} - ${labelForRomStage(romProgress?.stage ?? "preparing_metadata")}`
     : "";
-  const showRomImportJob = Boolean(romImportJob && (
-    romImportJob.status === "running" ||
-    !mediaLibraryJob ||
-    timestamp(romImportJob.startedAt) >= timestamp(mediaLibraryJob.startedAt)
-  ));
-  const showMediaSyncJob = Boolean(currentMediaSyncJob && !showRomImportJob);
 
   return (
     <section className="covers-settings">
@@ -195,23 +188,23 @@ export function CoversSettings() {
           </button>
         </div>
 
-        {showMediaSyncJob && currentMediaSyncJob && (
-          <div className="covers-rom-sync-card">
+        {mediaLibraryJobs.map((job) => (
+          <div key={job.jobId} className="covers-rom-sync-card">
             <div className="covers-rom-sync-card-header">
               <div>
-                <strong>{currentMediaSyncJob.title}</strong>
-                <span>{currentMediaSyncJob.subtitle}</span>
+                <strong>{job.title}</strong>
+                <span>{job.subtitle}</span>
               </div>
-              <small>{currentMediaSyncJob.progressLabel}</small>
+              <small>{job.progressLabel}</small>
             </div>
-            <p>{currentMediaSyncJob.detail}</p>
-            <div className={`covers-progress-track${currentMediaSyncJob.indeterminate ? " covers-progress-indeterminate" : ""}`} aria-label="Progresso de covers">
-              <span style={{ width: `${currentMediaSyncJob.percent}%` }} />
+            <p>{job.detail}</p>
+            <div className={`covers-progress-track${job.indeterminate ? " covers-progress-indeterminate" : ""}`} aria-label="Progresso de covers">
+              <span style={{ width: `${job.percent}%` }} />
             </div>
           </div>
-        )}
+        ))}
 
-        {showRomImportJob && romImportJob && (
+        {romImportJob && (
           <div className="covers-rom-sync-card">
             <div className="covers-rom-sync-card-header">
               <div>
@@ -239,12 +232,6 @@ function formatMetadataDate(value: string | null): string {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
-}
-
-function timestamp(value: string | undefined): number {
-  if (!value) return 0;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : 0;
 }
 
 function labelForRomStage(stage: RomFolderImportProgress["stage"]): string {
