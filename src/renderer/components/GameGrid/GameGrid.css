@@ -4,7 +4,7 @@
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, 212px);
-  grid-auto-rows: 304px;
+  grid-auto-rows: 260px;
   gap: 24px;
   align-content: start;
   justify-content: start;
@@ -13,7 +13,7 @@
 
 .game-card {
   width: 212px;
-  height: 304px;
+  height: 260px;
   display: block;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -44,7 +44,7 @@
 
 .game-card.landscape {
   width: 212px;
-  height: 304px;
+  height: 260px;
 }
 
 .game-card.landscape .cover-frame {
@@ -55,7 +55,7 @@
 
 .game-card.landscape .cover-frame img {
   object-fit: contain;
-  padding: 10px;
+  padding: 7px;
 }
 
 .cover-frame {
@@ -141,6 +141,22 @@
   -webkit-line-clamp: 2;
 }
 
+.card-favorite-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #facc15;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+  transition: opacity 160ms ease;
+}
+
+.game-card:hover .card-favorite-indicator {
+  opacity: 0;
+}
+
 .card-hover-actions {
   position: absolute;
   top: 10px;
@@ -163,12 +179,13 @@
   transition: opacity 160ms ease, background 120ms ease, border-color 120ms ease, transform 120ms ease, color 120ms ease;
   backdrop-filter: blur(4px);
   padding: 0;
+  pointer-events: none;
 }
 
 .game-card:hover .card-action-btn,
-.card-action-btn.active,
 .card-action-btn.launching {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .card-action-btn:hover:not(:disabled) {
@@ -247,35 +264,35 @@
 @media (max-width: 1180px) {
   .game-grid-wrap {
     grid-template-columns: repeat(auto-fill, 188px);
-    grid-auto-rows: 270px;
+    grid-auto-rows: 230px;
     gap: 20px;
   }
 
   .game-card {
     width: 188px;
-    height: 270px;
+    height: 230px;
   }
 
   .game-card.landscape {
     width: 188px;
-    height: 270px;
+    height: 230px;
   }
 }
 
 @media (max-width: 760px) {
   .game-grid-wrap {
     grid-template-columns: repeat(auto-fill, 148px);
-    grid-auto-rows: 213px;
+    grid-auto-rows: 182px;
     gap: 16px;
   }
 
   .game-card {
     width: 148px;
-    height: 213px;
+    height: 182px;
   }
 
   .game-card.landscape {
     width: 148px;
-    height: 213px;
+    height: 182px;
   }
 }
