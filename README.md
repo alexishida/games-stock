@@ -22,7 +22,8 @@ GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jog
 - **Importador LaunchBox**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
 - **Importacao por pasta de ROMs**: escaneie pastas ou arquivos, revise candidatos, rode importacao em background e acompanhe progresso.
 - **Sincronizacao de capas**: atualize midias de jogos vinculados a LaunchBox, acompanhe multiplos jobs simultaneos e veja estatisticas de capas.
-- **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI.
+- **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI. Jobs concluidos ficam visiveis ate serem dispensados manualmente.
+- **Resiliencia de jobs**: jobs interrompidos por fechamento do app sao detectados na proxima abertura e exibem botao de retomada. Cards de job tem borda colorida por status (azul=rodando, verde=concluido, vermelho=falhou, amarelo=interrompido).
 - **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/GameStock/`.
 
 ## Requisitos
