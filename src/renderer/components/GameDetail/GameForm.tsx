@@ -27,7 +27,8 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
     setMetadataImportStatus("");
     setMetadataPickerOpen(false);
     setMetadataEditorOpen(false);
-  }, [game]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.id]);
 
   const hasMetadata = useMemo(() => hasGameMetadata(draft), [draft]);
   const metadataSummary = useMemo(() => buildMetadataSummary(draft), [draft]);

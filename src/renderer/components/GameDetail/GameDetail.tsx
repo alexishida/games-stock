@@ -50,9 +50,7 @@ export function GameDetail() {
       .then((nextGame) => {
         if (!canceled) setSelectedGame(nextGame);
       })
-      .catch(() => {
-        if (!canceled) setSelectedGame(null);
-      });
+      .catch(() => {});
 
     return () => {
       canceled = true;
