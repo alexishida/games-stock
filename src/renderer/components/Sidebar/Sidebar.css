@@ -36,7 +36,8 @@
 }
 
 .brand-lockup strong,
-.brand-lockup span {
+.brand-lockup span,
+.brand-lockup small {
   display: block;
 }
 
@@ -56,6 +57,14 @@
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+.brand-version {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .sidebar-nav {

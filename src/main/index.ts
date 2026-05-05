@@ -17,6 +17,10 @@ let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const romFolderJobs = new Map<string, RomFolderImportJob>();
 
+function getWindowTitle(): string {
+  return `GameStock v${app.getVersion()}`;
+}
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "gamestock-media",
@@ -47,7 +51,7 @@ async function createWindow(): Promise<void> {
     ...bounds,
     minWidth: 1024,
     minHeight: 768,
-    title: "GameStock",
+    title: getWindowTitle(),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -212,6 +216,7 @@ function registerIpc(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
+  ipcMain.handle(IPC_CHANNELS.app.getVersion, () => app.getVersion());
 
   ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>
     ensureLaunchBoxMetadata(Boolean(options?.force), sendLaunchBoxProgress)

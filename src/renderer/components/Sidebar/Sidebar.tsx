@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Gamepad2, Library, Settings, Star, Trophy } from "lucide-react";
 import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
@@ -19,10 +19,23 @@ export function Sidebar() {
   const collectionCounts = useGameStockStore((state) => state.collectionCounts);
   const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
+  const [appVersion, setAppVersion] = useState("");
 
   // Toda navegacao atual pertence a Biblioteca.
   // So deve perder estado ativo quando existir fluxo real de Inventario.
   const isLibraryActive = true;
+
+  useEffect(() => {
+    let mounted = true;
+
+    void window.gameStockAPI.app.getVersion().then((version) => {
+      if (mounted) setAppVersion(version);
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <aside className="sidebar">
@@ -33,6 +46,7 @@ export function Sidebar() {
         <div>
           <strong>GameStock</strong>
           <span>Games Management</span>
+          {appVersion ? <small className="brand-version">v{appVersion}</small> : null}
         </div>
       </div>
       <nav className="sidebar-nav" aria-label="Navegação principal">

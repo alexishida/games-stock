@@ -74,6 +74,9 @@ const api = {
   shell: {
     openPath: (targetPath: string) => ipcRenderer.invoke(IPC_CHANNELS.shell.openPath, targetPath)
   },
+  app: {
+    getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.app.getVersion) as Promise<string>
+  },
   launchbox: {
     ensureMetadata: (options?: { force?: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.ensureMetadata, options),
     metadataExists: () => ipcRenderer.invoke(IPC_CHANNELS.launchbox.metadataExists) as Promise<boolean>,

@@ -43,6 +43,9 @@ export const IPC_CHANNELS = {
   shell: {
     openPath: "shell:openPath"
   },
+  app: {
+    getVersion: "app:getVersion"
+  },
   launchbox: {
     ensureMetadata: "launchbox:ensureMetadata",
     metadataExists: "launchbox:metadataExists",

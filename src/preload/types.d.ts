@@ -78,6 +78,9 @@ export interface GameStockAPI {
   shell: {
     openPath(path: string): Promise<string>;
   };
+  app: {
+    getVersion(): Promise<string>;
+  };
   launchbox: {
     ensureMetadata(options?: { force?: boolean }): Promise<{ status: "cached" | "downloaded" }>;
     metadataExists(): Promise<boolean>;

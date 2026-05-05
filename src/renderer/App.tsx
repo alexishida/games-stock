@@ -87,6 +87,19 @@ export default function App() {
   const failMediaSyncJob = useGameStockStore((state) => state.failMediaSyncJob);
 
   const metadataStarted = useRef(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void window.gameStockAPI.app.getVersion().then((version) => {
+      if (mounted) document.title = `GameStock v${version}`;
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (metadataStarted.current) return;
     metadataStarted.current = true;
