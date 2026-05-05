@@ -103,7 +103,7 @@ function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismis
   const openSettings = useGameStockStore((state) => state.openSettings);
   const percent = job.status === "running" ? job.percent : 100;
   const progressText = job.status === "completed"
-    ? "Concluido"
+    ? "Concluído"
     : job.status === "failed"
       ? "Erro"
       : job.status === "interrupted"
@@ -141,7 +141,7 @@ function folderCount(job: RomFolderImportJob): number {
 }
 
 function statusLabel(status: RomFolderImportJob["status"], progress: RomFolderImportProgress): string {
-  if (status === "completed") return "Concluido";
+  if (status === "completed") return "Concluído";
   if (status === "failed") return "Erro";
   if (status === "interrupted") return "Interrompido";
   return `${progress.current} de ${progress.total} - ${labelForStage(progress.stage)}`;
@@ -151,10 +151,10 @@ function labelForStage(stage: RomFolderImportProgress["stage"]): string {
   return {
     preparing_metadata: "preparando dados",
     matching: "fazendo match",
-    downloading: "baixando midia",
+    downloading: "baixando mídia",
     skipped: "pulando",
     saving: "salvando",
-    done: "concluido",
+    done: "concluído",
     error: "erro"
   }[stage];
 }

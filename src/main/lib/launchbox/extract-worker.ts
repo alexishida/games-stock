@@ -13,7 +13,7 @@ try {
   parentPort!.postMessage({ status: "extracting", current: 0, total: 0, filename: "Extraindo Metadata.zip" });
   const zip = new AdmZip(zipPath);
   const entry = zip.getEntries().find((e) => e.entryName.endsWith(".xml"));
-  if (!entry) throw new Error("Metadata.xml nao encontrado no ZIP");
+  if (!entry) throw new Error("Metadata.xml não encontrado no ZIP");
   zip.extractEntryTo(entry, cacheDir, false, true);
   const extracted = path.join(cacheDir, path.basename(entry.entryName));
   if (extracted !== metadataFile) fs.renameSync(extracted, metadataFile);

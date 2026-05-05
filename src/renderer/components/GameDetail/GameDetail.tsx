@@ -117,11 +117,11 @@ export function GameDetail() {
   }
 
   const currentGame = game;
-  const publisher = game.publisher || "Publisher nao informado";
-  const genre = game.genre || "Genero nao informado";
-  const year = game.year?.toString() ?? "Ano nao informado";
-  const overview = game.notes?.trim() || "Sem descricao cadastrada para este jogo.";
-  const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM nao associada";
+  const publisher = game.publisher || "Publisher não informado";
+  const genre = game.genre || "Gênero não informado";
+  const year = game.year?.toString() ?? "Ano não informado";
+  const overview = game.notes?.trim() || "Sem descrição cadastrada para este jogo.";
+  const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM não associada";
   const hasRom = Boolean(game.rom_path?.trim());
   const hasDefaultEmulator = Boolean(defaultEmulator);
   const canLaunchGame = hasRom && hasDefaultEmulator && !emulatorLoading;
@@ -169,7 +169,7 @@ export function GameDetail() {
     try {
       await window.gameStockAPI.games.launch(currentGame.id);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Erro ao lancar jogo";
+      const message = err instanceof Error ? err.message : "Erro ao lançar jogo";
       setLaunchError(message);
       setTimeout(() => setLaunchError(""), 4000);
     } finally {
@@ -269,7 +269,7 @@ export function GameDetail() {
             <button type="button" className={"detail-hero-icon-button detail-favorite-button" + (game.favorite ? " active" : "")} onClick={toggleFavorite} aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"} title={game.favorite ? "Remover favorito" : "Marcar favorito"}>
               <Star aria-hidden="true" size={18} fill={game.favorite ? "#facc15" : "none"} color={game.favorite ? "#facc15" : undefined} />
             </button>
-            <button type="button" className={"detail-hero-icon-button detail-completed-button" + (completedActive ? " active" : "")} onClick={() => togglePlayStatus("completed")} aria-label="Concluido" title="Concluido">
+            <button type="button" className={"detail-hero-icon-button detail-completed-button" + (completedActive ? " active" : "")} onClick={() => togglePlayStatus("completed")} aria-label="Concluído" title="Concluído">
               <Trophy aria-hidden="true" size={18} />
             </button>
             <button type="button" className={"detail-hero-icon-button detail-playing-button" + (playingActive ? " active" : "")} onClick={() => togglePlayStatus("playing")} aria-label="Jogando" title="Jogando">
@@ -308,7 +308,7 @@ export function GameDetail() {
             </div>
             <div>
               <dt>Box Art</dt>
-              <dd>{game.box_art_path ? "Associada" : "Nao associada"}</dd>
+              <dd>{game.box_art_path ? "Associada" : "Não associada"}</dd>
             </div>
             <div>
               <dt>Status</dt>
@@ -399,8 +399,8 @@ function sanitizeFileNamePart(value: string): string {
 }
 
 function getPlayButtonTitle(hasRom: boolean, emulatorLoading: boolean, defaultEmulator: PlatformEmulator | null): string {
-  if (!hasRom) return "ROM nao configurada";
+  if (!hasRom) return "ROM não configurada";
   if (emulatorLoading) return "Verificando emulador da plataforma";
-  if (!defaultEmulator) return "Escolha um emulador padrao para esta plataforma";
-  return `Jogar com ${defaultEmulator.emulator?.name ?? "emulador padrao"}`;
+  if (!defaultEmulator) return "Escolha um emulador padrão para esta plataforma";
+  return `Jogar com ${defaultEmulator.emulator?.name ?? "emulador padrão"}`;
 }

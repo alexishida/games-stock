@@ -129,7 +129,7 @@ function registerIpc(): void {
     let args: string[];
     if (emulator.is_retroarch) {
       const corePath = resolveRetroArchCorePath(pe.core_path, emulator.executable, game.platform_name ?? "");
-      if (!corePath) throw new Error("Core do RetroArch nao configurado para esta plataforma");
+      if (!corePath) throw new Error("Core do RetroArch não configurado para esta plataforma");
       args = ["-L", corePath, game.rom_path];
     } else {
       const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
@@ -271,7 +271,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
     current: 0,
     total: scan.candidates.length,
     stage: "preparing_metadata",
-    message: "Importacao iniciada em background"
+    message: "Importação iniciada em background"
   };
   const job: RomFolderImportJob = {
     jobId,
@@ -302,7 +302,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
         current: result.summary.processed,
         total: result.summary.processed,
         stage: "done",
-        message: "Importacao concluida"
+        message: "Importação concluída"
       };
       mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.completed, job.result);
     })
@@ -490,7 +490,7 @@ function getRetroArchCoreFileNames(coreName: string): string[] {
 
 function listRetroArchCores(emulatorId: number): RetroArchCoreInventory {
   const emulator = emulators.listEmulators().find((entry) => entry.id === emulatorId && entry.is_retroarch === 1);
-  if (!emulator) throw new Error("RetroArch nao encontrado");
+  if (!emulator) throw new Error("RetroArch não encontrado");
 
   const executable = emulator.executable.trim();
   if (!executable) {

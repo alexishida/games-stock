@@ -19,38 +19,38 @@ export class PlatformDao {
   }
 
   create(data: PlatformInput): Platform {
-    if (!data.name?.trim()) throw new Error("Nome da plataforma e obrigatorio");
+    if (!data.name?.trim()) throw new Error("Nome da plataforma é obrigatório");
     try {
       const result = this.database
         .prepare("INSERT INTO platforms (name, category) VALUES (?, ?)")
         .run(data.name.trim(), data.category.trim() || "Outros");
       return this.get(Number(result.lastInsertRowid))!;
     } catch (error) {
-      if (String(error).includes("UNIQUE")) throw new Error("Plataforma ja existe");
+      if (String(error).includes("UNIQUE")) throw new Error("Plataforma já existe");
       throw error;
     }
   }
 
   update(id: number, data: Partial<PlatformInput>): Platform {
     const current = this.get(id);
-    if (!current) throw new Error("Plataforma nao encontrada");
+    if (!current) throw new Error("Plataforma não encontrada");
     try {
       this.database
         .prepare("UPDATE platforms SET name = ?, category = ? WHERE id = ?")
         .run(data.name?.trim() || current.name, data.category?.trim() || current.category, id);
       return this.get(id)!;
     } catch (error) {
-      if (String(error).includes("UNIQUE")) throw new Error("Plataforma ja existe");
+      if (String(error).includes("UNIQUE")) throw new Error("Plataforma já existe");
       throw error;
     }
   }
 
   delete(id: number): { success: true } {
     const platform = this.database.prepare("SELECT is_default FROM platforms WHERE id = ?").get(id) as { is_default: number } | undefined;
-    if (!platform) throw new Error("Plataforma nao encontrada");
-    if (platform.is_default) throw new Error("Nao e possivel remover plataformas padrao");
+    if (!platform) throw new Error("Plataforma não encontrada");
+    if (platform.is_default) throw new Error("Não é possível remover plataformas padrão");
     const count = this.database.prepare("SELECT COUNT(*) as count FROM games WHERE platform_id = ?").get(id) as { count: number };
-    if (count.count > 0) throw new Error("Nao e possivel remover plataforma com jogos associados");
+    if (count.count > 0) throw new Error("Não é possível remover plataforma com jogos associados");
     this.database.prepare("DELETE FROM platforms WHERE id = ?").run(id);
     return { success: true };
   }
@@ -112,7 +112,7 @@ export class PlatformDao {
 
   saveMappings(platformId: number, input: PlatformMappingsInput): void {
     const platform = this.get(platformId);
-    if (!platform) throw new Error("Plataforma nao encontrada");
+    if (!platform) throw new Error("Plataforma não encontrada");
 
     const normalizedAliases = Array.from(
       new Set(
@@ -135,8 +135,8 @@ export class PlatformDao {
           .map((entry) => [entry.extension, entry])
       ).values()
     );
-    if (!normalizedExtensions.length) throw new Error("Informe ao menos uma extensao principal de ROM");
-    if (!normalizedExtensions.some((entry) => entry.is_primary === 1)) throw new Error("Marque ao menos uma extensao principal");
+    if (!normalizedExtensions.length) throw new Error("Informe ao menos uma extensão principal de ROM");
+    if (!normalizedExtensions.some((entry) => entry.is_primary === 1)) throw new Error("Marque ao menos uma extensão principal");
 
     const insertAlias = this.database.prepare("INSERT INTO platform_launchbox_aliases (platform_id, alias) VALUES (?, ?)");
     const insertExtension = this.database.prepare(`

@@ -269,7 +269,7 @@ function PlatformMappingsModal({ platform, onClose }: { platform: Platform; onCl
                       className="icon-button danger"
                       onClick={() => removeExtension(extension.id)}
                       disabled={extensions.length <= 1}
-                      title="Remover extensao"
+                      title="Remover extensão"
                     >
                       <Trash2 size={14} aria-hidden="true" />
                     </button>

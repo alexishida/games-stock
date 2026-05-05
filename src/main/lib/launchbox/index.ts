@@ -29,7 +29,7 @@ export async function downloadLaunchBoxImages(params: LaunchBoxDownloadParams, o
 export async function importGame(params: LaunchBoxImportParams, onProgress?: ProgressCallback): Promise<LaunchBoxImportResult> {
   const index = await buildIndex(onProgress);
   const game = index[params.launchboxGameId];
-  if (!game) throw new Error("Jogo LaunchBox nao encontrado");
+  if (!game) throw new Error("Jogo LaunchBox não encontrado");
 
   const targetGame = params.targetGameId ? getTargetGame(params.targetGameId) : null;
   const platformId = targetGame?.platform_id ?? params.platformId ?? resolvePlatformId(game.platform);
@@ -146,7 +146,7 @@ function getTargetGame(targetGameId: number) {
   const game = listLaunchBoxLinkedGames().find((entry) => entry.id === targetGameId);
   if (game) return game;
   const selected = getGame(targetGameId);
-  if (!selected) throw new Error("Jogo de destino nao encontrado");
+  if (!selected) throw new Error("Jogo de destino não encontrado");
   return selected;
 }
 

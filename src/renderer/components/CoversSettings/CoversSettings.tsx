@@ -64,9 +64,9 @@ export function CoversSettings() {
     setError(null);
     startMediaSyncJob({
       jobId,
-      title: "Sincronizando midia",
+      title: "Sincronizando mídia",
       subtitle: "Biblioteca",
-      detail: "Preparando sincronizacao",
+      detail: "Preparando sincronização",
       progressLabel: "Sincronizando"
     });
     try {
@@ -76,7 +76,7 @@ export function CoversSettings() {
       finishMediaSyncJob(jobId, {
         title: `${result.metadataUpdated} metadado(s), ${result.downloadedNow} capa(s)`,
         detail: `${result.attempted} processados, ${result.skipped} pulados, ${result.failed} falha(s)`,
-        progressLabel: "Concluido"
+        progressLabel: "Concluído"
       });
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
@@ -101,7 +101,7 @@ export function CoversSettings() {
       finishMediaSyncJob(jobId, {
         title: "Base de dados atualizada",
         detail: "Metadata.zip atualizado",
-        progressLabel: "Concluido"
+        progressLabel: "Concluído"
       });
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
@@ -121,16 +121,16 @@ export function CoversSettings() {
   const romTitle = romResult
     ? `${romResult.summary.created} criados, ${romResult.summary.updated} atualizados`
     : romImportJob?.status === "failed"
-      ? "Importacao de ROMs falhou"
+      ? "Importação de ROMs falhou"
       : romImportJob?.status === "interrupted"
         ? "Import interrompido"
         : "Importando ROMs";
   const romDetail = romResult
-    ? `${romResult.summary.processed} processados, ${romResult.summary.unmatched} sem match, ${romResult.summary.failedDownloads} falha(s) de midia`
+    ? `${romResult.summary.processed} processados, ${romResult.summary.unmatched} sem match, ${romResult.summary.failedDownloads} falha(s) de mídia`
     : romProgress?.filename ?? romProgress?.message ?? "Aguardando progresso";
   const romStep = romImportJob
     ? romImportJob.status === "completed"
-      ? "Concluido"
+      ? "Concluído"
       : romImportJob.status === "failed"
         ? "Erro"
         : romImportJob.status === "interrupted"
@@ -156,7 +156,7 @@ export function CoversSettings() {
         <div className="covers-sync-header">
           <div>
             <strong>Atualizar dados</strong>
-            <span>Ultimo download: {formatMetadataDate(stats.metadataDownloadedAt)}</span>
+            <span>Último download: {formatMetadataDate(stats.metadataDownloadedAt)}</span>
           </div>
           <button type="button" className="text-button active" onClick={updateMetadata} disabled={updatingMetadata || syncing}>
             <DatabaseZap aria-hidden="true" size={16} className={updatingMetadata ? "spin" : ""} />
@@ -174,7 +174,7 @@ export function CoversSettings() {
       </div>
 
       <div className="covers-media-intro">
-        <SectionIntro title="Midia da biblioteca" description="Situacao das capas principais e metadados baixados para os jogos da biblioteca." />
+        <SectionIntro title="Mídia da biblioteca" description="Situação das capas principais e metadados baixados para os jogos da biblioteca." />
       </div>
 
       <div className="covers-status">
@@ -198,7 +198,7 @@ export function CoversSettings() {
       <div className={"covers-sync-panel" + (!syncing ? " covers-sync-panel-idle" : "")}>
         <div className="covers-sync-header">
           <div>
-            <strong>Sincronizacao de midia</strong>
+            <strong>Sincronização de mídia</strong>
           </div>
           <button type="button" className="text-button active" onClick={syncCovers} disabled={syncing || updatingMetadata || romImportRunning || (stats.syncable === 0 && stats.metadataSyncable === 0)}>
             <RefreshCw aria-hidden="true" size={16} className={syncing ? "spin" : ""} />
@@ -255,7 +255,7 @@ export function CoversSettings() {
             </div>
             <p>{romDetail}</p>
             {romProgress?.imageFilename ? <p>{romProgress.imageFilename}</p> : null}
-            <div className="covers-progress-track" aria-label="Progresso da importacao de ROMs">
+            <div className="covers-progress-track" aria-label="Progresso da importação de ROMs">
               <span style={{ width: `${romPercent}%` }} />
             </div>
             {romImportJob.status === "interrupted" && (
@@ -286,10 +286,10 @@ function labelForRomStage(stage: RomFolderImportProgress["stage"]): string {
   return {
     preparing_metadata: "preparando dados",
     matching: "fazendo match",
-    downloading: "baixando midia",
+    downloading: "baixando mídia",
     skipped: "pulando",
     saving: "salvando",
-    done: "concluido",
+    done: "concluído",
     error: "erro"
   }[stage];
 }

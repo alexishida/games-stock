@@ -241,7 +241,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       subtitle: current?.subtitle ?? "Biblioteca",
       status: result.status ?? "completed",
       detail: result.detail ?? current?.detail ?? result.title,
-      progressLabel: result.progressLabel ?? (result.status === "failed" ? "Erro" : "Concluido"),
+      progressLabel: result.progressLabel ?? (result.status === "failed" ? "Erro" : "Concluído"),
       percent: 100,
       startedAt: current?.startedAt ?? new Date().toISOString(),
       indeterminate: false
@@ -333,14 +333,14 @@ function buildMediaJobFromProgress(current: MediaSyncJob, progress: LaunchBoxPro
 
 function mediaProgressDetail(progress: LaunchBoxProgress, fallback: string): string {
   if (progress.status === "extracting") return "Extraindo Metadata.zip";
-  if (progress.status === "indexing") return "Construindo indice";
+  if (progress.status === "indexing") return "Construindo índice";
   return progress.filename ?? fallback;
 }
 
 function mediaProgressLabel(progress: LaunchBoxProgress): string {
   if (progress.status === "extracting") return "Extraindo";
-  if (progress.status === "indexing") return "Construindo indice";
-  if (progress.status === "done") return "Concluido";
+  if (progress.status === "indexing") return "Construindo índice";
+  if (progress.status === "done") return "Concluído";
   if (isMetadataProgress(progress)) return `${formatMegabytes(progress.current)} de ${formatMegabytes(progress.total)}`;
   return progress.total ? `${progress.current} de ${progress.total}` : "Processando";
 }

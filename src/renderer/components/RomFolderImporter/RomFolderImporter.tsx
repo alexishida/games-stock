@@ -287,7 +287,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
 
       {step === "configure" ? (
         <div className="add-folder-dialog-body">
-          <p>Selecione a pasta onde estao os ROMs e escolha a plataforma correspondente.</p>
+          <p>Selecione a pasta onde estão os ROMs e escolha a plataforma correspondente.</p>
 
           <label className="assistant-platform large">
             <span>Pasta</span>
@@ -434,7 +434,7 @@ function SummaryStep({
   return (
     <div className="rom-folder-step">
       <section className="import-assistant-panel summary">
-        <SectionIntro title="Pastas em uso" description="Pastas ja configuradas para importacao, com a plataforma associada e o total de jogos indexados." />
+        <SectionIntro title="Pastas em uso" description="Pastas já configuradas para importação, com a plataforma associada e o total de jogos indexados." />
         <div className="folder-table" role="table" aria-label="Pastas em uso">
           <div className="folder-table-row header" role="row">
             <span role="columnheader">Pasta</span>

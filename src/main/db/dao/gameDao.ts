@@ -52,8 +52,8 @@ export class GameDao {
   }
 
   create(data: Partial<GameCreateInput>): Game {
-    if (!data.title?.trim()) throw new Error("Titulo e obrigatorio");
-    if (!data.platform_id) throw new Error("Plataforma e obrigatoria");
+    if (!data.title?.trim()) throw new Error("Título é obrigatório");
+    if (!data.platform_id) throw new Error("Plataforma é obrigatória");
 
     const values = normalizeInput({
       publisher: null,
@@ -89,7 +89,7 @@ export class GameDao {
       .prepare(`UPDATE games SET ${assignments}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
       .run(...entries.map(([, value]) => value), id);
     const updated = this.get(id);
-    if (!updated) throw new Error("Jogo nao encontrado");
+    if (!updated) throw new Error("Jogo não encontrado");
     return updated;
   }
 

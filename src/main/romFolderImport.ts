@@ -271,7 +271,7 @@ function upsertUnmatchedGame(candidate: RomFolderImportCandidate) {
   try {
     return upsertLaunchBoxGame(data);
   } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("Titulo e obrigatorio")) throw error;
+    if (!(error instanceof Error) || !error.message.includes("Título é obrigatório")) throw error;
     return {
       game: createGame({
         ...data,
@@ -305,8 +305,8 @@ function getAllowedRomExtensions(platformId: number): Set<string> {
 }
 
 function buildUnsupportedExtensionReason(ext: string, platformName: string): string {
-  if (!ext) return `Arquivo sem extensao suportada para ${platformName}`;
-  return `Extensao ${ext} nao configurada para ${platformName}`;
+  if (!ext) return `Arquivo sem extensão suportada para ${platformName}`;
+  return `Extensão ${ext} não configurada para ${platformName}`;
 }
 
 function isPlatformMatch(gamePlatform: string, aliases: string[]): boolean {
@@ -376,6 +376,6 @@ function scoreMatch(query: string, title: string): number {
 
 function requirePlatform(platformId: number) {
   const platform = listPlatforms().find((item) => item.id === platformId);
-  if (!platform) throw new Error("Plataforma nao encontrada");
+  if (!platform) throw new Error("Plataforma não encontrada");
   return platform;
 }

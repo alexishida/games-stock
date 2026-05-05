@@ -38,11 +38,11 @@ export function ManualGameModal() {
     event.preventDefault();
     setError("");
     if (!draft.title?.trim()) {
-      setError("Titulo e obrigatorio");
+      setError("Título é obrigatório");
       return;
     }
     if (!draft.platform_id) {
-      setError("Plataforma e obrigatoria");
+      setError("Plataforma é obrigatória");
       return;
     }
 
@@ -53,7 +53,7 @@ export function ManualGameModal() {
       reloadGames();
       setOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel criar o jogo");
+      setError(err instanceof Error ? err.message : "Não foi possível criar o jogo");
     } finally {
       setSaving(false);
     }
@@ -69,7 +69,7 @@ export function ManualGameModal() {
           </button>
         </header>
         <form className="management-form" onSubmit={save}>
-          <label>Titulo<input value={draft.title ?? ""} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+          <label>Título<input value={draft.title ?? ""} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>Plataforma
             <select value={draft.platform_id ?? ""} onChange={(event) => setDraft({ ...draft, platform_id: Number(event.target.value) || undefined })}>
               <option value="">Selecione</option>
@@ -79,7 +79,7 @@ export function ManualGameModal() {
           <div className="form-grid-two">
             <label>Publisher<input value={draft.publisher ?? ""} onChange={(event) => setDraft({ ...draft, publisher: event.target.value })} /></label>
             <label>Ano<input type="number" value={draft.year ?? ""} onChange={(event) => setDraft({ ...draft, year: Number(event.target.value) || null })} /></label>
-            <label>Genero<input value={draft.genre ?? ""} onChange={(event) => setDraft({ ...draft, genre: event.target.value })} /></label>
+            <label>Gênero<input value={draft.genre ?? ""} onChange={(event) => setDraft({ ...draft, genre: event.target.value })} /></label>
             <label>Rating<input value={draft.rating ?? ""} onChange={(event) => setDraft({ ...draft, rating: event.target.value })} /></label>
           </div>
           <label>Notas<textarea value={draft.notes ?? ""} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
@@ -90,9 +90,9 @@ export function ManualGameModal() {
             </label>
             <label>Status
               <select value={draft.play_status ?? "unplayed"} onChange={(event) => setDraft({ ...draft, play_status: event.target.value as GameCreateInput["play_status"] })}>
-                <option value="unplayed">Nao jogado</option>
+                <option value="unplayed">Não jogado</option>
                 <option value="playing">Jogando</option>
-                <option value="completed">Concluido</option>
+                <option value="completed">Concluído</option>
               </select>
             </label>
           </div>

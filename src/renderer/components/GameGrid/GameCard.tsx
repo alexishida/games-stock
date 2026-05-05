@@ -58,7 +58,7 @@ export function GameCard({ game }: { game: Game }) {
     try {
       await window.gameStockAPI.games.launch(game.id);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao lancar jogo";
+      const msg = err instanceof Error ? err.message : "Erro ao lançar jogo";
       setLaunchError(msg);
       setTimeout(() => setLaunchError(""), 4000);
     } finally {
@@ -97,10 +97,10 @@ export function GameCard({ game }: { game: Game }) {
 
   function getLaunchTitle(): string {
     if (launchError) return launchError;
-    if (!hasRom) return "ROM nao configurada";
+    if (!hasRom) return "ROM não configurada";
     if (emulatorLoading) return "Verificando emulador da plataforma";
-    if (!defaultEmulator) return "Escolha um emulador padrao para esta plataforma";
-    return `Jogar com ${defaultEmulator.emulator?.name ?? "emulador padrao"}`;
+    if (!defaultEmulator) return "Escolha um emulador padrão para esta plataforma";
+    return `Jogar com ${defaultEmulator.emulator?.name ?? "emulador padrão"}`;
   }
 
   return (

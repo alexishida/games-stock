@@ -35,18 +35,18 @@ export function Sidebar() {
           <span>Games Management</span>
         </div>
       </div>
-      <nav className="sidebar-nav" aria-label="Navegacao principal">
+      <nav className="sidebar-nav" aria-label="Navegação principal">
         <button type="button" className={isLibraryActive ? "nav-item active" : "nav-item"} onClick={() => setSelectedPlatformId(null)}>
           <Library aria-hidden="true" size={18} />
           Biblioteca
         </button>
         <button type="button" className="nav-item">
           <Gamepad2 aria-hidden="true" size={18} />
-          Inventario
+          Inventário
         </button>
       </nav>
       <div className="sidebar-separator" />
-      <nav className="sidebar-nav" aria-label="Filtros de colecao">
+      <nav className="sidebar-nav" aria-label="Filtros de coleção">
         {COLLECTION_FILTERS.map((item) => (
           <button
             key={item.value}

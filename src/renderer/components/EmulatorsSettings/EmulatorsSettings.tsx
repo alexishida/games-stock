@@ -256,7 +256,7 @@ function LinkPlatformModal({
     e.preventDefault();
     if (!platformId) return;
     if (isRetroArch && !corePath.trim()) {
-      setError("Core do RetroArch e obrigatorio");
+      setError("Core do RetroArch é obrigatório");
       return;
     }
     setError("");
@@ -310,7 +310,7 @@ function LinkPlatformModal({
                   list={coreListId}
                   value={corePath}
                   onChange={(e) => setCorePath(e.target.value)}
-                  placeholder={defaultRetroArchCore ? `Padrao: ${defaultRetroArchCore}` : "Nome ou caminho do core libretro"}
+                  placeholder={defaultRetroArchCore ? `Padrão: ${defaultRetroArchCore}` : "Nome ou caminho do core libretro"}
                 />
                 <datalist id={coreListId}>
                   {RETROARCH_CORE_NAMES.map((coreName) => (
@@ -323,7 +323,7 @@ function LinkPlatformModal({
               </div>
               {defaultRetroArchCore && (
                 <span className="emulator-core-hint">
-                  Core padrao desta plataforma. Pode trocar antes de vincular.
+                  Core padrão desta plataforma. Pode trocar antes de vincular.
                 </span>
               )}
             </label>
@@ -439,7 +439,7 @@ function EmulatorRow({
               <div className="emulator-assoc-head">
                 <span>Plataforma</span>
                 <span>Core</span>
-                <span>Acoes</span>
+                <span>Ações</span>
               </div>
               {associations.map((pe) => (
                 <div key={pe.platform_id} className="emulator-assoc-row">
@@ -628,7 +628,7 @@ function RetroArchPlatformCores({
   async function saveAllCores(): Promise<void> {
     const configsToSave = configs.filter((config) => editedPlatformIds[config.platform.id]);
     if (!configsToSave.length) {
-      setError("Nenhuma alteracao para salvar");
+      setError("Nenhuma alteração para salvar");
       return;
     }
 
@@ -652,7 +652,7 @@ function RetroArchPlatformCores({
       setEditedPlatformIds({});
       onReload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar cores do RetroArch");
+      setError(err instanceof Error ? err.message : "Não foi possível salvar cores do RetroArch");
     } finally {
       setSavingAll(false);
     }
@@ -715,7 +715,7 @@ function RetroArchPlatformCores({
               <div className="retroarch-core-info">
                 <strong>{config.platform.name}</strong>
                 {suggestedMatchesCurrent ? (
-                  <span>Core recomendado e ja salvo: {defaultSuggestedCore}</span>
+                  <span>Core recomendado já salvo: {defaultSuggestedCore}</span>
                 ) : (
                   <>
                     {!defaultSuggestedCore && <span>Defina core usado pelo RetroArch nesta plataforma</span>}
@@ -724,17 +724,17 @@ function RetroArchPlatformCores({
                 )}
                 {!primaryRecommendedInstalled && defaultSuggestedCore && (
                   <em className="retroarch-core-warning">
-                    Core recomendado {defaultSuggestedCore} nao instalado. Baixe no RetroArch.
+                    Core recomendado {defaultSuggestedCore} não instalado. Baixe no RetroArch.
                   </em>
                 )}
-                {edited && <em className="retroarch-core-pending">Alteracao pendente</em>}
+                {edited && <em className="retroarch-core-pending">Alteração pendente</em>}
               </div>
               <div className="retroarch-core-controls">
                 <label className="retroarch-core-field">
                   <span className="retroarch-core-field-header">
                     <span>Core</span>
                     {defaultSuggestedCore && !suggestedMatchesCurrent && (
-                      <em className="retroarch-core-suggestion">Sugestao: {defaultSuggestedCore}</em>
+                      <em className="retroarch-core-suggestion">Sugestão: {defaultSuggestedCore}</em>
                     )}
                   </span>
                   <div className={`retroarch-core-picker ${isPickerOpen ? "open" : ""}`}>
@@ -811,10 +811,10 @@ function RetroArchPlatformCores({
 
         <footer className="retroarch-core-dialog-footer">
           {coreInventory && !coreInventory.executableConfigured && (
-            <p className="form-error">Configure executavel do RetroArch antes de selecionar cores.</p>
+            <p className="form-error">Configure executável do RetroArch antes de selecionar cores.</p>
           )}
           {coreInventory?.executableConfigured && !coreInventory.coresDirExists && (
-            <p className="form-error">Pasta de cores nao encontrada ao lado do RetroArch.</p>
+            <p className="form-error">Pasta de cores não encontrada ao lado do RetroArch.</p>
           )}
           {error && <p className="form-error">{error}</p>}
           <button type="button" className="text-button danger form-action-button" onClick={onClose}>
