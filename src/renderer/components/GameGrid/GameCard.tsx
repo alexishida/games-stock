@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play, Star } from "lucide-react";
-import { Game } from "../../../shared/types";
+import { Game, PlatformEmulator } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 import { GameCardPlaceholder } from "./GameCardPlaceholder";
@@ -10,13 +10,45 @@ export function GameCard({ game }: { game: Game }) {
   const selectGame = useGameStockStore((state) => state.selectGame);
   const upsertGame = useGameStockStore((state) => state.upsertGame);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
+  const platformsReloadToken = useGameStockStore((state) => state.platformsReloadToken);
   const coverUrl = localMediaUrl(game.box_art_path);
   const [isLandscape, setIsLandscape] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState("");
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [defaultEmulator, setDefaultEmulator] = useState<PlatformEmulator | null>(null);
+  const [emulatorLoading, setEmulatorLoading] = useState(false);
 
-  const canLaunch = Boolean(game.rom_path?.trim());
+  useEffect(() => {
+    let canceled = false;
+    setDefaultEmulator(null);
+
+    if (!game.platform_id) {
+      setEmulatorLoading(false);
+      return undefined;
+    }
+
+    setEmulatorLoading(true);
+    window.gameStockAPI.emulators
+      .listByPlatform(game.platform_id)
+      .then((items) => {
+        if (!canceled) setDefaultEmulator(items.find((item) => item.is_default === 1) ?? null);
+      })
+      .catch(() => {
+        if (!canceled) setDefaultEmulator(null);
+      })
+      .finally(() => {
+        if (!canceled) setEmulatorLoading(false);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [game.platform_id, platformsReloadToken]);
+
+  const hasRom = Boolean(game.rom_path?.trim());
+  const hasDefaultEmulator = Boolean(defaultEmulator);
+  const canLaunch = hasRom && hasDefaultEmulator && !emulatorLoading;
 
   async function launch(event: React.MouseEvent): Promise<void> {
     event.stopPropagation();
@@ -61,6 +93,14 @@ export function GameCard({ game }: { game: Game }) {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     handleSelect();
+  }
+
+  function getLaunchTitle(): string {
+    if (launchError) return launchError;
+    if (!hasRom) return "ROM nao configurada";
+    if (emulatorLoading) return "Verificando emulador da plataforma";
+    if (!defaultEmulator) return "Escolha um emulador padrao para esta plataforma";
+    return `Jogar com ${defaultEmulator.emulator?.name ?? "emulador padrao"}`;
   }
 
   return (
@@ -110,7 +150,7 @@ export function GameCard({ game }: { game: Game }) {
           <button
             type="button"
             className={`card-action-btn card-launch-btn${!canLaunch ? " disabled" : ""}${launching ? " launching" : ""}`}
-            title={canLaunch ? "Jogar" : "ROM nao configurada"}
+            title={getLaunchTitle()}
             disabled={!canLaunch || launching}
             onClick={launch}
             aria-label="Jogar"
