@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
+import { Gamepad2, Layers3, Star, Trophy } from "lucide-react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
@@ -14,11 +15,13 @@ import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
 import { CollectionFilter, GameSortBy } from "../shared/types";
 
-const COLLECTION_TABS: { value: CollectionFilter; label: string }[] = [
-  { value: "all", label: "Todos os jogos" },
-  { value: "favorites", label: "Favoritos" },
-  { value: "completed", label: "Concluidos" },
-  { value: "unplayed", label: "Nao jogados" }
+type CollectionTab = { value: CollectionFilter; label: string; icon: ReactNode };
+
+const COLLECTION_TABS: CollectionTab[] = [
+  { value: "all", label: "Todos os jogos", icon: <Layers3 aria-hidden="true" size={15} /> },
+  { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} /> },
+  { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} /> },
+  { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} /> }
 ];
 
 function LibraryView() {
@@ -32,13 +35,14 @@ function LibraryView() {
     <div className="home-content">
       <section className="library-header" aria-label="Filtros da biblioteca">
         <div className="library-tabs">
-          {COLLECTION_TABS.map(({ value, label }) => (
+          {COLLECTION_TABS.map(({ value, label, icon }) => (
             <button
               key={value}
               type="button"
               className={collectionFilter === value ? "active" : ""}
               onClick={() => setCollectionFilter(value)}
             >
+              {icon}
               {label}
             </button>
           ))}
@@ -105,8 +109,8 @@ export default function App() {
         setCoverStats(await window.gameStockAPI.games.coverStats());
         finishMediaSyncJob(jobId, {
           title: "Base de dados pronta",
-          detail: "Metadata.zip disponivel",
-          progressLabel: "Concluido"
+          detail: "Metadata.zip disponível",
+          progressLabel: "Concluído"
         });
       } catch (err) {
         if (jobStarted) failMediaSyncJob(jobId, err instanceof Error ? err.message : "Falha ao baixar base de dados");

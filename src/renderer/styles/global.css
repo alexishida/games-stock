@@ -174,9 +174,13 @@ button {
   display: flex;
   align-items: center;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .library-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -184,6 +188,8 @@ button {
   padding: 0 0 7px;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .library-tabs button.active {
