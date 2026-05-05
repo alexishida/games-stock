@@ -1,5 +1,5 @@
 import { type MouseEvent, useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, Trophy, X } from "lucide-react";
 import { GameMediaItem, PlatformEmulator } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -126,6 +126,8 @@ export function GameDetail() {
   const hasDefaultEmulator = Boolean(defaultEmulator);
   const canLaunchGame = hasRom && hasDefaultEmulator && !emulatorLoading;
   const playButtonTitle = launchError || getPlayButtonTitle(hasRom, emulatorLoading, defaultEmulator);
+  const completedActive = game.play_status === "completed";
+  const playingActive = game.play_status === "playing";
   const fallbackMediaItems = [
     backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null
   ].filter(Boolean) as GameMediaItem[];
@@ -267,10 +269,10 @@ export function GameDetail() {
             <button type="button" className={"detail-hero-icon-button detail-favorite-button" + (game.favorite ? " active" : "")} onClick={toggleFavorite} aria-label={game.favorite ? "Remover favorito" : "Marcar favorito"} title={game.favorite ? "Remover favorito" : "Marcar favorito"}>
               <Star aria-hidden="true" size={18} fill={game.favorite ? "#facc15" : "none"} color={game.favorite ? "#facc15" : undefined} />
             </button>
-            <button type="button" className={"detail-hero-icon-button" + (game.play_status === "completed" ? " active" : "")} onClick={() => togglePlayStatus("completed")} aria-label="Concluido" title="Concluido">
-              <CheckCircle2 aria-hidden="true" size={18} />
+            <button type="button" className={"detail-hero-icon-button detail-completed-button" + (completedActive ? " active" : "")} onClick={() => togglePlayStatus("completed")} aria-label="Concluido" title="Concluido">
+              <Trophy aria-hidden="true" size={18} />
             </button>
-            <button type="button" className={"detail-hero-icon-button" + (game.play_status === "playing" ? " active" : "")} onClick={() => togglePlayStatus("playing")} aria-label="Jogando" title="Jogando">
+            <button type="button" className={"detail-hero-icon-button detail-playing-button" + (playingActive ? " active" : "")} onClick={() => togglePlayStatus("playing")} aria-label="Jogando" title="Jogando">
               <Gamepad2 aria-hidden="true" size={18} />
             </button>
             <button type="button" className="detail-hero-icon-button" onClick={() => setIsEditModalOpen(true)} aria-label="Editar" title="Editar">

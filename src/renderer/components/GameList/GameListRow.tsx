@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CircleCheck, Gamepad2, Play, Star } from "lucide-react";
+import { Gamepad2, Play, Star, Trophy } from "lucide-react";
 import { Game } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
@@ -71,7 +71,7 @@ export function GameListRow({ game }: { game: Game }) {
       <span className="col-status">
         {game.favorite && <Star size={13} fill="currentColor" className="icon-fav" aria-label="Favorito" />}
         {game.play_status === "playing" && <Gamepad2 size={13} className="icon-playing" aria-label="Jogando" />}
-        {game.play_status === "completed" && <CircleCheck size={13} className="icon-completed" aria-label="Concluído" />}
+        {game.play_status === "completed" && <Trophy size={13} className="icon-completed" aria-label="Concluído" />}
       </span>
       <span className="col-launch">
         <button

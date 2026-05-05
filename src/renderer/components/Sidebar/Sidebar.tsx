@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { CheckCircle2, Gamepad2, Library, Settings, Star } from "lucide-react";
+import { Gamepad2, Library, Settings, Star, Trophy } from "lucide-react";
 import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";
@@ -10,7 +10,7 @@ type FilterDef = { value: CollectionFilter; label: string; icon: ReactNode; coun
 const COLLECTION_FILTERS: FilterDef[] = [
   { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} />, countKey: "favorites" },
   { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} />, countKey: "playing" },
-  { value: "completed", label: "Concluído", icon: <CheckCircle2 aria-hidden="true" size={15} />, countKey: "completed" }
+  { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} />, countKey: "completed" }
 ];
 
 export function Sidebar() {
