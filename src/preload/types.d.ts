@@ -80,6 +80,7 @@ export interface GameStockAPI {
   };
   app: {
     getVersion(): Promise<string>;
+    getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
   };
   launchbox: {
     ensureMetadata(options?: { force?: boolean }): Promise<{ status: "cached" | "downloaded" }>;

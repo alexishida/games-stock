@@ -217,6 +217,12 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
   ipcMain.handle(IPC_CHANNELS.app.getVersion, () => app.getVersion());
+  ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => {
+    const dataDirPath = getUserDataDir();
+    const totalGames = games.getCoverStats().total;
+    const dataDirSizeMb = Math.round(getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
+    return { totalGames, dataDirSizeMb, dataDirPath };
+  });
 
   ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>
     ensureLaunchBoxMetadata(Boolean(options?.force), sendLaunchBoxProgress)
@@ -462,6 +468,17 @@ function resolveRetroArchCorePath(
   }
 
   return null;
+}
+
+function getDirSizeBytes(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0;
+  let total = 0;
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const full = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) total += getDirSizeBytes(full);
+    else if (entry.isFile()) total += fs.statSync(full).size;
+  }
+  return total;
 }
 
 function resolveRetroArchCoreCandidate(coreCandidate: string, coresDir: string): string | null {

@@ -44,7 +44,8 @@ export const IPC_CHANNELS = {
     openPath: "shell:openPath"
   },
   app: {
-    getVersion: "app:getVersion"
+    getVersion: "app:getVersion",
+    getStorageStats: "app:getStorageStats"
   },
   launchbox: {
     ensureMetadata: "launchbox:ensureMetadata",

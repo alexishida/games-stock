@@ -14,7 +14,7 @@ import {
   ViewMode
 } from "../../shared/types";
 
-export type SettingsSection = "biblioteca" | "plataformas" | "covers" | "emuladores";
+export type SettingsSection = "geral" | "biblioteca" | "plataformas" | "covers" | "emuladores" | "sobre";
 
 const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const LAST_MEDIA_SYNC_JOB_KEY = "gamestock.media.lastMediaSyncJob";
@@ -131,7 +131,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   selectedGame: null,
   importerOpen: false,
   settingsOpen: false,
-  settingsSection: "biblioteca",
+  settingsSection: "geral",
   createGameOpen: false,
   reloadToken: 0,
   platformsReloadToken: 0,
