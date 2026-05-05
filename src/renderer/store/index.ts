@@ -26,7 +26,7 @@ export interface MediaSyncJob {
   jobId: string;
   title: string;
   subtitle: string;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "interrupted";
   detail: string;
   progressLabel: string;
   percent: number;
@@ -107,6 +107,7 @@ interface GameStockState {
   updateMediaSyncProgress(value: LaunchBoxProgress): void;
   finishMediaSyncJob(jobId: string, value: FinishMediaSyncJobInput): void;
   failMediaSyncJob(jobId: string, message: string): void;
+  dismissMediaSyncJob(jobId: string): void;
   setMetadataStartupRunning(value: boolean): void;
   setCoverStats(value: CoverSyncStats): void;
   reloadGames(): void;
@@ -217,7 +218,9 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       startedAt: job.startedAt ?? new Date().toISOString(),
       indeterminate: job.indeterminate
     };
-    return { mediaSyncJobs: [...state.mediaSyncJobs, newJob] };
+    const updated = [...state.mediaSyncJobs, newJob];
+    persistMediaSyncJobs(updated);
+    return { mediaSyncJobs: updated };
   }),
   updateMediaSyncProgress: (progress) => set((state) => {
     const running = state.mediaSyncJobs.filter((j) => j.status === "running");
@@ -261,6 +264,11 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       indeterminate: false
     };
     const updated = state.mediaSyncJobs.map((j) => j.jobId === jobId ? nextJob : j);
+    persistMediaSyncJobs(updated);
+    return { mediaSyncJobs: updated };
+  }),
+  dismissMediaSyncJob: (jobId) => set((state) => {
+    const updated = state.mediaSyncJobs.filter((j) => j.jobId !== jobId);
     persistMediaSyncJobs(updated);
     return { mediaSyncJobs: updated };
   }),
@@ -352,10 +360,10 @@ function formatMegabytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function persistFinishedJob<T extends { status: "running" | "completed" | "failed" }>(key: string, job: T | null): void {
+function persistFinishedJob<T>(key: string, job: T | null): void {
   try {
     if (typeof window === "undefined") return;
-    if (!job || job.status === "running") {
+    if (!job) {
       window.localStorage.removeItem(key);
       return;
     }
@@ -366,7 +374,12 @@ function persistFinishedJob<T extends { status: "running" | "completed" | "faile
 }
 
 function loadSavedRomImportJob(): RomFolderImportJob | null {
-  return loadSavedJob<RomFolderImportJob>(LAST_ROM_IMPORT_JOB_KEY, isRomImportJob);
+  const job = loadSavedJob<RomFolderImportJob>(LAST_ROM_IMPORT_JOB_KEY, isRomImportJob);
+  if (!job) return null;
+  if (job.status === "running") {
+    return { ...job, status: "interrupted", progress: { ...job.progress, message: "Interrompido" } };
+  }
+  return job;
 }
 
 function loadSavedMediaSyncJobs(): MediaSyncJob[] {
@@ -375,7 +388,11 @@ function loadSavedMediaSyncJobs(): MediaSyncJob[] {
     const raw = window.localStorage.getItem(LAST_MEDIA_SYNC_JOBS_KEY);
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.filter(isMediaSyncJob);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(isMediaSyncJob).map((j) =>
+          j.status === "running" ? { ...j, status: "interrupted" as const, progressLabel: "Interrompido" } : j
+        );
+      }
     }
     // migrate legacy single-job key
     const legacy = loadSavedJob<MediaSyncJob>(LAST_MEDIA_SYNC_JOB_KEY, isMediaSyncJob);
@@ -388,11 +405,10 @@ function loadSavedMediaSyncJobs(): MediaSyncJob[] {
 function persistMediaSyncJobs(jobs: MediaSyncJob[]): void {
   try {
     if (typeof window === "undefined") return;
-    const finished = jobs.filter((j) => j.status !== "running");
-    if (!finished.length) {
+    if (!jobs.length) {
       window.localStorage.removeItem(LAST_MEDIA_SYNC_JOBS_KEY);
     } else {
-      window.localStorage.setItem(LAST_MEDIA_SYNC_JOBS_KEY, JSON.stringify(finished));
+      window.localStorage.setItem(LAST_MEDIA_SYNC_JOBS_KEY, JSON.stringify(jobs));
     }
   } catch {
     // best effort

@@ -126,6 +126,18 @@
   padding: 12px;
 }
 
+.covers-rom-sync-card--completed {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.covers-rom-sync-card--failed {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.covers-rom-sync-card--interrupted {
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
 .covers-rom-sync-card-header {
   display: flex;
   align-items: flex-start;
@@ -133,10 +145,17 @@
   gap: 12px;
 }
 
-.covers-rom-sync-card-header div {
+.covers-rom-sync-card-header > div:first-child {
   display: grid;
   gap: 3px;
   min-width: 0;
+}
+
+.covers-rom-sync-card-meta {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
 }
 
 .covers-rom-sync-card-header strong {
@@ -157,9 +176,28 @@
   line-height: 1.25;
 }
 
-.covers-rom-sync-card-header small {
-  flex-shrink: 0;
-  text-align: right;
+.covers-job-dismiss {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  padding: 0;
+  cursor: pointer;
+}
+
+.covers-job-dismiss:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+.covers-job-resume-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .covers-rom-sync-card .covers-progress-track {

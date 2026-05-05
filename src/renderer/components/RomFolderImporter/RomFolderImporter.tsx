@@ -12,6 +12,7 @@ interface FolderEntry {
   platformId: number;
   platformName: string;
   indexedCount: number;
+  totalCount?: number;
 }
 
 const SOURCE_HISTORY_KEY = "gamestock.romImport.sources";
@@ -256,7 +257,8 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
         folderPath: scan.folderPaths[0],
         platformId,
         platformName: platform?.name ?? scan.platformName,
-        indexedCount: 0
+        indexedCount: 0,
+        totalCount: scan.candidates.length
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -449,7 +451,7 @@ function SummaryStep({
             >
               <span role="cell">{entry.folderPath}</span>
               <span role="cell">{entry.platformName}</span>
-              <span role="cell">{entry.indexedCount}</span>
+              <span role="cell">{entry.totalCount ?? entry.indexedCount}</span>
               <div className="folder-table-action-cell" role="cell">
                 <button
                   type="button"
@@ -530,8 +532,12 @@ async function refreshFolderCounts(entries: FolderEntry[]): Promise<FolderEntry[
   const counts = await window.gameStockAPI.romFolderImport.countFolderRecords(
     entries.map((entry) => ({ folderPath: entry.folderPath, platformId: entry.platformId }))
   );
-  return entries.map((entry, index) => ({
-    ...entry,
-    indexedCount: counts[index]?.count ?? entry.indexedCount
-  }));
+  return entries.map((entry, index) => {
+    const dbCount = counts[index]?.count ?? entry.indexedCount;
+    return {
+      ...entry,
+      indexedCount: dbCount,
+      totalCount: entry.totalCount ?? dbCount
+    };
+  });
 }

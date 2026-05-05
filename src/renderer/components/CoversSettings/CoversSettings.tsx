@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DatabaseZap, Gamepad2, Image, ImageOff, RefreshCw } from "lucide-react";
+import { DatabaseZap, Gamepad2, Image, ImageOff, RefreshCw, X } from "lucide-react";
 import { CoverSyncStats, RomFolderImportProgress } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
@@ -21,10 +21,12 @@ export function CoversSettings() {
   const [error, setError] = useState<string | null>(null);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const romImportJob = useGameStockStore((state) => state.lastRomImportJob);
+  const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const mediaSyncJobs = useGameStockStore((state) => state.mediaSyncJobs);
   const startMediaSyncJob = useGameStockStore((state) => state.startMediaSyncJob);
   const finishMediaSyncJob = useGameStockStore((state) => state.finishMediaSyncJob);
   const failMediaSyncJob = useGameStockStore((state) => state.failMediaSyncJob);
+  const dismissMediaSyncJob = useGameStockStore((state) => state.dismissMediaSyncJob);
   const metadataStartupRunning = useGameStockStore((state) => state.metadataStartupRunning);
   const startupTrackedRef = useRef(false);
   const runningMediaJobs = mediaSyncJobs.filter((j) => j.status === "running");
@@ -120,7 +122,9 @@ export function CoversSettings() {
     ? `${romResult.summary.created} criados, ${romResult.summary.updated} atualizados`
     : romImportJob?.status === "failed"
       ? "Importacao de ROMs falhou"
-      : "Importando ROMs";
+      : romImportJob?.status === "interrupted"
+        ? "Import interrompido"
+        : "Importando ROMs";
   const romDetail = romResult
     ? `${romResult.summary.processed} processados, ${romResult.summary.unmatched} sem match, ${romResult.summary.failedDownloads} falha(s) de midia`
     : romProgress?.filename ?? romProgress?.message ?? "Aguardando progresso";
@@ -129,8 +133,22 @@ export function CoversSettings() {
       ? "Concluido"
       : romImportJob.status === "failed"
         ? "Erro"
-        : `${romProgress?.current ?? 0} de ${romProgress?.total ?? 0} - ${labelForRomStage(romProgress?.stage ?? "preparing_metadata")}`
+        : romImportJob.status === "interrupted"
+          ? "Interrompido"
+          : `${romProgress?.current ?? 0} de ${romProgress?.total ?? 0} - ${labelForRomStage(romProgress?.stage ?? "preparing_metadata")}`
     : "";
+
+  async function resumeRomImport(): Promise<void> {
+    if (!romImportJob) return;
+    const { folderPaths, romFilePaths, platformId } = romImportJob;
+    setLastRomImportJob(null);
+    try {
+      const newJob = await window.gameStockAPI.romFolderImport.import({ folderPaths, romFilePaths, platformId });
+      setLastRomImportJob(newJob);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    }
+  }
 
   return (
     <section className="covers-settings">
@@ -189,35 +207,65 @@ export function CoversSettings() {
         </div>
 
         {mediaLibraryJobs.map((job) => (
-          <div key={job.jobId} className="covers-rom-sync-card">
+          <div key={job.jobId} className={`covers-rom-sync-card covers-rom-sync-card--${job.status}`}>
             <div className="covers-rom-sync-card-header">
               <div>
                 <strong>{job.title}</strong>
                 <span>{job.subtitle}</span>
               </div>
-              <small>{job.progressLabel}</small>
+              <div className="covers-rom-sync-card-meta">
+                <small>{job.progressLabel}</small>
+                {job.status !== "running" && (
+                  <button type="button" className="covers-job-dismiss" onClick={() => dismissMediaSyncJob(job.jobId)} aria-label="Fechar">
+                    <X aria-hidden="true" size={12} />
+                  </button>
+                )}
+              </div>
             </div>
             <p>{job.detail}</p>
             <div className={`covers-progress-track${job.indeterminate ? " covers-progress-indeterminate" : ""}`} aria-label="Progresso de covers">
               <span style={{ width: `${job.percent}%` }} />
             </div>
+            {job.status === "interrupted" && (
+              <div className="covers-job-resume-row">
+                <button type="button" className="text-button active" onClick={() => { dismissMediaSyncJob(job.jobId); void syncCovers(); }}>
+                  <RefreshCw aria-hidden="true" size={14} />
+                  Continuar
+                </button>
+              </div>
+            )}
           </div>
         ))}
 
         {romImportJob && (
-          <div className="covers-rom-sync-card">
+          <div className={`covers-rom-sync-card covers-rom-sync-card--${romImportJob.status}`}>
             <div className="covers-rom-sync-card-header">
               <div>
                 <strong>{romTitle}</strong>
                 <span>{romImportJob.platformName}</span>
               </div>
-              <small>{romStep}</small>
+              <div className="covers-rom-sync-card-meta">
+                <small>{romStep}</small>
+                {romImportJob.status !== "running" && (
+                  <button type="button" className="covers-job-dismiss" onClick={() => setLastRomImportJob(null)} aria-label="Fechar">
+                    <X aria-hidden="true" size={12} />
+                  </button>
+                )}
+              </div>
             </div>
             <p>{romDetail}</p>
             {romProgress?.imageFilename ? <p>{romProgress.imageFilename}</p> : null}
             <div className="covers-progress-track" aria-label="Progresso da importacao de ROMs">
               <span style={{ width: `${romPercent}%` }} />
             </div>
+            {romImportJob.status === "interrupted" && (
+              <div className="covers-job-resume-row">
+                <button type="button" className="text-button active" onClick={() => void resumeRomImport()}>
+                  <RefreshCw aria-hidden="true" size={14} />
+                  Continuar
+                </button>
+              </div>
+            )}
           </div>
         )}
         {error && <p className="form-error">{error}</p>}

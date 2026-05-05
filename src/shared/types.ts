@@ -318,7 +318,7 @@ export interface RomFolderImportJob {
   romFilePaths: string[];
   platformId: number;
   platformName: string;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "interrupted";
   startedAt: string;
   progress: RomFolderImportProgress;
   result?: RomFolderImportResult;

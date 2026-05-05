@@ -63,6 +63,29 @@
   border-left-color: #ef4444;
 }
 
+.notification-card.interrupted {
+  border-left-color: #fbbf24;
+}
+
+.notification-resume-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 6px;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.notification-resume-btn:hover {
+  background: rgba(251, 191, 36, 0.2);
+}
+
 .notification-title {
   display: flex;
   align-items: center;

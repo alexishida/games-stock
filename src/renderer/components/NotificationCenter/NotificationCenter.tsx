@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { RefreshCw, X } from "lucide-react";
 import { RomFolderImportJob, RomFolderImportProgress } from "../../../shared/types";
 import { MediaSyncJob, useGameStockStore } from "../../store";
 import "./NotificationCenter.css";
@@ -7,8 +7,6 @@ import "./NotificationCenter.css";
 type NotificationItem =
   | { type: "rom"; job: RomFolderImportJob }
   | { type: "media"; job: MediaSyncJob };
-
-const AUTO_DISMISS_MS = 5000;
 
 export function NotificationCenter() {
   const romImportJob = useGameStockStore((state) => state.lastRomImportJob);
@@ -22,19 +20,6 @@ export function NotificationCenter() {
       .filter((item) => !dismissedIds.includes(item.job.jobId))
       .sort((a, b) => timestamp(b.job.startedAt) - timestamp(a.job.startedAt));
   }, [dismissedIds, mediaSyncJobs, romImportJob]);
-
-  useEffect(() => {
-    const completedIds = notifications
-      .filter((item) => item.job.status !== "running")
-      .map((item) => item.job.jobId);
-    if (!completedIds.length) return undefined;
-
-    const timer = setTimeout(() => {
-      setDismissedIds((current) => [...new Set([...current, ...completedIds])]);
-    }, AUTO_DISMISS_MS);
-
-    return () => clearTimeout(timer);
-  }, [notifications]);
 
   if (!notifications.length) return null;
 
@@ -53,7 +38,9 @@ export function NotificationCenter() {
 
 function initialDismissedIds(jobs: Array<RomFolderImportJob | MediaSyncJob | null>): string[] {
   return jobs
-    .filter((job): job is RomFolderImportJob | MediaSyncJob => Boolean(job && job.status !== "running"))
+    .filter((job): job is RomFolderImportJob | MediaSyncJob =>
+      Boolean(job && (job.status === "completed" || job.status === "failed"))
+    )
     .map((job) => job.jobId);
 }
 
@@ -63,13 +50,30 @@ function NotificationCard({ item, onDismiss }: { item: NotificationItem; onDismi
 }
 
 function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDismiss(): void }) {
+  const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const total = job.progress.total || 1;
+
+  async function resumeImport(): Promise<void> {
+    setLastRomImportJob(null);
+    try {
+      const newJob = await window.gameStockAPI.romFolderImport.import({
+        folderPaths: job.folderPaths,
+        romFilePaths: job.romFilePaths,
+        platformId: job.platformId
+      });
+      setLastRomImportJob(newJob);
+    } catch {
+      // import error will surface via job status
+    }
+  }
   const percent = job.status === "completed" ? 100 : Math.min(100, Math.round((job.progress.current / total) * 100));
   const title = job.result
     ? `${job.result.summary.created} criados, ${job.result.summary.updated} atualizados`
     : job.status === "failed"
       ? job.error ?? job.progress.message ?? "Importacao de ROMs falhou"
-      : job.progress.message ?? "Importando ROMs";
+      : job.status === "interrupted"
+        ? "Import interrompido"
+        : job.progress.message ?? "Importando ROMs";
 
   return (
     <article className={`notification-card ${job.status}`}>
@@ -85,17 +89,26 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
       {job.progress.imageFilename ? <span>{job.progress.imageFilename}</span> : null}
       <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
       <small>{statusLabel(job.status, job.progress)}</small>
+      {job.status === "interrupted" && (
+        <button type="button" className="notification-resume-btn" onClick={() => void resumeImport()}>
+          <RefreshCw aria-hidden="true" size={12} />
+          Continuar
+        </button>
+      )}
     </article>
   );
 }
 
 function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismiss(): void }) {
+  const openSettings = useGameStockStore((state) => state.openSettings);
   const percent = job.status === "running" ? job.percent : 100;
   const progressText = job.status === "completed"
     ? "Concluido"
     : job.status === "failed"
       ? "Erro"
-      : job.progressLabel;
+      : job.status === "interrupted"
+        ? "Interrompido"
+        : job.progressLabel;
 
   return (
     <article className={`notification-card ${job.status}`}>
@@ -112,6 +125,12 @@ function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismis
         <span style={{ width: `${percent}%` }} />
       </div>
       <small>{progressText}</small>
+      {job.status === "interrupted" && (
+        <button type="button" className="notification-resume-btn" onClick={() => openSettings("covers")}>
+          <RefreshCw aria-hidden="true" size={12} />
+          Continuar
+        </button>
+      )}
     </article>
   );
 }
@@ -124,6 +143,7 @@ function folderCount(job: RomFolderImportJob): number {
 function statusLabel(status: RomFolderImportJob["status"], progress: RomFolderImportProgress): string {
   if (status === "completed") return "Concluido";
   if (status === "failed") return "Erro";
+  if (status === "interrupted") return "Interrompido";
   return `${progress.current} de ${progress.total} - ${labelForStage(progress.stage)}`;
 }
 
