@@ -1,14 +1,36 @@
-import { app } from "electron";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const USER_DATA_DIR_NAME = "gamestock";
 
 export function getAppUserDataDir(): string {
   if (process.env.GAMESTOCK_USER_DATA_DIR) return process.env.GAMESTOCK_USER_DATA_DIR;
-  const appDataDir = app.getPath("appData");
+  const appDataDir = getBaseAppDataDir();
   normalizeUserDataDirCasing(appDataDir);
   return path.join(appDataDir, USER_DATA_DIR_NAME);
+}
+
+function getBaseAppDataDir(): string {
+  const electronAppDataDir = getElectronAppDataDir();
+  if (electronAppDataDir) return electronAppDataDir;
+
+  if (process.platform === "win32") {
+    return process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  }
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support");
+  }
+  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+}
+
+function getElectronAppDataDir(): string | null {
+  try {
+    const electron = require("electron") as { app?: { getPath(name: "appData"): string } };
+    return electron.app?.getPath("appData") ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeUserDataDirCasing(appDataDir: string): void {
