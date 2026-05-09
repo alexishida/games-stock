@@ -42,7 +42,7 @@ O sistema SHALL permitir remover a associação de ROM, definindo `rom_path` com
 - **THEN** o botão "Remover ROM" está desabilitado
 
 ### Requirement: Importar box art manualmente
-O sistema SHALL permitir importar imagem de capa via diálogo nativo pelo GameForm. A imagem SHALL ser copiada para `%APPDATA%/GameStock/images/` via canal `dialogs:openImageFile` e o caminho salvo em `games.box_art_path`.
+O sistema SHALL permitir importar imagem de capa via diálogo nativo pelo GameForm. A imagem SHALL ser copiada para `%APPDATA%/gamestock/images/` via canal `dialogs:openImageFile` e o caminho salvo em `games.box_art_path`.
 
 #### Scenario: Importar imagem de capa
 - **WHEN** o usuário clica em "Importar Box Art" no GameForm

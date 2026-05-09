@@ -30,7 +30,7 @@ O sistema SHALL usar `contextIsolation: true` e `nodeIntegration: false`. O prel
 - **THEN** o preload encaminha a chamada para canais IPC dedicados sem expor APIs Node.js diretamente ao renderer
 
 ### Requirement: Banco de dados SQLite inicializado no startup
-O sistema SHALL criar ou abrir o banco SQLite em `%APPDATA%/GameStock/gamestock.db` durante o startup do processo main. O schema SHALL ser aplicado por migrações idempotentes na inicialização.
+O sistema SHALL criar ou abrir o banco SQLite em `%APPDATA%/gamestock/gamestock.db` durante o startup do processo main. O schema SHALL ser aplicado por migrações idempotentes na inicialização.
 
 #### Scenario: Primeiro uso
 - **WHEN** o app é aberto pela primeira vez

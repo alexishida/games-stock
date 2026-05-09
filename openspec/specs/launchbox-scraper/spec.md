@@ -5,7 +5,7 @@ Define a integração com a base pública da LaunchBox para baixar metadados, co
 
 ## Requirements
 ### Requirement: Download e cache do banco de metadados LaunchBox
-O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Metadata.zip` e extrair `Metadata.xml` para `%APPDATA%/GameStock/launchbox_cache/`. O download SHALL ocorrer apenas se o cache tiver mais de 24 horas ou se for explicitamente forçado.
+O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Metadata.zip` e extrair `Metadata.xml` para `%APPDATA%/gamestock/launchbox_cache/`. O download SHALL ocorrer apenas se o cache tiver mais de 24 horas ou se for explicitamente forçado.
 
 #### Scenario: Primeiro uso sem cache
 - **WHEN** `launchbox:ensureMetadata` é chamado sem cache local
@@ -24,7 +24,7 @@ O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Meta
 - **THEN** o renderer recebe eventos `launchbox:progress` com `{ current, total, status: 'downloading' }`
 
 ### Requirement: Construção e cache do índice de jogos
-O sistema SHALL parsear `Metadata.xml` com `xml2js` e construir um índice em memória de todos os jogos. O índice SHALL ser persistido em `%APPDATA%/GameStock/launchbox_cache/index.json` para evitar reparse entre sessões.
+O sistema SHALL parsear `Metadata.xml` com `xml2js` e construir um índice em memória de todos os jogos. O índice SHALL ser persistido em `%APPDATA%/gamestock/launchbox_cache/index.json` para evitar reparse entre sessões.
 
 #### Scenario: Construir índice do XML
 - **WHEN** `buildIndex()` é chamado após metadata disponível
@@ -65,7 +65,7 @@ O sistema SHALL manter um mapeamento interno de `platformKey` para os nomes de p
 - **THEN** apenas jogos cujo `platform` no índice inclua "Super Nintendo" são retornados
 
 ### Requirement: Download de imagens por tipo
-O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.launchbox-app.com/<filename>`. As imagens SHALL ser salvas em `%APPDATA%/GameStock/images/<platform>/<game>/`. Imagens existentes SHALL ser puladas.
+O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.launchbox-app.com/<filename>`. As imagens SHALL ser salvas em `%APPDATA%/gamestock/images/<platform>/<game>/`. Imagens existentes SHALL ser puladas.
 
 Os nomes de arquivo SHALL seguir o padrão: para tipos "Box -" → `{slug(type)}-{slug(region)}-{index_padded}.ext`; para demais tipos → `{slug(type)}-{slug(region)}.ext`. Após o download, um arquivo `metadata.json` com os dados do jogo é sempre gravado no diretório.
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
+import { getAppUserDataDir } from "./appPaths";
 import { spawn } from "node:child_process";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
@@ -27,7 +28,7 @@ function getWindowTitle(): string {
 }
 
 function configureElectronStoragePaths(): void {
-  const dataDir = path.join(app.getPath("appData"), "GameStock");
+  const dataDir = getAppUserDataDir();
   const sessionDir = path.join(dataDir, "session");
   const cacheDir = path.join(sessionDir, "Cache");
   fs.mkdirSync(cacheDir, { recursive: true });

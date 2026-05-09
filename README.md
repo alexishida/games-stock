@@ -24,7 +24,7 @@ GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jog
 - **Sincronizacao de capas**: atualize midias de jogos vinculados a LaunchBox, acompanhe multiplos jobs simultaneos e veja estatisticas de capas.
 - **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI. Jobs concluidos ficam visiveis ate serem dispensados manualmente.
 - **Resiliencia de jobs**: jobs interrompidos por fechamento do app sao detectados na proxima abertura e exibem botao de retomada. Cards de job tem borda colorida por status (azul=rodando, verde=concluido, vermelho=falhou, amarelo=interrompido).
-- **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/GameStock/`.
+- **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/gamestock/`.
 
 ## Requisitos
 
@@ -102,10 +102,10 @@ O GameStock armazena dados de runtime fora do repositorio:
 
 | Caminho | Conteudo |
 |---------|----------|
-| `%APPDATA%/GameStock/gamestock.db` | Banco SQLite |
-| `%APPDATA%/GameStock/images/` | Capas, backgrounds, screenshots e outras midias baixadas |
-| `%APPDATA%/GameStock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache da LaunchBox |
-| `%APPDATA%/GameStock/window-bounds.json` | Posicao e tamanho da janela |
+| `%APPDATA%/gamestock/gamestock.db` | Banco SQLite |
+| `%APPDATA%/gamestock/images/` | Capas, backgrounds, screenshots e outras midias baixadas |
+| `%APPDATA%/gamestock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache da LaunchBox |
+| `%APPDATA%/gamestock/window-bounds.json` | Posicao e tamanho da janela |
 
 Entradas de pastas de ROMs configuradas ficam no `localStorage` do renderer.
 
