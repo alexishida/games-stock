@@ -3,6 +3,7 @@ import { useGameStockStore } from "../../store";
 
 export function PlatformTree() {
   const platforms = useGameStockStore((state) => state.platforms);
+  const total = useGameStockStore((state) => state.total);
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
@@ -23,7 +24,7 @@ export function PlatformTree() {
     <div className="platform-tree">
       <button type="button" className={isAll ? "tree-item selected" : "tree-item"} onClick={() => setSelectedPlatformId(null)}>
         <span>Todos</span>
-        <span>{platforms.reduce((sum, p) => sum + (p.gameCount ?? 0), 0)}</span>
+        <span>{total}</span>
       </button>
       {grouped.map(([category, items]) => (
         <div key={category}>
