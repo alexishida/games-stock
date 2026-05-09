@@ -57,6 +57,13 @@ interface LoadedBackup {
   data: BackupData;
 }
 
+interface ExportedMediaFile {
+  packagePath: string;
+  relativePath: string;
+  sourcePath: string;
+  size: number;
+}
+
 export function exportDataPackage(request: ExportPackageRequest, onProgress?: ProgressCallback): DataPortabilityExportResult {
   const categories = normalizeCategories(request.categories);
   const dao = new DataPortabilityDao(getDatabase());
@@ -65,7 +72,8 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   const fileChecksums: Record<string, string> = {};
   const counts: DataPortabilityManifest["counts"] = {};
   const mediaRefs = categories.includes("images") ? dao.listMediaReferences() : [];
-  const total = Math.max(1, categories.length + mediaRefs.length + 2);
+  const imageFiles = categories.includes("images") ? listImageFilesForBackup(getImagesDir()) : [];
+  const total = Math.max(1, categories.length + imageFiles.length + 2);
   let current = 0;
   const report = (stage: DataPortabilityProgress["stage"], message: string): void => {
     current = Math.min(total, current + 1);
@@ -97,8 +105,8 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   }
 
   if (categories.includes("images")) {
-    const mediaMap = exportMedia(zip, mediaRefs, warnings, fileChecksums, (message) => report("images", message));
-    counts.images = mediaMap.length;
+    const mediaMap = exportMedia(zip, imageFiles, mediaRefs, warnings, fileChecksums, (message) => report("images", message));
+    counts.images = imageFiles.length;
     addJson(zip, "data/mediaMap.json", mediaMap, fileChecksums);
   }
 
@@ -171,9 +179,9 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
 
   const dao = new DataPortabilityDao(getDatabase());
   const copiedFiles: string[] = [];
-  const importDir = path.join(getImagesDir(), "imports", createImportFolderName());
   const summary = createEmptySummary(validation.warnings);
-  const total = Math.max(1, categories.length + (categories.includes("images") ? loaded.data.mediaMap.length : 0) + 2);
+  const imageFileCount = categories.includes("images") ? countMediaFilesInBackup(loaded.zip) : 0;
+  const total = Math.max(1, categories.length + imageFileCount + (categories.includes("images") ? loaded.data.mediaMap.length : 0) + 2);
   let current = 1;
   const report = (stage: DataPortabilityProgress["stage"], message: string): void => {
     current = Math.min(total, current + 1);
@@ -206,7 +214,7 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
       }
 
       if (categories.includes("images")) {
-        importImages(loaded, dao, importDir, copiedFiles, summary, (message) => report("images", message));
+        importImages(loaded, dao, copiedFiles, summary, (message) => report("images", message));
       }
     })();
   } catch (error) {
@@ -220,33 +228,37 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
 
 function exportMedia(
   zip: AdmZip,
+  files: ExportedMediaFile[],
   refs: ReturnType<DataPortabilityDao["listMediaReferences"]>,
   warnings: DataPortabilityWarning[],
   fileChecksums: Record<string, string>,
   onItem?: (message: string) => void
 ): PortableMediaEntry[] {
-  const mediaMap: PortableMediaEntry[] = [];
+  const exportedBySource = new Map<string, ExportedMediaFile>();
 
-  refs.forEach((ref, index) => {
-    if (!fs.existsSync(ref.sourcePath)) {
+  files.forEach((file) => {
+    const buffer = fs.readFileSync(file.sourcePath);
+    zip.addFile(file.packagePath, buffer);
+    fileChecksums[file.packagePath] = sha256(buffer);
+    exportedBySource.set(normalizePathForLookup(file.sourcePath), { ...file, size: buffer.length });
+    onItem?.(`Imagem adicionada: ${file.relativePath}`);
+  });
+
+  const mediaMap: PortableMediaEntry[] = [];
+  refs.forEach((ref) => {
+    const exported = exportedBySource.get(normalizePathForLookup(ref.sourcePath));
+    if (!exported) {
       warnings.push(createWarning("missing-image", `Imagem nao encontrada: ${path.basename(ref.sourcePath)}`, ref.sourcePath));
-      onItem?.(`Imagem ausente: ${path.basename(ref.sourcePath)}`);
       return;
     }
 
-    const extension = path.extname(ref.sourcePath) || ".jpg";
-    const mediaName = `${String(index + 1).padStart(5, "0")}-${ref.field}${extension.toLowerCase()}`;
-    const packagePath = `media/${mediaName}`;
-    const buffer = fs.readFileSync(ref.sourcePath);
-    zip.addFile(packagePath, buffer);
-    fileChecksums[packagePath] = sha256(buffer);
     mediaMap.push({
       ...ref,
-      packagePath,
+      packagePath: exported.packagePath,
+      relativePath: exported.relativePath,
       originalPath: ref.sourcePath,
-      size: buffer.length
+      size: exported.size
     });
-    onItem?.(`Imagem adicionada: ${path.basename(ref.sourcePath)}`);
   });
 
   return mediaMap;
@@ -255,11 +267,13 @@ function exportMedia(
 function importImages(
   loaded: LoadedBackup,
   dao: DataPortabilityDao,
-  importDir: string,
   copiedFiles: string[],
   summary: DataPortabilityImportSummary,
   onItem?: (message: string) => void
 ): void {
+  const imagesDir = getImagesDir();
+  restoreImagesTree(loaded, imagesDir, copiedFiles, onItem);
+
   for (const entry of loaded.data.mediaMap) {
     const gameId = dao.findGameId(entry);
     if (!gameId) {
@@ -276,11 +290,7 @@ function importImages(
       continue;
     }
 
-    fs.mkdirSync(importDir, { recursive: true });
-    const fileName = `${String(summary.images.imported + 1).padStart(5, "0")}-${safeFilename(entry.platformName)}-${safeFilename(entry.title)}-${entry.field}${path.extname(entry.packagePath) || ".jpg"}`;
-    const targetPath = path.join(importDir, fileName.slice(0, 180));
-    fs.writeFileSync(targetPath, zipEntry.getData());
-    copiedFiles.push(targetPath);
+    const targetPath = resolveImportedMediaPath(imagesDir, entry);
     dao.updateGameMedia(gameId, entry.field, targetPath);
     summary.images.imported += 1;
     onItem?.(`Imagem importada: ${entry.title}`);
@@ -426,20 +436,6 @@ function createError(code: string, message: string, detail?: string): DataPortab
   return { severity: "error", code, message, detail };
 }
 
-function createImportFolderName(): string {
-  return new Date().toISOString().replace(/[:.]/g, "-");
-}
-
-function safeFilename(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "item";
-}
-
 function cleanupCopiedFiles(paths: string[]): void {
   for (const filePath of paths) {
     try {
@@ -448,4 +444,96 @@ function cleanupCopiedFiles(paths: string[]): void {
       // Best effort cleanup after transaction failure.
     }
   }
+}
+
+function listImageFilesForBackup(imagesDir: string): ExportedMediaFile[] {
+  if (!fs.existsSync(imagesDir)) return [];
+
+  const results: ExportedMediaFile[] = [];
+  const walk = (currentDir: string): void => {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+
+      const relativePath = toPortableRelativePath(path.relative(imagesDir, fullPath));
+      if (!relativePath) continue;
+
+      results.push({
+        packagePath: `media/${relativePath}`,
+        relativePath,
+        sourcePath: fullPath,
+        size: fs.statSync(fullPath).size
+      });
+    }
+  };
+
+  walk(imagesDir);
+  results.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: "base" }));
+  return results;
+}
+
+function restoreImagesTree(
+  loaded: LoadedBackup,
+  imagesDir: string,
+  copiedFiles: string[],
+  onItem?: (message: string) => void
+): void {
+  const mediaEntries = loaded.zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/"));
+
+  for (const zipEntry of mediaEntries) {
+    const relativePath = normalizeZipRelativePath(zipEntry.entryName.slice("media/".length));
+    if (!relativePath) continue;
+
+    const targetPath = ensurePathInsideImagesDir(imagesDir, relativePath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, zipEntry.getData());
+    copiedFiles.push(targetPath);
+    onItem?.(`Imagem restaurada: ${relativePath}`);
+  }
+}
+
+function resolveImportedMediaPath(imagesDir: string, entry: PortableMediaEntry): string {
+  const relativePath = entry.relativePath
+    ? normalizeZipRelativePath(entry.relativePath)
+    : normalizeZipRelativePath(entry.packagePath.replace(/^media\//, ""));
+
+  if (!relativePath) {
+    throw new Error(`Caminho de midia invalido no pacote: ${entry.packagePath}`);
+  }
+
+  return ensurePathInsideImagesDir(imagesDir, relativePath);
+}
+
+function ensurePathInsideImagesDir(imagesDir: string, relativePath: string): string {
+  const targetPath = path.resolve(imagesDir, relativePath);
+  const normalizedImagesDir = path.resolve(imagesDir);
+  const relativeToRoot = path.relative(normalizedImagesDir, targetPath);
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    throw new Error(`Caminho de midia invalido no pacote: ${relativePath}`);
+  }
+  return targetPath;
+}
+
+function toPortableRelativePath(relativePath: string): string | null {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  return normalizeZipRelativePath(normalized);
+}
+
+function normalizeZipRelativePath(relativePath: string): string | null {
+  const normalized = path.posix.normalize((relativePath || "").replace(/\\/g, "/")).replace(/^\/+/, "");
+  if (!normalized || normalized === "." || normalized.startsWith("../")) return null;
+  return normalized;
+}
+
+function normalizePathForLookup(value: string): string {
+  return path.resolve(value).toLowerCase();
+}
+
+function countMediaFilesInBackup(zip: AdmZip): number {
+  return zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/")).length;
 }

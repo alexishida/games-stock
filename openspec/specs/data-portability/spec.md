@@ -37,19 +37,19 @@ O sistema SHALL exportar e importar metadados de jogos incluindo titulo, platafo
 - **THEN** o sistema cria ou atualiza jogos usando `launchbox_id + platformName` como chave primaria de correspondencia e `title + platformName` como fallback
 
 ### Requirement: Imagens da biblioteca
-O sistema SHALL exportar imagens referenciadas por `box_art_path`, `background_path` e `screenshot_path` e, ao importar, copiar essas imagens para a pasta de dados atual antes de atualizar os caminhos dos jogos.
+O sistema SHALL exportar toda a pasta `%APPDATA%/GameStock/images` preservando hierarquia e nomes originais e, ao importar, restaurar essa mesma arvore na pasta de dados atual antes de atualizar os caminhos dos jogos referenciados.
 
-#### Scenario: Exportar imagens existentes
-- **WHEN** a categoria `images` esta selecionada e os arquivos referenciados existem no disco
-- **THEN** o pacote inclui copias desses arquivos em `media/` e um mapa ligando cada arquivo ao jogo e ao campo de midia
+#### Scenario: Exportar arvore completa de imagens
+- **WHEN** a categoria `images` esta selecionada e existem arquivos em `%APPDATA%/GameStock/images`
+- **THEN** o pacote inclui copias desses arquivos em `media/` preservando hierarquia e nomes originais, alem de um mapa das imagens referenciadas pelos jogos
 
-#### Scenario: Imagem ausente durante exportacao
+#### Scenario: Imagem referenciada ausente durante exportacao
 - **WHEN** um jogo referencia uma imagem que nao existe no disco
-- **THEN** a exportacao continua e o resumo lista a imagem ausente como aviso
+- **THEN** a exportacao continua, ainda copia os demais arquivos existentes da pasta `images` e o resumo lista a imagem ausente como aviso
 
 #### Scenario: Importar imagens
 - **WHEN** o usuario importa `images`
-- **THEN** o sistema copia os arquivos de midia para `%APPDATA%/GameStock/images` e atualiza os campos de imagem dos jogos correspondentes
+- **THEN** o sistema restaura os arquivos de midia em `%APPDATA%/GameStock/images` preservando hierarquia e nomes originais e atualiza os campos de imagem dos jogos correspondentes
 
 ### Requirement: Informacoes de plataformas
 O sistema SHALL exportar e importar plataformas, aliases LaunchBox, extensoes de ROM, emuladores e vinculos entre plataformas e emuladores quando a categoria `platforms` estiver selecionada.

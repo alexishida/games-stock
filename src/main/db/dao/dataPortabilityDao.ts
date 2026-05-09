@@ -27,6 +27,7 @@ export interface PortableMediaReference {
 
 export interface PortableMediaEntry extends PortableMediaReference {
   packagePath: string;
+  relativePath?: string;
   originalPath: string;
   size: number;
 }
