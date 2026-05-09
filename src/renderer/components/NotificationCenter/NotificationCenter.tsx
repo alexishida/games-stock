@@ -147,6 +147,7 @@ function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismis
       : job.status === "interrupted"
         ? "Interrompido"
         : job.progressLabel;
+  const showProgressText = !sameNotificationText(job.detail, progressText);
 
   return (
     <article className={`notification-card ${job.status}`}>
@@ -162,7 +163,7 @@ function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismis
       <div className={`progress-track${job.indeterminate ? " progress-track--indeterminate" : ""}`}>
         <span style={{ width: `${percent}%` }} />
       </div>
-      <small>{progressText}</small>
+      {showProgressText ? <small>{progressText}</small> : null}
       {job.status === "interrupted" && (
         <button type="button" className="notification-resume-btn" onClick={() => openSettings("covers")}>
           <RefreshCw aria-hidden="true" size={12} />
@@ -208,4 +209,8 @@ function timestamp(value: string | undefined): number {
   if (!value) return 0;
   const time = new Date(value).getTime();
   return Number.isFinite(time) ? time : 0;
+}
+
+function sameNotificationText(left: string, right: string): boolean {
+  return left.trim().localeCompare(right.trim(), "pt-BR", { sensitivity: "base" }) === 0;
 }

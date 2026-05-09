@@ -65,7 +65,6 @@ export function DataPortabilitySettings({
       });
       if (!isCanceledStart(result)) {
         startDataPortabilityJob(result);
-        setMessage("Exportacao iniciada em background.");
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));

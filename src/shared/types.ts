@@ -132,7 +132,6 @@ export interface DataPortabilityManifest {
   createdAt: string;
   categories: DataPortabilityCategory[];
   counts: Partial<DataPortabilityCounts>;
-  fileChecksums?: Record<string, string>;
 }
 
 export interface DataPortabilityRomFolderEntry {
