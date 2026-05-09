@@ -12,9 +12,6 @@ export function getAppUserDataDir(): string {
 }
 
 function getBaseAppDataDir(): string {
-  const electronAppDataDir = getElectronAppDataDir();
-  if (electronAppDataDir) return electronAppDataDir;
-
   if (process.platform === "win32") {
     return process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
   }
@@ -22,15 +19,6 @@ function getBaseAppDataDir(): string {
     return path.join(os.homedir(), "Library", "Application Support");
   }
   return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-}
-
-function getElectronAppDataDir(): string | null {
-  try {
-    const electron = require("electron") as { app?: { getPath(name: "appData"): string } };
-    return electron.app?.getPath("appData") ?? null;
-  } catch {
-    return null;
-  }
 }
 
 function normalizeUserDataDirCasing(appDataDir: string): void {

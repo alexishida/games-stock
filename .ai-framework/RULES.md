@@ -70,7 +70,7 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 - Importação com escrita em SQLite deve ser transacional. Se falhar, reverter banco e reportar resumo claro do erro.
 - Caminhos de imagens importadas devem ser regravados para diretório de dados atual do app; nunca preservar path absoluto de outra máquina.
 - ROMs físicas não entram no backup. Exportar e importar apenas caminhos de ROM e entradas configuradas de pastas.
-- Entradas do importador de pastas de ROM continuam no `localStorage` do renderer. O `main` pode validar e devolver payload dessas entradas, mas não deve passar a ser dono desse storage sem mudança explícita de arquitetura.
+- Entradas do importador de pastas de ROM, histórico de jobs e demais estados persistidos da UI devem ficar no SQLite local, via `src/main/db`, sem depender de `localStorage` do renderer.
 - Matching de importação não deve depender de IDs SQLite brutos do pacote. Preferir chaves estáveis:
   - Plataformas por `name` case-insensitive.
   - Jogos por `launchbox_id + platformName`; fallback `title + platformName`.

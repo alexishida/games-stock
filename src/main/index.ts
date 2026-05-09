@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
 import * as emulators from "./db/repositories/emulators";
+import * as appState from "./db/repositories/appState";
 import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
@@ -239,6 +240,17 @@ function registerIpc(): void {
     const totalGames = games.getCoverStats().total;
     const dataDirSizeMb = Math.round(getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
     return { totalGames, dataDirSizeMb, dataDirPath };
+  });
+  ipcMain.handle(IPC_CHANNELS.appState.get, (_event, key: string) => appState.getAppState(key));
+  ipcMain.handle(IPC_CHANNELS.appState.getMany, (_event, keys: string[]) => appState.getAppStateMany(keys));
+  ipcMain.handle(IPC_CHANNELS.appState.set, (_event, key: string, value: unknown) => {
+    appState.setAppState(key, value);
+  });
+  ipcMain.handle(IPC_CHANNELS.appState.setMany, (_event, entries: Array<{ key: string; value: unknown }>, onlyIfMissing?: boolean) => {
+    appState.setAppStateMany(entries, Boolean(onlyIfMissing));
+  });
+  ipcMain.handle(IPC_CHANNELS.appState.remove, (_event, key: string) => {
+    appState.removeAppState(key);
   });
   ipcMain.handle(IPC_CHANNELS.dataPortability.exportPackage, async (_event, request: DataPortabilityExportRequest) => {
     let targetPath = request.targetPath?.trim() ?? "";

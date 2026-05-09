@@ -1,3 +1,4 @@
+import type { AppStateEntry } from "../shared/appState";
 import {
   CollectionCounts,
   CoverSyncResult,
@@ -87,6 +88,13 @@ export interface GameStockAPI {
   app: {
     getVersion(): Promise<string>;
     getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
+  };
+  appState: {
+    get<T>(key: string): Promise<T | null>;
+    getMany(keys: string[]): Promise<Record<string, unknown>>;
+    set(key: string, value: unknown): Promise<void>;
+    setMany(entries: AppStateEntry[], onlyIfMissing?: boolean): Promise<void>;
+    remove(key: string): Promise<void>;
   };
   dataPortability: {
     exportPackage(request: DataPortabilityExportRequest): Promise<DataPortabilityStartResult>;

@@ -47,6 +47,13 @@ export const IPC_CHANNELS = {
     getVersion: "app:getVersion",
     getStorageStats: "app:getStorageStats"
   },
+  appState: {
+    get: "appState:get",
+    getMany: "appState:getMany",
+    set: "appState:set",
+    setMany: "appState:setMany",
+    remove: "appState:remove"
+  },
   dataPortability: {
     exportPackage: "dataPortability:exportPackage",
     previewImport: "dataPortability:previewImport",

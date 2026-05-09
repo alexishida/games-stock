@@ -25,6 +25,8 @@ export function getDatabase(): Database.Database {
   db.pragma("foreign_keys = ON");
   applySchema(db);
   migratePlatformAliases(db);
+  dedupeGamesByLaunchBoxId(db);
+  ensureGamesLaunchBoxUniqueIndex(db);
   seedPlatforms(db);
   seedPlatformMappings(db);
   seedEmulators(db);
@@ -100,6 +102,12 @@ function applySchema(database: Database.Database): void {
       PRIMARY KEY (platform_id, emulator_id)
     );
 
+    CREATE TABLE IF NOT EXISTS app_state (
+      key TEXT PRIMARY KEY,
+      value_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TRIGGER IF NOT EXISTS trg_platform_emulators_single_default_insert
     BEFORE INSERT ON platform_emulators
     WHEN NEW.is_default = 1
@@ -129,6 +137,126 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_play_status ON games(play_status);
     CREATE INDEX IF NOT EXISTS idx_games_rom_path ON games(rom_path);
   `);
+}
+
+function ensureGamesLaunchBoxUniqueIndex(database: Database.Database): void {
+  database.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_games_platform_launchbox_unique
+    ON games(platform_id, launchbox_id)
+    WHERE launchbox_id IS NOT NULL AND TRIM(launchbox_id) != '';
+  `);
+}
+
+function dedupeGamesByLaunchBoxId(database: Database.Database): void {
+  const duplicateGroups = database.prepare(`
+    SELECT
+      platform_id,
+      launchbox_id
+    FROM games
+    WHERE launchbox_id IS NOT NULL AND TRIM(launchbox_id) != ''
+    GROUP BY platform_id, launchbox_id
+    HAVING COUNT(*) > 1
+  `).all() as Array<{ platform_id: number; launchbox_id: string }>;
+
+  if (!duplicateGroups.length) return;
+
+  const selectDuplicates = database.prepare(`
+    SELECT *
+    FROM games
+    WHERE platform_id = ? AND launchbox_id = ?
+    ORDER BY updated_at DESC, created_at DESC, id DESC
+  `);
+  const updateMerged = database.prepare(`
+    UPDATE games
+    SET
+      title = ?,
+      publisher = ?,
+      year = ?,
+      genre = ?,
+      rating = ?,
+      box_art_path = ?,
+      background_path = ?,
+      screenshot_path = ?,
+      rom_path = ?,
+      favorite = ?,
+      play_status = ?,
+      notes = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
+  const deleteGame = database.prepare("DELETE FROM games WHERE id = ?");
+
+  database.transaction(() => {
+    for (const group of duplicateGroups) {
+      const duplicates = selectDuplicates.all(group.platform_id, group.launchbox_id) as GameRecord[];
+      if (duplicates.length < 2) continue;
+
+      const survivor = duplicates[0];
+      const merged = duplicates.slice(1).reduce(mergeGameRecord, survivor);
+
+      updateMerged.run(
+        merged.title,
+        merged.publisher,
+        merged.year,
+        merged.genre,
+        merged.rating,
+        merged.box_art_path,
+        merged.background_path,
+        merged.screenshot_path,
+        merged.rom_path,
+        merged.favorite,
+        merged.play_status,
+        merged.notes,
+        survivor.id
+      );
+
+      for (const duplicate of duplicates.slice(1)) {
+        deleteGame.run(duplicate.id);
+      }
+    }
+  })();
+}
+
+interface GameRecord {
+  id: number;
+  title: string;
+  publisher: string | null;
+  year: number | null;
+  genre: string | null;
+  rating: string | null;
+  box_art_path: string | null;
+  background_path: string | null;
+  screenshot_path: string | null;
+  rom_path: string | null;
+  favorite: number;
+  play_status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function mergeGameRecord(preferred: GameRecord, candidate: GameRecord): GameRecord {
+  return {
+    ...preferred,
+    title: pickPreferredString(preferred.title, candidate.title) ?? preferred.title,
+    publisher: pickPreferredString(preferred.publisher, candidate.publisher),
+    year: preferred.year ?? candidate.year,
+    genre: pickPreferredString(preferred.genre, candidate.genre),
+    rating: pickPreferredString(preferred.rating, candidate.rating),
+    box_art_path: pickPreferredString(preferred.box_art_path, candidate.box_art_path),
+    background_path: pickPreferredString(preferred.background_path, candidate.background_path),
+    screenshot_path: pickPreferredString(preferred.screenshot_path, candidate.screenshot_path),
+    rom_path: pickPreferredString(preferred.rom_path, candidate.rom_path),
+    favorite: preferred.favorite || candidate.favorite ? 1 : 0,
+    play_status: preferred.play_status !== "unplayed" ? preferred.play_status : candidate.play_status,
+    notes: pickPreferredString(preferred.notes, candidate.notes)
+  };
+}
+
+function pickPreferredString(primary: string | null, fallback: string | null): string | null {
+  if (primary && primary.trim()) return primary;
+  if (fallback && fallback.trim()) return fallback;
+  return null;
 }
 
 function addColumnIfMissing(database: Database.Database, table: string, column: string, definition: string): void {

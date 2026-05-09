@@ -107,7 +107,7 @@ O GameStock armazena dados de runtime fora do repositorio:
 | `%APPDATA%/gamestock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache da LaunchBox |
 | `%APPDATA%/gamestock/window-bounds.json` | Posicao e tamanho da janela |
 
-Entradas de pastas de ROMs configuradas ficam no `localStorage` do renderer.
+Entradas de pastas de ROMs configuradas, historico de jobs e estado persistido da UI ficam no SQLite local, na tabela `app_state`.
 
 ## Importador LaunchBox
 

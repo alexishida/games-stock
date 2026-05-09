@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
+import type { AppStateEntry } from "../shared/appState";
 import {
   CoverSyncStats,
   DataPortabilityExportRequest,
@@ -83,6 +84,14 @@ const api = {
   app: {
     getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.app.getVersion) as Promise<string>,
     getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>
+  },
+  appState: {
+    get: <T>(key: string) => ipcRenderer.invoke(IPC_CHANNELS.appState.get, key) as Promise<T | null>,
+    getMany: (keys: string[]) => ipcRenderer.invoke(IPC_CHANNELS.appState.getMany, keys) as Promise<Record<string, unknown>>,
+    set: (key: string, value: unknown) => ipcRenderer.invoke(IPC_CHANNELS.appState.set, key, value) as Promise<void>,
+    setMany: (entries: AppStateEntry[], onlyIfMissing = false) =>
+      ipcRenderer.invoke(IPC_CHANNELS.appState.setMany, entries, onlyIfMissing) as Promise<void>,
+    remove: (key: string) => ipcRenderer.invoke(IPC_CHANNELS.appState.remove, key) as Promise<void>
   },
   dataPortability: {
     exportPackage: (request: DataPortabilityExportRequest) =>

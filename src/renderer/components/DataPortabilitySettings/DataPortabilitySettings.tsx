@@ -5,15 +5,13 @@ import {
   DATA_PORTABILITY_CATEGORIES,
   DataPortabilityJob,
   DataPortabilityImportPreview,
-  DataPortabilityRomFolderEntry,
   DataPortabilityStartResult,
   DataPortabilityWarning
 } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
+import { getPersistedRomFolderEntries } from "../../lib/appStatePersistence";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./DataPortabilitySettings.css";
-
-const ROM_FOLDER_ENTRIES_KEY = "gamestock.romImport.folderEntries";
 
 const CATEGORY_LABELS: Record<DataPortabilityCategory, { title: string; description: string }> = {
   metadata: {
@@ -59,9 +57,10 @@ export function DataPortabilitySettings({
     setError("");
     setMessage("");
     try {
+      const romFolderEntries = exportCategories.includes("romLocations") ? await getPersistedRomFolderEntries() : [];
       const result = await window.gameStockAPI.dataPortability.exportPackage({
         categories: exportCategories,
-        romFolderEntries: exportCategories.includes("romLocations") ? loadRomFolderEntries() : []
+        romFolderEntries
       });
       if (!isCanceledStart(result)) {
         startDataPortabilityJob(result);
@@ -270,26 +269,6 @@ function WarningList({ title, warnings }: { title: string; warnings: DataPortabi
       ))}
       {warnings.length > 8 && <p>+{warnings.length - 8} item(ns)</p>}
     </div>
-  );
-}
-
-function loadRomFolderEntries(): DataPortabilityRomFolderEntry[] {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(ROM_FOLDER_ENTRIES_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isRomFolderEntry);
-  } catch {
-    return [];
-  }
-}
-
-function isRomFolderEntry(value: unknown): value is DataPortabilityRomFolderEntry {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    "folderPath" in value &&
-    "platformId" in value &&
-    typeof (value as DataPortabilityRomFolderEntry).folderPath === "string"
   );
 }
 

@@ -3,10 +3,14 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { AlertTriangle, ArrowLeft, ChevronDown, CircleX, FolderCheck, FolderOpen, FolderPlus, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
+import {
+  getPersistedRomFolderEntries,
+  getPersistedRomImportPlatformId,
+  setPersistedRomFolderEntries,
+  setPersistedRomImportPlatformId
+} from "../../lib/appStatePersistence";
 import "./RomFolderImporter.css";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
-
-type ImportSource = { path: string; type: "folder" | "file" };
 interface FolderEntry {
   folderPath: string;
   platformId: number;
@@ -15,10 +19,6 @@ interface FolderEntry {
   totalCount?: number;
 }
 
-const SOURCE_HISTORY_KEY = "gamestock.romImport.sources";
-const PLATFORM_HISTORY_KEY = "gamestock.romImport.platformId";
-const FOLDER_ENTRIES_KEY = "gamestock.romImport.folderEntries";
-
 export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
@@ -26,7 +26,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
   const platforms = useGameStockStore((state) => state.platforms);
-  const [folderEntries, setFolderEntries] = useState<FolderEntry[]>(() => loadSavedFolderEntries(platforms));
+  const [folderEntries, setFolderEntries] = useState<FolderEntry[]>([]);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -35,26 +35,39 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
 
   useEffect(() => {
     let canceled = false;
-    const entries = folderEntries.length ? folderEntries : loadSavedFolderEntries(platforms);
-    if (!entries.length) return undefined;
-
-    void refreshFolderCounts(entries)
-      .then((nextEntries) => {
+    void getPersistedRomFolderEntries()
+      .then((entries) => {
         if (canceled) return;
-        setFolderEntries(nextEntries);
-        saveFolderEntries(nextEntries);
+        setFolderEntries(entries);
       })
       .catch(() => undefined);
 
     return () => {
       canceled = true;
     };
-  }, [platforms]);
+  }, []);
+
+  useEffect(() => {
+    let canceled = false;
+    if (!folderEntries.length) return undefined;
+
+    void refreshFolderCounts(folderEntries)
+      .then((nextEntries) => {
+        if (canceled) return;
+        setFolderEntries(nextEntries);
+        void setPersistedRomFolderEntries(nextEntries);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      canceled = true;
+    };
+  }, [folderEntries.length, platforms]);
 
   function handleFolderAdded(entry: FolderEntry): void {
     const nextEntries = upsertFolderEntry(folderEntries, entry);
     setFolderEntries(nextEntries);
-    saveFolderEntries(nextEntries);
+    void setPersistedRomFolderEntries(nextEntries);
     setAddFolderOpen(false);
     onImportStarted();
   }
@@ -74,7 +87,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
       await window.gameStockAPI.romFolderImport.deleteFolderRecords({ folderPath: selectedFolderPath, platformId: entry?.platformId });
       const nextEntries = folderEntries.filter((e) => e.folderPath !== selectedFolderPath);
       setFolderEntries(nextEntries);
-      saveFolderEntries(nextEntries);
+      void setPersistedRomFolderEntries(nextEntries);
       setSelectedFolderPath(null);
       setSelectedGameId(null);
       if (entry?.platformId === selectedPlatformId) setSelectedPlatformId(null);
@@ -144,7 +157,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const setRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [folderPath, setFolderPath] = useState("");
-  const [platformId, setPlatformId] = useState<number | "">(loadSavedPlatformId);
+  const [platformId, setPlatformId] = useState<number | "">("");
   const [scan, setScan] = useState<RomFolderScanResult | null>(null);
   const [reviewView, setReviewView] = useState<"candidates" | "ignored">("candidates");
   const [busy, setBusy] = useState(false);
@@ -157,6 +170,19 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
   const sortedPlatforms = [...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
   const selectedPlatform = typeof platformId === "number" ? sortedPlatforms.find((platform) => platform.id === platformId) ?? null : null;
+
+  useEffect(() => {
+    let canceled = false;
+    void getPersistedRomImportPlatformId()
+      .then((savedPlatformId) => {
+        if (!canceled) setPlatformId(savedPlatformId);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!platformPickerOpen) return undefined;
@@ -236,7 +262,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
       const nextScan = await window.gameStockAPI.romFolderImport.scan({ folderPaths: [folderPath], platformId });
       setScan(nextScan);
       setReviewView("candidates");
-      savePlatformId(platformId);
+      void setPersistedRomImportPlatformId(platformId);
       setStep("review");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -483,45 +509,6 @@ function SummaryStep({
       </footer>
     </div>
   );
-}
-
-function loadSavedSources(): ImportSource[] {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(SOURCE_HISTORY_KEY) ?? "[]") as ImportSource[];
-    return parsed.filter((source) => source?.path && source.type === "folder");
-  } catch {
-    return [];
-  }
-}
-
-function loadSavedPlatformId(): number | "" {
-  const value = Number(window.localStorage.getItem(PLATFORM_HISTORY_KEY));
-  return Number.isFinite(value) && value > 0 ? value : "";
-}
-
-function savePlatformId(platformId: number | ""): void {
-  if (!platformId) window.localStorage.removeItem(PLATFORM_HISTORY_KEY);
-  else window.localStorage.setItem(PLATFORM_HISTORY_KEY, String(platformId));
-}
-
-function loadSavedFolderEntries(platforms: Platform[]): FolderEntry[] {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(FOLDER_ENTRIES_KEY) ?? "[]") as FolderEntry[];
-    if (Array.isArray(parsed) && parsed.length) return parsed.filter((entry) => entry.folderPath && entry.platformId);
-  } catch {
-    // Fall through to migration from the previous simple history.
-  }
-
-  const sources = loadSavedSources();
-  const platformId = loadSavedPlatformId();
-  const platform = platforms.find((item) => item.id === platformId);
-  return platformId
-    ? sources.map((source) => ({ folderPath: source.path, platformId, platformName: platform?.name ?? "Plataforma", indexedCount: 0 }))
-    : [];
-}
-
-function saveFolderEntries(entries: FolderEntry[]): void {
-  window.localStorage.setItem(FOLDER_ENTRIES_KEY, JSON.stringify(entries));
 }
 
 function upsertFolderEntry(entries: FolderEntry[], nextEntry: FolderEntry): FolderEntry[] {

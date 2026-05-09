@@ -13,7 +13,14 @@ import { useCollectionCounts } from "./hooks/useCollectionCounts";
 import { useGames } from "./hooks/useGames";
 import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
-import { CollectionFilter, DataPortabilityRomFolderEntry, GameSortBy } from "../shared/types";
+import { CollectionFilter, GameSortBy } from "../shared/types";
+import {
+  getPersistedDataPortabilityJobs,
+  getPersistedLastRomImportJob,
+  getPersistedMediaSyncJobs,
+  mergePersistedRomFolderEntries,
+  migrateLegacyLocalStorageToDb
+} from "./lib/appStatePersistence";
 
 type CollectionTab = { value: CollectionFilter; label: string; icon: ReactNode };
 
@@ -23,8 +30,6 @@ const COLLECTION_TABS: CollectionTab[] = [
   { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} /> },
   { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} /> }
 ];
-const ROM_FOLDER_ENTRIES_KEY = "gamestock.romImport.folderEntries";
-
 function LibraryView() {
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const sortBy = useGameStockStore((state) => state.sortBy);
@@ -64,31 +69,6 @@ function LibraryView() {
   );
 }
 
-function persistRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): void {
-  if (!entries.length) return;
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(ROM_FOLDER_ENTRIES_KEY) ?? "[]");
-    const current = Array.isArray(parsed) ? parsed.filter(isRomFolderEntry) : [];
-    const merged = new Map<string, DataPortabilityRomFolderEntry>();
-    for (const entry of [...current, ...entries]) {
-      merged.set(`${entry.platformId}:${entry.folderPath}`, entry);
-    }
-    window.localStorage.setItem(ROM_FOLDER_ENTRIES_KEY, JSON.stringify(Array.from(merged.values())));
-  } catch {
-    window.localStorage.setItem(ROM_FOLDER_ENTRIES_KEY, JSON.stringify(entries));
-  }
-}
-
-function isRomFolderEntry(value: unknown): value is DataPortabilityRomFolderEntry {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    "folderPath" in value &&
-    "platformId" in value &&
-    typeof (value as DataPortabilityRomFolderEntry).folderPath === "string"
-  );
-}
-
 export default function App() {
   usePlatforms();
   useGames();
@@ -102,6 +82,8 @@ export default function App() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
 
+  const hydratePersistedLastRomImportJob = useGameStockStore((state) => state.hydratePersistedLastRomImportJob);
+  const hydrateMediaSyncJobs = useGameStockStore((state) => state.hydrateMediaSyncJobs);
   const hydrateRomImportJobs = useGameStockStore((state) => state.hydrateRomImportJobs);
   const updateRomImportProgress = useGameStockStore((state) => state.updateRomImportProgress);
   const completeRomImportJob = useGameStockStore((state) => state.completeRomImportJob);
@@ -128,6 +110,29 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let canceled = false;
+
+    void (async () => {
+      await migrateLegacyLocalStorageToDb();
+
+      const [lastRomImportJob, mediaSyncJobs, dataPortabilityJobs] = await Promise.all([
+        getPersistedLastRomImportJob(),
+        getPersistedMediaSyncJobs(),
+        getPersistedDataPortabilityJobs()
+      ]);
+
+      if (canceled) return;
+      hydratePersistedLastRomImportJob(lastRomImportJob);
+      hydrateMediaSyncJobs(mediaSyncJobs);
+      hydrateDataPortabilityJobs(dataPortabilityJobs);
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [hydrateDataPortabilityJobs, hydrateMediaSyncJobs, hydratePersistedLastRomImportJob]);
 
   useEffect(() => {
     if (metadataStarted.current) return;
@@ -177,7 +182,7 @@ export default function App() {
   useEffect(() => window.gameStockAPI.dataPortability.onCompleted((job) => {
     completeDataPortabilityJob(job);
     if (job.kind === "import" && job.status === "completed") {
-      persistRomFolderEntries(job.importResult?.summary.romFolderEntries ?? []);
+      void mergePersistedRomFolderEntries(job.importResult?.summary.romFolderEntries ?? []);
       reloadGames();
       reloadPlatforms();
       void window.gameStockAPI.games.coverStats().then(setCoverStats).catch(() => undefined);
