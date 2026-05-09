@@ -76,7 +76,8 @@ export function CoversSettings() {
       finishMediaSyncJob(jobId, {
         title: `${result.metadataUpdated} metadado(s), ${result.downloadedNow} capa(s)`,
         detail: `${result.attempted} processados, ${result.skipped} pulados, ${result.failed} falha(s)`,
-        progressLabel: "Concluído"
+        progressLabel: "Concluído",
+        failures: result.failures
       });
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
@@ -226,6 +227,23 @@ export function CoversSettings() {
             <div className={`covers-progress-track${job.indeterminate ? " covers-progress-indeterminate" : ""}`} aria-label="Progresso de covers">
               <span style={{ width: `${job.percent}%` }} />
             </div>
+            {job.failures?.length ? (
+              <div className="covers-failure-section">
+                <div className="covers-failure-section-header">
+                  <strong>Motivo das falhas</strong>
+                  <span>{job.failures.length} jogo(s)</span>
+                </div>
+                <div className="covers-failure-list">
+                  {job.failures.map((failure) => (
+                    <div key={`${job.jobId}-${failure.gameId}-${failure.launchboxId ?? "sem-launchbox"}`} className="covers-failure-item">
+                      <strong>{failure.title}</strong>
+                      <span>{failure.platformName}</span>
+                      <p>{failure.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {job.status === "interrupted" && (
               <div className="covers-job-resume-row">
                 <button type="button" className="text-button active" onClick={() => { dismissMediaSyncJob(job.jobId); void syncCovers(); }}>

@@ -17,6 +17,14 @@ export interface CoverSyncStats {
   metadataDownloadedAt: string | null;
 }
 
+export interface CoverSyncFailureItem {
+  gameId: number;
+  title: string;
+  platformName: string;
+  reason: string;
+  launchboxId: string | null;
+}
+
 export interface CoverSyncResult extends CoverSyncStats {
   attempted: number;
   downloadedNow: number;
@@ -24,6 +32,7 @@ export interface CoverSyncResult extends CoverSyncStats {
   skipped: number;
   metadataUpdated: number;
   metadataSkipped: number;
+  failures: CoverSyncFailureItem[];
 }
 export type GameSortBy = "title" | "year" | "recent";
 

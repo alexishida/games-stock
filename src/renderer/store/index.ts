@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   CollectionCounts,
+  CoverSyncFailureItem,
   CollectionFilter,
   CoverSyncStats,
   DataPortabilityJob,
@@ -35,6 +36,7 @@ export interface MediaSyncJob {
   percent: number;
   startedAt: string;
   indeterminate?: boolean;
+  failures?: CoverSyncFailureItem[];
 }
 
 interface StartMediaSyncJobInput {
@@ -53,6 +55,7 @@ interface FinishMediaSyncJobInput {
   detail?: string;
   progressLabel?: string;
   status?: "completed" | "failed";
+  failures?: CoverSyncFailureItem[];
 }
 
 interface GameStockState {
@@ -226,7 +229,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       progressLabel: job.progressLabel ?? "Iniciando",
       percent: job.percent ?? 0,
       startedAt: job.startedAt ?? new Date().toISOString(),
-      indeterminate: job.indeterminate
+      indeterminate: job.indeterminate,
+      failures: []
     };
     const updated = [...state.mediaSyncJobs, newJob];
     persistMediaSyncJobs(updated);
@@ -254,7 +258,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       progressLabel: result.progressLabel ?? (result.status === "failed" ? "Erro" : "Concluído"),
       percent: 100,
       startedAt: current?.startedAt ?? new Date().toISOString(),
-      indeterminate: false
+      indeterminate: false,
+      failures: result.failures ?? current?.failures ?? []
     };
     const updated = state.mediaSyncJobs.map((j) => j.jobId === jobId ? nextJob : j);
     persistMediaSyncJobs(updated);
@@ -271,7 +276,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       progressLabel: "Erro",
       percent: 100,
       startedAt: current?.startedAt ?? new Date().toISOString(),
-      indeterminate: false
+      indeterminate: false,
+      failures: current?.failures ?? []
     };
     const updated = state.mediaSyncJobs.map((j) => j.jobId === jobId ? nextJob : j);
     persistMediaSyncJobs(updated);

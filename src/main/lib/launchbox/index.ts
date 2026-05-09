@@ -1,7 +1,7 @@
 import { getImagesDir } from "../../db/database";
 import { getCoverStats, getGame, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
 import { findOrCreatePlatform, getLaunchBoxAliasesForPlatformName, listPlatforms, resolvePlatformByLaunchBoxName } from "../../db/repositories/platforms";
-import { CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxGame, LaunchBoxImage, LaunchBoxImageType, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
+import { CoverSyncFailureItem, CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxGame, LaunchBoxImage, LaunchBoxImageType, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { buildIndex, ensureMetadata, getMetadataDownloadedAt, metadataExists } from "./db";
 import { downloadImages, searchGames as searchIndex } from "./scraper";
 
@@ -76,6 +76,7 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
   let skipped = 0;
   let metadataUpdated = 0;
   let metadataSkipped = 0;
+  const failures: CoverSyncFailureItem[] = [];
 
   for (let i = 0; i < linkedGames.length; i += 1) {
     const gameRecord = linkedGames[i];
@@ -103,6 +104,20 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
     if (gameRecord.box_art_path) {
       onProgress?.({ current, total: linkedGames.length, filename: gameRecord.title, status: "done" });
     } else {
+      const boxFrontImages = launchBoxGame.images.filter((image) => image.type === "Box - Front");
+      if (!boxFrontImages.length) {
+        failed += 1;
+        failures.push({
+          gameId: gameRecord.id,
+          title: gameRecord.title,
+          platformName: gameRecord.platform_name ?? "Plataforma desconhecida",
+          reason: "LaunchBox sem imagem Box - Front para este jogo",
+          launchboxId: gameRecord.launchbox_id
+        });
+        onProgress?.({ current, total: linkedGames.length, filename: gameRecord.title, status: "error" });
+        continue;
+      }
+
       const download = await downloadImages(launchBoxGame, getImagesDir(), ["Box - Front"], (progress) => {
         onProgress?.({
           current,
@@ -118,6 +133,15 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
         downloadedNow += 1;
       } else {
         failed += 1;
+        failures.push({
+          gameId: gameRecord.id,
+          title: gameRecord.title,
+          platformName: gameRecord.platform_name ?? "Plataforma desconhecida",
+          reason: download.failed > 0
+            ? "Falha ao baixar imagem Box - Front"
+            : "Imagem baixada, mas capa principal nao foi identificada",
+          launchboxId: gameRecord.launchbox_id
+        });
       }
     }
   }
@@ -129,7 +153,8 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
     failed,
     skipped,
     metadataUpdated,
-    metadataSkipped
+    metadataSkipped,
+    failures
   };
 }
 

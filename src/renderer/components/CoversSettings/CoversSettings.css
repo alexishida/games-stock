@@ -200,6 +200,63 @@
   margin-top: 2px;
 }
 
+.covers-failure-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(132, 148, 149, 0.22);
+  padding-top: 10px;
+}
+
+.covers-failure-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.covers-failure-section-header strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.covers-failure-section-header span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.covers-failure-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.covers-failure-item {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.12);
+  padding: 10px;
+}
+
+.covers-failure-item strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.covers-failure-item span,
+.covers-failure-item p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .covers-rom-sync-card .covers-progress-track {
   margin-top: 1px;
 }
