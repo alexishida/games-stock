@@ -64,10 +64,27 @@ interface ExportedMediaFile {
   size: number;
 }
 
+interface ZipBufferEntry {
+  kind: "buffer";
+  entryName: string;
+  buffer: Buffer;
+  mtime?: Date;
+}
+
+interface ZipFileEntry {
+  kind: "file";
+  entryName: string;
+  sourcePath: string;
+  size: number;
+  mtime?: Date;
+}
+
+type ZipArchiveEntry = ZipBufferEntry | ZipFileEntry;
+
 export function exportDataPackage(request: ExportPackageRequest, onProgress?: ProgressCallback): DataPortabilityExportResult {
   const categories = normalizeCategories(request.categories);
   const dao = new DataPortabilityDao(getDatabase());
-  const zip = new AdmZip();
+  const archiveEntries: ZipArchiveEntry[] = [];
   const warnings: DataPortabilityWarning[] = [];
   const fileChecksums: Record<string, string> = {};
   const counts: DataPortabilityManifest["counts"] = {};
@@ -85,7 +102,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   if (categories.includes("metadata")) {
     const games = dao.listGameMetadata();
     counts.games = games.length;
-    addJson(zip, "data/games.json", games, fileChecksums);
+    archiveEntries.push(createJsonEntry("data/games.json", games, fileChecksums));
     report("metadata", `${games.length} jogo(s) adicionados ao pacote`);
   }
 
@@ -98,16 +115,16 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
 
     counts.platforms = platforms.length;
     counts.emulators = emulators.length;
-    addJson(zip, "data/platforms.json", platforms, fileChecksums);
-    addJson(zip, "data/platformMappings.json", { aliases, romExtensions }, fileChecksums);
-    addJson(zip, "data/emulators.json", { emulators, platformEmulators }, fileChecksums);
+    archiveEntries.push(createJsonEntry("data/platforms.json", platforms, fileChecksums));
+    archiveEntries.push(createJsonEntry("data/platformMappings.json", { aliases, romExtensions }, fileChecksums));
+    archiveEntries.push(createJsonEntry("data/emulators.json", { emulators, platformEmulators }, fileChecksums));
     report("platforms", `${platforms.length} plataforma(s) adicionadas ao pacote`);
   }
 
   if (categories.includes("images")) {
-    const mediaMap = exportMedia(zip, imageFiles, mediaRefs, warnings, fileChecksums, (message) => report("images", message));
+    const mediaMap = exportMedia(archiveEntries, imageFiles, mediaRefs, warnings, fileChecksums, (message) => report("images", message));
     counts.images = imageFiles.length;
-    addJson(zip, "data/mediaMap.json", mediaMap, fileChecksums);
+    archiveEntries.push(createJsonEntry("data/mediaMap.json", mediaMap, fileChecksums));
   }
 
   if (categories.includes("romLocations")) {
@@ -115,7 +132,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
     const romFolderEntries = normalizeRomFolderEntries(request.romFolderEntries ?? []);
     counts.romLocations = romLocations.length;
     counts.romFolderEntries = dao.countRomFolderEntries(romFolderEntries);
-    addJson(zip, "data/romLocations.json", { games: romLocations, romFolderEntries }, fileChecksums);
+    archiveEntries.push(createJsonEntry("data/romLocations.json", { games: romLocations, romFolderEntries }, fileChecksums));
     report("rom_locations", `${romLocations.length} localizacao(oes) de ROM adicionadas ao pacote`);
   }
 
@@ -127,12 +144,12 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
     counts,
     fileChecksums
   };
-  addJson(zip, "manifest.json", manifest);
+  archiveEntries.push(createJsonEntry("manifest.json", manifest));
   report("writing", "Gravando manifesto");
 
   const filePath = ensureBackupExtension(request.targetPath);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  zip.writeZip(filePath);
+  writeZipArchive(filePath, archiveEntries);
   onProgress?.({ current: total, total, stage: "done", message: "Exportacao concluida" });
 
   return {
@@ -227,7 +244,7 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
 }
 
 function exportMedia(
-  zip: AdmZip,
+  archiveEntries: ZipArchiveEntry[],
   files: ExportedMediaFile[],
   refs: ReturnType<DataPortabilityDao["listMediaReferences"]>,
   warnings: DataPortabilityWarning[],
@@ -237,10 +254,14 @@ function exportMedia(
   const exportedBySource = new Map<string, ExportedMediaFile>();
 
   files.forEach((file) => {
-    const buffer = fs.readFileSync(file.sourcePath);
-    zip.addFile(file.packagePath, buffer);
-    fileChecksums[file.packagePath] = sha256(buffer);
-    exportedBySource.set(normalizePathForLookup(file.sourcePath), { ...file, size: buffer.length });
+    archiveEntries.push({
+      kind: "file",
+      entryName: file.packagePath,
+      sourcePath: file.sourcePath,
+      size: file.size
+    });
+    fileChecksums[file.packagePath] = sha256File(file.sourcePath);
+    exportedBySource.set(normalizePathForLookup(file.sourcePath), file);
     onItem?.(`Imagem adicionada: ${file.relativePath}`);
   });
 
@@ -372,10 +393,19 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
   return { warnings, errors };
 }
 
-function addJson(zip: AdmZip, entryPath: string, data: unknown, fileChecksums?: Record<string, string>): void {
+function createJsonEntry(entryPath: string, data: unknown, fileChecksums?: Record<string, string>): ZipBufferEntry {
   const buffer = Buffer.from(`${JSON.stringify(data, null, 2)}\n`, "utf8");
-  zip.addFile(entryPath, buffer);
   if (fileChecksums) fileChecksums[entryPath] = sha256(buffer);
+  return {
+    kind: "buffer",
+    entryName: entryPath,
+    buffer
+  };
+}
+
+function addJson(zip: AdmZip, entryPath: string, data: unknown, fileChecksums?: Record<string, string>): void {
+  const entry = createJsonEntry(entryPath, data, fileChecksums);
+  zip.addFile(entry.entryName, entry.buffer);
 }
 
 function readRequiredJson<T>(zip: AdmZip, entryPath: string): T {
@@ -426,6 +456,24 @@ function ensureBackupExtension(filePath: string): string {
 
 function sha256(buffer: Buffer): string {
   return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+function sha256File(filePath: string): string {
+  const hash = crypto.createHash("sha256");
+  const fd = fs.openSync(filePath, "r");
+  const chunk = Buffer.allocUnsafe(1024 * 1024);
+
+  try {
+    while (true) {
+      const bytesRead = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (bytesRead === 0) break;
+      hash.update(bytesRead === chunk.length ? chunk : chunk.subarray(0, bytesRead));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+
+  return hash.digest("hex");
 }
 
 function createWarning(code: string, message: string, detail?: string): DataPortabilityWarning {
@@ -536,4 +584,186 @@ function normalizePathForLookup(value: string): string {
 
 function countMediaFilesInBackup(zip: AdmZip): number {
   return zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/")).length;
+}
+
+const CRC32_TABLE = createCrc32Table();
+const DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
+const CENTRAL_DIRECTORY_HEADER_SIGNATURE = 0x02014b50;
+const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
+const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
+const STORED_METHOD = 0;
+const UTF8_FLAG = 0x0800;
+const DATA_DESCRIPTOR_FLAG = 0x0008;
+const ZIP_VERSION = 20;
+
+function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
+  const fd = fs.openSync(targetPath, "w");
+  let offset = 0;
+  const centralDirectory: Buffer[] = [];
+
+  try {
+    for (const entry of entries) {
+      const entryName = normalizeZipEntryName(entry.entryName);
+      const entryNameBuffer = Buffer.from(entryName, "utf8");
+      const mtime = entry.mtime ?? new Date();
+      const { dosDate, dosTime } = toDosDateTime(mtime);
+      const localHeaderOffset = offset;
+      const usesDataDescriptor = entry.kind === "file";
+
+      const localHeader = Buffer.alloc(30 + entryNameBuffer.length);
+      let cursor = 0;
+      cursor = writeUInt32LE(localHeader, LOCAL_FILE_HEADER_SIGNATURE, cursor);
+      cursor = writeUInt16LE(localHeader, ZIP_VERSION, cursor);
+      cursor = writeUInt16LE(localHeader, UTF8_FLAG | (usesDataDescriptor ? DATA_DESCRIPTOR_FLAG : 0), cursor);
+      cursor = writeUInt16LE(localHeader, STORED_METHOD, cursor);
+      cursor = writeUInt16LE(localHeader, dosTime, cursor);
+      cursor = writeUInt16LE(localHeader, dosDate, cursor);
+      cursor = writeUInt32LE(localHeader, usesDataDescriptor ? 0 : crc32(entry.buffer), cursor);
+      cursor = writeUInt32LE(localHeader, usesDataDescriptor ? 0 : entry.buffer.length, cursor);
+      cursor = writeUInt32LE(localHeader, usesDataDescriptor ? 0 : entry.buffer.length, cursor);
+      cursor = writeUInt16LE(localHeader, entryNameBuffer.length, cursor);
+      cursor = writeUInt16LE(localHeader, 0, cursor);
+      entryNameBuffer.copy(localHeader, cursor);
+      offset += fs.writeSync(fd, localHeader);
+
+      let crc = 0;
+      let size = 0;
+
+      if (entry.kind === "buffer") {
+        crc = crc32(entry.buffer);
+        size = entry.buffer.length;
+        offset += fs.writeSync(fd, entry.buffer);
+      } else {
+        const streamed = streamFileToZip(fd, entry.sourcePath);
+        crc = streamed.crc;
+        size = streamed.size;
+        offset += streamed.written;
+
+        const descriptor = Buffer.alloc(16);
+        let descriptorCursor = 0;
+        descriptorCursor = writeUInt32LE(descriptor, DATA_DESCRIPTOR_SIGNATURE, descriptorCursor);
+        descriptorCursor = writeUInt32LE(descriptor, crc, descriptorCursor);
+        descriptorCursor = writeUInt32LE(descriptor, size, descriptorCursor);
+        writeUInt32LE(descriptor, size, descriptorCursor);
+        offset += fs.writeSync(fd, descriptor);
+      }
+
+      const centralHeader = Buffer.alloc(46 + entryNameBuffer.length);
+      cursor = 0;
+      cursor = writeUInt32LE(centralHeader, CENTRAL_DIRECTORY_HEADER_SIGNATURE, cursor);
+      cursor = writeUInt16LE(centralHeader, ZIP_VERSION, cursor);
+      cursor = writeUInt16LE(centralHeader, ZIP_VERSION, cursor);
+      cursor = writeUInt16LE(centralHeader, UTF8_FLAG | (usesDataDescriptor ? DATA_DESCRIPTOR_FLAG : 0), cursor);
+      cursor = writeUInt16LE(centralHeader, STORED_METHOD, cursor);
+      cursor = writeUInt16LE(centralHeader, dosTime, cursor);
+      cursor = writeUInt16LE(centralHeader, dosDate, cursor);
+      cursor = writeUInt32LE(centralHeader, crc, cursor);
+      cursor = writeUInt32LE(centralHeader, size, cursor);
+      cursor = writeUInt32LE(centralHeader, size, cursor);
+      cursor = writeUInt16LE(centralHeader, entryNameBuffer.length, cursor);
+      cursor = writeUInt16LE(centralHeader, 0, cursor);
+      cursor = writeUInt16LE(centralHeader, 0, cursor);
+      cursor = writeUInt16LE(centralHeader, 0, cursor);
+      cursor = writeUInt16LE(centralHeader, 0, cursor);
+      cursor = writeUInt32LE(centralHeader, 0, cursor);
+      cursor = writeUInt32LE(centralHeader, localHeaderOffset, cursor);
+      entryNameBuffer.copy(centralHeader, cursor);
+      centralDirectory.push(centralHeader);
+    }
+
+    const centralDirectoryOffset = offset;
+    for (const header of centralDirectory) {
+      offset += fs.writeSync(fd, header);
+    }
+
+    const endRecord = Buffer.alloc(22);
+    let cursor = 0;
+    cursor = writeUInt32LE(endRecord, END_OF_CENTRAL_DIRECTORY_SIGNATURE, cursor);
+    cursor = writeUInt16LE(endRecord, 0, cursor);
+    cursor = writeUInt16LE(endRecord, 0, cursor);
+    cursor = writeUInt16LE(endRecord, centralDirectory.length, cursor);
+    cursor = writeUInt16LE(endRecord, centralDirectory.length, cursor);
+    cursor = writeUInt32LE(endRecord, offset - centralDirectoryOffset, cursor);
+    cursor = writeUInt32LE(endRecord, centralDirectoryOffset, cursor);
+    writeUInt16LE(endRecord, 0, cursor);
+    fs.writeSync(fd, endRecord);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function streamFileToZip(fd: number, sourcePath: string): { crc: number; size: number; written: number } {
+  const sourceFd = fs.openSync(sourcePath, "r");
+  const chunk = Buffer.allocUnsafe(1024 * 1024);
+  let crc = 0;
+  let size = 0;
+  let written = 0;
+
+  try {
+    while (true) {
+      const bytesRead = fs.readSync(sourceFd, chunk, 0, chunk.length, null);
+      if (bytesRead === 0) break;
+
+      const view = bytesRead === chunk.length ? chunk : chunk.subarray(0, bytesRead);
+      crc = crc32(view, crc);
+      size += bytesRead;
+      written += fs.writeSync(fd, view);
+    }
+  } finally {
+    fs.closeSync(sourceFd);
+  }
+
+  return { crc, size, written };
+}
+
+function normalizeZipEntryName(value: string): string {
+  const normalized = value.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) throw new Error("Nome de entrada ZIP invalido");
+  return normalized;
+}
+
+function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
+  const year = Math.min(Math.max(date.getFullYear(), 1980), 2107);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = Math.floor(date.getSeconds() / 2);
+
+  return {
+    dosDate: ((year - 1980) << 9) | (month << 5) | day,
+    dosTime: (hours << 11) | (minutes << 5) | seconds
+  };
+}
+
+function writeUInt16LE(buffer: Buffer, value: number, offset: number): number {
+  buffer.writeUInt16LE(value & 0xffff, offset);
+  return offset + 2;
+}
+
+function writeUInt32LE(buffer: Buffer, value: number, offset: number): number {
+  buffer.writeUInt32LE(value >>> 0, offset);
+  return offset + 4;
+}
+
+function crc32(buffer: Buffer, seed = 0): number {
+  let crc = seed ^ 0xffffffff;
+  for (let index = 0; index < buffer.length; index += 1) {
+    crc = CRC32_TABLE[(crc ^ buffer[index]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createCrc32Table(): Uint32Array {
+  const table = new Uint32Array(256);
+
+  for (let index = 0; index < 256; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+    }
+    table[index] = value >>> 0;
+  }
+
+  return table;
 }
