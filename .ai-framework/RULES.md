@@ -97,3 +97,7 @@ Todo modal secundário aberto sobre outro modal deve ser arrastável dentro da �
 - O modal deve iniciar centralizado e ter deslocamento limitado para não sair da área visível da janela.
 - Quando o modal secundário precisar cobrir toda a área arrastável, usar overlay `position: fixed; inset: 0; background: transparent`.
 - Botões de ação no rodapé de modal secundário devem ficar alinhados à direita (`justify-content: flex-end`) com gap consistente.
+
+## Regra aprendida: commits de regras
+
+Quando o pedido for alterar regra/guia e commitar, o commit deve ser escopado ao arquivo de regra alterado. Mudanças pendentes em código ou outros arquivos devem ficar fora do stage, salvo pedido explícito para incluí-las.
