@@ -182,7 +182,7 @@ function PlatformMappingsModal({ platform, onClose }: { platform: Platform; onCl
       <section className="management-modal platform-mappings-modal">
         <header>
           <div>
-            <h2>Vinculos de plataforma</h2>
+            <h2>Vínculos de plataforma</h2>
             <p className="platform-mappings-subtitle">{platform.name}</p>
           </div>
           <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">

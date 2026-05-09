@@ -103,6 +103,50 @@
   gap: 14px;
 }
 
+.settings-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 74px;
+  border: 1px solid rgba(132, 148, 149, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015)),
+    rgba(27, 27, 27, 0.9);
+  padding: 14px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.settings-summary-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.settings-summary-label svg {
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.settings-summary-value {
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
 .settings-info-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -284,4 +328,10 @@
 .about-open-folder-external {
   margin-left: 2px;
   opacity: 0.6;
+}
+
+@media (max-width: 780px) {
+  .settings-summary-grid {
+    grid-template-columns: 1fr;
+  }
 }

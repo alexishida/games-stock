@@ -29,7 +29,7 @@ const CATEGORY_LABELS: Record<DataPortabilityCategory, { title: string; descript
     description: "Plataformas, mapeamentos e emuladores"
   },
   romLocations: {
-    title: "Localizacoes de ROMs",
+    title: "Localizações de ROMs",
     description: "Caminhos de ROM e pastas configuradas"
   }
 };
@@ -105,7 +105,7 @@ export function DataPortabilitySettings({
         categories: importCategories
       });
       startDataPortabilityJob(result);
-      setMessage("Importacao iniciada em background.");
+      setMessage("Importação iniciada em background.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -120,7 +120,7 @@ export function DataPortabilitySettings({
       <div className="data-portability-status-grid">
         <div className="data-portability-stat">
           <HardDrive aria-hidden="true" size={18} />
-          <span>Versao</span>
+          <span>Versão</span>
           <strong>{appVersion || "carregando"}</strong>
         </div>
         <div className="data-portability-stat">
@@ -211,7 +211,7 @@ function DataPortabilityJobCard({ job }: { job: DataPortabilityJob }) {
   return (
     <div className={`data-portability-job data-portability-job--${job.status}`}>
       <div>
-        <strong>{job.kind === "export" ? "Exportacao" : "Importacao"}</strong>
+        <strong>{job.kind === "export" ? "Exportação" : "Importação"}</strong>
         <span>{job.progress.message}</span>
       </div>
       <small>{job.status === "running" ? `${job.progress.current} de ${job.progress.total}` : statusLabel(job.status)}</small>
@@ -298,7 +298,7 @@ function isCanceledStart(result: DataPortabilityStartResult): result is { cancel
 }
 
 function statusLabel(status: DataPortabilityJob["status"]): string {
-  if (status === "completed") return "Concluido";
+  if (status === "completed") return "Concluído";
   if (status === "failed") return "Erro";
   if (status === "interrupted") return "Interrompido";
   return "Rodando";

@@ -103,7 +103,7 @@ function useDraggableDialog() {
   };
 }
 
-// ─── EmulatorFormModal ────────────────────────────────────────────────────────
+// EmulatorFormModal
 
 type EmulatorModalMode = { kind: "create" } | { kind: "edit"; emulator: Emulator };
 
@@ -194,7 +194,7 @@ function EmulatorFormModal({
             </button>
             <button type="submit" className="text-button active form-action-button" disabled={saving || !name.trim()}>
               <Save size={14} aria-hidden="true" />
-              {saving ? "Salvando…" : "Salvar"}
+              {saving ? "Salvando..." : "Salvar"}
             </button>
           </footer>
         </form>
@@ -203,7 +203,7 @@ function EmulatorFormModal({
   );
 }
 
-// ─── LinkPlatformModal ────────────────────────────────────────────────────────
+// LinkPlatformModal
 
 function LinkPlatformModal({
   emulator,
@@ -340,7 +340,7 @@ function LinkPlatformModal({
             </button>
             <button type="submit" className="text-button active form-action-button" disabled={saving || !platformId}>
               <Link size={14} aria-hidden="true" />
-              {saving ? "Vinculando…" : "Vincular"}
+              {saving ? "Vinculando..." : "Vincular"}
             </button>
           </footer>
         </form>
@@ -349,7 +349,7 @@ function LinkPlatformModal({
   );
 }
 
-// ─── EmulatorRow ──────────────────────────────────────────────────────────────
+// EmulatorRow
 
 function EmulatorRow({
   emulator,
@@ -482,7 +482,7 @@ function EmulatorRow({
   );
 }
 
-// ─── EmulatorsSettings ────────────────────────────────────────────────────────
+// EmulatorsSettings
 
 function RetroArchPlatformCores({
   retroArch,

@@ -117,7 +117,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
               <AlertTriangle aria-hidden="true" size={22} />
               <p>Remover pasta do GameStock?</p>
             </div>
-            <p className="confirm-message">Esta acao remove apenas os registros desta pasta no GameStock. As ROMs originais continuam na pasta, e as imagens baixadas ficam guardadas como cache.</p>
+            <p className="confirm-message">Esta ação remove apenas os registros desta pasta no GameStock. As ROMs originais continuam na pasta, e as imagens baixadas ficam guardadas como cache.</p>
             <p className="confirm-path">{selectedFolderPath}</p>
             <div className="confirm-actions">
               <button type="button" onClick={() => setConfirmDelete(false)}>
@@ -440,7 +440,7 @@ function SummaryStep({
             <span role="columnheader">Pasta</span>
             <span role="columnheader">Plataforma</span>
             <span role="columnheader">Jogos</span>
-            <span className="folder-table-action-header" role="columnheader" aria-label="Acao" />
+            <span className="folder-table-action-header" role="columnheader" aria-label="Ação" />
           </div>
           {entries.length ? entries.map((entry) => (
             <div
