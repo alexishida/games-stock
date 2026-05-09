@@ -175,12 +175,13 @@ export function previewImportPackage(packagePath: string): DataPortabilityImport
   const loaded = loadBackup(packagePath);
   const dao = new DataPortabilityDao(getDatabase());
   const validation = validateBackupData(loaded);
+  const availableCategories = detectAvailableCategories(loaded);
 
   return {
     packagePath,
     manifest: loaded.manifest,
-    availableCategories: loaded.manifest.categories,
-    counts: loaded.manifest.counts,
+    availableCategories,
+    counts: buildPreviewCounts(loaded, availableCategories),
     warnings: validation.warnings,
     errors: validation.errors,
     conflicts: {
@@ -195,7 +196,8 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
   const categories = normalizeCategories(request.categories);
   onProgress?.({ current: 0, total: Math.max(1, categories.length + 2), stage: "validating", message: "Validando pacote" });
   const loaded = loadBackup(request.packagePath);
-  const missingCategories = categories.filter((category) => !loaded.manifest.categories.includes(category));
+  const availableCategories = detectAvailableCategories(loaded);
+  const missingCategories = categories.filter((category) => !availableCategories.includes(category));
   if (missingCategories.length) {
     throw new Error(`Pacote nao contem categoria(s): ${missingCategories.join(", ")}`);
   }
@@ -368,6 +370,7 @@ function loadBackup(packagePath: string): LoadedBackup {
 function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWarning[]; errors: DataPortabilityWarning[] } {
   const warnings: DataPortabilityWarning[] = [];
   const errors: DataPortabilityWarning[] = [];
+  const detectedCategories = detectAvailableCategories(loaded);
 
   if (loaded.manifest.categories.includes("metadata") && !loaded.zip.getEntry("data/games.json")) {
     errors.push(createError("missing-games-data", "Pacote sem data/games.json"));
@@ -396,6 +399,28 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
       if (entry.folderPath && !fs.existsSync(entry.folderPath)) {
         warnings.push(createWarning("missing-rom-folder", `Pasta de ROMs nao encontrada: ${entry.folderPath}`));
       }
+    }
+  }
+
+  for (const category of detectedCategories) {
+    if (!loaded.manifest.categories.includes(category)) {
+      warnings.push(
+        createWarning(
+          "manifest-category-missing",
+          `Pacote contem dados de ${categoryLabel(category)}, mas categoria nao foi registrada no manifesto.`
+        )
+      );
+    }
+  }
+
+  for (const category of loaded.manifest.categories) {
+    if (!detectedCategories.includes(category)) {
+      warnings.push(
+        createWarning(
+          "manifest-category-without-data",
+          `Manifesto lista ${categoryLabel(category)}, mas dados da categoria nao foram encontrados no pacote.`
+        )
+      );
     }
   }
 
@@ -428,6 +453,70 @@ function normalizeCategories(categories: DataPortabilityCategory[]): DataPortabi
   const normalized = Array.from(new Set((categories ?? []).filter((category) => allowed.has(category))));
   if (!normalized.length) throw new Error("Selecione ao menos uma categoria");
   return normalized;
+}
+
+function detectAvailableCategories(loaded: LoadedBackup): DataPortabilityCategory[] {
+  const hasMetadata = Boolean(loaded.zip.getEntry("data/games.json"));
+  const hasImages = Boolean(loaded.zip.getEntry("data/mediaMap.json")) || countMediaFilesInBackup(loaded.zip) > 0;
+  const hasPlatforms =
+    Boolean(loaded.zip.getEntry("data/platforms.json")) ||
+    Boolean(loaded.zip.getEntry("data/platformMappings.json")) ||
+    Boolean(loaded.zip.getEntry("data/emulators.json"));
+  const hasRomLocations = Boolean(loaded.zip.getEntry("data/romLocations.json"));
+
+  return DATA_PORTABILITY_CATEGORIES.filter((category) => {
+    switch (category) {
+      case "metadata":
+        return hasMetadata;
+      case "images":
+        return hasImages;
+      case "platforms":
+        return hasPlatforms;
+      case "romLocations":
+        return hasRomLocations;
+      default:
+        return false;
+    }
+  });
+}
+
+function buildPreviewCounts(
+  loaded: LoadedBackup,
+  availableCategories: DataPortabilityCategory[]
+): Partial<DataPortabilityManifest["counts"]> {
+  const counts: Partial<DataPortabilityManifest["counts"]> = { ...loaded.manifest.counts };
+
+  if (availableCategories.includes("metadata")) {
+    counts.games = loaded.data.games.length;
+  }
+  if (availableCategories.includes("platforms")) {
+    counts.platforms = loaded.data.platforms.length;
+    counts.emulators = loaded.data.emulators.length;
+  }
+  if (availableCategories.includes("images")) {
+    counts.images = countMediaFilesInBackup(loaded.zip);
+  }
+  if (availableCategories.includes("romLocations")) {
+    counts.romLocations = loaded.data.romLocations.length;
+    counts.romFolderEntries = loaded.data.romFolderEntries.length;
+  }
+
+  return counts;
+}
+
+function categoryLabel(category: DataPortabilityCategory): string {
+  switch (category) {
+    case "metadata":
+      return "metadados";
+    case "images":
+      return "imagens";
+    case "platforms":
+      return "plataformas";
+    case "romLocations":
+      return "localizacoes de ROMs";
+    default:
+      return category;
+  }
 }
 
 function normalizeRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): DataPortabilityRomFolderEntry[] {
