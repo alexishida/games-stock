@@ -10,10 +10,10 @@
 ## Convenções de UI
 
 ### Design
-Sempre que for criar alguma funcionalidade, tela, modal,botão, campos de formulários, ou algo que use css sempre seguir o /.ai-framework/DESIGN.md
+Sempre que for criar alguma funcionalidade, tela, modal, botão, campos de formulários ou qualquer coisa que use CSS, seguir `.ai-framework/DESIGN.md`.
 
 ### Icones
-Usar sempre `lucide-react` para icones da UI. A dependencia deve ficar local no projeto, importando apenas os icones necessarios em cada componente. Nao usar Material Symbols, fontes remotas de icones ou SVG inline quando existir equivalente Lucide.
+Usar sempre `lucide-react` para ícones da UI. A dependência deve ficar local no projeto, importando apenas os ícones necessários em cada componente. Não usar Material Symbols, fontes remotas de ícones ou SVG inline quando existir equivalente Lucide.
 
 ### Janelas e modais
 
@@ -25,7 +25,7 @@ Quando o usuário pedir "abrir uma nova janela", "abrir em uma janela", ou qualq
 - Dialog flutuante por cima: div com `border`, `border-radius`, `background: var(--bg-panel)`, `box-shadow`
 - Ver `.panel-confirm-overlay` + `.confirm-dialog` em `RomFolderImporter.css` como referência
 
-`BrowserWindow` adicional só é justificado para funcionalidade completamente independente da janela principal (ex.: uma janela de settings do sistema operacional). Fluxos de cadastro, formulários, confirmações e assistentes sempre usam modal React.
+`BrowserWindow` adicional só é justificado para funcionalidade completamente independente da janela principal (ex.: janela de configurações do sistema operacional). Fluxos de cadastro, formulários, confirmações e assistentes sempre usam modal React.
 
 ### Padrão de overlay no projeto
 
@@ -53,11 +53,28 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 
 ## Arquitetura SQLite
 
-- Todo codigo relacionado ao SQLite deve ficar em `src/main/db`.
-- Conexao, schema, migrations simples e seeds ficam em `src/main/db/database.ts`.
+- Todo código relacionado ao SQLite deve ficar em `src/main/db`.
+- Conexão, schema, migrations simples e seeds ficam em `src/main/db/database.ts`.
 - Chamadas SQL (`prepare`, `transaction`, queries e comandos) devem ficar nos DAOs em `src/main/db/dao`.
-- Repositorios em `src/main/db/repositories` devem ser fachadas finas ou orquestracao; nao colocar SQL direto neles.
-- Codigo fora de `src/main/db` deve acessar o banco via repositorios/DAOs exportados, nunca via `better-sqlite3` direto.
+- Repositórios em `src/main/db/repositories` devem ser fachadas finas ou orquestração; não colocar SQL direto neles.
+- Código fora de `src/main/db` deve acessar o banco via repositórios/DAOs exportados, nunca via `better-sqlite3` direto.
+
+## Arquitetura de portabilidade de dados
+
+- Fluxos de exportação e importação de dados devem rodar no `main process`, nunca no renderer.
+- UI de portabilidade deve viver dentro de `Configurações`, em modal React já existente. Não criar `BrowserWindow` nova para exportar, importar, revisar ou confirmar restore.
+- Seleção de arquivo/pasta deve usar diálogos nativos via IPC.
+- Pacote de backup deve usar formato zip com extensão sugerida `.gamestock-backup`.
+- Implementação deve reutilizar `adm-zip`, sem adicionar dependência nova para empacotamento do backup.
+- Categorias suportadas devem continuar independentes: `metadata`, `images`, `platforms` e `romLocations`.
+- Importação com escrita em SQLite deve ser transacional. Se falhar, reverter banco e reportar resumo claro do erro.
+- Caminhos de imagens importadas devem ser regravados para diretório de dados atual do app; nunca preservar path absoluto de outra máquina.
+- ROMs físicas não entram no backup. Exportar e importar apenas caminhos de ROM e entradas configuradas de pastas.
+- Entradas do importador de pastas de ROM continuam no `localStorage` do renderer. O `main` pode validar e devolver payload dessas entradas, mas não deve passar a ser dono desse storage sem mudança explícita de arquitetura.
+- Matching de importação não deve depender de IDs SQLite brutos do pacote. Preferir chaves estáveis:
+  - Plataformas por `name` case-insensitive.
+  - Jogos por `launchbox_id + platformName`; fallback `title + platformName`.
+  - Emuladores por `name`.
 
 ## Regra aprendida: estado assíncrono compartilhado
 
@@ -67,16 +84,16 @@ Nunca usar `window.dispatchEvent` como mecanismo de estado compartilhado. Evento
 
 ## Regra aprendida: modais empilhados
 
-Quando ja existir um modal aberto e outro modal/confirmacao for aberto acima dele, o modal de tras deve receber uma nova camada escura semi-transparente. Isso vale para 2o, 3o, 4o modal e seguintes, para manter o modal de cima mais legivel.
+Quando já existir um modal aberto e outro modal/confirmação for aberto acima dele, o modal de trás deve receber nova camada escura semi-transparente. Isso vale para 2º, 3º, 4º modal e seguintes, para manter o modal de cima mais legível.
 
-Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve usar `background: rgba(...)` quando usado dentro do modal de configuracoes. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
+Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve usar `background: rgba(...)` quando usado dentro do modal de configurações. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
 
 ## Regra aprendida: modais secundarios arrastaveis
 
-Todo modal secundario aberto sobre outro modal deve ser arrastavel dentro da area da janela principal. Use overlay React, nao `BrowserWindow`.
+Todo modal secundário aberto sobre outro modal deve ser arrastável dentro da área da janela principal. Use overlay React, não `BrowserWindow`.
 
-- O drag deve funcionar pelo corpo do modal sempre que possivel.
-- Controles interativos (`button`, `input`, `select`, `textarea`, `label`, links e elementos com `role="button"`) nao devem iniciar drag, para manter clique, foco e selecao funcionando.
-- O modal deve iniciar centralizado e ter deslocamento limitado para nao sair da area visivel da janela.
-- Quando o modal secundario precisar cobrir toda a area arrastavel, use overlay `position: fixed; inset: 0; background: transparent`.
-- Botoes de acao no rodape de modal secundario devem ficar alinhados a direita (`justify-content: flex-end`) com gap consistente.
+- O drag deve funcionar pelo corpo do modal sempre que possível.
+- Controles interativos (`button`, `input`, `select`, `textarea`, `label`, links e elementos com `role="button"`) não devem iniciar drag, para manter clique, foco e seleção funcionando.
+- O modal deve iniciar centralizado e ter deslocamento limitado para não sair da área visível da janela.
+- Quando o modal secundário precisar cobrir toda a área arrastável, usar overlay `position: fixed; inset: 0; background: transparent`.
+- Botões de ação no rodapé de modal secundário devem ficar alinhados à direita (`justify-content: flex-end`) com gap consistente.
