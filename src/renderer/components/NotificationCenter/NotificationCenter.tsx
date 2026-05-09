@@ -1,25 +1,28 @@
 import { useMemo, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
-import { RomFolderImportJob, RomFolderImportProgress } from "../../../shared/types";
+import { DataPortabilityJob, RomFolderImportJob, RomFolderImportProgress } from "../../../shared/types";
 import { MediaSyncJob, useGameStockStore } from "../../store";
 import "./NotificationCenter.css";
 
 type NotificationItem =
   | { type: "rom"; job: RomFolderImportJob }
-  | { type: "media"; job: MediaSyncJob };
+  | { type: "media"; job: MediaSyncJob }
+  | { type: "data-portability"; job: DataPortabilityJob };
 
 export function NotificationCenter() {
   const romImportJob = useGameStockStore((state) => state.lastRomImportJob);
   const mediaSyncJobs = useGameStockStore((state) => state.mediaSyncJobs);
-  const [dismissedIds, setDismissedIds] = useState<string[]>(() => initialDismissedIds([romImportJob, ...mediaSyncJobs]));
+  const dataPortabilityJobs = useGameStockStore((state) => state.dataPortabilityJobs);
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => initialDismissedIds([romImportJob, ...mediaSyncJobs, ...dataPortabilityJobs]));
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
     if (romImportJob) items.push({ type: "rom", job: romImportJob });
     for (const job of mediaSyncJobs) items.push({ type: "media", job });
+    for (const job of dataPortabilityJobs) items.push({ type: "data-portability", job });
     return items
       .filter((item) => !dismissedIds.includes(item.job.jobId))
       .sort((a, b) => timestamp(b.job.startedAt) - timestamp(a.job.startedAt));
-  }, [dismissedIds, mediaSyncJobs, romImportJob]);
+  }, [dataPortabilityJobs, dismissedIds, mediaSyncJobs, romImportJob]);
 
   if (!notifications.length) return null;
 
@@ -36,9 +39,9 @@ export function NotificationCenter() {
   );
 }
 
-function initialDismissedIds(jobs: Array<RomFolderImportJob | MediaSyncJob | null>): string[] {
+function initialDismissedIds(jobs: Array<RomFolderImportJob | MediaSyncJob | DataPortabilityJob | null>): string[] {
   return jobs
-    .filter((job): job is RomFolderImportJob | MediaSyncJob =>
+    .filter((job): job is RomFolderImportJob | MediaSyncJob | DataPortabilityJob =>
       Boolean(job && (job.status === "completed" || job.status === "failed"))
     )
     .map((job) => job.jobId);
@@ -46,7 +49,42 @@ function initialDismissedIds(jobs: Array<RomFolderImportJob | MediaSyncJob | nul
 
 function NotificationCard({ item, onDismiss }: { item: NotificationItem; onDismiss(): void }) {
   if (item.type === "media") return <MediaNotificationCard job={item.job} onDismiss={onDismiss} />;
+  if (item.type === "data-portability") return <DataPortabilityNotificationCard job={item.job} onDismiss={onDismiss} />;
   return <RomNotificationCard job={item.job} onDismiss={onDismiss} />;
+}
+
+function DataPortabilityNotificationCard({ job, onDismiss }: { job: DataPortabilityJob; onDismiss(): void }) {
+  const dismissDataPortabilityJob = useGameStockStore((state) => state.dismissDataPortabilityJob);
+  const percent = job.status === "completed" ? 100 : Math.min(100, Math.round((job.progress.current / (job.progress.total || 1)) * 100));
+  const title = job.status === "completed"
+    ? job.kind === "export" ? "Backup exportado" : "Backup importado"
+    : job.status === "failed"
+      ? job.error ?? "Portabilidade falhou"
+      : job.kind === "export" ? "Exportando backup" : "Importando backup";
+
+  return (
+    <article className={`notification-card ${job.status}`}>
+      <div className="notification-title">
+        <strong>{title}</strong>
+        {job.status !== "running" ? (
+          <button
+            type="button"
+            onClick={() => {
+              dismissDataPortabilityJob(job.jobId);
+              onDismiss();
+            }}
+            aria-label="Dispensar"
+          >
+            <X aria-hidden="true" size={14} />
+          </button>
+        ) : null}
+      </div>
+      <p>{job.progress.message}</p>
+      {job.packagePath ? <span>{job.packagePath}</span> : null}
+      <div className="progress-track"><span style={{ width: `${percent}%` }} /></div>
+      <small>{job.status === "running" ? `${job.progress.current} de ${job.progress.total}` : statusText(job.status)}</small>
+    </article>
+  );
 }
 
 function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDismiss(): void }) {
@@ -157,6 +195,13 @@ function labelForStage(stage: RomFolderImportProgress["stage"]): string {
     done: "concluído",
     error: "erro"
   }[stage];
+}
+
+function statusText(status: DataPortabilityJob["status"]): string {
+  if (status === "completed") return "Concluido";
+  if (status === "failed") return "Erro";
+  if (status === "interrupted") return "Interrompido";
+  return "Rodando";
 }
 
 function timestamp(value: string | undefined): number {

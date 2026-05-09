@@ -7,6 +7,7 @@ import { LEGACY_PLATFORM_ALIASES, PLATFORM_CATALOG } from "./platformCatalog";
 let db: Database.Database | null = null;
 
 export function getUserDataDir(): string {
+  if (process.env.GAMESTOCK_USER_DATA_DIR) return process.env.GAMESTOCK_USER_DATA_DIR;
   return path.join(app.getPath("appData"), "GameStock");
 }
 

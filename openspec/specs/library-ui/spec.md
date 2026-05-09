@@ -2,7 +2,6 @@
 
 ## Purpose
 Define a interface principal da biblioteca: barra superior, painel lateral, grade/lista de jogos com paginação, busca, filtros, tema visual, modal de configurações e central de notificações de jobs em background.
-
 ## Requirements
 ### Requirement: Barra superior (TopBar)
 O sistema SHALL exibir uma barra superior com campo de busca, controles de ordenação, alternância de visualização e contador de jogos. A barra SHALL ser ocultada quando um jogo estiver selecionado (modo detalhe).
@@ -106,19 +105,35 @@ O sistema SHALL oferecer filtros para "all", "favorites", "completed" e "unplaye
 - **THEN** a biblioteca exibe apenas jogos com `play_status = "unplayed"`
 
 ### Requirement: SettingsModal
-O sistema SHALL fornecer um modal de configurações com navegação entre as seções "biblioteca" (RomFolderImporter) e "plataformas" (PlatformManager). O modal SHALL ser acessível pelo botão do painel lateral e pelos canais IPC `library:openPlatformManager` e `romFolderImport:openImporter`.
+O sistema SHALL fornecer um modal de configuracoes com navegacao entre as secoes "geral", "biblioteca", "plataformas", "emuladores", "covers" e "sobre". O modal SHALL ser acessivel pelo botao do painel lateral e pelos canais IPC `library:openPlatformManager` e `romFolderImport:openImporter`. A secao "geral" SHALL incluir controles de portabilidade para exportar e importar dados do GameStock.
 
-#### Scenario: Abrir na seção biblioteca
-- **WHEN** o canal `romFolderImport:openImporter` é recebido ou o usuário clica em "Gerenciar biblioteca"
-- **THEN** o SettingsModal abre na seção "biblioteca" exibindo o RomFolderImporter
+#### Scenario: Abrir na secao biblioteca
+- **WHEN** o canal `romFolderImport:openImporter` e recebido ou o usuario clica em "Gerenciar biblioteca"
+- **THEN** o SettingsModal abre na secao "biblioteca" exibindo o RomFolderImporter
 
-#### Scenario: Abrir na seção plataformas
-- **WHEN** o canal `library:openPlatformManager` é recebido
-- **THEN** o SettingsModal abre na seção "plataformas" exibindo o PlatformManager
+#### Scenario: Abrir na secao plataformas
+- **WHEN** o canal `library:openPlatformManager` e recebido
+- **THEN** o SettingsModal abre na secao "plataformas" exibindo o PlatformManager
 
-#### Scenario: Navegar entre seções
-- **WHEN** o modal está aberto e o usuário clica em outra seção na barra lateral do modal
-- **THEN** o conteúdo principal alterna para a seção selecionada
+#### Scenario: Navegar entre secoes
+- **WHEN** o modal esta aberto e o usuario clica em outra secao na barra lateral do modal
+- **THEN** o conteudo principal alterna para a secao selecionada
+
+#### Scenario: Exibir portabilidade em Geral
+- **WHEN** o usuario abre a secao "geral"
+- **THEN** o SettingsModal exibe area de exportacao/importacao com opcoes para imagens, metadados, plataformas e localizacoes de ROMs
+
+#### Scenario: Selecionar categorias para exportacao
+- **WHEN** o usuario marca categorias de exportacao na secao "geral"
+- **THEN** a acao de exportar usa somente as categorias selecionadas ao chamar `window.gameStockAPI.dataPortability.exportPackage`
+
+#### Scenario: Previsualizar importacao
+- **WHEN** o usuario seleciona um pacote para importar
+- **THEN** a UI chama `window.gameStockAPI.dataPortability.previewImport` e mostra categorias disponiveis, contagens e avisos antes de confirmar
+
+#### Scenario: Confirmar importacao seletiva
+- **WHEN** o usuario confirma importacao com categorias selecionadas
+- **THEN** a UI chama `window.gameStockAPI.dataPortability.importPackage`, mostra resumo final e atualiza a biblioteca visivel
 
 ### Requirement: Central de notificações (NotificationCenter)
 O sistema SHALL exibir um painel flutuante com cards de progresso e resumo para cada job de importação de pasta de ROMs em background.

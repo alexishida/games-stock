@@ -112,3 +112,9 @@
   color: var(--text-secondary);
   font-size: 12px;
 }
+
+.notification-card span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

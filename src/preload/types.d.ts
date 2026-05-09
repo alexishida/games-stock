@@ -2,6 +2,12 @@ import {
   CollectionCounts,
   CoverSyncResult,
   CoverSyncStats,
+  DataPortabilityExportRequest,
+  DataPortabilityJob,
+  DataPortabilityProgress,
+  DataPortabilityStartResult,
+  DataPortabilityImportPreview,
+  DataPortabilityImportRequest,
   Emulator,
   Game,
   GameCreateInput,
@@ -81,6 +87,14 @@ export interface GameStockAPI {
   app: {
     getVersion(): Promise<string>;
     getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
+  };
+  dataPortability: {
+    exportPackage(request: DataPortabilityExportRequest): Promise<DataPortabilityStartResult>;
+    previewImport(packagePath: string): Promise<DataPortabilityImportPreview>;
+    importPackage(request: DataPortabilityImportRequest): Promise<DataPortabilityJob>;
+    jobs(): Promise<DataPortabilityJob[]>;
+    onProgress(callback: (progress: DataPortabilityProgress) => void): () => void;
+    onCompleted(callback: (job: DataPortabilityJob) => void): () => void;
   };
   launchbox: {
     ensureMetadata(options?: { force?: boolean }): Promise<{ status: "cached" | "downloaded" }>;

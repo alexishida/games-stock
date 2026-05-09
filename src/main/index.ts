@@ -2,23 +2,39 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
 import { spawn } from "node:child_process";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
 import * as emulators from "./db/repositories/emulators";
+import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
+import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 const romFolderJobs = new Map<string, RomFolderImportJob>();
+const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
+
+configureElectronStoragePaths();
 
 function getWindowTitle(): string {
   return `GameStock v${app.getVersion()}`;
+}
+
+function configureElectronStoragePaths(): void {
+  const dataDir = path.join(app.getPath("appData"), "GameStock");
+  const sessionDir = path.join(dataDir, "session");
+  const cacheDir = path.join(sessionDir, "Cache");
+  fs.mkdirSync(cacheDir, { recursive: true });
+  app.setPath("userData", dataDir);
+  app.setPath("sessionData", sessionDir);
+  app.commandLine.appendSwitch("disk-cache-dir", cacheDir);
+  app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -223,6 +239,27 @@ function registerIpc(): void {
     const dataDirSizeMb = Math.round(getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
     return { totalGames, dataDirSizeMb, dataDirPath };
   });
+  ipcMain.handle(IPC_CHANNELS.dataPortability.exportPackage, async (_event, request: DataPortabilityExportRequest) => {
+    let targetPath = request.targetPath?.trim() ?? "";
+    if (!targetPath) {
+      const result = await dialog.showSaveDialog(mainWindow!, {
+        title: "Exportar dados do GameStock",
+        defaultPath: `gamestock-backup-${new Date().toISOString().slice(0, 10)}.gamestock-backup`,
+        filters: [
+          { name: "Backup GameStock", extensions: ["gamestock-backup"] },
+          { name: "Todos os arquivos", extensions: ["*"] }
+        ]
+      });
+      if (result.canceled || !result.filePath) return { canceled: true, filePath: null, warnings: [] };
+      targetPath = result.filePath;
+    }
+    return startDataPortabilityJob("export", { ...request, targetPath });
+  });
+  ipcMain.handle(IPC_CHANNELS.dataPortability.previewImport, (_event, packagePath: string) => previewImportPackage(packagePath));
+  ipcMain.handle(IPC_CHANNELS.dataPortability.importPackage, (_event, request: DataPortabilityImportRequest) => startDataPortabilityJob("import", request));
+  ipcMain.handle(IPC_CHANNELS.dataPortability.jobs, () =>
+    Array.from(dataPortabilityJobs.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+  );
 
   ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>
     ensureLaunchBoxMetadata(Boolean(options?.force), sendLaunchBoxProgress)
@@ -272,6 +309,111 @@ function sendCoverStats(): void {
 
 function sendRomFolderImportProgress(progress: RomFolderImportProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.progress, progress);
+}
+
+function sendDataPortabilityProgress(progress: DataPortabilityProgress): void {
+  mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.progress, progress);
+}
+
+type DataPortabilityWorkerMessage =
+  | { type: "progress"; progress: DataPortabilityProgress }
+  | { type: "completed"; result: DataPortabilityExportResult | DataPortabilityImportResult }
+  | { type: "error"; error: string };
+
+function startDataPortabilityJob(
+  kind: "export",
+  request: DataPortabilityExportRequest & { targetPath: string }
+): DataPortabilityJob;
+function startDataPortabilityJob(kind: "import", request: DataPortabilityImportRequest): DataPortabilityJob;
+function startDataPortabilityJob(
+  kind: "export" | "import",
+  request: (DataPortabilityExportRequest & { targetPath: string }) | DataPortabilityImportRequest
+): DataPortabilityJob {
+  const jobId = `data-portability-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const packagePath = kind === "export" ? (request as DataPortabilityExportRequest & { targetPath: string }).targetPath : (request as DataPortabilityImportRequest).packagePath;
+  const initialProgress: DataPortabilityProgress = {
+    jobId,
+    kind,
+    current: 0,
+    total: 1,
+    stage: "preparing",
+    message: kind === "export" ? "Exportacao iniciada" : "Importacao iniciada"
+  };
+  const job: DataPortabilityJob = {
+    jobId,
+    kind,
+    status: "running",
+    startedAt: new Date().toISOString(),
+    progress: initialProgress,
+    packagePath
+  };
+  dataPortabilityJobs.set(jobId, job);
+  sendDataPortabilityProgress(initialProgress);
+
+  const worker = new Worker(path.join(__dirname, "dataPortabilityWorker.js"), {
+    workerData: {
+      jobId,
+      kind,
+      request,
+      appVersion: app.getVersion(),
+      userDataDir: getUserDataDir()
+    }
+  });
+
+  worker.on("message", (message: DataPortabilityWorkerMessage) => {
+    if (message.type === "progress") {
+      job.progress = message.progress;
+      sendDataPortabilityProgress(message.progress);
+      return;
+    }
+
+    if (message.type === "completed") {
+      job.status = "completed";
+      job.progress = {
+        ...job.progress,
+        current: job.progress.total,
+        stage: "done",
+        message: kind === "export" ? "Exportacao concluida" : "Importacao concluida"
+      };
+      if (kind === "export") {
+        job.exportResult = message.result as DataPortabilityExportResult;
+        job.packagePath = job.exportResult.filePath;
+      } else {
+        job.importResult = message.result as DataPortabilityImportResult;
+        sendCoverStats();
+      }
+      mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.completed, job);
+      return;
+    }
+
+    failDataPortabilityJob(job, message.error);
+  });
+
+  worker.on("error", (error) => {
+    failDataPortabilityJob(job, error.message);
+  });
+
+  worker.on("exit", (code) => {
+    if (code !== 0 && job.status === "running") {
+      failDataPortabilityJob(job, `Worker de portabilidade encerrou com codigo ${code}`);
+    }
+  });
+
+  return job;
+}
+
+function failDataPortabilityJob(job: DataPortabilityJob, message: string): void {
+  if (job.status !== "running") return;
+  job.status = "failed";
+  job.error = message;
+  job.progress = {
+    ...job.progress,
+    stage: "error",
+    message,
+    current: job.progress.total
+  };
+  sendDataPortabilityProgress(job.progress);
+  mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.completed, job);
 }
 
 function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImportJob {

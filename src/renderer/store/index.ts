@@ -3,6 +3,8 @@ import {
   CollectionCounts,
   CollectionFilter,
   CoverSyncStats,
+  DataPortabilityJob,
+  DataPortabilityProgress,
   Game,
   GameListResult,
   GameSortBy,
@@ -19,6 +21,7 @@ export type SettingsSection = "geral" | "biblioteca" | "plataformas" | "covers" 
 const LAST_ROM_IMPORT_JOB_KEY = "gamestock.media.lastRomImportJob";
 const LAST_MEDIA_SYNC_JOB_KEY = "gamestock.media.lastMediaSyncJob";
 const LAST_MEDIA_SYNC_JOBS_KEY = "gamestock.media.lastMediaSyncJobs";
+const LAST_DATA_PORTABILITY_JOBS_KEY = "gamestock.dataPortability.jobs";
 
 type SetterValue<T> = T | ((current: T) => T);
 
@@ -76,6 +79,7 @@ interface GameStockState {
   collectionCounts: CollectionCounts;
   lastRomImportJob: RomFolderImportJob | null;
   mediaSyncJobs: MediaSyncJob[];
+  dataPortabilityJobs: DataPortabilityJob[];
   metadataStartupRunning: boolean;
   coverStats: CoverSyncStats | null;
   setSelectedPlatformId(value: number | null): void;
@@ -108,6 +112,11 @@ interface GameStockState {
   finishMediaSyncJob(jobId: string, value: FinishMediaSyncJobInput): void;
   failMediaSyncJob(jobId: string, message: string): void;
   dismissMediaSyncJob(jobId: string): void;
+  hydrateDataPortabilityJobs(value: DataPortabilityJob[]): void;
+  startDataPortabilityJob(value: DataPortabilityJob): void;
+  updateDataPortabilityProgress(value: DataPortabilityProgress): void;
+  completeDataPortabilityJob(value: DataPortabilityJob): void;
+  dismissDataPortabilityJob(jobId: string): void;
   setMetadataStartupRunning(value: boolean): void;
   setCoverStats(value: CoverSyncStats): void;
   reloadGames(): void;
@@ -138,6 +147,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   collectionCounts: { favorites: 0, playing: 0, completed: 0 },
   lastRomImportJob: loadSavedRomImportJob(),
   mediaSyncJobs: loadSavedMediaSyncJobs(),
+  dataPortabilityJobs: loadSavedDataPortabilityJobs(),
   metadataStartupRunning: false,
   coverStats: null,
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null, selectedGame: null }),
@@ -271,6 +281,50 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     const updated = state.mediaSyncJobs.filter((j) => j.jobId !== jobId);
     persistMediaSyncJobs(updated);
     return { mediaSyncJobs: updated };
+  }),
+  hydrateDataPortabilityJobs: (jobs) => set((state) => {
+    const known = new Map(state.dataPortabilityJobs.map((job) => [job.jobId, job]));
+    for (const job of jobs) known.set(job.jobId, normalizeDataPortabilityJob(job));
+    const updated = Array.from(known.values()).sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt));
+    persistDataPortabilityJobs(updated);
+    return { dataPortabilityJobs: updated };
+  }),
+  startDataPortabilityJob: (job) => set((state) => {
+    const existing = state.dataPortabilityJobs.find((item) => item.jobId === job.jobId);
+    const nextJob = existing && existing.progress.current > job.progress.current
+      ? { ...job, status: existing.status, progress: existing.progress, exportResult: existing.exportResult, importResult: existing.importResult, error: existing.error }
+      : job;
+    const updated = upsertDataPortabilityJob(state.dataPortabilityJobs, normalizeDataPortabilityJob(nextJob));
+    persistDataPortabilityJobs(updated);
+    return { dataPortabilityJobs: updated };
+  }),
+  updateDataPortabilityProgress: (progress) => set((state) => {
+    if (!progress.jobId) return {};
+    const existing = state.dataPortabilityJobs.find((job) => job.jobId === progress.jobId);
+    const next: DataPortabilityJob = normalizeDataPortabilityJob({
+      jobId: progress.jobId,
+      kind: progress.kind,
+      status: progress.stage === "error" ? "failed" : "running",
+      startedAt: existing?.startedAt ?? new Date().toISOString(),
+      progress,
+      packagePath: existing?.packagePath,
+      exportResult: existing?.exportResult,
+      importResult: existing?.importResult,
+      error: progress.stage === "error" ? progress.message : existing?.error
+    });
+    const updated = upsertDataPortabilityJob(state.dataPortabilityJobs, next);
+    persistDataPortabilityJobs(updated);
+    return { dataPortabilityJobs: updated };
+  }),
+  completeDataPortabilityJob: (job) => set((state) => {
+    const updated = upsertDataPortabilityJob(state.dataPortabilityJobs, normalizeDataPortabilityJob(job));
+    persistDataPortabilityJobs(updated);
+    return { dataPortabilityJobs: updated };
+  }),
+  dismissDataPortabilityJob: (jobId) => set((state) => {
+    const updated = state.dataPortabilityJobs.filter((job) => job.jobId !== jobId);
+    persistDataPortabilityJobs(updated);
+    return { dataPortabilityJobs: updated };
   }),
   setMetadataStartupRunning: (metadataStartupRunning) => set({ metadataStartupRunning }),
   setCoverStats: (coverStats) => set({ coverStats }),
@@ -415,6 +469,47 @@ function persistMediaSyncJobs(jobs: MediaSyncJob[]): void {
   }
 }
 
+function loadSavedDataPortabilityJobs(): DataPortabilityJob[] {
+  try {
+    if (typeof window === "undefined") return [];
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(LAST_DATA_PORTABILITY_JOBS_KEY) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isDataPortabilityJob).map((job) =>
+      job.status === "running" ? { ...job, status: "interrupted" as const, progress: { ...job.progress, message: "Interrompido" } } : job
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistDataPortabilityJobs(jobs: DataPortabilityJob[]): void {
+  try {
+    if (typeof window === "undefined") return;
+    const recent = jobs.slice(0, 5);
+    if (!recent.length) window.localStorage.removeItem(LAST_DATA_PORTABILITY_JOBS_KEY);
+    else window.localStorage.setItem(LAST_DATA_PORTABILITY_JOBS_KEY, JSON.stringify(recent));
+  } catch {
+    // best effort
+  }
+}
+
+function upsertDataPortabilityJob(jobs: DataPortabilityJob[], nextJob: DataPortabilityJob): DataPortabilityJob[] {
+  return [nextJob, ...jobs.filter((job) => job.jobId !== nextJob.jobId)]
+    .sort((a, b) => timestamp(b.startedAt) - timestamp(a.startedAt))
+    .slice(0, 5);
+}
+
+function normalizeDataPortabilityJob(job: DataPortabilityJob): DataPortabilityJob {
+  return {
+    ...job,
+    progress: {
+      ...job.progress,
+      total: Math.max(1, job.progress.total),
+      current: Math.max(0, Math.min(job.progress.current, Math.max(1, job.progress.total)))
+    }
+  };
+}
+
 function routeProgressToJob(progress: LaunchBoxProgress, running: MediaSyncJob[]): MediaSyncJob | null {
   const isMetadata = progress.status === "extracting" || progress.status === "indexing" || isMetadataProgress(progress);
   return running.find((j) => isMetadata ? j.jobId.startsWith("metadata-") : j.jobId.startsWith("media-sync-")) ?? running[0];
@@ -436,6 +531,10 @@ function isRomImportJob(value: unknown): value is RomFolderImportJob {
 
 function isMediaSyncJob(value: unknown): value is MediaSyncJob {
   return Boolean(value && typeof value === "object" && "jobId" in value && "title" in value && "status" in value);
+}
+
+function isDataPortabilityJob(value: unknown): value is DataPortabilityJob {
+  return Boolean(value && typeof value === "object" && "jobId" in value && "kind" in value && "progress" in value);
 }
 
 function timestamp(value: string | undefined): number {

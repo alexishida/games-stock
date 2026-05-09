@@ -47,6 +47,14 @@ export const IPC_CHANNELS = {
     getVersion: "app:getVersion",
     getStorageStats: "app:getStorageStats"
   },
+  dataPortability: {
+    exportPackage: "dataPortability:exportPackage",
+    previewImport: "dataPortability:previewImport",
+    importPackage: "dataPortability:importPackage",
+    jobs: "dataPortability:jobs",
+    progress: "dataPortability:progress",
+    completed: "dataPortability:completed"
+  },
   launchbox: {
     ensureMetadata: "launchbox:ensureMetadata",
     metadataExists: "launchbox:metadataExists",

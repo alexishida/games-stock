@@ -90,6 +90,155 @@ export interface PlatformMappingsInput {
   }>;
 }
 
+export type DataPortabilityCategory = "metadata" | "images" | "platforms" | "romLocations";
+
+export const DATA_PORTABILITY_CATEGORIES: DataPortabilityCategory[] = [
+  "metadata",
+  "images",
+  "platforms",
+  "romLocations"
+];
+
+export type DataPortabilityWarningSeverity = "info" | "warning" | "error";
+
+export interface DataPortabilityWarning {
+  severity: DataPortabilityWarningSeverity;
+  code: string;
+  message: string;
+  detail?: string;
+}
+
+export interface DataPortabilityCounts {
+  games: number;
+  platforms: number;
+  images: number;
+  romLocations: number;
+  romFolderEntries: number;
+  emulators: number;
+}
+
+export interface DataPortabilityManifest {
+  schemaVersion: number;
+  appVersion: string;
+  createdAt: string;
+  categories: DataPortabilityCategory[];
+  counts: Partial<DataPortabilityCounts>;
+  fileChecksums?: Record<string, string>;
+}
+
+export interface DataPortabilityRomFolderEntry {
+  folderPath: string;
+  platformId: number;
+  platformName: string;
+  indexedCount: number;
+}
+
+export interface DataPortabilityExportRequest {
+  categories: DataPortabilityCategory[];
+  targetPath?: string | null;
+  romFolderEntries?: DataPortabilityRomFolderEntry[];
+}
+
+export interface DataPortabilityExportResult {
+  canceled: boolean;
+  filePath: string | null;
+  manifest?: DataPortabilityManifest;
+  warnings: DataPortabilityWarning[];
+}
+
+export interface DataPortabilityConflictCounts {
+  create: number;
+  update: number;
+}
+
+export interface DataPortabilityImportPreview {
+  packagePath: string;
+  manifest: DataPortabilityManifest;
+  availableCategories: DataPortabilityCategory[];
+  counts: Partial<DataPortabilityCounts>;
+  warnings: DataPortabilityWarning[];
+  errors: DataPortabilityWarning[];
+  conflicts: {
+    games: DataPortabilityConflictCounts;
+    platforms: DataPortabilityConflictCounts;
+    emulators: DataPortabilityConflictCounts;
+  };
+}
+
+export interface DataPortabilityImportRequest {
+  packagePath: string;
+  categories: DataPortabilityCategory[];
+}
+
+export interface DataPortabilityImportSummary {
+  metadata: {
+    created: number;
+    updated: number;
+    skipped: number;
+  };
+  platforms: {
+    created: number;
+    updated: number;
+    mappings: number;
+    emulators: number;
+    links: number;
+  };
+  images: {
+    imported: number;
+    skipped: number;
+    missing: number;
+  };
+  romLocations: {
+    updated: number;
+    skipped: number;
+    romFolderEntries: number;
+  };
+  warnings: DataPortabilityWarning[];
+  romFolderEntries: DataPortabilityRomFolderEntry[];
+}
+
+export interface DataPortabilityImportResult {
+  success: true;
+  summary: DataPortabilityImportSummary;
+}
+
+export type DataPortabilityJobKind = "export" | "import";
+export type DataPortabilityJobStatus = "running" | "completed" | "failed" | "interrupted";
+export type DataPortabilityStage =
+  | "preparing"
+  | "metadata"
+  | "platforms"
+  | "images"
+  | "rom_locations"
+  | "writing"
+  | "validating"
+  | "importing"
+  | "done"
+  | "error";
+
+export interface DataPortabilityProgress {
+  jobId?: string;
+  kind: DataPortabilityJobKind;
+  current: number;
+  total: number;
+  stage: DataPortabilityStage;
+  message: string;
+}
+
+export interface DataPortabilityJob {
+  jobId: string;
+  kind: DataPortabilityJobKind;
+  status: DataPortabilityJobStatus;
+  startedAt: string;
+  progress: DataPortabilityProgress;
+  packagePath?: string | null;
+  exportResult?: DataPortabilityExportResult;
+  importResult?: DataPortabilityImportResult;
+  error?: string;
+}
+
+export type DataPortabilityStartResult = DataPortabilityJob | { canceled: true; filePath: null; warnings: DataPortabilityWarning[] };
+
 export interface Game {
   id: number;
   title: string;

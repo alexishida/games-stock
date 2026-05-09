@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import {
   CoverSyncStats,
+  DataPortabilityExportRequest,
+  DataPortabilityJob,
+  DataPortabilityProgress,
+  DataPortabilityStartResult,
+  DataPortabilityImportPreview,
+  DataPortabilityImportRequest,
   GameCreateInput,
   GameFilters,
   GameUpdateInput,
@@ -77,6 +83,25 @@ const api = {
   app: {
     getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.app.getVersion) as Promise<string>,
     getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>
+  },
+  dataPortability: {
+    exportPackage: (request: DataPortabilityExportRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.dataPortability.exportPackage, request) as Promise<DataPortabilityStartResult>,
+    previewImport: (packagePath: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.dataPortability.previewImport, packagePath) as Promise<DataPortabilityImportPreview>,
+    importPackage: (request: DataPortabilityImportRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.dataPortability.importPackage, request) as Promise<DataPortabilityJob>,
+    jobs: () => ipcRenderer.invoke(IPC_CHANNELS.dataPortability.jobs) as Promise<DataPortabilityJob[]>,
+    onProgress: (callback: (progress: DataPortabilityProgress) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: DataPortabilityProgress) => callback(progress);
+      ipcRenderer.on(IPC_CHANNELS.dataPortability.progress, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.dataPortability.progress, listener);
+    },
+    onCompleted: (callback: (job: DataPortabilityJob) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, job: DataPortabilityJob) => callback(job);
+      ipcRenderer.on(IPC_CHANNELS.dataPortability.completed, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.dataPortability.completed, listener);
+    }
   },
   launchbox: {
     ensureMetadata: (options?: { force?: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.ensureMetadata, options),

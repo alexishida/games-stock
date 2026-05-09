@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, FolderOpen, Gamepad2, HardDrive, Images, Info, MonitorPlay, Settings, X } from "lucide-react";
+import { ExternalLink, FolderOpen, Gamepad2, Images, Info, MonitorPlay, Settings, X } from "lucide-react";
 import { CoversSettings } from "../CoversSettings/CoversSettings";
+import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
 import { EmulatorsSettings } from "../EmulatorsSettings/EmulatorsSettings";
 import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
@@ -101,26 +102,7 @@ export function SettingsModal() {
 
           <div className="settings-body">
             {section === "geral" && (
-              <section className="settings-section-grid">
-                <article className="settings-info-card settings-info-card-highlight">
-                  <div className="settings-info-card-icon">
-                    <Settings aria-hidden="true" size={18} />
-                  </div>
-                  <div>
-                    <strong>Painel central</strong>
-                    <p>Ajustes globais do aplicativo ficam aqui. Estrutura pronta para futuras preferencias sem misturar com biblioteca, plataformas ou emuladores.</p>
-                  </div>
-                </article>
-                <article className="settings-info-card">
-                  <div className="settings-info-card-icon">
-                    <HardDrive aria-hidden="true" size={18} />
-                  </div>
-                  <div>
-                    <strong>Estado atual</strong>
-                    <p>Versao {appVersion || "carregando"} instalada. As rotinas da biblioteca continuam separadas nas secoes abaixo.</p>
-                  </div>
-                </article>
-              </section>
+              <DataPortabilitySettings appVersion={appVersion} storageStats={storageStats} />
             )}
             {section === "biblioteca" && (
               <RomFolderImporter onImportStarted={() => setSection("covers")} />
