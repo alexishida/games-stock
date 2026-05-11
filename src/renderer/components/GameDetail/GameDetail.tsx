@@ -9,11 +9,12 @@
  * Integra-se com o store Zustand para leitura e atualização reativa do jogo selecionado.
  */
 
-import { type MouseEvent, useEffect, useState } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, Trophy, X } from "lucide-react";
 import { GameMediaItem, PlatformEmulator } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
+import { PAGE_SIZE } from "../../hooks/useGames";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
 import "./GameDetail.css";
@@ -36,6 +37,11 @@ export function GameDetail() {
   const upsertGame = useGameStockStore((state) => state.upsertGame);
   const removeGameFromStore = useGameStockStore((state) => state.removeGame);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
+
+  // Página atual e total filtrado — usados para detectar bordas de página na navegação
+  const currentPage = useGameStockStore((state) => state.currentPage);
+  const filtered = useGameStockStore((state) => state.filtered);
+  const setCurrentPage = useGameStockStore((state) => state.setCurrentPage);
 
   // Token que incrementa quando a lista de jogos é recarregada (força busca de dados frescos)
   const reloadToken = useGameStockStore((state) => state.reloadToken);
@@ -75,6 +81,25 @@ export function GameDetail() {
 
   // Hook de drag para o modal de edição arrastável
   const editModalDraggable = useDraggableDialog<HTMLElement>();
+
+  /**
+   * Controla seleção pendente após troca de página pela navegação entre jogos.
+   * 'first' = selecionar o primeiro jogo da nova página; 'last' = último.
+   * Null quando não há navegação cross-page pendente.
+   */
+  const pendingSelectRef = useRef<"first" | "last" | null>(null);
+
+  /**
+   * Quando `games` muda (nova página carregada), honra a seleção pendente definida
+   * por `selectNextGame` / `selectPreviousGame` ao cruzar a borda da página.
+   */
+  useEffect(() => {
+    if (!pendingSelectRef.current || games.length === 0) return;
+    const target = pendingSelectRef.current;
+    pendingSelectRef.current = null;
+    if (target === "first") setSelectedGameId(games[0].id);
+    else setSelectedGameId(games[games.length - 1].id);
+  }, [games, setSelectedGameId]);
 
   /**
    * Reseta estados visuais dependentes do jogo ao trocar o jogo selecionado:
@@ -179,6 +204,14 @@ export function GameDetail() {
   // Referência estável ao jogo atual para uso em closures das funções assíncronas
   const currentGame = game;
 
+  // Índice do jogo atual na página carregada (-1 se não encontrado)
+  const currentIndex = games.findIndex((item) => item.id === currentGame.id);
+  // Quantidade de jogos já vistos (páginas anteriores + página atual)
+  const gamesSeenSoFar = (currentPage - 1) * PAGE_SIZE + games.length;
+  // Controle de visibilidade dos botões de navegação entre jogos
+  const hasPreviousGame = currentIndex > 0 || currentPage > 1;
+  const hasNextGame = currentIndex < games.length - 1 || gamesSeenSoFar < filtered;
+
   // Metadados com fallback para textos padrão quando não informados
   const publisher = game.publisher || "Publisher não informado";
   const genre = game.genre || "Gênero não informado";
@@ -274,18 +307,32 @@ export function GameDetail() {
     }
   }
 
-  /** Navega para o jogo anterior na lista filtrada atual (navegação circular). */
+  /**
+   * Navega para o jogo anterior.
+   * Se estiver no primeiro item da página e houver página anterior, vai para a página
+   * anterior e seleciona o último jogo dela via `pendingSelectRef`.
+   */
   function selectPreviousGame(): void {
-    const currentIndex = games.findIndex((item) => item.id === currentGame.id);
-    const prevGame = games[(currentIndex - 1 + games.length) % games.length];
-    if (prevGame) setSelectedGameId(prevGame.id);
+    if (currentIndex > 0) {
+      setSelectedGameId(games[currentIndex - 1].id);
+    } else if (currentPage > 1) {
+      pendingSelectRef.current = "last";
+      setCurrentPage(currentPage - 1);
+    }
   }
 
-  /** Navega para o próximo jogo na lista filtrada atual (navegação circular). */
+  /**
+   * Navega para o próximo jogo.
+   * Se estiver no último item da página e houver jogos na próxima, avança a página
+   * e seleciona o primeiro jogo dela via `pendingSelectRef`.
+   */
   function selectNextGame(): void {
-    const currentIndex = games.findIndex((item) => item.id === currentGame.id);
-    const nextGame = games[(currentIndex + 1) % games.length];
-    if (nextGame) setSelectedGameId(nextGame.id);
+    if (currentIndex < games.length - 1) {
+      setSelectedGameId(games[currentIndex + 1].id);
+    } else if (gamesSeenSoFar < filtered) {
+      pendingSelectRef.current = "first";
+      setCurrentPage(currentPage + 1);
+    }
   }
 
   /**
@@ -333,14 +380,14 @@ export function GameDetail() {
             <Library aria-hidden="true" size={18} />
             Biblioteca
           </button>
-          {/* Botão de jogo anterior — oculto se já for o primeiro */}
-          {games.findIndex((item) => item.id === currentGame.id) > 0 && (
+          {/* Botão de jogo anterior — oculto somente no primeiro jogo da coleção inteira */}
+          {hasPreviousGame && (
             <button type="button" className="detail-top-button" onClick={selectPreviousGame} aria-label="Jogo anterior" title="Jogo anterior">
               <ChevronLeft aria-hidden="true" size={18} />
             </button>
           )}
-          {/* Botão de próximo jogo — oculto se já for o último */}
-          {games.findIndex((item) => item.id === currentGame.id) < games.length - 1 && (
+          {/* Botão de próximo jogo — oculto somente no último jogo da coleção inteira */}
+          {hasNextGame && (
             <button type="button" className="detail-top-button" onClick={selectNextGame} aria-label="Próximo jogo" title="Próximo jogo">
               <ChevronRight aria-hidden="true" size={18} />
             </button>
