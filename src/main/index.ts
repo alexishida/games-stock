@@ -67,6 +67,8 @@ async function createWindow(): Promise<void> {
   const bounds = loadBounds();
   mainWindow = new BrowserWindow({
     ...bounds,
+    show: false,
+    backgroundColor: "#131313",
     minWidth: 1024,
     minHeight: 768,
     title: getWindowTitle(),
@@ -77,6 +79,8 @@ async function createWindow(): Promise<void> {
       preload: path.join(__dirname, "../preload/index.js")
     }
   });
+
+  mainWindow.once("ready-to-show", () => mainWindow?.show());
 
   mainWindow.on("close", () => {
     if (!mainWindow) return;
