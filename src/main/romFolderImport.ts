@@ -48,29 +48,28 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
   const allowedExtensions = getAllowedRomExtensions(platform.id);
   const folderPaths = request.folderPaths.map((folderPath) => path.resolve(folderPath));
   const romFilePaths = (request.romFilePaths ?? []).map((filePath) => path.resolve(filePath));
+  const includeSubfolders = Boolean(request.includeSubfolders);
   const ignoredItems: RomFolderIgnoredItem[] = [];
 
   const folderCandidates = folderPaths.flatMap((folderPath) => {
-    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+    const entries = listFolderEntries(folderPath, includeSubfolders);
     return entries.flatMap((entry): RomFolderImportCandidate[] => {
-      if (!entry.isFile()) return [];
-      const filePath = path.join(folderPath, entry.name);
-      const ext = path.extname(entry.name).toLowerCase();
+      const ext = path.extname(entry.filename).toLowerCase();
       if (!allowedExtensions.has(ext)) {
         ignoredItems.push({
-          folderPath,
-          romPath: filePath,
-          filename: entry.name,
+          folderPath: entry.folderPath,
+          romPath: entry.romPath,
+          filename: entry.filename,
           reason: buildUnsupportedExtensionReason(ext, platform.name)
         });
         return [];
       }
 
       return [{
-        folderPath,
-        romPath: filePath,
-        filename: entry.name,
-        titleCandidate: normalizeRomTitle(entry.name),
+        folderPath: entry.folderPath,
+        romPath: entry.romPath,
+        filename: entry.filename,
+        titleCandidate: normalizeRomTitle(entry.filename),
         platformId: platform.id,
         platformName: platform.name
       }];
@@ -104,6 +103,7 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
     romFilePaths,
     platformId: platform.id,
     platformName: platform.name,
+    includeSubfolders,
     candidates: [...folderCandidates, ...fileCandidates],
     ignored: ignoredItems.length,
     ignoredItems
@@ -175,7 +175,36 @@ export async function importRomFolder(request: RomFolderImportRequest, onProgres
     }
   }
 
-  return { folderPaths: scan.folderPaths, romFilePaths: scan.romFilePaths, platformId: scan.platformId, platformName: scan.platformName, items, summary };
+  return {
+    folderPaths: scan.folderPaths,
+    romFilePaths: scan.romFilePaths,
+    platformId: scan.platformId,
+    platformName: scan.platformName,
+    includeSubfolders: scan.includeSubfolders,
+    items,
+    summary
+  };
+}
+
+function listFolderEntries(folderPath: string, includeSubfolders: boolean): Array<{ folderPath: string; romPath: string; filename: string }> {
+  const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+  const files: Array<{ folderPath: string; romPath: string; filename: string }> = [];
+
+  for (const entry of entries) {
+    const entryPath = path.join(folderPath, entry.name);
+    if (entry.isDirectory()) {
+      if (includeSubfolders) files.push(...listFolderEntries(entryPath, true));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    files.push({
+      folderPath,
+      romPath: entryPath,
+      filename: entry.name
+    });
+  }
+
+  return files;
 }
 
 export function matchCandidate(candidate: RomFolderImportCandidate, index: Record<string, LaunchBoxGame>, context = createMatchContext(candidate.platformId, index)): RomFolderMatchedCandidate {

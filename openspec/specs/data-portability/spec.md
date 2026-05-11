@@ -1,7 +1,8 @@
 # data-portability Specification
 
 ## Purpose
-TBD - created by archiving change add-settings-data-portability. Update Purpose after archive.
+Exportar e importar dados do GameStock em pacote local versionado, com selecao por categorias e restauracao segura no ambiente atual.
+
 ## Requirements
 ### Requirement: Exportacao seletiva de pacote
 O sistema SHALL permitir exportar um pacote local versionado com selecao independente das categorias `metadata`, `images`, `platforms` e `romLocations`.
@@ -19,7 +20,7 @@ O sistema SHALL gerar pacote `.gamestock-backup` contendo `manifest.json`, arqui
 
 #### Scenario: Manifesto de exportacao
 - **WHEN** uma exportacao e concluida
-- **THEN** `manifest.json` inclui schemaVersion, appVersion, createdAt, categorias incluidas e contagens de itens exportados
+- **THEN** `manifest.json` inclui `schemaVersion`, `appVersion`, `createdAt`, categorias incluidas e contagens de itens exportados
 
 #### Scenario: Pacote sem imagens
 - **WHEN** a categoria `images` nao esta selecionada
@@ -67,11 +68,15 @@ O sistema SHALL exportar e importar `rom_path` dos jogos e entradas configuradas
 
 #### Scenario: Exportar localizacoes sem copiar ROMs
 - **WHEN** o usuario exporta `romLocations`
-- **THEN** o pacote contem caminhos de ROM e entradas de pastas configuradas, mas nao contem arquivos ROM
+- **THEN** o pacote contem caminhos de ROM e entradas de pastas configuradas, incluindo a preferencia `includeSubfolders`, mas nao contem arquivos ROM
 
 #### Scenario: Importar localizacoes de ROMs
 - **WHEN** o usuario importa `romLocations`
-- **THEN** o sistema restaura `rom_path` nos jogos correspondentes e retorna as entradas de pastas para o renderer gravar em `localStorage`
+- **THEN** o sistema restaura `rom_path` nos jogos correspondentes e retorna as entradas de pastas para o renderer gravar no estado persistido do app
+
+#### Scenario: Preservar busca em subpastas na portabilidade
+- **WHEN** uma entrada exportada do importador de pastas tem `includeSubfolders = true`
+- **THEN** essa preferencia e preservada no pacote e reaplicada ao importar
 
 #### Scenario: Caminhos inexistentes no computador atual
 - **WHEN** uma localizacao importada aponta para caminho inexistente no disco atual
@@ -85,7 +90,7 @@ O sistema SHALL validar o pacote e exibir preview com categorias disponiveis, co
 - **THEN** o sistema retorna categorias disponiveis, contagens de jogos/plataformas/imagens/localizacoes e avisos encontrados
 
 #### Scenario: Recusar pacote incompativel
-- **WHEN** o pacote nao tem `manifest.json` valido ou usa schemaVersion nao suportado
+- **WHEN** o pacote nao tem `manifest.json` valido ou usa `schemaVersion` nao suportado
 - **THEN** o sistema bloqueia a importacao e mostra erro claro sem alterar dados locais
 
 ### Requirement: Importacao transacional

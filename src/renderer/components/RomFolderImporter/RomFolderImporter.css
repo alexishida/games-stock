@@ -199,6 +199,22 @@
   font-size: var(--form-control-font-size);
 }
 
+.folder-option-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.folder-option-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 .rom-source-list {
   min-height: 300px;
   overflow: auto;

@@ -1,107 +1,108 @@
-# library-ui - Especificação
+# library-ui - Especificacao
 
 ## Purpose
-Define a interface principal da biblioteca: barra superior, painel lateral, grade/lista de jogos com paginação, busca, filtros, tema visual, modal de configurações e central de notificações de jobs em background.
+Define a interface principal da biblioteca: barra superior, painel lateral, grade/lista de jogos com paginacao, busca, filtros, tema visual, modal de configuracoes e central de notificacoes de jobs em background.
+
 ## Requirements
 ### Requirement: Barra superior (TopBar)
-O sistema SHALL exibir uma barra superior com campo de busca, controles de ordenação, alternância de visualização e contador de jogos. A barra SHALL ser ocultada quando um jogo estiver selecionado (modo detalhe).
+O sistema SHALL exibir uma barra superior com campo de busca, controles de ordenacao, alternancia de visualizacao e contador de jogos. A barra SHALL ser ocultada quando um jogo estiver selecionado (modo detalhe).
 
 #### Scenario: Contador atualiza com filtro
-- **WHEN** o usuário seleciona uma plataforma no painel lateral
+- **WHEN** o usuario seleciona uma plataforma no painel lateral
 - **THEN** o contador atualiza para "X de Y jogos"
 
 #### Scenario: Sem filtro ativo
-- **WHEN** "Todos" está selecionado
-- **THEN** o contador exibe o total de jogos sem distinção de filtrado vs. total
+- **WHEN** "Todos" esta selecionado
+- **THEN** o contador exibe o total de jogos sem distincao de filtrado vs. total
 
-#### Scenario: Ordenação pela barra superior
-- **WHEN** o usuário clica no botão de ordenação
-- **THEN** a ordenação cicla entre "A-Z", "Ano" e "Recentes" e a biblioteca é recarregada
+#### Scenario: Ordenacao pela barra superior
+- **WHEN** o usuario clica no botao de ordenacao
+- **THEN** a ordenacao cicla entre "A-Z", "Ano" e "Recentes" e a biblioteca e recarregada
 
-#### Scenario: Alternância de visualização
-- **WHEN** o usuário clica nos botões de grid ou lista
-- **THEN** a área principal alterna entre visualização em grade e visualização em lista
+#### Scenario: Alternancia de visualizacao
+- **WHEN** o usuario clica nos botoes de grid ou lista
+- **THEN** a area principal alterna entre visualizacao em grade e visualizacao em lista
 
 ### Requirement: Painel lateral (Sidebar)
-O sistema SHALL exibir painel lateral com branding, árvore de plataformas agrupadas por categoria e botão de acesso às configurações. Plataformas sem jogos não devem aparecer na árvore.
+O sistema SHALL exibir painel lateral com branding, arvore de plataformas agrupadas por categoria e botao de acesso as configuracoes. Plataformas sem jogos nao devem aparecer na arvore.
 
 #### Scenario: Selecionar plataforma
-- **WHEN** o usuário clica em uma plataforma na árvore
+- **WHEN** o usuario clica em uma plataforma na arvore
 - **THEN** a plataforma fica destacada e a grade filtra jogos dessa plataforma
 
 #### Scenario: Selecionar Todos
-- **WHEN** o usuário clica em "Todos"
-- **THEN** a seleção de plataforma é removida e todos os jogos do banco são exibidos
+- **WHEN** o usuario clica em "Todos"
+- **THEN** a selecao de plataforma e removida e todos os jogos do banco sao exibidos
 
 #### Scenario: Plataforma sem jogos
-- **WHEN** uma plataforma não tem jogos associados
-- **THEN** ela não aparece na árvore lateral
+- **WHEN** uma plataforma nao tem jogos associados
+- **THEN** ela nao aparece na arvore lateral
 
-#### Scenario: Abrir configurações pela Sidebar
-- **WHEN** o usuário clica em "Gerenciar biblioteca" no painel lateral
-- **THEN** o SettingsModal é aberto na seção "biblioteca"
+#### Scenario: Abrir configuracoes pela Sidebar
+- **WHEN** o usuario clica em "Gerenciar biblioteca" no painel lateral
+- **THEN** o SettingsModal e aberto na secao "biblioteca"
 
 ### Requirement: Grade de box arts (GameGrid)
-O sistema SHALL exibir jogos em grade com box art ou placeholder, plataforma e título. A grade SHALL usar paginação de 50 itens por página.
+O sistema SHALL exibir jogos em grade com box art ou placeholder, plataforma e titulo. A grade SHALL usar paginacao de 50 itens por pagina.
 
 #### Scenario: Card com box art
-- **WHEN** um jogo tem `box_art_path` válido
-- **THEN** a imagem é exibida como capa do card com proporção preservada
+- **WHEN** um jogo tem `box_art_path` valido
+- **THEN** a imagem e exibida como capa do card com proporcao preservada
 
 #### Scenario: Card sem box art
-- **WHEN** um jogo não tem `box_art_path`
+- **WHEN** um jogo nao tem `box_art_path`
 - **THEN** exibe placeholder com nome da plataforma
 
-#### Scenario: Seleção de card
-- **WHEN** o usuário clica em um card
-- **THEN** a TopBar é ocultada e o painel GameDetail ocupa a área principal
+#### Scenario: Selecao de card
+- **WHEN** o usuario clica em um card
+- **THEN** a TopBar e ocultada e o painel GameDetail ocupa a area principal
 
-#### Scenario: Paginação da grade
+#### Scenario: Paginacao da grade
 - **WHEN** o conjunto filtrado tem mais de 50 jogos
-- **THEN** a Pagination exibe "início–fim de total" e botões de navegação de página
+- **THEN** a Pagination exibe "inicio-fim de total" e botoes de navegacao de pagina
 
-### Requirement: Visualização em lista (GameList)
-O sistema SHALL oferecer visualização em lista como alternativa à grade, exibindo thumbnail, título, plataforma, publisher e ano.
+### Requirement: Visualizacao em lista (GameList)
+O sistema SHALL oferecer visualizacao em lista como alternativa a grade, exibindo thumbnail, titulo, plataforma, publisher e ano.
 
 #### Scenario: Alternar para lista
-- **WHEN** o usuário seleciona visualização em lista
-- **THEN** a área principal exibe jogos em linhas de tabela com colunas: thumbnail, título, plataforma, publisher, ano
+- **WHEN** o usuario seleciona visualizacao em lista
+- **THEN** a area principal exibe jogos em linhas de tabela com colunas: thumbnail, titulo, plataforma, publisher, ano
 
-#### Scenario: Paginação da lista
+#### Scenario: Paginacao da lista
 - **WHEN** o conjunto filtrado tem mais de 50 itens
-- **THEN** a Pagination funciona igual à grade
+- **THEN** a Pagination funciona igual a grade
 
 ### Requirement: Campo de busca
-O sistema SHALL filtrar jogos em tempo real conforme o usuário digita, comparando contra título de forma case-insensitive e combinando com filtros ativos.
+O sistema SHALL filtrar jogos em tempo real conforme o usuario digita, comparando contra titulo de forma case-insensitive e combinando com filtros ativos.
 
 #### Scenario: Busca com filtro de plataforma
-- **WHEN** "Sega Genesis" está selecionado e o usuário digita "batman"
-- **THEN** a grade exibe apenas jogos da plataforma com "batman" no título
+- **WHEN** "Sega Genesis" esta selecionado e o usuario digita "batman"
+- **THEN** a grade exibe apenas jogos da plataforma com "batman" no titulo
 
 #### Scenario: Limpar busca
-- **WHEN** o campo de busca é esvaziado
-- **THEN** a grade restaura jogos dos filtros ativos e a página é resetada para 1
+- **WHEN** o campo de busca e esvaziado
+- **THEN** a grade restaura jogos dos filtros ativos e a pagina e resetada para 1
 
 ### Requirement: Tema escuro
-O sistema SHALL usar tema escuro com variáveis CSS para background, sidebar, card hover, accent, texto primário e texto secundário.
+O sistema SHALL usar tema escuro com variaveis CSS para background, sidebar, card hover, accent, texto primario e texto secundario.
 
-#### Scenario: Consistência visual
-- **WHEN** o app é aberto
+#### Scenario: Consistencia visual
+- **WHEN** o app e aberto
 - **THEN** todos os componentes seguem o tema escuro definido sem flash de tema claro
 
-### Requirement: Filtros de coleção
-O sistema SHALL oferecer filtros para "all", "favorites", "completed" e "unplayed". Cada filtro SHALL ser combinado com busca, plataforma e paginação.
+### Requirement: Filtros de colecao
+O sistema SHALL oferecer filtros para "all", "favorites", "completed" e "unplayed". Cada filtro SHALL ser combinado com busca, plataforma e paginacao.
 
 #### Scenario: Ativar favoritos
-- **WHEN** o usuário ativa o filtro de favoritos
+- **WHEN** o usuario ativa o filtro de favoritos
 - **THEN** a biblioteca exibe apenas jogos com `favorite = true`
 
-#### Scenario: Ativar concluídos
-- **WHEN** o usuário ativa o filtro de concluídos
+#### Scenario: Ativar concluidos
+- **WHEN** o usuario ativa o filtro de concluidos
 - **THEN** a biblioteca exibe apenas jogos com `play_status = "completed"`
 
-#### Scenario: Ativar não jogados
-- **WHEN** o usuário ativa o filtro de não jogados
+#### Scenario: Ativar nao jogados
+- **WHEN** o usuario ativa o filtro de nao jogados
 - **THEN** a biblioteca exibe apenas jogos com `play_status = "unplayed"`
 
 ### Requirement: SettingsModal
@@ -110,6 +111,10 @@ O sistema SHALL fornecer um modal de configuracoes com navegacao entre as secoes
 #### Scenario: Abrir na secao biblioteca
 - **WHEN** o canal `romFolderImport:openImporter` e recebido ou o usuario clica em "Gerenciar biblioteca"
 - **THEN** o SettingsModal abre na secao "biblioteca" exibindo o RomFolderImporter
+
+#### Scenario: Configurar importacao com subpastas
+- **WHEN** o usuario abre o RomFolderImporter e adiciona uma nova pasta
+- **THEN** a UI oferece uma opcao explicita para incluir ou nao ROMs de subpastas antes de rodar o scan
 
 #### Scenario: Abrir na secao plataformas
 - **WHEN** o canal `library:openPlatformManager` e recebido
@@ -135,21 +140,21 @@ O sistema SHALL fornecer um modal de configuracoes com navegacao entre as secoes
 - **WHEN** o usuario confirma importacao com categorias selecionadas
 - **THEN** a UI chama `window.gameStockAPI.dataPortability.importPackage`, mostra resumo final e atualiza a biblioteca visivel
 
-### Requirement: Central de notificações (NotificationCenter)
-O sistema SHALL exibir um painel flutuante com cards de progresso e resumo para cada job de importação de pasta de ROMs em background.
+### Requirement: Central de notificacoes (NotificationCenter)
+O sistema SHALL exibir um painel flutuante com cards de progresso e resumo para cada job de importacao de pasta de ROMs em background.
 
 #### Scenario: Progresso em background
-- **WHEN** um job de importação está em andamento
+- **WHEN** um job de importacao esta em andamento
 - **THEN** o NotificationCenter exibe um card com barra de progresso, arquivo atual, stage e mensagem
 
 #### Scenario: Resumo ao concluir
 - **WHEN** um job conclui
 - **THEN** o card exibe o resumo: criados, atualizados, sem match e downloads com falha
 
-#### Scenario: Descartar notificação
-- **WHEN** o usuário clica em X em um card concluído ou com falha
-- **THEN** o card é removido do NotificationCenter
+#### Scenario: Descartar notificacao
+- **WHEN** o usuario clica em X em um card concluido ou com falha
+- **THEN** o card e removido do NotificationCenter
 
 #### Scenario: Sem jobs ativos
-- **WHEN** não há jobs em andamento ou concluídos não descartados
-- **THEN** o NotificationCenter não é renderizado
+- **WHEN** nao ha jobs em andamento ou concluidos nao descartados
+- **THEN** o NotificationCenter nao e renderizado

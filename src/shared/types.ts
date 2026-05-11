@@ -139,6 +139,7 @@ export interface DataPortabilityRomFolderEntry {
   platformId: number;
   platformName: string;
   indexedCount: number;
+  includeSubfolders?: boolean;
 }
 
 export interface DataPortabilityExportRequest {
@@ -397,6 +398,7 @@ export interface RomFolderScanRequest {
   folderPaths: string[];
   romFilePaths?: string[];
   platformId: number;
+  includeSubfolders?: boolean;
 }
 
 export interface RomFolderScanResult {
@@ -404,6 +406,7 @@ export interface RomFolderScanResult {
   romFilePaths: string[];
   platformId: number;
   platformName: string;
+  includeSubfolders: boolean;
   candidates: RomFolderImportCandidate[];
   ignored: number;
   ignoredItems: RomFolderIgnoredItem[];
@@ -419,6 +422,7 @@ export interface RomFolderImportRequest {
   folderPaths: string[];
   romFilePaths?: string[];
   platformId: number;
+  includeSubfolders?: boolean;
 }
 
 export interface RomFolderRecordCountRequest {
@@ -454,6 +458,7 @@ export interface RomFolderImportResult {
   romFilePaths: string[];
   platformId: number;
   platformName: string;
+  includeSubfolders: boolean;
   items: RomFolderImportItemResult[];
   summary: RomFolderImportSummary;
 }
@@ -475,6 +480,7 @@ export interface RomFolderImportJob {
   romFilePaths: string[];
   platformId: number;
   platformName: string;
+  includeSubfolders: boolean;
   status: "running" | "completed" | "failed" | "interrupted";
   startedAt: string;
   progress: RomFolderImportProgress;

@@ -196,7 +196,8 @@ function buildFolderEntriesFromLegacySources(rawSources: unknown, rawPlatformId:
       folderPath: source.path,
       platformId,
       platformName: "Plataforma",
-      indexedCount: 0
+      indexedCount: 0,
+      includeSubfolders: false
     }));
 }
 

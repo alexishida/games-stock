@@ -300,7 +300,7 @@ function registerIpc(): void {
     const byRomPath = games.deleteGamesByRomFolder(folderPath);
     if (!platformId) return byRomPath;
 
-    const scan = scanRomFolder({ folderPaths: [folderPath], platformId });
+    const scan = scanRomFolder({ folderPaths: [folderPath], platformId, includeSubfolders: true });
     const byLegacyTitles = games.deleteGamesWithoutRomPathByPlatformAndTitles(
       platformId,
       scan.candidates.map((candidate) => candidate.titleCandidate)
@@ -445,6 +445,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
     romFilePaths: scan.romFilePaths,
     platformId: scan.platformId,
     platformName: scan.platformName,
+    includeSubfolders: scan.includeSubfolders,
     status: "running",
     startedAt: new Date().toISOString(),
     progress: initialProgress

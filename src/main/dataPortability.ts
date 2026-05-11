@@ -526,7 +526,8 @@ function normalizeRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): Da
       folderPath: entry.folderPath,
       platformId: Number(entry.platformId),
       platformName: entry.platformName || "Plataforma",
-      indexedCount: Number(entry.indexedCount) || 0
+      indexedCount: Number(entry.indexedCount) || 0,
+      includeSubfolders: Boolean(entry.includeSubfolders)
     }));
 }
 

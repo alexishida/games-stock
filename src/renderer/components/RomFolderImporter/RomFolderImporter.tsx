@@ -17,6 +17,7 @@ interface FolderEntry {
   platformName: string;
   indexedCount: number;
   totalCount?: number;
+  includeSubfolders?: boolean;
 }
 
 export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void }) {
@@ -158,6 +159,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [folderPath, setFolderPath] = useState("");
   const [platformId, setPlatformId] = useState<number | "">("");
+  const [includeSubfolders, setIncludeSubfolders] = useState(false);
   const [scan, setScan] = useState<RomFolderScanResult | null>(null);
   const [reviewView, setReviewView] = useState<"candidates" | "ignored">("candidates");
   const [busy, setBusy] = useState(false);
@@ -259,7 +261,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
     setBusy(true);
     setError(null);
     try {
-      const nextScan = await window.gameStockAPI.romFolderImport.scan({ folderPaths: [folderPath], platformId });
+      const nextScan = await window.gameStockAPI.romFolderImport.scan({ folderPaths: [folderPath], platformId, includeSubfolders });
       setScan(nextScan);
       setReviewView("candidates");
       void setPersistedRomImportPlatformId(platformId);
@@ -276,7 +278,12 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
     setBusy(true);
     setError(null);
     try {
-      const job = await window.gameStockAPI.romFolderImport.import({ folderPaths: scan.folderPaths, romFilePaths: scan.romFilePaths, platformId });
+      const job = await window.gameStockAPI.romFolderImport.import({
+        folderPaths: scan.folderPaths,
+        romFilePaths: scan.romFilePaths,
+        platformId,
+        includeSubfolders: scan.includeSubfolders
+      });
       setRomImportJob(job);
       const platform = platforms.find((p) => p.id === platformId);
       onAdded({
@@ -284,7 +291,8 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
         platformId,
         platformName: platform?.name ?? scan.platformName,
         indexedCount: 0,
-        totalCount: scan.candidates.length
+        totalCount: scan.candidates.length,
+        includeSubfolders: scan.includeSubfolders
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -364,6 +372,16 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
               ) : null}
             </div>
           </label>
+
+          <label className="folder-option-checkbox">
+            <input
+              type="checkbox"
+              checked={includeSubfolders}
+              onChange={(event) => setIncludeSubfolders(event.target.checked)}
+              disabled={busy}
+            />
+            <span>Buscar ROMs em subpastas</span>
+          </label>
         </div>
       ) : null}
 
@@ -371,6 +389,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
         <div className="add-folder-dialog-body">
           <div className="review-header">
             <p className="eyebrow">{scan.platformName}</p>
+            <p>{scan.includeSubfolders ? "Busca inclui subpastas desta pasta." : "Busca apenas arquivos da pasta selecionada."}</p>
             <div className="review-metrics">
               <button
                 type="button"
@@ -476,7 +495,7 @@ function SummaryStep({
               role="row"
             >
               <span role="cell">{entry.folderPath}</span>
-              <span role="cell">{entry.platformName}</span>
+              <span role="cell">{entry.platformName}{entry.includeSubfolders ? " + subpastas" : ""}</span>
               <span role="cell">{entry.totalCount ?? entry.indexedCount}</span>
               <div className="folder-table-action-cell" role="cell">
                 <button
