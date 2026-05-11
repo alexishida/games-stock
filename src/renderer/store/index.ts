@@ -19,7 +19,9 @@ import {
 import {
   setPersistedDataPortabilityJobs,
   setPersistedLastRomImportJob,
-  setPersistedMediaSyncJobs
+  setPersistedMediaSyncJobs,
+  setPersistedRomFolderEntries,
+  type PersistedRomFolderEntry
 } from "../lib/appStatePersistence";
 
 export type SettingsSection = "geral" | "backup" | "biblioteca" | "plataformas" | "covers" | "emuladores" | "sobre";
@@ -80,6 +82,7 @@ interface GameStockState {
   reloadToken: number;
   platformsReloadToken: number;
   collectionCounts: CollectionCounts;
+  romFolderEntries: PersistedRomFolderEntry[];
   lastRomImportJob: RomFolderImportJob | null;
   mediaSyncJobs: MediaSyncJob[];
   dataPortabilityJobs: DataPortabilityJob[];
@@ -106,6 +109,8 @@ interface GameStockState {
   openSettings(section: SettingsSection): void;
   setCreateGameOpen(value: boolean): void;
   setCollectionCounts(value: CollectionCounts): void;
+  hydrateRomFolderEntries(value: PersistedRomFolderEntry[]): void;
+  setRomFolderEntries(value: SetterValue<PersistedRomFolderEntry[]>): void;
   hydratePersistedLastRomImportJob(value: RomFolderImportJob | null): void;
   setLastRomImportJob(value: SetterValue<RomFolderImportJob | null>): void;
   hydrateMediaSyncJobs(value: MediaSyncJob[]): void;
@@ -150,6 +155,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   reloadToken: 0,
   platformsReloadToken: 0,
   collectionCounts: { favorites: 0, playing: 0, completed: 0 },
+  romFolderEntries: [],
   lastRomImportJob: null,
   mediaSyncJobs: [],
   dataPortabilityJobs: [],
@@ -198,6 +204,12 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   openSettings: (settingsSection) => set({ settingsOpen: true, settingsSection }),
   setCreateGameOpen: (createGameOpen) => set({ createGameOpen }),
   setCollectionCounts: (collectionCounts) => set({ collectionCounts }),
+  hydrateRomFolderEntries: (romFolderEntries) => set({ romFolderEntries }),
+  setRomFolderEntries: (romFolderEntries) => set((state) => {
+    const nextEntries = resolveSetterValue(romFolderEntries, state.romFolderEntries);
+    void setPersistedRomFolderEntries(nextEntries);
+    return { romFolderEntries: nextEntries };
+  }),
   hydratePersistedLastRomImportJob: (lastRomImportJob) => set({ lastRomImportJob }),
   setLastRomImportJob: (lastRomImportJob) => set((state) => {
     const nextJob = resolveSetterValue(lastRomImportJob, state.lastRomImportJob);

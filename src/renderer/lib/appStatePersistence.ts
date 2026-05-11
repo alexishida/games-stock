@@ -2,22 +2,22 @@ import { APP_STATE_KEYS } from "../../shared/appState";
 import { DataPortabilityJob, DataPortabilityRomFolderEntry, RomFolderImportJob } from "../../shared/types";
 import type { MediaSyncJob } from "../store";
 
-type FolderEntry = DataPortabilityRomFolderEntry & { totalCount?: number };
+export type PersistedRomFolderEntry = DataPortabilityRomFolderEntry & { totalCount?: number };
 type ImportSource = { path: string; type: "folder" | "file" };
 
-export async function getPersistedRomFolderEntries(): Promise<FolderEntry[]> {
+export async function getPersistedRomFolderEntries(): Promise<PersistedRomFolderEntry[]> {
   const value = await getPersistedValue<unknown>(APP_STATE_KEYS.romImport.folderEntries);
   return Array.isArray(value) ? value.filter(isFolderEntry) : [];
 }
 
-export function setPersistedRomFolderEntries(entries: FolderEntry[]): Promise<void> {
+export function setPersistedRomFolderEntries(entries: PersistedRomFolderEntry[]): Promise<void> {
   return setPersistedValue(APP_STATE_KEYS.romImport.folderEntries, entries);
 }
 
 export async function mergePersistedRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): Promise<void> {
   if (!entries.length) return;
   const current = await getPersistedRomFolderEntries();
-  const merged = new Map<string, FolderEntry>();
+  const merged = new Map<string, PersistedRomFolderEntry>();
   for (const entry of [...current, ...entries]) {
     if (!isFolderEntry(entry)) continue;
     merged.set(`${entry.platformId}:${entry.folderPath}`, entry);
@@ -186,7 +186,7 @@ function readLegacyJson(key: string): unknown | null {
   }
 }
 
-function buildFolderEntriesFromLegacySources(rawSources: unknown, rawPlatformId: string | null): FolderEntry[] {
+function buildFolderEntriesFromLegacySources(rawSources: unknown, rawPlatformId: string | null): PersistedRomFolderEntry[] {
   const platformId = Number(rawPlatformId);
   if (!Number.isFinite(platformId) || platformId <= 0 || !Array.isArray(rawSources)) return [];
   return rawSources
@@ -201,13 +201,13 @@ function buildFolderEntriesFromLegacySources(rawSources: unknown, rawPlatformId:
     }));
 }
 
-function isFolderEntry(value: unknown): value is FolderEntry {
+function isFolderEntry(value: unknown): value is PersistedRomFolderEntry {
   return Boolean(
     value &&
     typeof value === "object" &&
     "folderPath" in value &&
     "platformId" in value &&
-    typeof (value as FolderEntry).folderPath === "string"
+    typeof (value as PersistedRomFolderEntry).folderPath === "string"
   );
 }
 

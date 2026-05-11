@@ -4,9 +4,7 @@ import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import {
-  getPersistedRomFolderEntries,
   getPersistedRomImportPlatformId,
-  setPersistedRomFolderEntries,
   setPersistedRomImportPlatformId
 } from "../../lib/appStatePersistence";
 import "./RomFolderImporter.css";
@@ -27,7 +25,8 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
   const setSelectedGameId = useGameStockStore((state) => state.setSelectedGameId);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
   const platforms = useGameStockStore((state) => state.platforms);
-  const [folderEntries, setFolderEntries] = useState<FolderEntry[]>([]);
+  const folderEntries = useGameStockStore((state) => state.romFolderEntries as FolderEntry[]);
+  const setFolderEntries = useGameStockStore((state) => state.setRomFolderEntries as (value: FolderEntry[] | ((current: FolderEntry[]) => FolderEntry[])) => void);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,27 +36,12 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
 
   useEffect(() => {
     let canceled = false;
-    void getPersistedRomFolderEntries()
-      .then((entries) => {
-        if (canceled) return;
-        setFolderEntries(entries);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      canceled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canceled = false;
     if (!folderEntries.length) return undefined;
 
     void refreshFolderCounts(folderEntries)
       .then((nextEntries) => {
         if (canceled) return;
         setFolderEntries(nextEntries);
-        void setPersistedRomFolderEntries(nextEntries);
       })
       .catch(() => undefined);
 
@@ -69,7 +53,6 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
   function handleFolderAdded(entry: FolderEntry): void {
     const nextEntries = upsertFolderEntry(folderEntries, entry);
     setFolderEntries(nextEntries);
-    void setPersistedRomFolderEntries(nextEntries);
     setAddFolderOpen(false);
     onImportStarted();
   }
@@ -89,7 +72,6 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
       await window.gameStockAPI.romFolderImport.deleteFolderRecords({ folderPath: selectedFolderPath, platformId: entry?.platformId });
       const nextEntries = folderEntries.filter((e) => e.folderPath !== selectedFolderPath);
       setFolderEntries(nextEntries);
-      void setPersistedRomFolderEntries(nextEntries);
       setSelectedFolderPath(null);
       setSelectedGameId(null);
       if (entry?.platformId === selectedPlatformId) setSelectedPlatformId(null);

@@ -15,6 +15,7 @@ import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
 import { CollectionFilter, GameSortBy } from "../shared/types";
 import {
+  getPersistedRomFolderEntries,
   getPersistedDataPortabilityJobs,
   getPersistedLastRomImportJob,
   getPersistedMediaSyncJobs,
@@ -83,6 +84,7 @@ export default function App() {
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
 
   const hydratePersistedLastRomImportJob = useGameStockStore((state) => state.hydratePersistedLastRomImportJob);
+  const hydrateRomFolderEntries = useGameStockStore((state) => state.hydrateRomFolderEntries);
   const hydrateMediaSyncJobs = useGameStockStore((state) => state.hydrateMediaSyncJobs);
   const hydrateRomImportJobs = useGameStockStore((state) => state.hydrateRomImportJobs);
   const updateRomImportProgress = useGameStockStore((state) => state.updateRomImportProgress);
@@ -117,13 +119,15 @@ export default function App() {
     void (async () => {
       await migrateLegacyLocalStorageToDb();
 
-      const [lastRomImportJob, mediaSyncJobs, dataPortabilityJobs] = await Promise.all([
+      const [romFolderEntries, lastRomImportJob, mediaSyncJobs, dataPortabilityJobs] = await Promise.all([
+        getPersistedRomFolderEntries(),
         getPersistedLastRomImportJob(),
         getPersistedMediaSyncJobs(),
         getPersistedDataPortabilityJobs()
       ]);
 
       if (canceled) return;
+      hydrateRomFolderEntries(romFolderEntries);
       hydratePersistedLastRomImportJob(lastRomImportJob);
       hydrateMediaSyncJobs(mediaSyncJobs);
       hydrateDataPortabilityJobs(dataPortabilityJobs);
@@ -132,7 +136,7 @@ export default function App() {
     return () => {
       canceled = true;
     };
-  }, [hydrateDataPortabilityJobs, hydrateMediaSyncJobs, hydratePersistedLastRomImportJob]);
+  }, [hydrateDataPortabilityJobs, hydrateMediaSyncJobs, hydratePersistedLastRomImportJob, hydrateRomFolderEntries]);
 
   useEffect(() => {
     if (metadataStarted.current) return;
@@ -182,12 +186,15 @@ export default function App() {
   useEffect(() => window.gameStockAPI.dataPortability.onCompleted((job) => {
     completeDataPortabilityJob(job);
     if (job.kind === "import" && job.status === "completed") {
-      void mergePersistedRomFolderEntries(job.importResult?.summary.romFolderEntries ?? []);
+      void mergePersistedRomFolderEntries(job.importResult?.summary.romFolderEntries ?? [])
+        .then(getPersistedRomFolderEntries)
+        .then(hydrateRomFolderEntries)
+        .catch(() => undefined);
       reloadGames();
       reloadPlatforms();
       void window.gameStockAPI.games.coverStats().then(setCoverStats).catch(() => undefined);
     }
-  }), [completeDataPortabilityJob, reloadGames, reloadPlatforms, setCoverStats]);
+  }), [completeDataPortabilityJob, hydrateRomFolderEntries, reloadGames, reloadPlatforms, setCoverStats]);
   useEffect(() => {
     let canceled = false;
     void window.gameStockAPI.romFolderImport.jobs().then((jobs) => {
