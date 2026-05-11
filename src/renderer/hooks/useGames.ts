@@ -1,10 +1,30 @@
+/**
+ * Hook responsável por carregar a lista de jogos do banco via IPC,
+ * respeitando filtros, ordenação e paginação do store Zustand.
+ *
+ * Funcionalidades:
+ * - Cache em memória por combinação de filtros + reloadToken para evitar flicker.
+ * - Pré-carregamento (prefetch) das páginas adjacentes (anterior e próxima).
+ * - Cancela requisições obsoletas via flag `cancelled` para evitar race conditions.
+ * - Exibe estado de loading apenas quando a página ainda não está em cache.
+ */
 import { useEffect } from "react";
 import { GameFilters, GameListResult } from "../../shared/types";
 import { useGameStockStore } from "../store";
 
+/** Número de jogos carregados por página. */
 const PAGE_SIZE = 50;
+
+/**
+ * Cache em memória de resultados de páginas já carregadas.
+ * Chave: JSON serializado dos filtros + reloadToken.
+ * Permite exibição instantânea ao navegar entre páginas já visitadas.
+ */
 const pageCache = new Map<string, GameListResult>();
 
+/**
+ * Monta o objeto de filtros a partir dos parâmetros do store.
+ */
 function buildFilters(params: {
   selectedPlatformId: number | null;
   searchQuery: string;
@@ -22,14 +42,24 @@ function buildFilters(params: {
   };
 }
 
+/**
+ * Gera a chave de cache para um conjunto de filtros + token de recarga.
+ * O reloadToken garante invalidação do cache após alterações na biblioteca.
+ */
 function cacheKey(filters: GameFilters, reloadToken: number): string {
   return JSON.stringify({ ...filters, reloadToken });
 }
 
+/**
+ * Pré-carrega uma página em background após um pequeno atraso,
+ * armazenando o resultado no cache sem atualizar o store.
+ * Não dispara nova requisição se a página já estiver em cache.
+ */
 function prefetchPage(filters: GameFilters, reloadToken: number): void {
   const key = cacheKey(filters, reloadToken);
   if (pageCache.has(key)) return;
 
+  // Pequeno atraso para não disputar banda com a requisição principal
   window.setTimeout(() => {
     window.gameStockAPI.games.list(filters).then((result) => {
       pageCache.set(key, result);
@@ -37,6 +67,10 @@ function prefetchPage(filters: GameFilters, reloadToken: number): void {
   }, 250);
 }
 
+/**
+ * Carrega e mantém sincronizada a lista de jogos no store Zustand.
+ * Reage a mudanças de plataforma, busca, filtro de coleção, ordenação, página e reloadToken.
+ */
 export function useGames(): void {
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   const searchQuery = useGameStockStore((state) => state.searchQuery);
@@ -54,9 +88,11 @@ export function useGames(): void {
     const cached = pageCache.get(key);
 
     if (cached) {
+      // Exibição imediata a partir do cache; sem spinner
       setGames(cached);
       setLoading(false);
     } else {
+      // Primeira visita a esta página: mostra loading enquanto aguarda
       setLoading(true);
     }
 
@@ -67,6 +103,7 @@ export function useGames(): void {
         if (!cancelled) {
           setGames(result);
 
+          // Pré-carrega páginas adjacentes para navegação instantânea
           const totalPages = Math.ceil(result.filtered / PAGE_SIZE);
           if (currentPage < totalPages) {
             prefetchPage({ ...filters, page: currentPage + 1 }, reloadToken);
@@ -77,9 +114,12 @@ export function useGames(): void {
         }
       })
       .finally(() => {
+        // Garante que o loading seja removido mesmo em caso de erro
         if (!cancelled) setLoading(false);
       });
+
     return () => {
+      // Cancela o efeito se os filtros mudarem antes da resposta chegar
       cancelled = true;
     };
   }, [selectedPlatformId, searchQuery, collectionFilter, sortBy, currentPage, reloadToken, setGames, setLoading]);

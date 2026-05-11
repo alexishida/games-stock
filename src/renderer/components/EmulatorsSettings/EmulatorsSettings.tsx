@@ -1,3 +1,15 @@
+/**
+ * EmulatorsSettings.tsx
+ *
+ * Painel de configurações de emuladores dentro das configurações do aplicativo.
+ * Responsável por:
+ *   - Listar emuladores cadastrados (RetroArch sempre primeiro, demais em ordem alfabética)
+ *   - Criar e editar emuladores via modal de formulário arrastável
+ *   - Vincular/desvincular emuladores a plataformas
+ *   - Configurar cores do RetroArch por plataforma em um modal dedicado
+ *   - Remover emuladores não-RetroArch
+ */
+
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
 import { Emulator, Platform, PlatformEmulator, RetroArchCoreInventory } from "../../../shared/types";
@@ -7,37 +19,65 @@ import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./EmulatorsSettings.css";
 
+/**
+ * Representa a configuração de core do RetroArch para uma plataforma específica.
+ * Combina os dados da plataforma com o vínculo existente (se houver).
+ */
 interface PlatformRetroArchConfig {
   platform: Platform;
   retroArchLink: PlatformEmulator | null;
 }
 
+/**
+ * Normaliza o nome de um core para comparação case-insensitive sem espaços extras.
+ * Retorna string vazia quando o valor é null ou undefined.
+ */
 function normalizeCoreName(coreName: string | null | undefined): string {
   return coreName?.trim().toLowerCase() ?? "";
 }
 
+/**
+ * Garante que o nome do core termine com ".dll".
+ * Não adiciona extensão se já possuir.
+ */
 function toDllLabel(coreName: string): string {
   return coreName.toLowerCase().endsWith(".dll") ? coreName : `${coreName}.dll`;
 }
 
+/**
+ * Retorna o rótulo de exibição do core:
+ * - Se contiver separador de caminho (\ ou /), exibe o caminho completo.
+ * - Caso contrário, adiciona ".dll" se necessário.
+ */
 function getCoreDisplayLabel(coreName: string): string {
   return coreName.includes("\\") || coreName.includes("/") ? coreName : toDllLabel(coreName);
 }
 
+/**
+ * Monta as opções de core para o picker de uma plataforma, separando em
+ * "recomendados" (cores sugeridos para a plataforma) e "instalados" (demais DLLs presentes).
+ *
+ * @param platformName    Nome da plataforma para buscar sugestões.
+ * @param installedCores  Lista de cores instalados no RetroArch.
+ * @param currentValue    Core atualmente selecionado no draft (incluso nas opções se não estiver em nenhuma lista).
+ */
 function buildCoreOptions(
   platformName: string,
   installedCores: string[],
   currentValue: string
 ): { recommended: Array<{ value: string; installed: boolean }>; installed: string[] } {
+  // Cores recomendados para a plataforma, marcados com flag de instalação
   const recommended = getRetroArchCoreCandidatesForPlatform(platformName).map((coreName) => ({
     value: coreName,
     installed: installedCores.some((installedCore) => normalizeCoreName(installedCore) === normalizeCoreName(coreName))
   }));
 
+  // Cores instalados que não aparecem entre os recomendados
   const installed = installedCores.filter((coreName) =>
     !recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(coreName))
   );
 
+  // Adiciona o valor atual ao início da lista de instalados caso não esteja em nenhum grupo
   if (currentValue.trim()) {
     const currentExists =
       recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(currentValue)) ||
@@ -48,10 +88,19 @@ function buildCoreOptions(
   return { recommended, installed };
 }
 
-// EmulatorFormModal
+// ── EmulatorFormModal ────────────────────────────────────────────────────────
 
+/** Modo do modal de formulário: criação de novo emulador ou edição de existente. */
 type EmulatorModalMode = { kind: "create" } | { kind: "edit"; emulator: Emulator };
 
+/**
+ * Modal arrastável para criar ou editar um emulador.
+ * Abre diálogo nativo para selecionar o executável via IPC.
+ *
+ * @param mode     Modo do modal (criar ou editar) com dados do emulador atual.
+ * @param onClose  Callback chamado ao fechar o modal sem salvar.
+ * @param onSaved  Callback chamado após salvar com sucesso, para recarregar a lista.
+ */
 function EmulatorFormModal({
   mode,
   onClose,
@@ -61,19 +110,28 @@ function EmulatorFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // Emulador sendo editado (null no modo criação)
   const editing = mode.kind === "edit" ? mode.emulator : null;
+
   const [name, setName] = useState(editing?.name ?? "");
   const [executable, setExecutable] = useState(editing?.executable ?? "");
   const [args, setArgs] = useState(editing?.args ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Hook de drag para tornar o modal arrastável dentro da janela principal
   const draggable = useDraggableDialog();
 
+  /** Abre diálogo nativo para selecionar o executável do emulador. */
   async function browsePath(): Promise<void> {
     const result = await window.gameStockAPI.dialogs.openExecutableFile();
     if (result) setExecutable(result);
   }
 
+  /**
+   * Salva o emulador via IPC (create ou update conforme o modo),
+   * chama os callbacks e fecha o modal.
+   */
   async function save(e: FormEvent): Promise<void> {
     e.preventDefault();
     setError("");
@@ -122,6 +180,7 @@ function EmulatorFormModal({
                 onChange={(e) => setExecutable(e.target.value)}
                 placeholder="Caminho do executável"
               />
+              {/* Botão para abrir diálogo nativo de seleção de arquivo */}
               <button type="button" className="icon-button" title="Selecionar arquivo" onClick={browsePath}>
                 <FolderOpen size={15} aria-hidden="true" />
               </button>
@@ -148,8 +207,18 @@ function EmulatorFormModal({
   );
 }
 
-// LinkPlatformModal
+// ── LinkPlatformModal ────────────────────────────────────────────────────────
 
+/**
+ * Modal arrastável para vincular um emulador a uma plataforma.
+ * Para emuladores RetroArch, exibe campo adicional de seleção de core
+ * com autocomplete baseado nos cores instalados e recomendados.
+ *
+ * @param emulator  Emulador a ser vinculado.
+ * @param platforms Lista de plataformas disponíveis para vincular.
+ * @param onClose   Callback chamado ao fechar sem salvar.
+ * @param onSaved   Callback chamado após vínculo criado com sucesso.
+ */
 function LinkPlatformModal({
   emulator,
   platforms,
@@ -161,18 +230,36 @@ function LinkPlatformModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // ID da plataforma selecionada no select (string vazia = nenhuma)
   const [platformId, setPlatformId] = useState<number | "">(platforms[0]?.id ?? "");
   const [isDefault, setIsDefault] = useState(true);
   const [corePath, setCorePath] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  /** Indica se o emulador é uma instância do RetroArch */
   const isRetroArch = emulator.is_retroarch === 1;
+
+  /**
+   * Ref que rastreia o último core sugerido automaticamente,
+   * permitindo substituir o valor apenas se o usuário não editou manualmente.
+   */
   const autoCoreRef = useRef("");
+
   const selectedPlatform = platformId ? platforms.find((p) => p.id === Number(platformId)) : null;
+
+  /** Core padrão sugerido para a plataforma selecionada (pode ser null) */
   const defaultRetroArchCore = selectedPlatform ? getRetroArchCoreForPlatform(selectedPlatform.name) : null;
+
+  /** ID da datalist de sugestões de cores, único por emulador para evitar colisões de DOM */
   const coreListId = `retroarch-core-options-${emulator.id}`;
+
   const draggable = useDraggableDialog();
 
+  /**
+   * Preenche automaticamente o campo de core quando a plataforma muda,
+   * mas respeita edições manuais do usuário (usa autoCoreRef como sentinela).
+   */
   useEffect(() => {
     if (!isRetroArch) return;
     const nextAutoCore = defaultRetroArchCore ?? "";
@@ -183,11 +270,16 @@ function LinkPlatformModal({
     });
   }, [defaultRetroArchCore, isRetroArch]);
 
+  /** Abre diálogo nativo para localizar o arquivo .dll do core manualmente. */
   async function browseCorePath(): Promise<void> {
     const result = await window.gameStockAPI.dialogs.openAnyFile();
     if (result) setCorePath(result);
   }
 
+  /**
+   * Atualiza a plataforma selecionada e, para RetroArch,
+   * preenche automaticamente o core sugerido para a nova plataforma.
+   */
   function selectPlatform(nextPlatformId: number): void {
     setPlatformId(nextPlatformId);
     if (!isRetroArch) return;
@@ -197,6 +289,10 @@ function LinkPlatformModal({
     setCorePath(suggestedCore ?? "");
   }
 
+  /**
+   * Cria o vínculo emulador↔plataforma via IPC,
+   * incluindo o core path quando for RetroArch.
+   */
   async function save(e: FormEvent): Promise<void> {
     e.preventDefault();
     if (!platformId) return;
@@ -247,6 +343,7 @@ function LinkPlatformModal({
               ))}
             </select>
           </label>
+          {/* Campo de core exibido apenas para emuladores RetroArch */}
           {isRetroArch && (
             <label>
               Core
@@ -257,6 +354,7 @@ function LinkPlatformModal({
                   onChange={(e) => setCorePath(e.target.value)}
                   placeholder={defaultRetroArchCore ? `Padrão: ${defaultRetroArchCore}` : "Nome ou caminho do core libretro"}
                 />
+                {/* Datalist com todos os nomes de cores conhecidos para autocomplete */}
                 <datalist id={coreListId}>
                   {RETROARCH_CORE_NAMES.map((coreName) => (
                     <option key={coreName} value={coreName} />
@@ -266,6 +364,7 @@ function LinkPlatformModal({
                   <FolderOpen size={15} aria-hidden="true" />
                 </button>
               </div>
+              {/* Dica informando o core padrão da plataforma */}
               {defaultRetroArchCore && (
                 <span className="emulator-core-hint">
                   Core padrão desta plataforma. Pode trocar antes de vincular.
@@ -294,8 +393,19 @@ function LinkPlatformModal({
   );
 }
 
-// EmulatorRow
+// ── EmulatorRow ──────────────────────────────────────────────────────────────
 
+/**
+ * Linha de listagem de um emulador com ações inline.
+ * Expande para mostrar as plataformas vinculadas e permite adicionar novos vínculos.
+ *
+ * @param emulator                Emulador exibido nesta linha.
+ * @param platforms               Lista global de plataformas para busca de nomes e vínculos.
+ * @param onEdit                  Abre o modal de edição do emulador.
+ * @param onDelete                Remove o emulador após confirmação.
+ * @param onReload                Recarrega a lista de emuladores e plataformas.
+ * @param onConfigureRetroArchCores Abre o modal de configuração de cores (apenas RetroArch).
+ */
 function EmulatorRow({
   emulator,
   platforms,
@@ -311,10 +421,19 @@ function EmulatorRow({
   onReload: () => void;
   onConfigureRetroArchCores?: () => void;
 }) {
+  // Vínculos do emulador com plataformas (carregados ao expandir a linha)
   const [associations, setAssociations] = useState<PlatformEmulator[]>([]);
+
+  // Controla se a lista de plataformas vinculadas está expandida
   const [expanded, setExpanded] = useState(false);
+
+  // Controla se o modal de vincular plataforma está aberto
   const [linking, setLinking] = useState(false);
 
+  /**
+   * Carrega todas as associações deste emulador iterando pelas plataformas,
+   * pois a API retorna vínculos por plataforma, não por emulador.
+   */
   async function loadAssociations(): Promise<void> {
     const all: PlatformEmulator[] = [];
     for (const p of platforms) {
@@ -326,16 +445,22 @@ function EmulatorRow({
     setAssociations(all);
   }
 
+  /** Carrega as associações sempre que a linha for expandida. */
   useEffect(() => {
     if (expanded) void loadAssociations();
   }, [expanded]);
 
+  /**
+   * Remove o vínculo do emulador com uma plataforma via IPC
+   * e recarrega as associações e a lista principal.
+   */
   async function unlink(platformId: number): Promise<void> {
     await window.gameStockAPI.emulators.unlinkPlatform(emulator.id, platformId);
     void loadAssociations();
     onReload();
   }
 
+  /** Retorna o nome da plataforma pelo ID, com fallback para "#id" se não encontrada. */
   const platformName = (id: number) => platforms.find((p) => p.id === id)?.name ?? `#${id}`;
 
   return (
@@ -346,6 +471,7 @@ function EmulatorRow({
           <span>{emulator.executable || <em>Executável não configurado</em>}</span>
         </div>
         <div className="platform-row-actions">
+          {/* Botão que expande/colapsa a lista de plataformas vinculadas */}
           <button
             type="button"
             className={`icon-button ${expanded ? "active" : ""}`}
@@ -357,6 +483,7 @@ function EmulatorRow({
           <button type="button" className="icon-button" title="Editar" onClick={onEdit}>
             <Pencil size={14} aria-hidden="true" />
           </button>
+          {/* Botão de configuração de cores — exclusivo para o RetroArch */}
           {emulator.is_retroarch === 1 && onConfigureRetroArchCores && (
             <button
               type="button"
@@ -368,6 +495,7 @@ function EmulatorRow({
               Cores
             </button>
           )}
+          {/* Botão de remoção — oculto para o RetroArch (não pode ser removido) */}
           {emulator.is_retroarch !== 1 && (
             <button type="button" className="icon-button danger" title="Remover" onClick={onDelete}>
               <Trash2 size={14} aria-hidden="true" />
@@ -375,6 +503,7 @@ function EmulatorRow({
           )}
         </div>
       </div>
+      {/* Painel expandido com tabela de associações e botão de adicionar vínculo */}
       {expanded && (
         <div className="emulator-associations">
           {associations.length === 0 ? (
@@ -390,6 +519,7 @@ function EmulatorRow({
                 <div key={pe.platform_id} className="emulator-assoc-row">
                   <span className="emulator-assoc-platform">{platformName(pe.platform_id)}</span>
                   <span className="emulator-assoc-core">{pe.core_path ?? "-"}</span>
+                  {/* Botão para desvincular o emulador desta plataforma */}
                   <button
                     type="button"
                     className="icon-button danger"
@@ -412,6 +542,7 @@ function EmulatorRow({
           </button>
         </div>
       )}
+      {/* Modal de vínculo de plataforma, aberto inline abaixo da linha */}
       {linking && (
         <LinkPlatformModal
           emulator={emulator}
@@ -427,8 +558,19 @@ function EmulatorRow({
   );
 }
 
-// EmulatorsSettings
+// ── EmulatorsSettings ────────────────────────────────────────────────────────
 
+/**
+ * Modal de configuração de cores do RetroArch por plataforma.
+ * Permite selecionar o core libretro para cada plataforma cadastrada
+ * e salvar todas as alterações de uma vez.
+ *
+ * @param retroArch    Emulador RetroArch cadastrado no sistema.
+ * @param platforms    Lista de plataformas para configurar.
+ * @param reloadToken  Token numérico que incrementa para forçar recarga dos dados.
+ * @param onReload     Callback para disparar recarga da lista principal.
+ * @param onClose      Callback para fechar este modal.
+ */
 function RetroArchPlatformCores({
   retroArch,
   platforms,
@@ -442,16 +584,33 @@ function RetroArchPlatformCores({
   onReload: () => void;
   onClose: () => void;
 }) {
+  // Configurações de core por plataforma (vínculo atual + dados da plataforma)
   const [configs, setConfigs] = useState<PlatformRetroArchConfig[]>([]);
+
+  // Rascunhos de core editados pelo usuário (platformId → nome do core)
   const [coreDrafts, setCoreDrafts] = useState<Record<number, string>>({});
+
+  // Set de plataformas com alterações pendentes (não salvas ainda)
   const [editedPlatformIds, setEditedPlatformIds] = useState<Record<number, true>>({});
+
+  // Inventário de cores instalados no RetroArch (DLLs na pasta de cores)
   const [coreInventory, setCoreInventory] = useState<RetroArchCoreInventory | null>(null);
+
   const [savingAll, setSavingAll] = useState(false);
   const [error, setError] = useState("");
+
+  // Filtro de busca para localizar plataformas ou cores rapidamente
   const [search, setSearch] = useState("");
+
+  // ID da plataforma cujo picker de cores está aberto (null = todos fechados)
   const [openCorePickerPlatformId, setOpenCorePickerPlatformId] = useState<number | null>(null);
+
   const draggable = useDraggableDialog<HTMLDivElement>();
 
+  /**
+   * Lista de configurações filtrada pela query de busca.
+   * Pesquisa em: nome da plataforma, cores recomendados, core atual e cores instalados.
+   */
   const filteredConfigs = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return configs;
@@ -465,11 +624,16 @@ function RetroArchPlatformCores({
     });
   }, [configs, coreInventory?.installedCores, search]);
 
+  /**
+   * Fecha o picker de core quando o usuário clica fora do elemento.
+   * Registra listener global de pointerdown enquanto algum picker está aberto.
+   */
   useEffect(() => {
     if (openCorePickerPlatformId === null) return;
 
     function handlePointerDown(event: PointerEvent): void {
       const target = event.target as HTMLElement | null;
+      // Não fecha se o clique foi dentro do próprio picker
       if (target?.closest(".retroarch-core-picker")) return;
       setOpenCorePickerPlatformId(null);
     }
@@ -478,6 +642,11 @@ function RetroArchPlatformCores({
     return () => window.removeEventListener("pointerdown", handlePointerDown);
   }, [openCorePickerPlatformId]);
 
+  /**
+   * Carrega (em paralelo) os vínculos de plataforma e o inventário de cores instalados.
+   * Atualiza os rascunhos preservando edições não salvas do usuário.
+   * Roda sempre que platforms, reloadToken ou retroArch.id mudam.
+   */
   useEffect(() => {
     if (!platforms.length) {
       setConfigs([]);
@@ -487,6 +656,7 @@ function RetroArchPlatformCores({
       return;
     }
 
+    // Flag para evitar atualizar estado após desmontagem do componente
     let active = true;
     void Promise.all([
       Promise.all(
@@ -505,6 +675,7 @@ function RetroArchPlatformCores({
       setCoreDrafts((current) => {
         const nextDrafts: Record<number, string> = {};
         for (const config of nextConfigs) {
+          // Preserva o rascunho do usuário se já houver; caso contrário, usa o core salvo ou o sugerido
           nextDrafts[config.platform.id] =
             current[config.platform.id] ??
             config.retroArchLink?.core_path ??
@@ -527,6 +698,10 @@ function RetroArchPlatformCores({
     };
   }, [platforms, reloadToken, retroArch.id]);
 
+  /**
+   * Salva todos os cores que foram editados (marcados em editedPlatformIds).
+   * Valida que nenhum core editado está vazio antes de salvar.
+   */
   async function saveAllCores(): Promise<void> {
     const configsToSave = configs.filter((config) => editedPlatformIds[config.platform.id]);
     if (!configsToSave.length) {
@@ -534,6 +709,7 @@ function RetroArchPlatformCores({
       return;
     }
 
+    // Bloqueia salvamento se alguma plataforma editada não tiver core definido
     const missingCore = configsToSave.find((config) => !(coreDrafts[config.platform.id]?.trim()));
     if (missingCore) {
       setError(`Selecione um core para ${missingCore.platform.name}`);
@@ -581,6 +757,7 @@ function RetroArchPlatformCores({
           </button>
         </header>
 
+        {/* Barra de busca para filtrar plataformas por nome ou core */}
         <div className="retroarch-core-toolbar">
           <label>
             Buscar
@@ -593,6 +770,7 @@ function RetroArchPlatformCores({
           </label>
         </div>
 
+        {/* Lista de plataformas com seus respectivos pickers de core */}
         <div className="retroarch-core-list">
         {filteredConfigs.length === 0 && (
           <p className="platform-list-empty">Nenhuma plataforma cadastrada.</p>
@@ -603,12 +781,19 @@ function RetroArchPlatformCores({
           const defaultSuggestedCore = recommendedCores[0] ?? getRetroArchCoreForPlatform(config.platform.name);
           const draftValue = coreDrafts[platformId] ?? "";
           const currentCore = config.retroArchLink?.core_path?.trim() ?? "";
+
+          // Verdadeiro se o core sugerido já está salvo — linha fica em estado "ok"
           const suggestedMatchesCurrent =
             Boolean(defaultSuggestedCore) && normalizeCoreName(defaultSuggestedCore) === normalizeCoreName(currentCore);
+
+          // Opções separadas em recomendados e instalados para o picker
           const options = buildCoreOptions(config.platform.name, coreInventory?.installedCores ?? [], draftValue);
+
+          // Verdadeiro se o core recomendado principal está instalado na máquina do usuário
           const primaryRecommendedInstalled = defaultSuggestedCore
             ? (coreInventory?.installedCores ?? []).some((installedCore) => normalizeCoreName(installedCore) === normalizeCoreName(defaultSuggestedCore))
             : true;
+
           const edited = Boolean(editedPlatformIds[platformId]);
           const isPickerOpen = openCorePickerPlatformId === platformId;
 
@@ -624,21 +809,25 @@ function RetroArchPlatformCores({
                     {currentCore && <em className="retroarch-core-current">Core salvo: {currentCore}</em>}
                   </>
                 )}
+                {/* Aviso quando o core recomendado não está instalado no RetroArch do usuário */}
                 {!primaryRecommendedInstalled && defaultSuggestedCore && (
                   <em className="retroarch-core-warning">
                     Core recomendado {defaultSuggestedCore} não instalado. Baixe no RetroArch.
                   </em>
                 )}
+                {/* Indicador visual de alteração pendente não salva */}
                 {edited && <em className="retroarch-core-pending">Alteração pendente</em>}
               </div>
               <div className="retroarch-core-controls">
                 <label className="retroarch-core-field">
                   <span className="retroarch-core-field-header">
                     <span>Core</span>
+                    {/* Sugestão exibida quando o core atual difere do recomendado */}
                     {defaultSuggestedCore && !suggestedMatchesCurrent && (
                       <em className="retroarch-core-suggestion">Sugestão: {defaultSuggestedCore}</em>
                     )}
                   </span>
+                  {/* Picker customizado de core (dropdown com grupos recomendados/instalados) */}
                   <div className={`retroarch-core-picker ${isPickerOpen ? "open" : ""}`}>
                     <button
                       type="button"
@@ -650,6 +839,7 @@ function RetroArchPlatformCores({
                     </button>
                     {isPickerOpen && (
                       <div className="retroarch-core-picker-menu">
+                        {/* Opção de limpar seleção */}
                         <button
                           type="button"
                           className={`retroarch-core-option ${!draftValue ? "selected" : ""}`}
@@ -661,6 +851,7 @@ function RetroArchPlatformCores({
                         >
                           Selecione um core
                         </button>
+                        {/* Grupo de cores recomendados para a plataforma */}
                         {options.recommended.length > 0 && (
                           <div className="retroarch-core-group">
                             <strong>Recomendados</strong>
@@ -670,6 +861,7 @@ function RetroArchPlatformCores({
                                 type="button"
                                 className={`retroarch-core-option ${normalizeCoreName(draftValue) === normalizeCoreName(entry.value) ? "selected" : ""} ${!entry.installed ? "disabled" : ""}`}
                                 onClick={() => {
+                                  // Não permite selecionar core recomendado que não está instalado
                                   if (!entry.installed) return;
                                   setCoreDrafts((current) => ({ ...current, [platformId]: entry.value }));
                                   setEditedPlatformIds((current) => ({ ...current, [platformId]: true }));
@@ -682,6 +874,7 @@ function RetroArchPlatformCores({
                             ))}
                           </div>
                         )}
+                        {/* Grupo de cores instalados que não são os recomendados */}
                         {options.installed.length > 0 && (
                           <div className="retroarch-core-group">
                             <strong>Instalados</strong>
@@ -712,6 +905,7 @@ function RetroArchPlatformCores({
         </div>
 
         <footer className="retroarch-core-dialog-footer">
+          {/* Erros de configuração do RetroArch exibidos antes do botão de salvar */}
           {coreInventory && !coreInventory.executableConfigured && (
             <p className="form-error">Configure executável do RetroArch antes de selecionar cores.</p>
           )}
@@ -723,6 +917,7 @@ function RetroArchPlatformCores({
             <X size={14} aria-hidden="true" />
             Fechar
           </button>
+          {/* Botão de salvar desabilitado quando não há alterações pendentes */}
           <button
             type="button"
             className="text-button active form-action-button"
@@ -738,29 +933,52 @@ function RetroArchPlatformCores({
   );
 }
 
+/**
+ * Componente principal da aba de emuladores dentro das configurações.
+ * Gerencia a lista de emuladores, modais de criação/edição e o modal de cores do RetroArch.
+ */
 export function EmulatorsSettings() {
+  // Plataformas cadastradas no store (usadas para vincular emuladores)
   const platforms = useGameStockStore((state) => state.platforms);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
+
   const [emulatorList, setEmulatorList] = useState<Emulator[]>([]);
+
+  // Modal de criar/editar emulador (null = fechado)
   const [modal, setModal] = useState<EmulatorModalMode | null>(null);
+
+  // Controla a abertura do modal de configuração de cores do RetroArch
   const [retroArchCoreModalOpen, setRetroArchCoreModalOpen] = useState(false);
+
   const [error, setError] = useState("");
+
+  /**
+   * Token numérico que incrementa para forçar recarga da lista de emuladores.
+   * Passado ao useEffect e ao modal de cores para sincronizar recargas.
+   */
   const [reloadToken, setReloadToken] = useState(0);
 
+  /** Incrementa o token de recarga e recarrega as plataformas do store. */
   function reload(): void {
     setReloadToken((t) => t + 1);
     reloadPlatforms();
   }
 
+  /** Busca a lista de emuladores via IPC sempre que reloadToken muda. */
   useEffect(() => {
     window.gameStockAPI.emulators.list().then(setEmulatorList).catch(() => {});
   }, [reloadToken]);
 
+  /** Instância do RetroArch na lista (identificado pelo flag is_retroarch === 1). */
   const retroArch = useMemo(
     () => emulatorList.find((emulator) => emulator.is_retroarch === 1) ?? null,
     [emulatorList]
   );
 
+  /**
+   * Lista de emuladores ordenada para exibição:
+   * RetroArch sempre primeiro, demais em ordem alfabética case-insensitive.
+   */
   const orderedEmulators = useMemo(() => {
     const retroArchEntry = emulatorList.find((emulator) => emulator.is_retroarch === 1) ?? null;
     const others = emulatorList
@@ -769,6 +987,10 @@ export function EmulatorsSettings() {
     return retroArchEntry ? [retroArchEntry, ...others] : others;
   }, [emulatorList]);
 
+  /**
+   * Remove um emulador após confirmação do usuário.
+   * Não disponível para o RetroArch (botão oculto no EmulatorRow).
+   */
   async function remove(emulator: Emulator): Promise<void> {
     if (!window.confirm(`Remover o emulador "${emulator.name}"?`)) return;
     setError("");
@@ -791,6 +1013,7 @@ export function EmulatorsSettings() {
           <p className="platform-list-empty">Nenhum emulador cadastrado.</p>
         )}
         {orderedEmulators.map((emulator) => (
+          // Abre o modal de cores apenas para o RetroArch (onConfigureRetroArchCores)
           <EmulatorRow
             key={emulator.id}
             emulator={emulator}
@@ -811,6 +1034,7 @@ export function EmulatorsSettings() {
           Novo emulador
         </button>
       </div>
+      {/* Modal de criar/editar emulador */}
       {modal && (
         <EmulatorFormModal
           mode={modal}
@@ -818,6 +1042,7 @@ export function EmulatorsSettings() {
           onSaved={reload}
         />
       )}
+      {/* Modal de configuração de cores do RetroArch — aberto apenas quando RetroArch existe */}
       {retroArch && retroArchCoreModalOpen && (
         <RetroArchPlatformCores
           retroArch={retroArch}

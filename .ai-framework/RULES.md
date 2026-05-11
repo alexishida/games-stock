@@ -78,6 +78,16 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
   - Jogos por `launchbox_id + platformName`; fallback `title + platformName`.
   - Emuladores por `name`.
 
+## Regra: documentação obrigatória de código
+
+Todo arquivo criado ou alterado deve ter comentários em **português (pt-br)**. Sem exceção.
+
+- **Arquivo novo**: comentário de bloco no topo descrevendo propósito do módulo + JSDoc em todas as funções, interfaces, tipos e constantes exportadas.
+- **Arquivo alterado**: toda função, tipo ou bloco lógico novo ou modificado deve receber comentário. Não é necessário reescrever comentários preexistentes não tocados.
+- Use `//` para comentários inline e `/** */` para JSDoc.
+- Comente o **porquê** em lógica não-óbvia (invariantes, workarounds, restrições ocultas). O **o quê** fica implícito em nomes bem escolhidos.
+- Termos técnicos fixos (IPC, SQLite, Zustand, worker, hook, store, DAO) permanecem em inglês; o restante do comentário em pt-br.
+
 ## Regra aprendida: estado assíncrono compartilhado
 
 Sempre usar Zustand (`src/renderer/store/index.ts`) para qualquer estado assíncrono que precise ser visível em mais de um componente (ex: download em andamento, job de importação, flags de loading global).

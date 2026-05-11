@@ -1,21 +1,52 @@
+/**
+ * Catálogo estático de plataformas suportadas pelo GameStock.
+ *
+ * Define todas as plataformas conhecidas com seus nomes canônicos, categorias,
+ * aliases LaunchBox (usados na importação de metadados) e extensões de ROM aceitas.
+ *
+ * Este arquivo é utilizado durante a inicialização do banco de dados para popular
+ * as tabelas `platforms`, `platform_launchbox_aliases` e `platform_rom_extensions`.
+ */
+
+/**
+ * Representa uma extensão de ROM associada a uma plataforma.
+ */
 export interface PlatformCatalogRomExtension {
+  /** Extensão do arquivo, incluindo o ponto (ex.: ".nes", ".iso"). */
   extension: string;
+  /** Descrição legível do tipo/formato do arquivo. */
   kind: string;
+  /** Indica se esta é uma extensão principal da plataforma (usada na detecção automática). */
   isPrimary: boolean;
 }
 
+/**
+ * Representa uma entrada de plataforma no catálogo estático.
+ */
 export interface PlatformCatalogEntry {
+  /** Nome canônico da plataforma no banco de dados. */
   name: string;
+  /** Categoria da plataforma (ex.: "Consoles", "Portateis", "PC"). */
   category: string;
+  /** Lista de nomes alternativos usados pelo LaunchBox para esta plataforma. */
   launchboxAliases: string[];
+  /** Extensões de ROM reconhecidas para esta plataforma. */
   romExtensions: PlatformCatalogRomExtension[];
 }
 
+/**
+ * Extensões de arquivo compactado presentes em quase todas as plataformas.
+ * Reutilizadas via spread para evitar repetição no catálogo.
+ */
 const COMPRESSED_ROM_EXTENSIONS: PlatformCatalogRomExtension[] = [
   { extension: ".7z", kind: "Arquivo compactado", isPrimary: true },
   { extension: ".zip", kind: "Arquivo compactado", isPrimary: true }
 ];
 
+/**
+ * Catálogo completo de plataformas suportadas pelo GameStock.
+ * Cada entrada é usada como seed na inicialização do banco de dados.
+ */
 export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
   {
     name: "Atari 2600",
@@ -281,11 +312,21 @@ export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
   }
 ];
 
+/**
+ * Mapeamentos de nomes legados para nomes canônicos de plataformas.
+ * Usado na migration `migratePlatformAliases` para corrigir entradas antigas no banco.
+ *
+ * Formato: [nome_legado, nome_canonico]
+ */
 export const LEGACY_PLATFORM_ALIASES: Array<[string, string]> = [
   ["Sega Genesis", "Sega Mega Drive"],
   ["NES", "Nintendo Entertainment System"]
 ];
 
+/**
+ * Lista deduplicada e ordenada de todas as extensões de ROM primárias presentes no catálogo.
+ * Usada em filtros de detecção automática de plataforma por extensão de arquivo.
+ */
 export const ALL_SUPPORTED_ROM_EXTENSIONS = Array.from(
   new Set(
     PLATFORM_CATALOG

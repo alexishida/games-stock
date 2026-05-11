@@ -1,3 +1,15 @@
+/**
+ * Ponto de entrada do processo principal (main process) do Electron.
+ *
+ * Responsabilidades:
+ * - Configurar caminhos de dados do Electron antes de qualquer outro módulo.
+ * - Registrar o protocolo customizado `gamestock-media` para servir imagens locais.
+ * - Criar e gerenciar a janela principal (`BrowserWindow`).
+ * - Registrar todos os handlers IPC que expõem funcionalidades ao renderer.
+ * - Gerenciar o ciclo de vida do app (ready, activate, window-all-closed, before-quit).
+ * - Iniciar e monitorar jobs de importação de ROMs e portabilidade de dados.
+ */
+
 import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,17 +29,32 @@ import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 
+/** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
+
+/** Flag usada para distinguir fechamento intencional (quit) de fechamento de janela no macOS. */
 let isQuitting = false;
+
+/** Mapa de jobs de importação de ROM em andamento ou concluídos nesta sessão. */
 const romFolderJobs = new Map<string, RomFolderImportJob>();
+
+/** Mapa de jobs de portabilidade de dados (exportação/importação) desta sessão. */
 const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
 
+// Configura os caminhos de dados do Electron antes de qualquer módulo que os acesse
 configureElectronStoragePaths();
 
+/** Retorna o título da janela principal com a versão do app. */
 function getWindowTitle(): string {
   return `GameStock v${app.getVersion()}`;
 }
 
+/**
+ * Configura os diretórios de dados, sessão e cache do Electron para usar
+ * o diretório gerenciado pelo GameStock em vez dos padrões do Electron.
+ *
+ * Deve ser chamado antes de `app.whenReady()`.
+ */
 function configureElectronStoragePaths(): void {
   const dataDir = getAppUserDataDir();
   const sessionDir = path.join(dataDir, "session");
@@ -35,25 +62,33 @@ function configureElectronStoragePaths(): void {
   fs.mkdirSync(cacheDir, { recursive: true });
   app.setPath("userData", dataDir);
   app.setPath("sessionData", sessionDir);
+  // Direciona o cache de disco do Chromium para o diretório controlado pelo app
   app.commandLine.appendSwitch("disk-cache-dir", cacheDir);
+  // Desativa cache de shaders GPU (evita arquivos de cache espalhados)
   app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 }
 
+// Registra o esquema customizado antes de `app.whenReady()`, conforme requisito do Electron
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "gamestock-media",
     privileges: {
       standard: true,
       secure: true,
-      supportFetchAPI: true
+      supportFetchAPI: true // Permite uso via fetch() no renderer
     }
   }
 ]);
 
+/** Retorna o caminho do arquivo JSON que persiste as dimensões e posição da janela. */
 function getBoundsFile(): string {
   return path.join(getUserDataDir(), "window-bounds.json");
 }
 
+/**
+ * Carrega os bounds (tamanho e posição) salvos da janela principal.
+ * Retorna dimensões padrão se o arquivo não existir ou estiver corrompido.
+ */
 function loadBounds(): Electron.Rectangle {
   try {
     return JSON.parse(fs.readFileSync(getBoundsFile(), "utf8")) as Electron.Rectangle;
@@ -62,12 +97,20 @@ function loadBounds(): Electron.Rectangle {
   }
 }
 
+/**
+ * Cria a janela principal do Electron.
+ *
+ * - Abre o banco SQLite antes de criar a janela.
+ * - Usa `show: false` e exibe somente no evento `ready-to-show` para evitar tela branca.
+ * - Em desenvolvimento, carrega o servidor Vite; em produção, carrega o HTML compilado.
+ */
 async function createWindow(): Promise<void> {
+  // Abre o banco antes de mostrar qualquer UI
   getDatabase();
   const bounds = loadBounds();
   mainWindow = new BrowserWindow({
     ...bounds,
-    show: false,
+    show: false, // Evita flash de tela branca antes do renderer estar pronto
     backgroundColor: "#131313",
     minWidth: 1024,
     minHeight: 768,
@@ -80,8 +123,10 @@ async function createWindow(): Promise<void> {
     }
   });
 
+  // Exibe a janela somente quando o renderer terminar de carregar
   mainWindow.once("ready-to-show", () => mainWindow?.show());
 
+  // Persiste bounds ao fechar a janela
   mainWindow.on("close", () => {
     if (!mainWindow) return;
     fs.mkdirSync(getUserDataDir(), { recursive: true });
@@ -90,20 +135,39 @@ async function createWindow(): Promise<void> {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+    // No Windows/Linux, fechar a última janela encerra o app (exceto durante quit explícito)
     if (process.platform !== "darwin" && !isQuitting) {
       app.quit();
     }
   });
 
   if (process.env.VITE_DEV_SERVER_URL || !app.isPackaged) {
+    // Modo de desenvolvimento: conecta ao servidor Vite com HMR
     await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173");
     mainWindow.webContents.openDevTools();
   } else {
+    // Produção: carrega o bundle compilado
     await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 }
 
+/**
+ * Registra todos os handlers IPC que expõem funcionalidades do main process ao renderer.
+ *
+ * Organização por domínio:
+ * - games: CRUD de jogos, media, stats, launch
+ * - platforms: CRUD de plataformas e mapeamentos
+ * - emulators: CRUD de emuladores e cores RetroArch
+ * - dialogs: diálogos nativos de abertura/salvamento de arquivos
+ * - shell: integração com o shell do SO
+ * - app: informações e estado do app
+ * - appState: persistência de estado genérico da UI
+ * - dataPortability: exportação e importação de backups
+ * - launchbox: integração com metadados e imagens do LaunchBox
+ * - romFolderImport: importação de ROMs a partir de pastas
+ */
 function registerIpc(): void {
+  // ── Jogos ──────────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.games.list, (_event, filters) => games.listGames(filters));
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
   ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
@@ -114,12 +178,13 @@ function registerIpc(): void {
   }));
   ipcMain.handle(IPC_CHANNELS.games.syncCovers, () => syncMissingCovers((progress) => {
     sendLaunchBoxProgress(progress);
-    sendCoverStats();
+    sendCoverStats(); // Atualiza stats de capa no renderer após cada jogo processado
   }));
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));
   ipcMain.handle(IPC_CHANNELS.games.delete, (_event, id: number) => games.deleteGame(id));
 
+  // ── Plataformas ────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.platforms.list, () => platforms.listPlatforms());
   ipcMain.handle(IPC_CHANNELS.platforms.create, (_event, data: platforms.PlatformInput) => platforms.createPlatform(data));
   ipcMain.handle(IPC_CHANNELS.platforms.update, (_event, id: number, data: Partial<platforms.PlatformInput>) => platforms.updatePlatform(id, data));
@@ -127,6 +192,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.platforms.getMappings, (_event, platformId: number) => platforms.getPlatformMappings(platformId));
   ipcMain.handle(IPC_CHANNELS.platforms.saveMappings, (_event, platformId: number, data) => platforms.savePlatformMappings(platformId, data));
 
+  // ── Emuladores ─────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.emulators.list, () => emulators.listEmulators());
   ipcMain.handle(IPC_CHANNELS.emulators.create, (_event, data: emulators.EmulatorInput) => emulators.createEmulator(data));
   ipcMain.handle(IPC_CHANNELS.emulators.update, (_event, id: number, data: Partial<emulators.EmulatorInput>) => emulators.updateEmulator(id, data));
@@ -140,6 +206,7 @@ function registerIpc(): void {
     emulators.unlinkEmulatorFromPlatform(emulatorId, platformId)
   );
 
+  // ── Launch (abrir jogo no emulador) ───────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.games.launch, async (_event, gameId: number) => {
     const game = games.getGame(gameId);
     if (!game) throw new Error("Jogo não encontrado");
@@ -154,10 +221,12 @@ function registerIpc(): void {
 
     let args: string[];
     if (emulator.is_retroarch) {
+      // RetroArch requer o core via flag -L antes do caminho da ROM
       const corePath = resolveRetroArchCorePath(pe.core_path, emulator.executable, game.platform_name ?? "");
       if (!corePath) throw new Error("Core do RetroArch não configurado para esta plataforma");
       args = ["-L", corePath, game.rom_path];
     } else {
+      // Emuladores genéricos: args configurados pelo usuário + caminho da ROM
       const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
       args = [...parsedArgs, game.rom_path];
     }
@@ -166,6 +235,7 @@ function registerIpc(): void {
     return { success: true };
   });
 
+  // ── Diálogos nativos de arquivo ────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.dialogs.openExecutableFile, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ["openFile"],
@@ -222,6 +292,7 @@ function registerIpc(): void {
     });
     if (result.canceled || !result.filePaths[0]) return null;
     const source = result.filePaths[0];
+    // Copia a imagem selecionada para o diretório de imagens do GameStock (timestamp como nome)
     const dest = path.join(getImagesDir(), `${Date.now()}${path.extname(source)}`);
     fs.copyFileSync(source, dest);
     return dest;
@@ -237,6 +308,7 @@ function registerIpc(): void {
     return { canceled: false, path: result.filePath };
   });
 
+  // ── Shell / app ────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
   ipcMain.handle(IPC_CHANNELS.app.getVersion, () => app.getVersion());
   ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => {
@@ -245,6 +317,8 @@ function registerIpc(): void {
     const dataDirSizeMb = Math.round(getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
     return { totalGames, dataDirSizeMb, dataDirPath };
   });
+
+  // ── Estado persistido da UI (appState) ────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.appState.get, (_event, key: string) => appState.getAppState(key));
   ipcMain.handle(IPC_CHANNELS.appState.getMany, (_event, keys: string[]) => appState.getAppStateMany(keys));
   ipcMain.handle(IPC_CHANNELS.appState.set, (_event, key: string, value: unknown) => {
@@ -256,9 +330,12 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.appState.remove, (_event, key: string) => {
     appState.removeAppState(key);
   });
+
+  // ── Portabilidade de dados (exportação/importação) ─────────────────────────
   ipcMain.handle(IPC_CHANNELS.dataPortability.exportPackage, async (_event, request: DataPortabilityExportRequest) => {
     let targetPath = request.targetPath?.trim() ?? "";
     if (!targetPath) {
+      // Abre diálogo nativo de salvamento se o caminho não foi fornecido pelo renderer
       const result = await dialog.showSaveDialog(mainWindow!, {
         title: "Exportar dados do GameStock",
         defaultPath: `gamestock-backup-${new Date().toISOString().slice(0, 10)}.gamestock-backup`,
@@ -275,9 +352,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.dataPortability.previewImport, (_event, packagePath: string) => previewImportPackage(packagePath));
   ipcMain.handle(IPC_CHANNELS.dataPortability.importPackage, (_event, request: DataPortabilityImportRequest) => startDataPortabilityJob("import", request));
   ipcMain.handle(IPC_CHANNELS.dataPortability.jobs, () =>
+    // Retorna jobs ordenados do mais recente para o mais antigo
     Array.from(dataPortabilityJobs.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt))
   );
 
+  // ── LaunchBox ──────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>
     ensureLaunchBoxMetadata(Boolean(options?.force), sendLaunchBoxProgress)
   );
@@ -288,6 +367,7 @@ function registerIpc(): void {
   );
   ipcMain.handle(IPC_CHANNELS.launchbox.importGame, (_event, params: LaunchBoxImportParams) => importGame(params, sendLaunchBoxProgress));
 
+  // ── Importação de pastas de ROM ────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.jobs, () => Array.from(romFolderJobs.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt)));
@@ -304,6 +384,7 @@ function registerIpc(): void {
     const byRomPath = games.deleteGamesByRomFolder(folderPath, platformId);
     if (!platformId) return byRomPath;
 
+    // Remove também registros legados sem rom_path que correspondam aos títulos da pasta
     const scan = scanRomFolder({ folderPaths: [folderPath], platformId, includeSubfolders: true });
     const byLegacyTitles = games.deleteGamesWithoutRomPathByPlatformAndTitles(
       platformId,
@@ -313,10 +394,12 @@ function registerIpc(): void {
   });
 }
 
+/** Envia progresso de operação LaunchBox para o renderer via IPC push. */
 function sendLaunchBoxProgress(progress: LaunchBoxProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.launchbox.progress, progress);
 }
 
+/** Envia estatísticas atualizadas de capas para o renderer via IPC push. */
 function sendCoverStats(): void {
   mainWindow?.webContents.send(IPC_CHANNELS.games.coverStatsUpdated, {
     ...games.getCoverStats(),
@@ -324,19 +407,30 @@ function sendCoverStats(): void {
   });
 }
 
+/** Envia progresso de importação de pasta de ROM para o renderer via IPC push. */
 function sendRomFolderImportProgress(progress: RomFolderImportProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.romFolderImport.progress, progress);
 }
 
+/** Envia progresso de portabilidade de dados para o renderer via IPC push. */
 function sendDataPortabilityProgress(progress: DataPortabilityProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.progress, progress);
 }
 
+/** União discriminada das mensagens recebidas do worker de portabilidade de dados. */
 type DataPortabilityWorkerMessage =
   | { type: "progress"; progress: DataPortabilityProgress }
   | { type: "completed"; result: DataPortabilityExportResult | DataPortabilityImportResult }
   | { type: "error"; error: string };
 
+/**
+ * Inicia um job de portabilidade de dados (exportação ou importação) em worker thread.
+ *
+ * O worker executa a operação pesada (empacotar/desempacotar ZIP) sem bloquear o
+ * processo principal. Progresso e resultado são comunicados via mensagens do worker.
+ *
+ * @returns O objeto do job recém-criado (status inicial: "running").
+ */
 function startDataPortabilityJob(
   kind: "export",
   request: DataPortabilityExportRequest & { targetPath: string }
@@ -346,6 +440,7 @@ function startDataPortabilityJob(
   kind: "export" | "import",
   request: (DataPortabilityExportRequest & { targetPath: string }) | DataPortabilityImportRequest
 ): DataPortabilityJob {
+  // ID único para rastreamento do job nesta sessão
   const jobId = `data-portability-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const packagePath = kind === "export" ? (request as DataPortabilityExportRequest & { targetPath: string }).targetPath : (request as DataPortabilityImportRequest).packagePath;
   const initialProgress: DataPortabilityProgress = {
@@ -367,6 +462,7 @@ function startDataPortabilityJob(
   dataPortabilityJobs.set(jobId, job);
   sendDataPortabilityProgress(initialProgress);
 
+  // Inicia o worker thread com os dados necessários para a operação
   const worker = new Worker(path.join(__dirname, "dataPortabilityWorker.js"), {
     workerData: {
       jobId,
@@ -394,15 +490,18 @@ function startDataPortabilityJob(
       };
       if (kind === "export") {
         job.exportResult = message.result as DataPortabilityExportResult;
+        // Atualiza packagePath com o caminho final (pode ter sido ajustado pela extensão)
         job.packagePath = job.exportResult.filePath;
       } else {
         job.importResult = message.result as DataPortabilityImportResult;
+        // Após importação, atualiza stats de capa (podem ter mudado)
         sendCoverStats();
       }
       mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.completed, job);
       return;
     }
 
+    // Mensagem de erro do worker
     failDataPortabilityJob(job, message.error);
   });
 
@@ -411,6 +510,7 @@ function startDataPortabilityJob(
   });
 
   worker.on("exit", (code) => {
+    // Worker encerrou com código não-zero sem ter enviado mensagem de erro
     if (code !== 0 && job.status === "running") {
       failDataPortabilityJob(job, `Worker de portabilidade encerrou com codigo ${code}`);
     }
@@ -419,6 +519,10 @@ function startDataPortabilityJob(
   return job;
 }
 
+/**
+ * Marca um job de portabilidade como falho e notifica o renderer.
+ * Operação idempotente: ignora se o job já não está em execução.
+ */
 function failDataPortabilityJob(job: DataPortabilityJob, message: string): void {
   if (job.status !== "running") return;
   job.status = "failed";
@@ -433,6 +537,15 @@ function failDataPortabilityJob(job: DataPortabilityJob, message: string): void 
   mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.completed, job);
 }
 
+/**
+ * Inicia um job de importação de pasta de ROM em background (async, sem worker thread).
+ *
+ * O scan é síncrono e imediato; a importação em si (matching + download de imagens)
+ * é assíncrona e executa no processo principal, reportando progresso via IPC push.
+ *
+ * @param params - Parâmetros da importação (pastas, plataforma, opções).
+ * @returns O objeto do job recém-criado com status inicial "running".
+ */
 function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImportJob {
   const scan = scanRomFolder(params);
   const jobId = `rom-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -459,10 +572,12 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
   romFolderJobs.set(jobId, job);
   sendRomFolderImportProgress(initialProgress);
 
+  // Importação assíncrona: não bloqueia o retorno do IPC handler
   void importRomFolder(params, (progress) => {
     const nextProgress = { ...progress, jobId };
     job.progress = nextProgress;
     sendRomFolderImportProgress(nextProgress);
+    // Atualiza stats de capa quando um jogo é processado com sucesso
     if (progress.stage === "done" || progress.stage === "skipped") {
       sendCoverStats();
     }
@@ -489,14 +604,17 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
   return job;
 }
 
+// ── Ciclo de vida do Electron ──────────────────────────────────────────────
+
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(null); // Remove menu nativo padrão do Electron
   registerMediaProtocol();
   registerIpc();
   void createWindow();
 });
 
 app.on("activate", () => {
+  // macOS: recria a janela se o app for ativado sem janelas abertas (clique no dock)
   if (BrowserWindow.getAllWindows().length === 0) void createWindow();
 });
 
@@ -510,6 +628,16 @@ app.on("before-quit", () => {
   closeDatabase();
 });
 
+// ── Protocolo customizado gamestock-media ──────────────────────────────────
+
+/**
+ * Registra o protocolo `gamestock-media://` para servir arquivos de imagem locais
+ * ao renderer de forma segura (apenas dentro do diretório de dados do usuário).
+ *
+ * URL format: `gamestock-media://?path=/absolute/path/to/image.jpg`
+ *
+ * Rejeita caminhos que tentem escapar do diretório de dados (prevenção de path traversal).
+ */
 function registerMediaProtocol(): void {
   protocol.handle("gamestock-media", (request) => {
     const filePath = new URL(request.url).searchParams.get("path");
@@ -517,6 +645,7 @@ function registerMediaProtocol(): void {
 
     const normalized = path.resolve(filePath);
     const allowedRoot = path.resolve(getUserDataDir());
+    // Garante que o caminho solicitado está dentro do diretório de dados do usuário
     if (normalized !== allowedRoot && !normalized.startsWith(`${allowedRoot}${path.sep}`)) {
       return new Response("Forbidden", { status: 403 });
     }
@@ -525,12 +654,22 @@ function registerMediaProtocol(): void {
   });
 }
 
+// ── Mídia de jogos ─────────────────────────────────────────────────────────
+
+/** Extensões de arquivo reconhecidas como mídia de jogos. */
 const MEDIA_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
+/**
+ * Lista os arquivos de mídia de um jogo, excluindo a capa principal (cover.jpg),
+ * ordenados por tipo (box-art, cart, background, screenshot, outros).
+ *
+ * Apenas retorna arquivos dentro do diretório de dados do usuário (segurança).
+ */
 function listGameMedia(id: number): GameMediaItem[] {
   const game = games.getGame(id);
   if (!game) return [];
 
+  // Determina o diretório de mídia a partir dos caminhos de arquivo já conhecidos do jogo
   const mediaPaths = [game.box_art_path, game.background_path, game.screenshot_path].filter(Boolean) as string[];
   const mediaDir = mediaPaths.map((filePath) => path.dirname(filePath)).find((dir) => isPathAllowed(dir));
   if (!mediaDir || !fs.existsSync(mediaDir)) return [];
@@ -539,7 +678,7 @@ function listGameMedia(id: number): GameMediaItem[] {
     .filter((entry) => entry.isFile() && MEDIA_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
     .map((entry) => path.join(mediaDir, entry.name))
     .filter((filePath) => isPathAllowed(filePath))
-    .filter((filePath) => mediaKind(filePath) !== "cover")
+    .filter((filePath) => mediaKind(filePath) !== "cover") // Exclui cover.jpg (exibida separadamente)
     .sort((a, b) => mediaSortWeight(a) - mediaSortWeight(b) || path.basename(a).localeCompare(path.basename(b)))
     .map((filePath) => ({
       path: filePath,
@@ -548,12 +687,20 @@ function listGameMedia(id: number): GameMediaItem[] {
     }));
 }
 
+/**
+ * Verifica se um caminho está dentro do diretório de dados do usuário.
+ * Usado como barreira de segurança antes de servir ou listar arquivos.
+ */
 function isPathAllowed(targetPath: string): boolean {
   const normalized = path.resolve(targetPath);
   const allowedRoot = path.resolve(getUserDataDir());
   return normalized === allowedRoot || normalized.startsWith(`${allowedRoot}${path.sep}`);
 }
 
+/**
+ * Classifica o tipo de mídia de um arquivo a partir de seu nome.
+ * Convenção de nomes usada pelo scraper LaunchBox.
+ */
 function mediaKind(filePath: string): GameMediaItem["kind"] {
   const filename = path.basename(filePath).toLowerCase();
   if (filename === "cover.jpg") return "cover";
@@ -564,17 +711,25 @@ function mediaKind(filePath: string): GameMediaItem["kind"] {
   return "other";
 }
 
+/**
+ * Retorna o rótulo legível de um arquivo de mídia para exibição na UI.
+ * Converte o nome do arquivo (slug) em título capitalizado.
+ */
 function mediaLabel(filePath: string): string {
   const filename = path.basename(filePath, path.extname(filePath)).toLowerCase();
   if (filename === "cover") return "Cover";
   return filename
-    .replace(/-\d+$/g, "")
+    .replace(/-\d+$/g, "") // Remove sufixo numérico (ex.: box-front-01 → box-front)
     .split("-")
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
 
+/**
+ * Retorna o peso de ordenação de um arquivo de mídia para exibição na galeria.
+ * Tipos mais importantes aparecem primeiro.
+ */
 function mediaSortWeight(filePath: string): number {
   switch (mediaKind(filePath)) {
     case "cover":
@@ -592,6 +747,15 @@ function mediaSortWeight(filePath: string): number {
   }
 }
 
+// ── Utilitários de processo ────────────────────────────────────────────────
+
+/**
+ * Inicia um processo filho desanexado do processo principal (detached).
+ * Resolve quando o processo filho confirmar que iniciou (`spawn` event).
+ * Rejeita se houver erro antes do início.
+ *
+ * Usado para abrir emuladores sem manter o processo filho vinculado ao GameStock.
+ */
 function spawnDetachedProcess(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { detached: true, stdio: "ignore" });
@@ -606,12 +770,25 @@ function spawnDetachedProcess(command: string, args: string[]): Promise<void> {
     child.once("spawn", () => {
       if (settled) return;
       settled = true;
-      child.unref();
+      child.unref(); // Permite que o processo principal encerre sem aguardar o filho
       resolve();
     });
   });
 }
 
+// ── RetroArch ──────────────────────────────────────────────────────────────
+
+/**
+ * Resolve o caminho absoluto do core RetroArch para uma plataforma.
+ *
+ * Estratégias em ordem:
+ * 1. Caminho configurado pelo usuário (absoluto ou relativo ao diretório cores/).
+ * 2. Candidatos automáticos baseados no nome da plataforma (de `getRetroArchCoreCandidatesForPlatform`).
+ *
+ * @param configuredCorePath - Caminho configurado pelo usuário (pode ser nulo).
+ * @param retroArchExecutable - Caminho do executável RetroArch (para derivar o diretório cores/).
+ * @param platformName - Nome da plataforma para busca de candidatos automáticos.
+ */
 function resolveRetroArchCorePath(
   configuredCorePath: string | null | undefined,
   retroArchExecutable: string,
@@ -623,6 +800,7 @@ function resolveRetroArchCorePath(
   if (configuredCore) return configuredCore;
   if (!fs.existsSync(coresDir)) return null;
 
+  // Tenta candidatos automáticos baseados no nome da plataforma
   const candidates = getRetroArchCoreCandidatesForPlatform(platformName);
   for (const candidate of candidates) {
     const corePath = resolveRetroArchCoreCandidate(candidate, coresDir);
@@ -632,6 +810,10 @@ function resolveRetroArchCorePath(
   return null;
 }
 
+/**
+ * Calcula o tamanho total em bytes de um diretório recursivamente.
+ * Retorna 0 se o diretório não existir.
+ */
 function getDirSizeBytes(dirPath: string): number {
   if (!fs.existsSync(dirPath)) return 0;
   let total = 0;
@@ -643,7 +825,16 @@ function getDirSizeBytes(dirPath: string): number {
   return total;
 }
 
+/**
+ * Tenta resolver um nome/caminho de core RetroArch para um caminho absoluto existente.
+ *
+ * Tentativas em ordem:
+ * 1. Caminho absoluto direto.
+ * 2. Relativo ao diretório cores/ ou ao diretório pai do RetroArch.
+ * 3. Nome base com extensões de plataforma (.dll, .so, .dylib) dentro do diretório cores/.
+ */
 function resolveRetroArchCoreCandidate(coreCandidate: string, coresDir: string): string | null {
+  // Tenta como caminho absoluto primeiro
   const directPath = path.resolve(coreCandidate);
   if (fs.existsSync(directPath)) return directPath;
 
@@ -657,6 +848,7 @@ function resolveRetroArchCoreCandidate(coreCandidate: string, coresDir: string):
     if (fs.existsSync(candidatePath)) return candidatePath;
   }
 
+  // Se não tem extensão no candidato, tenta com extensões de biblioteca nativa
   if (path.basename(coreCandidate) !== coreCandidate) return null;
 
   for (const fileName of getRetroArchCoreFileNames(coreCandidate)) {
@@ -667,11 +859,24 @@ function resolveRetroArchCoreCandidate(coreCandidate: string, coresDir: string):
   return null;
 }
 
+/**
+ * Retorna os nomes de arquivo candidatos para um core RetroArch dado apenas o nome base.
+ * Se já tiver extensão, retorna somente o nome original.
+ */
 function getRetroArchCoreFileNames(coreName: string): string[] {
   if (path.extname(coreName)) return [coreName];
+  // Gera variantes para Windows (.dll), Linux (.so) e macOS (.dylib)
   return [".dll", ".so", ".dylib"].map((extension) => `${coreName}${extension}`);
 }
 
+/**
+ * Lista os cores RetroArch instalados para um emulador configurado.
+ *
+ * Retorna inventário com:
+ * - Estado do diretório cores/ (existe/não existe)
+ * - Se o executável está configurado
+ * - Lista de nomes de cores instalados (sem extensão, deduplicados e ordenados)
+ */
 function listRetroArchCores(emulatorId: number): RetroArchCoreInventory {
   const emulator = emulators.listEmulators().find((entry) => entry.id === emulatorId && entry.is_retroarch === 1);
   if (!emulator) throw new Error("RetroArch não encontrado");
@@ -696,6 +901,7 @@ function listRetroArchCores(emulatorId: number): RetroArchCoreInventory {
     };
   }
 
+  // Lista cores únicos (sem extensão) em ordem alfabética
   const installedCores = Array.from(
     new Set(
       fs.readdirSync(coresDir)

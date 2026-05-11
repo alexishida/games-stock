@@ -1,3 +1,18 @@
+/**
+ * Portabilidade de dados do GameStock: exportação e importação de backups.
+ *
+ * Implementa o ciclo completo de backup no formato `.gamestock-backup` (ZIP):
+ * - Exportação: coleta dados do SQLite e imagens, grava arquivo ZIP com manifesto.
+ * - Pré-visualização: lê o pacote e retorna contagens/avisos sem alterar o banco.
+ * - Importação: valida, extrai e aplica dados em transação SQLite; reverte em caso de falha.
+ *
+ * Categorias suportadas: `metadata`, `images`, `platforms`, `romLocations`.
+ *
+ * O ZIP é escrito sem dependências externas (implementação própria compatível com ZIP64)
+ * para suportar backups grandes (> 4 GB). A leitura também é própria, com suporte a
+ * entradas STORED e DEFLATED, compatível com o que adm-zip e ferramentas padrão geram.
+ */
+
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -28,16 +43,22 @@ import {
   PortableRomLocation
 } from "./db/dao/dataPortabilityDao";
 
+/** Versão do esquema de backup; incrementar ao mudar estrutura do pacote de forma incompatível. */
 const SCHEMA_VERSION = 1;
+
+/** Extensão canônica do arquivo de backup. */
 const BACKUP_EXTENSION = ".gamestock-backup";
 
+/** Callback de progresso sem os campos `jobId` e `kind` (adicionados pelo caller). */
 type ProgressCallback = (progress: Omit<DataPortabilityProgress, "jobId" | "kind">) => void;
 
+/** Parâmetros completos de exportação, incluindo versão do app e caminho de destino resolvido. */
 interface ExportPackageRequest extends DataPortabilityExportRequest {
   appVersion: string;
   targetPath: string;
 }
 
+/** Dados extraídos do banco para compor o pacote de backup. */
 interface BackupData {
   games: PortableGameMetadata[];
   mediaMap: PortableMediaEntry[];
@@ -50,30 +71,38 @@ interface BackupData {
   romFolderEntries: DataPortabilityRomFolderEntry[];
 }
 
+/** Backup carregado em memória: arquivo ZIP, manifesto e dados deserializados. */
 interface LoadedBackup {
   zip: PortableZipArchive;
   manifest: DataPortabilityManifest;
   data: BackupData;
 }
 
+/** Interface abstrata para acesso a uma entrada do ZIP. */
 interface PortableZipEntry {
   entryName: string;
   isDirectory: boolean;
   getData(): Buffer;
 }
 
+/** Interface abstrata para acesso ao conteúdo de um arquivo ZIP. */
 interface PortableZipArchive {
   getEntry(entryName: string): PortableZipEntry | null;
   getEntries(): PortableZipEntry[];
 }
 
+/** Arquivo de mídia a ser incluído no pacote de exportação. */
 interface ExportedMediaFile {
+  /** Caminho relativo dentro do ZIP (ex.: `media/snes/game/cover.jpg`). */
   packagePath: string;
+  /** Caminho relativo a partir do diretório de imagens. */
   relativePath: string;
+  /** Caminho absoluto no sistema de arquivos local. */
   sourcePath: string;
   size: number;
 }
 
+/** Entrada do ZIP representada por um buffer em memória (para JSONs e manifesto). */
 interface ZipBufferEntry {
   kind: "buffer";
   entryName: string;
@@ -81,6 +110,7 @@ interface ZipBufferEntry {
   mtime?: Date;
 }
 
+/** Entrada do ZIP representada por um arquivo em disco (para imagens). */
 interface ZipFileEntry {
   kind: "file";
   entryName: string;
@@ -89,8 +119,16 @@ interface ZipFileEntry {
   mtime?: Date;
 }
 
+/** União das duas formas de entrada possíveis ao montar o arquivo ZIP. */
 type ZipArchiveEntry = ZipBufferEntry | ZipFileEntry;
 
+/**
+ * Exporta os dados do GameStock para um arquivo `.gamestock-backup`.
+ *
+ * @param request - Categorias a exportar, caminho de destino e versão do app.
+ * @param onProgress - Callback de progresso para cada etapa.
+ * @returns Resultado com caminho do arquivo, manifesto e avisos gerados.
+ */
 export function exportDataPackage(request: ExportPackageRequest, onProgress?: ProgressCallback): DataPortabilityExportResult {
   const categories = normalizeCategories(request.categories);
   const dao = new DataPortabilityDao(getDatabase());
@@ -99,9 +137,13 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   const counts: DataPortabilityManifest["counts"] = {};
   const mediaRefs = categories.includes("images") ? dao.listMediaReferences() : [];
   const imageFiles = categories.includes("images") ? listImageFilesForBackup(getImagesDir()) : [];
+
+  // Total de etapas: categorias não-imagem + arquivos de imagem + 2 (gravar + validar)
   const reportedCategoryCount = categories.filter((category) => category !== "images").length;
   const total = Math.max(1, reportedCategoryCount + imageFiles.length + 2);
   let current = 0;
+
+  /** Avança o progresso em uma etapa e notifica o caller. */
   const report = (stage: DataPortabilityProgress["stage"], message: string): void => {
     current = Math.min(total, current + 1);
     onProgress?.({ current, total, stage, message });
@@ -132,6 +174,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   }
 
   if (categories.includes("images")) {
+    // Adiciona arquivos de imagem ao ZIP e constrói mapa de referências
     const mediaMap = exportMedia(archiveEntries, imageFiles, mediaRefs, warnings, (message) => report("images", message));
     counts.images = imageFiles.length;
     archiveEntries.push(createJsonEntry("data/mediaMap.json", mediaMap));
@@ -146,6 +189,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
     report("rom_locations", `${romLocations.length} localizacao(oes) de ROM adicionadas ao pacote`);
   }
 
+  // Manifesto sempre incluído por último para refletir contagens finais
   const manifest: DataPortabilityManifest = {
     schemaVersion: SCHEMA_VERSION,
     appVersion: request.appVersion,
@@ -159,6 +203,8 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   const filePath = ensureBackupExtension(request.targetPath);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   writeZipArchive(filePath, archiveEntries);
+
+  // Valida o arquivo recém-gravado lendo-o de volta
   report("validating", "Validando pacote");
   loadBackup(filePath);
   onProgress?.({ current: total, total, stage: "done", message: "Exportacao concluida" });
@@ -171,6 +217,12 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   };
 }
 
+/**
+ * Lê um pacote de backup e retorna pré-visualização para exibição ao usuário
+ * antes de confirmar a importação (contagens, avisos e conflitos potenciais).
+ *
+ * Não altera nenhum dado no banco.
+ */
 export function previewImportPackage(packagePath: string): DataPortabilityImportPreview {
   const loaded = loadBackup(packagePath);
   const dao = new DataPortabilityDao(getDatabase());
@@ -192,11 +244,22 @@ export function previewImportPackage(packagePath: string): DataPortabilityImport
   };
 }
 
+/**
+ * Importa dados de um pacote de backup para o banco local do GameStock.
+ *
+ * Toda a escrita no SQLite é feita dentro de uma única transação:
+ * em caso de falha, reverte o banco e remove arquivos de imagem já copiados.
+ *
+ * @param request - Pacote a importar e categorias desejadas.
+ * @param onProgress - Callback de progresso para cada etapa.
+ */
 export function importDataPackage(request: DataPortabilityImportRequest, onProgress?: ProgressCallback): DataPortabilityImportResult {
   const categories = normalizeCategories(request.categories);
   onProgress?.({ current: 0, total: Math.max(1, categories.length + 2), stage: "validating", message: "Validando pacote" });
   const loaded = loadBackup(request.packagePath);
   const availableCategories = detectAvailableCategories(loaded);
+
+  // Garante que o pacote contenha todas as categorias solicitadas
   const missingCategories = categories.filter((category) => !availableCategories.includes(category));
   if (missingCategories.length) {
     throw new Error(`Pacote nao contem categoria(s): ${missingCategories.join(", ")}`);
@@ -208,17 +271,20 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
   }
 
   const dao = new DataPortabilityDao(getDatabase());
-  const copiedFiles: string[] = [];
+  const copiedFiles: string[] = []; // Rastreia arquivos copiados para rollback em caso de erro
   const summary = createEmptySummary(validation.warnings);
   const imageFileCount = categories.includes("images") ? countMediaFilesInBackup(loaded.zip) : 0;
   const total = Math.max(1, categories.length + imageFileCount + (categories.includes("images") ? loaded.data.mediaMap.length : 0) + 2);
   let current = 1;
+
+  /** Avança o progresso e notifica o caller. */
   const report = (stage: DataPortabilityProgress["stage"], message: string): void => {
     current = Math.min(total, current + 1);
     onProgress?.({ current, total, stage, message });
   };
 
   try {
+    // Toda a escrita no banco é transacional para garantir atomicidade
     getDatabase().transaction(() => {
       if (categories.includes("platforms")) {
         summary.platforms = dao.importPlatforms({
@@ -248,6 +314,7 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
       }
     })();
   } catch (error) {
+    // Remove arquivos de imagem copiados para evitar arquivos órfãos após rollback do SQLite
     cleanupCopiedFiles(copiedFiles);
     throw error;
   }
@@ -256,6 +323,12 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
   return { success: true, summary };
 }
 
+/**
+ * Adiciona os arquivos de imagem ao array de entradas do ZIP e constrói
+ * o mapa de mídia (packagePath → referência de jogo no banco).
+ *
+ * Avisos são emitidos para imagens referenciadas no banco mas ausentes em disco.
+ */
 function exportMedia(
   archiveEntries: ZipArchiveEntry[],
   files: ExportedMediaFile[],
@@ -263,6 +336,7 @@ function exportMedia(
   warnings: DataPortabilityWarning[],
   onItem?: (message: string) => void
 ): PortableMediaEntry[] {
+  // Mapa por caminho normalizado para lookup eficiente ao cruzar refs com arquivos
   const exportedBySource = new Map<string, ExportedMediaFile>();
 
   files.forEach((file) => {
@@ -280,6 +354,7 @@ function exportMedia(
   refs.forEach((ref) => {
     const exported = exportedBySource.get(normalizePathForLookup(ref.sourcePath));
     if (!exported) {
+      // Imagem referenciada no banco mas arquivo ausente em disco
       warnings.push(createWarning("missing-image", `Imagem nao encontrada: ${path.basename(ref.sourcePath)}`, ref.sourcePath));
       return;
     }
@@ -296,6 +371,10 @@ function exportMedia(
   return mediaMap;
 }
 
+/**
+ * Restaura imagens do pacote para o diretório local e atualiza os campos de mídia
+ * dos jogos correspondentes no banco.
+ */
 function importImages(
   loaded: LoadedBackup,
   dao: DataPortabilityDao,
@@ -304,11 +383,14 @@ function importImages(
   onItem?: (message: string) => void
 ): void {
   const imagesDir = getImagesDir();
+  // Primeiro extrai todos os arquivos de imagem do ZIP para o disco
   restoreImagesTree(loaded, imagesDir, copiedFiles, onItem);
 
+  // Depois atualiza cada referência de mídia no banco
   for (const entry of loaded.data.mediaMap) {
     const gameId = dao.findGameId(entry);
     if (!gameId) {
+      // Jogo não encontrado no banco local; ignora esta mídia
       summary.images.skipped += 1;
       onItem?.(`Imagem ignorada: ${entry.title}`);
       continue;
@@ -329,6 +411,12 @@ function importImages(
   }
 }
 
+/**
+ * Carrega e deserializa um arquivo de backup.
+ *
+ * Valida a existência do arquivo, lê o manifesto e todos os arquivos JSON opcionais.
+ * Lança erro se o arquivo for inválido, corrompido ou de versão incompatível.
+ */
 function loadBackup(packagePath: string): LoadedBackup {
   if (!packagePath?.trim()) throw new Error("Informe o caminho do pacote");
   if (!fs.existsSync(packagePath)) throw new Error("Pacote nao encontrado");
@@ -346,6 +434,7 @@ function loadBackup(packagePath: string): LoadedBackup {
   }
   manifest.categories = normalizeCategories(manifest.categories);
 
+  // Lê arquivos opcionais com fallbacks seguros para retro-compatibilidade
   const platformMappings = readOptionalJson<{ aliases?: PortablePlatformAlias[]; romExtensions?: PortableRomExtension[] }>(zip, "data/platformMappings.json", {});
   const emulators = readOptionalJson<{ emulators?: PortableEmulator[]; platformEmulators?: PortablePlatformEmulator[] }>(zip, "data/emulators.json", {});
   const romLocations = readOptionalJson<{ games?: PortableRomLocation[]; romFolderEntries?: DataPortabilityRomFolderEntry[] }>(zip, "data/romLocations.json", {});
@@ -367,11 +456,18 @@ function loadBackup(packagePath: string): LoadedBackup {
   };
 }
 
+/**
+ * Valida a integridade e consistência dos dados de um backup carregado.
+ *
+ * Retorna listas separadas de `warnings` (avisos não-bloqueantes) e `errors`
+ * (bloqueantes; importação não deve prosseguir se houver erros).
+ */
 function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWarning[]; errors: DataPortabilityWarning[] } {
   const warnings: DataPortabilityWarning[] = [];
   const errors: DataPortabilityWarning[] = [];
   const detectedCategories = detectAvailableCategories(loaded);
 
+  // Valida presença de arquivos obrigatórios por categoria declarada no manifesto
   if (loaded.manifest.categories.includes("metadata") && !loaded.zip.getEntry("data/games.json")) {
     errors.push(createError("missing-games-data", "Pacote sem data/games.json"));
   }
@@ -382,6 +478,7 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
   }
   if (loaded.manifest.categories.includes("images")) {
     if (!loaded.zip.getEntry("data/mediaMap.json")) errors.push(createError("missing-media-map", "Pacote sem data/mediaMap.json"));
+    // Verifica que cada entrada do mapa de mídia tem arquivo correspondente no ZIP
     for (const media of loaded.data.mediaMap) {
       if (!loaded.zip.getEntry(media.packagePath)) {
         errors.push(createError("missing-media-entry", `Midia ausente no pacote: ${media.packagePath}`));
@@ -390,6 +487,7 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
   }
   if (loaded.manifest.categories.includes("romLocations")) {
     if (!loaded.zip.getEntry("data/romLocations.json")) errors.push(createError("missing-rom-locations-data", "Pacote sem data/romLocations.json"));
+    // Avisa sobre ROMs referenciadas mas ausentes no disco atual (podem ter mudado de lugar)
     for (const rom of loaded.data.romLocations) {
       if (rom.rom_path && !fs.existsSync(rom.rom_path)) {
         warnings.push(createWarning("missing-rom-path", `ROM nao encontrada no disco atual: ${path.basename(rom.rom_path)}`, rom.rom_path));
@@ -402,6 +500,7 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
     }
   }
 
+  // Detecta categorias presentes nos dados mas não declaradas no manifesto
   for (const category of detectedCategories) {
     if (!loaded.manifest.categories.includes(category)) {
       warnings.push(
@@ -413,6 +512,7 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
     }
   }
 
+  // Detecta categorias declaradas no manifesto mas sem dados correspondentes no pacote
   for (const category of loaded.manifest.categories) {
     if (!detectedCategories.includes(category)) {
       warnings.push(
@@ -427,6 +527,7 @@ function validateBackupData(loaded: LoadedBackup): { warnings: DataPortabilityWa
   return { warnings, errors };
 }
 
+/** Cria uma entrada JSON (buffer) para inclusão no arquivo ZIP. */
 function createJsonEntry(entryPath: string, data: unknown): ZipBufferEntry {
   const buffer = Buffer.from(`${JSON.stringify(data, null, 2)}\n`, "utf8");
   return {
@@ -436,18 +537,24 @@ function createJsonEntry(entryPath: string, data: unknown): ZipBufferEntry {
   };
 }
 
+/** Lê e parseia um arquivo JSON obrigatório do ZIP; lança erro se ausente. */
 function readRequiredJson<T>(zip: PortableZipArchive, entryPath: string): T {
   const entry = zip.getEntry(entryPath);
   if (!entry) throw new Error(`Pacote invalido: ${entryPath} ausente`);
   return JSON.parse(entry.getData().toString("utf8")) as T;
 }
 
+/** Lê e parseia um arquivo JSON opcional do ZIP; retorna `fallback` se ausente. */
 function readOptionalJson<T>(zip: PortableZipArchive, entryPath: string, fallback: T): T {
   const entry = zip.getEntry(entryPath);
   if (!entry) return fallback;
   return JSON.parse(entry.getData().toString("utf8")) as T;
 }
 
+/**
+ * Filtra e deduplica categorias, garantindo que sejam válidas e que haja ao menos uma.
+ * Lança erro se a lista resultante estiver vazia.
+ */
 function normalizeCategories(categories: DataPortabilityCategory[]): DataPortabilityCategory[] {
   const allowed = new Set(DATA_PORTABILITY_CATEGORIES);
   const normalized = Array.from(new Set((categories ?? []).filter((category) => allowed.has(category))));
@@ -455,6 +562,10 @@ function normalizeCategories(categories: DataPortabilityCategory[]): DataPortabi
   return normalized;
 }
 
+/**
+ * Detecta quais categorias estão realmente disponíveis no pacote, baseando-se
+ * na presença dos arquivos esperados (independente do manifesto).
+ */
 function detectAvailableCategories(loaded: LoadedBackup): DataPortabilityCategory[] {
   const hasMetadata = Boolean(loaded.zip.getEntry("data/games.json"));
   const hasImages = Boolean(loaded.zip.getEntry("data/mediaMap.json")) || countMediaFilesInBackup(loaded.zip) > 0;
@@ -480,6 +591,10 @@ function detectAvailableCategories(loaded: LoadedBackup): DataPortabilityCategor
   });
 }
 
+/**
+ * Constrói as contagens para exibição na pré-visualização da importação,
+ * priorizando dados reais do pacote sobre os valores do manifesto.
+ */
 function buildPreviewCounts(
   loaded: LoadedBackup,
   availableCategories: DataPortabilityCategory[]
@@ -504,6 +619,7 @@ function buildPreviewCounts(
   return counts;
 }
 
+/** Retorna o rótulo legível de uma categoria para uso em mensagens ao usuário. */
 function categoryLabel(category: DataPortabilityCategory): string {
   switch (category) {
     case "metadata":
@@ -519,6 +635,10 @@ function categoryLabel(category: DataPortabilityCategory): string {
   }
 }
 
+/**
+ * Sanitiza e normaliza a lista de entradas de pastas de ROM,
+ * descartando entradas inválidas (sem caminho ou platformId).
+ */
 function normalizeRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): DataPortabilityRomFolderEntry[] {
   return (entries ?? [])
     .filter((entry) => entry?.folderPath?.trim() && entry.platformId)
@@ -531,6 +651,7 @@ function normalizeRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): Da
     }));
 }
 
+/** Cria um objeto de sumário de importação zerado, com os avisos de validação iniciais. */
 function createEmptySummary(warnings: DataPortabilityWarning[]): DataPortabilityImportSummary {
   return {
     metadata: { created: 0, updated: 0, skipped: 0 },
@@ -542,19 +663,26 @@ function createEmptySummary(warnings: DataPortabilityWarning[]): DataPortability
   };
 }
 
+/** Garante que o caminho do arquivo de backup termine com a extensão canônica. */
 function ensureBackupExtension(filePath: string): string {
   const trimmed = filePath.trim();
   return trimmed.toLowerCase().endsWith(BACKUP_EXTENSION) ? trimmed : `${trimmed}${BACKUP_EXTENSION}`;
 }
 
+/** Cria um objeto de aviso não-bloqueante para inclusão no resultado. */
 function createWarning(code: string, message: string, detail?: string): DataPortabilityWarning {
   return { severity: "warning", code, message, detail };
 }
 
+/** Cria um objeto de erro bloqueante para inclusão no resultado. */
 function createError(code: string, message: string, detail?: string): DataPortabilityWarning {
   return { severity: "error", code, message, detail };
 }
 
+/**
+ * Remove arquivos copiados durante uma importação que falhou,
+ * deixando o disco em estado consistente após rollback do banco.
+ */
 function cleanupCopiedFiles(paths: string[]): void {
   for (const filePath of paths) {
     try {
@@ -565,10 +693,16 @@ function cleanupCopiedFiles(paths: string[]): void {
   }
 }
 
+/**
+ * Lista recursivamente todos os arquivos de imagem no diretório de mídia,
+ * retornando metadados necessários para inclusão no arquivo ZIP.
+ */
 function listImageFilesForBackup(imagesDir: string): ExportedMediaFile[] {
   if (!fs.existsSync(imagesDir)) return [];
 
   const results: ExportedMediaFile[] = [];
+
+  /** Percorre recursivamente o diretório de imagens. */
   const walk = (currentDir: string): void => {
     const entries = fs.readdirSync(currentDir, { withFileTypes: true });
     for (const entry of entries) {
@@ -592,10 +726,15 @@ function listImageFilesForBackup(imagesDir: string): ExportedMediaFile[] {
   };
 
   walk(imagesDir);
+  // Ordena por caminho relativo para saída determinística (facilita diff entre backups)
   results.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: "base" }));
   return results;
 }
 
+/**
+ * Extrai todas as entradas de mídia do ZIP para o diretório local de imagens.
+ * Registra cada arquivo extraído em `copiedFiles` para rollback em caso de falha.
+ */
 function restoreImagesTree(
   loaded: LoadedBackup,
   imagesDir: string,
@@ -605,6 +744,7 @@ function restoreImagesTree(
   const mediaEntries = loaded.zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/"));
 
   for (const zipEntry of mediaEntries) {
+    // Remove o prefixo "media/" para obter o caminho relativo real
     const relativePath = normalizeZipRelativePath(zipEntry.entryName.slice("media/".length));
     if (!relativePath) continue;
 
@@ -616,6 +756,10 @@ function restoreImagesTree(
   }
 }
 
+/**
+ * Resolve o caminho absoluto de destino de uma entrada de mídia importada,
+ * usando o campo `relativePath` ou derivando do `packagePath`.
+ */
 function resolveImportedMediaPath(imagesDir: string, entry: PortableMediaEntry): string {
   const relativePath = entry.relativePath
     ? normalizeZipRelativePath(entry.relativePath)
@@ -628,35 +772,58 @@ function resolveImportedMediaPath(imagesDir: string, entry: PortableMediaEntry):
   return ensurePathInsideImagesDir(imagesDir, relativePath);
 }
 
+/**
+ * Resolve o caminho absoluto de destino e valida que ele está dentro do
+ * diretório de imagens (prevenção de path traversal).
+ */
 function ensurePathInsideImagesDir(imagesDir: string, relativePath: string): string {
   const targetPath = path.resolve(imagesDir, relativePath);
   const normalizedImagesDir = path.resolve(imagesDir);
   const relativeToRoot = path.relative(normalizedImagesDir, targetPath);
+  // Rejeita caminhos que tentam escapar do diretório de imagens
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
     throw new Error(`Caminho de midia invalido no pacote: ${relativePath}`);
   }
   return targetPath;
 }
 
+/** Converte backslashes para forward slashes e remove leading slashes para portabilidade entre SOs. */
 function toPortableRelativePath(relativePath: string): string | null {
   const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
   return normalizeZipRelativePath(normalized);
 }
 
+/**
+ * Normaliza um caminho relativo de entrada ZIP: remove backslashes, normaliza separadores
+ * e rejeita caminhos vazios ou com path traversal (`../`).
+ */
 function normalizeZipRelativePath(relativePath: string): string | null {
   const normalized = path.posix.normalize((relativePath || "").replace(/\\/g, "/")).replace(/^\/+/, "");
   if (!normalized || normalized === "." || normalized.startsWith("../")) return null;
   return normalized;
 }
 
+/** Normaliza um caminho para lookup case-insensitive no mapa de arquivos exportados. */
 function normalizePathForLookup(value: string): string {
   return path.resolve(value).toLowerCase();
 }
 
+/** Conta os arquivos de mídia (não-diretórios com prefixo "media/") dentro de um ZIP. */
 function countMediaFilesInBackup(zip: PortableZipArchive): number {
   return zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/")).length;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Implementação própria de leitura e escrita de arquivos ZIP (com suporte ZIP64)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Grava um arquivo ZIP sem dependências externas, com suporte a ZIP64
+ * para arquivos maiores que 4 GB ou com mais de 65535 entradas.
+ *
+ * Todas as entradas são armazenadas sem compressão (STORED) para máxima
+ * velocidade de escrita — imagens já estão comprimidas.
+ */
 function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
   const fd = fs.openSync(targetPath, "w");
   let offset = 0;
@@ -672,10 +839,12 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
       const initialCrc = entry.kind === "buffer" ? crc32(entry.buffer) : 0;
       let crc = initialCrc;
       const size = entry.kind === "buffer" ? entry.buffer.length : entry.size;
+      // Determina se esta entrada requer extensão ZIP64 (tamanho >= 4 GB)
       const sizeRequiresZip64 = size >= ZIP32_MAX;
       const localExtra = sizeRequiresZip64 ? createZip64Extra([BigInt(size), BigInt(size)]) : Buffer.alloc(0);
       const versionNeeded = sizeRequiresZip64 ? ZIP64_VERSION : ZIP_VERSION;
 
+      // Monta o cabeçalho local (Local File Header) da entrada
       const localHeader = Buffer.alloc(30 + entryNameBuffer.length + localExtra.length);
       let cursor = 0;
       cursor = writeUInt32LE(localHeader, LOCAL_FILE_HEADER_SIGNATURE, cursor);
@@ -694,17 +863,21 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
       offset += writeBufferFully(fd, localHeader);
 
       if (entry.kind === "buffer") {
+        // Dados em memória: grava diretamente
         offset += writeBufferFully(fd, entry.buffer);
       } else {
+        // Arquivo em disco: streaming com cálculo de CRC em tempo real
         const streamed = streamFileToZip(fd, entry.sourcePath);
         if (streamed.size !== size) {
           throw new Error(`Arquivo alterado durante backup: ${entry.sourcePath}`);
         }
         crc = streamed.crc;
         offset += streamed.written;
+        // Retroativamente atualiza o CRC no cabeçalho local (offset fixo)
         writeUInt32At(fd, crc, localHeaderOffset + ZIP_LOCAL_HEADER_CRC_OFFSET);
       }
 
+      // Monta o registro no diretório central (Central Directory Header)
       const offsetRequiresZip64 = localHeaderOffset >= ZIP32_MAX;
       const centralZip64Values: bigint[] = [];
       if (sizeRequiresZip64) centralZip64Values.push(BigInt(size), BigInt(size));
@@ -726,28 +899,31 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
       cursor = writeUInt32LE(centralHeader, sizeRequiresZip64 ? ZIP32_MAX : size, cursor);
       cursor = writeUInt16LE(centralHeader, entryNameBuffer.length, cursor);
       cursor = writeUInt16LE(centralHeader, centralExtra.length, cursor);
-      cursor = writeUInt16LE(centralHeader, 0, cursor);
-      cursor = writeUInt16LE(centralHeader, 0, cursor);
-      cursor = writeUInt16LE(centralHeader, 0, cursor);
-      cursor = writeUInt32LE(centralHeader, 0, cursor);
+      cursor = writeUInt16LE(centralHeader, 0, cursor); // disk number start
+      cursor = writeUInt16LE(centralHeader, 0, cursor); // internal attributes
+      cursor = writeUInt32LE(centralHeader, 0, cursor); // external attributes
       cursor = writeUInt32LE(centralHeader, offsetRequiresZip64 ? ZIP32_MAX : localHeaderOffset, cursor);
       entryNameBuffer.copy(centralHeader, cursor);
       centralExtra.copy(centralHeader, cursor + entryNameBuffer.length);
       centralDirectory.push(centralHeader);
     }
 
+    // Grava o diretório central após todas as entradas de dados
     const centralDirectoryOffset = offset;
     for (const header of centralDirectory) {
       offset += writeBufferFully(fd, header);
     }
     const centralDirectorySize = offset - centralDirectoryOffset;
     const entryCount = centralDirectory.length;
+
+    // Verifica se o registro End of Central Directory padrão é suficiente
     const needsZip64End =
       entryCount >= ZIP16_MAX ||
       centralDirectorySize >= ZIP32_MAX ||
       centralDirectoryOffset >= ZIP32_MAX;
 
     if (needsZip64End) {
+      // Grava o End of Central Directory ZIP64 e seu localizador
       const zip64EndOffset = offset;
       const zip64End = Buffer.alloc(ZIP64_EOCD_SIZE);
       let zipCursor = 0;
@@ -755,8 +931,8 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
       zipCursor = writeUInt64LE(zip64End, BigInt(ZIP64_EOCD_SIZE - 12), zipCursor);
       zipCursor = writeUInt16LE(zip64End, ZIP64_VERSION, zipCursor);
       zipCursor = writeUInt16LE(zip64End, ZIP64_VERSION, zipCursor);
-      zipCursor = writeUInt32LE(zip64End, 0, zipCursor);
-      zipCursor = writeUInt32LE(zip64End, 0, zipCursor);
+      zipCursor = writeUInt32LE(zip64End, 0, zipCursor); // disk number
+      zipCursor = writeUInt32LE(zip64End, 0, zipCursor); // disk with start of central directory
       zipCursor = writeUInt64LE(zip64End, BigInt(entryCount), zipCursor);
       zipCursor = writeUInt64LE(zip64End, BigInt(entryCount), zipCursor);
       zipCursor = writeUInt64LE(zip64End, BigInt(centralDirectorySize), zipCursor);
@@ -766,32 +942,40 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
       const zip64Locator = Buffer.alloc(ZIP64_LOCATOR_SIZE);
       zipCursor = 0;
       zipCursor = writeUInt32LE(zip64Locator, ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIGNATURE, zipCursor);
-      zipCursor = writeUInt32LE(zip64Locator, 0, zipCursor);
+      zipCursor = writeUInt32LE(zip64Locator, 0, zipCursor); // disk with ZIP64 EOCD
       zipCursor = writeUInt64LE(zip64Locator, BigInt(zip64EndOffset), zipCursor);
-      writeUInt32LE(zip64Locator, 1, zipCursor);
+      writeUInt32LE(zip64Locator, 1, zipCursor); // total disks
       offset += writeBufferFully(fd, zip64Locator);
     }
 
+    // Grava o End of Central Directory padrão (sempre presente, mesmo com ZIP64)
     const endRecord = Buffer.alloc(22);
     let cursor = 0;
     cursor = writeUInt32LE(endRecord, END_OF_CENTRAL_DIRECTORY_SIGNATURE, cursor);
-    cursor = writeUInt16LE(endRecord, 0, cursor);
-    cursor = writeUInt16LE(endRecord, 0, cursor);
+    cursor = writeUInt16LE(endRecord, 0, cursor); // disk number
+    cursor = writeUInt16LE(endRecord, 0, cursor); // disk with start of central directory
+    // Em modo ZIP64, os campos de 16/32 bits ficam com valor máximo (sentinel)
     cursor = writeUInt16LE(endRecord, needsZip64End ? ZIP16_MAX : entryCount, cursor);
     cursor = writeUInt16LE(endRecord, needsZip64End ? ZIP16_MAX : entryCount, cursor);
     cursor = writeUInt32LE(endRecord, needsZip64End ? ZIP32_MAX : centralDirectorySize, cursor);
     cursor = writeUInt32LE(endRecord, needsZip64End ? ZIP32_MAX : centralDirectoryOffset, cursor);
-    writeUInt16LE(endRecord, 0, cursor);
+    writeUInt16LE(endRecord, 0, cursor); // comment length
     writeBufferFully(fd, endRecord);
+
+    // Garante flush completo para disco antes de fechar
     fs.fsyncSync(fd);
   } finally {
     fs.closeSync(fd);
   }
 }
 
+/**
+ * Lê um arquivo de disco e o grava no fd do ZIP, calculando CRC32 em tempo real.
+ * Usa buffer de 1 MB para minimizar chamadas de sistema.
+ */
 function streamFileToZip(fd: number, sourcePath: string): { crc: number; size: number; written: number } {
   const sourceFd = fs.openSync(sourcePath, "r");
-  const chunk = Buffer.allocUnsafe(1024 * 1024);
+  const chunk = Buffer.allocUnsafe(1024 * 1024); // Buffer de 1 MB
   let crc = 0;
   let size = 0;
   let written = 0;
@@ -813,6 +997,11 @@ function streamFileToZip(fd: number, sourcePath: string): { crc: number; size: n
   return { crc, size, written };
 }
 
+/**
+ * Grava um buffer inteiro em um fd, repetindo a chamada se necessário
+ * (fs.writeSync pode gravar menos bytes que o solicitado).
+ * Retorna a quantidade de bytes gravados (sempre igual a `buffer.length`).
+ */
 function writeBufferFully(fd: number, buffer: Buffer): number {
   let offset = 0;
 
@@ -823,12 +1012,17 @@ function writeBufferFully(fd: number, buffer: Buffer): number {
   return buffer.length;
 }
 
+/** Grava um UInt32LE em uma posição absoluta no arquivo (para patch retroativo do CRC). */
 function writeUInt32At(fd: number, value: number, position: number): void {
   const buffer = Buffer.alloc(4);
   buffer.writeUInt32LE(value >>> 0, 0);
   fs.writeSync(fd, buffer, 0, buffer.length, position);
 }
 
+/**
+ * Lê e parseia um arquivo ZIP usando acesso direto ao disco (sem carregar tudo em memória).
+ * Suporta ZIP32 e ZIP64. Retorna um `FileBackedZipArchive` com leitura lazy de dados.
+ */
 function readZipArchive(filePath: string): PortableZipArchive {
   const stats = fs.statSync(filePath);
   if (!stats.isFile()) throw new Error("Pacote invalido");
@@ -843,6 +1037,7 @@ function readZipArchive(filePath: string): PortableZipArchive {
       throw new Error("Diretorio central ZIP invalido");
     }
 
+    // Lê campos do Central Directory Header
     const flags = centralDirectory.readUInt16LE(cursor + 8);
     const method = centralDirectory.readUInt16LE(cursor + 10);
     const crc = centralDirectory.readUInt32LE(cursor + 16);
@@ -858,6 +1053,7 @@ function readZipArchive(filePath: string): PortableZipArchive {
     const nameBuffer = centralDirectory.subarray(nameStart, extraStart);
     const extra = centralDirectory.subarray(extraStart, commentStart);
 
+    // Aplica valores ZIP64 do campo extra se os campos de 32 bits estiverem saturados
     ({ size, compressedSize, localHeaderOffset } = readZip64Extra(extra, { size, compressedSize, localHeaderOffset }));
 
     const entryName = nameBuffer.toString((flags & UTF8_FLAG) === UTF8_FLAG ? "utf8" : "utf8");
@@ -877,12 +1073,18 @@ function readZipArchive(filePath: string): PortableZipArchive {
   return new FileBackedZipArchive(entries);
 }
 
+/**
+ * Lê o End of Central Directory (e ZIP64 EOCD se necessário) de um arquivo ZIP.
+ * Busca a assinatura de trás para frente no final do arquivo.
+ */
 function readEndOfCentralDirectory(filePath: string, fileSize: number): { entryCount: number; centralDirectorySize: number; centralDirectoryOffset: number } {
+  // Lê apenas o final do arquivo para localizar a assinatura EOCD
   const tailSize = Math.min(fileSize, ZIP_EOCD_SIZE + ZIP_MAX_COMMENT_LENGTH + ZIP64_LOCATOR_SIZE + ZIP64_EOCD_SIZE);
   const tailStart = fileSize - tailSize;
   const tail = readFileSlice(filePath, tailStart, tailSize);
   let endOffset = -1;
 
+  // Busca de trás para frente pela assinatura EOCD (pode haver comentário após)
   for (let index = tail.length - ZIP_EOCD_SIZE; index >= 0; index -= 1) {
     if (tail.readUInt32LE(index) !== END_OF_CENTRAL_DIRECTORY_SIGNATURE) continue;
     const commentLength = tail.readUInt16LE(index + 20);
@@ -897,6 +1099,8 @@ function readEndOfCentralDirectory(filePath: string, fileSize: number): { entryC
   let entryCount = endRecord.readUInt16LE(10);
   let centralDirectorySize = endRecord.readUInt32LE(12);
   let centralDirectoryOffset = endRecord.readUInt32LE(16);
+
+  // Verifica se algum campo está no valor sentinel que indica ZIP64
   const needsZip64 =
     entryCount === ZIP16_MAX ||
     centralDirectorySize === ZIP32_MAX ||
@@ -906,6 +1110,7 @@ function readEndOfCentralDirectory(filePath: string, fileSize: number): { entryC
     return { entryCount, centralDirectorySize, centralDirectoryOffset };
   }
 
+  // Localiza e lê o ZIP64 End of Central Directory via localizador
   const locatorOffset = endOffset - ZIP64_LOCATOR_SIZE;
   if (locatorOffset < 0) throw new Error("Localizador ZIP64 ausente");
   const locator = readFileSlice(filePath, locatorOffset, ZIP64_LOCATOR_SIZE);
@@ -925,6 +1130,10 @@ function readEndOfCentralDirectory(filePath: string, fileSize: number): { entryC
   return { entryCount, centralDirectorySize, centralDirectoryOffset };
 }
 
+/**
+ * Lê o campo extra de uma entrada ZIP e aplica os valores ZIP64
+ * para os campos que estavam com valor sentinel (ZIP32_MAX).
+ */
 function readZip64Extra(
   extra: Buffer,
   values: { size: number; compressedSize: number; localHeaderOffset: number }
@@ -938,6 +1147,7 @@ function readZip64Extra(
     if (dataEnd > extra.length) break;
 
     if (headerId === ZIP64_EXTRA_FIELD_ID) {
+      // Lê apenas os campos que estavam com valor sentinel, na ordem definida pelo spec ZIP64
       let zip64Cursor = dataStart;
       if (values.size === ZIP32_MAX) {
         values.size = readUInt64LEAsNumber(extra, zip64Cursor);
@@ -959,6 +1169,10 @@ function readZip64Extra(
   return values;
 }
 
+/**
+ * Lê um slice de bytes de um arquivo de disco em uma posição e comprimento específicos.
+ * Usa loop para garantir leitura completa mesmo em reads parciais.
+ */
 function readFileSlice(filePath: string, position: number, length: number): Buffer {
   if (length < 0 || position < 0) throw new Error("Intervalo ZIP invalido");
   const buffer = Buffer.alloc(length);
@@ -978,6 +1192,10 @@ function readFileSlice(filePath: string, position: number, length: number): Buff
   return buffer;
 }
 
+/**
+ * Lê o Local File Header de uma entrada e retorna o offset absoluto
+ * onde os dados da entrada começam (após o cabeçalho e campos variáveis).
+ */
 function readLocalDataOffset(filePath: string, localHeaderOffset: number): number {
   const localHeader = readFileSlice(filePath, localHeaderOffset, LOCAL_FILE_HEADER_FIXED_SIZE);
   if (localHeader.readUInt32LE(0) !== LOCAL_FILE_HEADER_SIGNATURE) {
@@ -989,6 +1207,10 @@ function readLocalDataOffset(filePath: string, localHeaderOffset: number): numbe
   return localHeaderOffset + LOCAL_FILE_HEADER_FIXED_SIZE + nameLength + extraLength;
 }
 
+/**
+ * Implementação de `PortableZipArchive` com leitura lazy de dados diretamente do disco.
+ * Mantém lookup por nome de entrada para acesso O(1).
+ */
 class FileBackedZipArchive implements PortableZipArchive {
   private readonly entriesByName = new Map<string, FileBackedZipEntry>();
 
@@ -1005,6 +1227,13 @@ class FileBackedZipArchive implements PortableZipArchive {
   }
 }
 
+/**
+ * Entrada de ZIP com leitura lazy: os dados só são lidos do disco quando
+ * `getData()` é chamado, evitando carregar o backup inteiro em memória.
+ *
+ * Suporta métodos STORED (sem compressão) e DEFLATED (deflate raw).
+ * Valida CRC32 e tamanho após descompressão para detectar corrupção.
+ */
 class FileBackedZipEntry implements PortableZipEntry {
   readonly entryName: string;
   readonly isDirectory: boolean;
@@ -1043,6 +1272,10 @@ class FileBackedZipEntry implements PortableZipEntry {
   }
 }
 
+/**
+ * Cria o campo extra ZIP64 com os valores fornecidos (tamanhos e/ou offsets).
+ * Cada valor ocupa 8 bytes (UInt64LE).
+ */
 function createZip64Extra(values: bigint[]): Buffer {
   const extra = Buffer.alloc(4 + values.length * 8);
   let cursor = 0;
@@ -1052,36 +1285,52 @@ function createZip64Extra(values: bigint[]): Buffer {
   return extra;
 }
 
+// ─── Tabela e constantes ZIP ─────────────────────────────────────────────────
+
+/** Tabela de lookup pré-computada para cálculo de CRC32 (polinômio IEEE 802.3). */
 const CRC32_TABLE = createCrc32Table();
+
+// Assinaturas de registros ZIP (little-endian, 4 bytes)
 const CENTRAL_DIRECTORY_HEADER_SIGNATURE = 0x02014b50;
 const END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06054b50;
 const ZIP64_END_OF_CENTRAL_DIRECTORY_SIGNATURE = 0x06064b50;
 const ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIGNATURE = 0x07064b50;
 const LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50;
-const STORED_METHOD = 0;
-const DEFLATED_METHOD = 8;
-const UTF8_FLAG = 0x0800;
-const ZIP_VERSION = 20;
-const ZIP64_VERSION = 45;
+
+// Métodos de compressão
+const STORED_METHOD = 0;   // Sem compressão
+const DEFLATED_METHOD = 8; // Deflate
+
+const UTF8_FLAG = 0x0800;    // Flag de general purpose bit: nome em UTF-8
+const ZIP_VERSION = 20;      // Versão mínima necessária para ZIP padrão
+const ZIP64_VERSION = 45;    // Versão mínima necessária para ZIP64
+
+// Valores sentinel que indicam que o campo real está no ZIP64 extra
 const ZIP16_MAX = 0xffff;
 const ZIP32_MAX = 0xffffffff;
-const ZIP64_EXTRA_FIELD_ID = 0x0001;
-const CENTRAL_DIRECTORY_FIXED_SIZE = 46;
-const LOCAL_FILE_HEADER_FIXED_SIZE = 30;
-const ZIP_LOCAL_HEADER_CRC_OFFSET = 14;
-const ZIP_EOCD_SIZE = 22;
-const ZIP64_EOCD_SIZE = 56;
-const ZIP64_LOCATOR_SIZE = 20;
-const ZIP_MAX_COMMENT_LENGTH = 0xffff;
 
+const ZIP64_EXTRA_FIELD_ID = 0x0001;         // ID do campo extra ZIP64
+const CENTRAL_DIRECTORY_FIXED_SIZE = 46;     // Tamanho fixo do Central Directory Header
+const LOCAL_FILE_HEADER_FIXED_SIZE = 30;     // Tamanho fixo do Local File Header
+const ZIP_LOCAL_HEADER_CRC_OFFSET = 14;      // Offset do CRC32 no Local File Header (para patch retroativo)
+const ZIP_EOCD_SIZE = 22;                    // Tamanho do End of Central Directory padrão
+const ZIP64_EOCD_SIZE = 56;                  // Tamanho do ZIP64 End of Central Directory
+const ZIP64_LOCATOR_SIZE = 20;               // Tamanho do ZIP64 EOCD Locator
+const ZIP_MAX_COMMENT_LENGTH = 0xffff;       // Comprimento máximo do comentário ZIP
+
+/** Normaliza um nome de entrada ZIP: converte backslashes e remove leading slashes. */
 function normalizeZipEntryName(value: string): string {
   const normalized = value.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized) throw new Error("Nome de entrada ZIP invalido");
   return normalized;
 }
 
+/**
+ * Converte um objeto Date para o formato DOS date/time usado nos cabeçalhos ZIP.
+ * Precisão de 2 segundos (campo de segundos armazena valor dividido por 2).
+ */
 function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
-  const year = Math.min(Math.max(date.getFullYear(), 1980), 2107);
+  const year = Math.min(Math.max(date.getFullYear(), 1980), 2107); // ZIP só suporta 1980-2107
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const hours = date.getHours();
@@ -1094,21 +1343,28 @@ function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
   };
 }
 
+/** Grava UInt16LE no buffer na posição `offset` e retorna o próximo offset. */
 function writeUInt16LE(buffer: Buffer, value: number, offset: number): number {
   buffer.writeUInt16LE(value & 0xffff, offset);
   return offset + 2;
 }
 
+/** Grava UInt32LE no buffer na posição `offset` e retorna o próximo offset. */
 function writeUInt32LE(buffer: Buffer, value: number, offset: number): number {
   buffer.writeUInt32LE(value >>> 0, offset);
   return offset + 4;
 }
 
+/** Grava UInt64LE (BigInt) no buffer na posição `offset` e retorna o próximo offset. */
 function writeUInt64LE(buffer: Buffer, value: bigint, offset: number): number {
   buffer.writeBigUInt64LE(value, offset);
   return offset + 8;
 }
 
+/**
+ * Lê um UInt64LE do buffer e converte para `number`.
+ * Lança erro se o valor exceder `Number.MAX_SAFE_INTEGER` (impossível representar com precisão).
+ */
 function readUInt64LEAsNumber(buffer: Buffer, offset: number): number {
   const value = buffer.readBigUInt64LE(offset);
   if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
@@ -1117,6 +1373,13 @@ function readUInt64LEAsNumber(buffer: Buffer, offset: number): number {
   return Number(value);
 }
 
+/**
+ * Calcula o CRC32 de um buffer usando a tabela pré-computada.
+ * Suporta cálculo incremental via parâmetro `seed` (para streaming).
+ *
+ * @param buffer - Dados a calcular.
+ * @param seed - CRC acumulado de chunks anteriores (padrão 0).
+ */
 function crc32(buffer: Buffer, seed = 0): number {
   let crc = seed ^ 0xffffffff;
   for (let index = 0; index < buffer.length; index += 1) {
@@ -1125,6 +1388,10 @@ function crc32(buffer: Buffer, seed = 0): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+/**
+ * Cria a tabela de lookup CRC32 com o polinômio IEEE 802.3 (0xEDB88320 refletido).
+ * Computada uma única vez na inicialização do módulo.
+ */
 function createCrc32Table(): Uint32Array {
   const table = new Uint32Array(256);
 

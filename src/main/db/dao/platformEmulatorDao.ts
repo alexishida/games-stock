@@ -1,11 +1,23 @@
+/**
+ * DAO de vínculos plataforma ↔ emulador.
+ *
+ * Gerencia a tabela de associação `platform_emulators`, que define quais emuladores
+ * estão disponíveis para cada plataforma e qual deles é o emulador padrão.
+ * Inclui o caminho do core RetroArch quando aplicável.
+ */
+
 import type Database from "better-sqlite3";
 import { Emulator, PlatformEmulator } from "../../../shared/types";
 
+/**
+ * Linha bruta retornada pelo JOIN entre `platform_emulators` e `emulators`.
+ * Os campos do emulador são prefixados com `em_` para evitar colisão de nomes.
+ */
 interface PlatformEmulatorRow {
   platform_id: number;
   emulator_id: number;
-  is_default: number;
-  core_path: string | null;
+  is_default: number;        // 1 = emulador padrão para a plataforma
+  core_path: string | null;  // Caminho do core RetroArch (nulo para emuladores standalone)
   em_id: number;
   em_name: string;
   em_executable: string;
@@ -14,6 +26,10 @@ interface PlatformEmulatorRow {
   em_created_at: string;
 }
 
+/**
+ * Converte uma linha bruta do JOIN para o tipo `PlatformEmulator`,
+ * reconstruindo o objeto `emulator` embutido a partir dos campos prefixados `em_`.
+ */
 function rowToRecord(row: PlatformEmulatorRow): PlatformEmulator {
   return {
     platform_id: row.platform_id,
@@ -34,6 +50,10 @@ function rowToRecord(row: PlatformEmulatorRow): PlatformEmulator {
 export class PlatformEmulatorDao {
   constructor(private readonly database: Database.Database) {}
 
+  /**
+   * Lista todos os emuladores vinculados a uma plataforma específica.
+   * Ordena o emulador padrão primeiro, depois por nome (case-insensitive).
+   */
   listByPlatform(platformId: number): PlatformEmulator[] {
     const rows = this.database
       .prepare(`
@@ -48,6 +68,10 @@ export class PlatformEmulatorDao {
     return rows.map(rowToRecord);
   }
 
+  /**
+   * Retorna o emulador padrão de uma plataforma.
+   * Retorna `undefined` se nenhum emulador padrão estiver configurado.
+   */
   getDefault(platformId: number): PlatformEmulator | undefined {
     const row = this.database
       .prepare(`
@@ -61,6 +85,18 @@ export class PlatformEmulatorDao {
     return row ? rowToRecord(row) : undefined;
   }
 
+  /**
+   * Vincula um emulador a uma plataforma (ou atualiza o vínculo existente).
+   * Usa upsert para garantir idempotência: se o par (platform_id, emulator_id)
+   * já existir, atualiza `is_default` e `core_path`.
+   *
+   * @param emulatorId  ID do emulador a vincular.
+   * @param platformId  ID da plataforma de destino.
+   * @param isDefault   Se `true`, define este emulador como padrão da plataforma.
+   * @param corePath    Caminho do core RetroArch (necessário apenas para RetroArch).
+   *
+   * Retorna o registro de vínculo atualizado com os dados do emulador embutidos.
+   */
   link(emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null): PlatformEmulator {
     this.database
       .prepare(`
@@ -71,10 +107,15 @@ export class PlatformEmulatorDao {
           core_path = excluded.core_path
       `)
       .run(platformId, emulatorId, isDefault ? 1 : 0, corePath ?? null);
+    // Relê o registro após o upsert para retornar o estado atual com dados do emulador
     const linked = this.listByPlatform(platformId).find((pe) => pe.emulator_id === emulatorId);
     return linked!;
   }
 
+  /**
+   * Remove o vínculo entre um emulador e uma plataforma.
+   * Silencioso caso o vínculo não exista.
+   */
   unlink(emulatorId: number, platformId: number): { success: true } {
     this.database
       .prepare("DELETE FROM platform_emulators WHERE emulator_id = ? AND platform_id = ?")

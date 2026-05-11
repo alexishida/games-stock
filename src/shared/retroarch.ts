@@ -1,10 +1,34 @@
+/**
+ * Mapeamento entre plataformas de videogame e cores do RetroArch (libretro).
+ *
+ * Fornece:
+ * - Lista estática de plataformas com core principal e cores de fallback.
+ * - Aliases alternativos para correspondência de nomes de plataforma.
+ * - Funções utilitárias para encontrar o core correto dado o nome de uma plataforma.
+ *
+ * Usado na detecção automática de plataforma durante a importação de pastas de ROM
+ * e na configuração de emuladores RetroArch.
+ */
+
+/**
+ * Representa a associação entre uma plataforma e seu(s) core(s) RetroArch.
+ */
 export interface RetroArchPlatformCore {
+  /** Nome canônico da plataforma (ex.: "Nintendo Entertainment System"). */
   platformName: string;
+  /** Nome do core libretro principal recomendado para esta plataforma. */
   coreName: string;
+  /** Nomes alternativos pelos quais a plataforma pode ser referenciada. */
   aliases?: string[];
+  /** Cores alternativos usados como fallback quando o core principal não está instalado. */
   fallbackCoreNames?: string[];
 }
 
+/**
+ * Lista completa de plataformas suportadas com seus cores RetroArch correspondentes.
+ * Ordenada aproximadamente por fabricante/família de hardware.
+ * Usada como base para detecção automática e sugestão de core na UI.
+ */
 export const RETROARCH_PLATFORM_CORES: RetroArchPlatformCore[] = [
   { platformName: "Atari 2600", coreName: "stella_libretro" },
   { platformName: "Atari 5200", coreName: "a5200_libretro" },
@@ -62,14 +86,32 @@ export const RETROARCH_PLATFORM_CORES: RetroArchPlatformCore[] = [
   { platformName: "WonderSwan Color", coreName: "mednafen_wswan_libretro" }
 ];
 
+/**
+ * Lista ordenada alfabeticamente com todos os nomes únicos de cores RetroArch
+ * referenciados em RETROARCH_PLATFORM_CORES (incluindo cores de fallback).
+ * Usada para popular selects e validar cores configurados pelo usuário.
+ */
 export const RETROARCH_CORE_NAMES = Array.from(
   new Set(RETROARCH_PLATFORM_CORES.flatMap((entry) => [entry.coreName, ...(entry.fallbackCoreNames ?? [])]))
 ).sort((a, b) => a.localeCompare(b));
 
+/**
+ * Normaliza um nome de plataforma para comparação case-insensitive e sem acentos.
+ *
+ * Passos aplicados:
+ * 1. Decompõe caracteres Unicode (NFD) e remove diacríticos (acentos).
+ * 2. Converte para minúsculas.
+ * 3. Substitui "&" por "and".
+ * 4. Remove caracteres não alfanuméricos, substituindo por espaço.
+ * 5. Colapsa múltiplos espaços em um único e remove espaços nas bordas.
+ *
+ * @param value - Nome de plataforma a normalizar.
+ * @returns String normalizada para uso em comparações.
+ */
 export function normalizeRetroArchPlatformName(value: string): string {
   return value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, " ")
@@ -77,6 +119,16 @@ export function normalizeRetroArchPlatformName(value: string): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Retorna o nome do core RetroArch principal para uma plataforma.
+ *
+ * Faz a correspondência comparando o nome normalizado da plataforma
+ * contra o `platformName` e todos os `aliases` de cada entrada em
+ * RETROARCH_PLATFORM_CORES.
+ *
+ * @param platformName - Nome da plataforma a pesquisar (aceita aliases e variações de grafia).
+ * @returns Nome do core principal ou `null` se nenhuma correspondência for encontrada.
+ */
 export function getRetroArchCoreForPlatform(platformName: string): string | null {
   const normalized = normalizeRetroArchPlatformName(platformName);
   const match = RETROARCH_PLATFORM_CORES.find((entry) =>
@@ -85,6 +137,15 @@ export function getRetroArchCoreForPlatform(platformName: string): string | null
   return match?.coreName ?? null;
 }
 
+/**
+ * Retorna todos os cores candidatos para uma plataforma, em ordem de preferência.
+ *
+ * O primeiro elemento é o core principal; os seguintes são os fallbacks.
+ * Retorna array vazio se nenhuma correspondência for encontrada.
+ *
+ * @param platformName - Nome da plataforma a pesquisar (aceita aliases e variações de grafia).
+ * @returns Array de nomes de cores em ordem de preferência (principal primeiro).
+ */
 export function getRetroArchCoreCandidatesForPlatform(platformName: string): string[] {
   const normalized = normalizeRetroArchPlatformName(platformName);
   const match = RETROARCH_PLATFORM_CORES.find((entry) =>

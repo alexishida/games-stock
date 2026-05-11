@@ -1,3 +1,12 @@
+/**
+ * Componente raiz da aplicação.
+ *
+ * Responsabilidades:
+ * - Registrar todos os listeners de IPC (eventos vindos do main process).
+ * - Hidratar o store Zustand com dados persistidos no SQLite ao inicializar.
+ * - Baixar a base de dados LaunchBox (Metadata.zip) caso ainda não exista.
+ * - Renderizar o layout principal: Sidebar, TopBar, área de conteúdo e modais globais.
+ */
 import { type ReactNode, useEffect, useRef } from "react";
 import { Gamepad2, Layers3, Star, Trophy } from "lucide-react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
@@ -23,14 +32,21 @@ import {
   migrateLegacyLocalStorageToDb
 } from "./lib/appStatePersistence";
 
+/** Definição de uma aba de filtro da coleção: valor do filtro, rótulo e ícone. */
 type CollectionTab = { value: CollectionFilter; label: string; icon: ReactNode };
 
+/** Abas de filtro exibidas no cabeçalho da biblioteca. */
 const COLLECTION_TABS: CollectionTab[] = [
   { value: "all", label: "Todos os jogos", icon: <Layers3 aria-hidden="true" size={15} /> },
   { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} /> },
   { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} /> },
   { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} /> }
 ];
+
+/**
+ * Exibe o conteúdo principal da biblioteca: abas de filtro, ordenação e a grade/lista de jogos.
+ * Renderizado quando nenhum jogo está selecionado.
+ */
 function LibraryView() {
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const sortBy = useGameStockStore((state) => state.sortBy);
@@ -64,16 +80,26 @@ function LibraryView() {
         </div>
       </section>
       <section className="library-pane">
+        {/* Alterna entre exibição em grade ou lista conforme preferência do usuário */}
         {viewMode === "grid" ? <GameGrid /> : <GameList />}
       </section>
     </div>
   );
 }
 
+/**
+ * Componente principal da aplicação.
+ *
+ * Inicializa hooks de dados (plataformas, jogos, contagens),
+ * registra listeners IPC e orquestra o layout geral.
+ */
 export default function App() {
+  // Hooks que carregam dados do SQLite via IPC e atualizam o store
   usePlatforms();
   useGames();
   useCollectionCounts();
+
+  // Leitura de estado do store para controle de UI e ações
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
@@ -83,24 +109,33 @@ export default function App() {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
 
+  // Ações de hidratação: carregam estado persistido no SQLite para o store em memória
   const hydratePersistedLastRomImportJob = useGameStockStore((state) => state.hydratePersistedLastRomImportJob);
   const hydrateRomFolderEntries = useGameStockStore((state) => state.hydrateRomFolderEntries);
   const hydrateMediaSyncJobs = useGameStockStore((state) => state.hydrateMediaSyncJobs);
   const hydrateRomImportJobs = useGameStockStore((state) => state.hydrateRomImportJobs);
+
+  // Ações relacionadas a jobs de importação de ROMs
   const updateRomImportProgress = useGameStockStore((state) => state.updateRomImportProgress);
   const completeRomImportJob = useGameStockStore((state) => state.completeRomImportJob);
+
+  // Ações relacionadas ao download/sincronização de metadados e capas
   const setMetadataStartupRunning = useGameStockStore((state) => state.setMetadataStartupRunning);
   const setCoverStats = useGameStockStore((state) => state.setCoverStats);
   const startMediaSyncJob = useGameStockStore((state) => state.startMediaSyncJob);
   const updateMediaSyncProgress = useGameStockStore((state) => state.updateMediaSyncProgress);
   const finishMediaSyncJob = useGameStockStore((state) => state.finishMediaSyncJob);
   const failMediaSyncJob = useGameStockStore((state) => state.failMediaSyncJob);
+
+  // Ações relacionadas a jobs de portabilidade de dados (backup/restore)
   const hydrateDataPortabilityJobs = useGameStockStore((state) => state.hydrateDataPortabilityJobs);
   const updateDataPortabilityProgress = useGameStockStore((state) => state.updateDataPortabilityProgress);
   const completeDataPortabilityJob = useGameStockStore((state) => state.completeDataPortabilityJob);
 
+  // Ref para garantir que o download de metadados seja iniciado apenas uma vez, mesmo em StrictMode
   const metadataStarted = useRef(false);
 
+  // Atualiza o título da janela com a versão do app
   useEffect(() => {
     let mounted = true;
 
@@ -113,10 +148,12 @@ export default function App() {
     };
   }, []);
 
+  // Migra dados do localStorage legado para o SQLite e hidrata o store com estado persistido
   useEffect(() => {
     let canceled = false;
 
     void (async () => {
+      // Garante que dados antigos do localStorage sejam movidos para o SQLite antes de ler
       await migrateLegacyLocalStorageToDb();
 
       const [romFolderEntries, lastRomImportJob, mediaSyncJobs, dataPortabilityJobs] = await Promise.all([
@@ -138,6 +175,7 @@ export default function App() {
     };
   }, [hydrateDataPortabilityJobs, hydrateMediaSyncJobs, hydratePersistedLastRomImportJob, hydrateRomFolderEntries]);
 
+  // Baixa automaticamente o Metadata.zip do LaunchBox na primeira vez que o app abre
   useEffect(() => {
     if (metadataStarted.current) return;
     metadataStarted.current = true;
@@ -146,7 +184,7 @@ export default function App() {
       let jobStarted = false;
       try {
         const exists = await window.gameStockAPI.launchbox.metadataExists();
-        if (exists) return;
+        if (exists) return; // Metadados já presentes, nada a fazer
         jobStarted = true;
         setMetadataStartupRunning(true);
         startMediaSyncJob({
@@ -171,8 +209,13 @@ export default function App() {
     })();
   }, [failMediaSyncJob, finishMediaSyncJob, setCoverStats, setMetadataStartupRunning, startMediaSyncJob]);
 
+  // Atualiza estatísticas de capas quando o main process emite evento de atualização
   useEffect(() => window.gameStockAPI.games.onCoverStatsUpdated(setCoverStats), [setCoverStats]);
+
+  // Recebe ticks de progresso do download/extração do LaunchBox e repassa ao store
   useEffect(() => window.gameStockAPI.launchbox.onProgress(updateMediaSyncProgress), [updateMediaSyncProgress]);
+
+  // Hidrata jobs de portabilidade ao montar (pode ter sido iniciado em outra sessão)
   useEffect(() => {
     let canceled = false;
     void window.gameStockAPI.dataPortability.jobs().then((jobs) => {
@@ -182,10 +225,15 @@ export default function App() {
       canceled = true;
     };
   }, [hydrateDataPortabilityJobs]);
+
+  // Atualiza progresso de jobs de portabilidade (exportação/importação de backup)
   useEffect(() => window.gameStockAPI.dataPortability.onProgress(updateDataPortabilityProgress), [updateDataPortabilityProgress]);
+
+  // Ao completar job de portabilidade: atualiza store, mescla pastas de ROM importadas e recarrega dados
   useEffect(() => window.gameStockAPI.dataPortability.onCompleted((job) => {
     completeDataPortabilityJob(job);
     if (job.kind === "import" && job.status === "completed") {
+      // Mescla entradas de pastas de ROM do pacote importado com as entradas locais
       void mergePersistedRomFolderEntries(job.importResult?.summary.romFolderEntries ?? [])
         .then(getPersistedRomFolderEntries)
         .then(hydrateRomFolderEntries)
@@ -195,6 +243,8 @@ export default function App() {
       void window.gameStockAPI.games.coverStats().then(setCoverStats).catch(() => undefined);
     }
   }), [completeDataPortabilityJob, hydrateRomFolderEntries, reloadGames, reloadPlatforms, setCoverStats]);
+
+  // Hidrata jobs de importação de ROM ao montar (detecta jobs interrompidos por crash)
   useEffect(() => {
     let canceled = false;
     void window.gameStockAPI.romFolderImport.jobs().then((jobs) => {
@@ -204,17 +254,22 @@ export default function App() {
       canceled = true;
     };
   }, [hydrateRomImportJobs]);
+
+  // Listeners de menu/IPC que abrem partes da UI
   useEffect(() => window.gameStockAPI.view.onSet(setViewMode), [setViewMode]);
   useEffect(() => window.gameStockAPI.launchbox.onOpenImporter(() => setImporterOpen(true)), [setImporterOpen]);
   useEffect(() => window.gameStockAPI.romFolderImport.onOpenImporter(() => openSettings("biblioteca")), [openSettings]);
   useEffect(() => window.gameStockAPI.library.onOpenCreateGame(() => setCreateGameOpen(true)), [setCreateGameOpen]);
   useEffect(() => window.gameStockAPI.library.onOpenPlatformManager(() => openSettings("plataformas")), [openSettings]);
   useEffect(() => window.gameStockAPI.library.onSetSort(setSortBy), [setSortBy]);
+
+  // Recebe progresso de importação de ROM; ao concluir, aguarda 1,5 s e recarrega jogos/plataformas
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const unsub = window.gameStockAPI.romFolderImport.onProgress((progress) => {
       updateRomImportProgress(progress);
       if (progress.stage !== "done") return;
+      // Pequeno atraso para garantir que o SQLite finalizou as escritas antes de recarregar
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         reloadGames();
@@ -227,6 +282,7 @@ export default function App() {
     };
   }, [reloadGames, reloadPlatforms, updateRomImportProgress]);
 
+  // Ao completar um job de importação de ROM: atualiza store e recarrega biblioteca
   useEffect(() => window.gameStockAPI.romFolderImport.onCompleted((result) => {
     if (!result.jobId) return;
     completeRomImportJob(result);
@@ -241,9 +297,11 @@ export default function App() {
       <div className="app-right">
         <TopBar />
         <main className="main-area">
+          {/* Exibe detalhe do jogo selecionado ou a visão de biblioteca */}
           {selectedGameId ? <GameDetail /> : <LibraryView />}
         </main>
       </div>
+      {/* Modais globais — montados sempre para preservar estado mesmo quando fechados */}
       <LaunchBoxImporter />
       <SettingsModal />
       <ManualGameModal />
