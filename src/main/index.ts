@@ -297,7 +297,7 @@ function registerIpc(): void {
     // Remove only GameStock database records. Original ROM files and downloaded images stay on disk as cache.
     const folderPath = typeof params === "string" ? params : params.folderPath;
     const platformId = typeof params === "string" ? undefined : params.platformId;
-    const byRomPath = games.deleteGamesByRomFolder(folderPath);
+    const byRomPath = games.deleteGamesByRomFolder(folderPath, platformId);
     if (!platformId) return byRomPath;
 
     const scan = scanRomFolder({ folderPaths: [folderPath], platformId, includeSubfolders: true });
@@ -445,6 +445,8 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
     romFilePaths: scan.romFilePaths,
     platformId: scan.platformId,
     platformName: scan.platformName,
+    detectionMode: scan.detectionMode,
+    detectedPlatforms: scan.detectedPlatforms,
     includeSubfolders: scan.includeSubfolders,
     status: "running",
     startedAt: new Date().toISOString(),

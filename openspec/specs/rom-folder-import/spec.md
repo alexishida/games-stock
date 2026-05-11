@@ -24,7 +24,7 @@ O sistema SHALL fornecer um fluxo de dois passos (`configure` -> `review`) dentr
 
 #### Scenario: Abrir formulario de configuracao
 - **WHEN** o usuario clica em "Adicionar Pasta"
-- **THEN** o overlay do AddFolderPanel e exibido no passo `configure` com campo de pasta, seletor de plataforma e opcao para buscar ROMs em subpastas
+- **THEN** o overlay do AddFolderPanel e exibido no passo `configure` com campo de pasta, seletor de plataforma, a primeira opcao "Deteccao automatica" e opcao para buscar ROMs em subpastas
 
 #### Scenario: Selecionar pasta pelo browser nativo
 - **WHEN** o usuario clica para selecionar pasta
@@ -34,9 +34,13 @@ O sistema SHALL fornecer um fluxo de dois passos (`configure` -> `review`) dentr
 - **WHEN** o usuario clica em "Proximo" com pasta e plataforma selecionadas
 - **THEN** o sistema chama `romFolderImport:scan` com `includeSubfolders` de acordo com a escolha do usuario e avanca para o passo `review` com lista de candidatos encontrados
 
+#### Scenario: Avancar com deteccao automatica
+- **WHEN** o usuario clica em "Proximo" com a opcao "Deteccao automatica"
+- **THEN** o sistema chama `romFolderImport:scan` com `detectionMode = automatic`, sem exigir `platformId` manual, e avanca para o passo `review`
+
 #### Scenario: Revisao antes de importar
 - **WHEN** o passo `review` e exibido
-- **THEN** o assistente mostra quantidade de ROMs encontradas, arquivos ignorados, se a revisao inclui subpastas e lista de candidatos (`filename`, `titleCandidate` e `folderPath`)
+- **THEN** o assistente mostra quantidade de ROMs encontradas, arquivos ignorados, se a revisao inclui subpastas e lista de candidatos (`filename`, `titleCandidate`, `folderPath` e `platformName` quando a deteccao for automatica)
 
 #### Scenario: Voltar para configuracao
 - **WHEN** o usuario clica em "Voltar" no passo `review`
@@ -49,6 +53,10 @@ O sistema SHALL fornecer um fluxo de dois passos (`configure` -> `review`) dentr
 #### Scenario: Iniciar importacao em background
 - **WHEN** o usuario clica em "Iniciar em background" no passo `review`
 - **THEN** o sistema chama `romFolderImport:import` com o mesmo `includeSubfolders` do scan, fecha o overlay, salva a entrada persistida e inicia o job
+
+#### Scenario: Salvar entradas detectadas automaticamente
+- **WHEN** a importacao automatica encontra ROMs de mais de uma plataforma na mesma pasta
+- **THEN** o sistema salva uma entrada persistida por plataforma detectada, usando a mesma `folderPath` e o `platformId` correspondente
 
 #### Scenario: Habilitar busca em subpastas
 - **WHEN** o usuario marca "Buscar ROMs em subpastas" antes do scan
@@ -88,6 +96,25 @@ O sistema SHALL escanear as pastas em `folderPaths` e processar os arquivos indi
 - **WHEN** a pasta contem arquivos com extensoes que nao estao configuradas para a plataforma selecionada (ex: `.txt`, `.jpg` ou ate uma extensao de ROM de outra plataforma)
 - **THEN** esses arquivos sao ignorados, contabilizados em `ignored` e listados em `ignoredItems` com o campo `reason` descrevendo que a extensao nao esta configurada para aquela plataforma
 
+### Requirement: Deteccao automatica de plataforma por extensao
+O sistema SHALL permitir escanear uma pasta em modo automatico, usando as extensoes principais cadastradas em `platform_rom_extensions` para decidir a plataforma de cada arquivo. O modo automatico SHALL aceitar arquivos de varias plataformas no mesmo scan.
+
+#### Scenario: Detectar multiplas plataformas
+- **WHEN** `detectionMode = automatic` e a pasta contem arquivos com extensoes principais exclusivas de plataformas diferentes
+- **THEN** cada candidato retorna seu proprio `platformId` e `platformName`, e o resultado inclui `detectedPlatforms` com contagem por plataforma
+
+#### Scenario: Ignorar extensoes genericas
+- **WHEN** `detectionMode = automatic` encontra arquivos com extensoes genericas como `.bin`, `.iso`, `.7z`, `.zip`, `.cue`, `.chd` ou equivalentes
+- **THEN** esses arquivos nao entram em `candidates` e aparecem em `ignoredItems` com motivo indicando que a extensao e generica
+
+#### Scenario: Ignorar extensoes ambiguas
+- **WHEN** uma extensao principal esta cadastrada para mais de uma plataforma no modo automatico
+- **THEN** o arquivo e ignorado e `ignoredItems.reason` lista as plataformas que tornam a extensao ambigua
+
+#### Scenario: Importar candidatos automaticos
+- **WHEN** o usuario inicia importacao apos scan automatico
+- **THEN** cada ROM e criada ou atualizada usando o `platformId` detectado no proprio candidato
+
 ### Requirement: Execucao em background e progresso
 O sistema SHALL executar o job de importacao de forma assincrona no processo main, emitindo eventos de progresso e conclusao ao renderer via IPC.
 
@@ -109,6 +136,10 @@ O sistema SHALL salvar e carregar as entradas de pasta configuradas do estado pe
 #### Scenario: Salvar nova entrada
 - **WHEN** o usuario inicia uma importacao com sucesso
 - **THEN** a entrada `{ folderPath, platformId, platformName, indexedCount, includeSubfolders }` e adicionada ao estado persistido do app
+
+#### Scenario: Salvar entradas automaticas
+- **WHEN** o scan automatico detecta varias plataformas na mesma pasta
+- **THEN** o estado persistido usa a chave logica `platformId + folderPath`, permitindo varias linhas com a mesma pasta e plataformas diferentes
 
 #### Scenario: Carregar entradas ao abrir
 - **WHEN** o RomFolderImporter e montado

@@ -97,7 +97,9 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
       const newJob = await window.gameStockAPI.romFolderImport.import({
         folderPaths: job.folderPaths,
         romFilePaths: job.romFilePaths,
-        platformId: job.platformId
+        platformId: job.platformId,
+        detectionMode: job.detectionMode ?? "manual",
+        includeSubfolders: job.includeSubfolders
       });
       setLastRomImportJob(newJob);
     } catch {

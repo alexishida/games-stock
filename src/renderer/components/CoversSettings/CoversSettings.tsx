@@ -141,10 +141,16 @@ export function CoversSettings() {
 
   async function resumeRomImport(): Promise<void> {
     if (!romImportJob) return;
-    const { folderPaths, romFilePaths, platformId } = romImportJob;
+    const { folderPaths, romFilePaths, platformId, detectionMode, includeSubfolders } = romImportJob;
     setLastRomImportJob(null);
     try {
-      const newJob = await window.gameStockAPI.romFolderImport.import({ folderPaths, romFilePaths, platformId });
+      const newJob = await window.gameStockAPI.romFolderImport.import({
+        folderPaths,
+        romFilePaths,
+        platformId,
+        detectionMode: detectionMode ?? "manual",
+        includeSubfolders
+      });
       setLastRomImportJob(newJob);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));

@@ -1,6 +1,6 @@
 import { getDatabase } from "../database";
 import { PlatformDao, PlatformInput } from "../dao/platformDao";
-import { Platform, PlatformMappings, PlatformMappingsInput } from "../../../shared/types";
+import { Platform, PlatformMappings, PlatformMappingsInput, PlatformRomExtension } from "../../../shared/types";
 
 export type { PlatformInput };
 
@@ -75,6 +75,10 @@ export function getPrimaryRomExtensionsForPlatform(platformId: number): string[]
   return platformDao()
     .listRomExtensions(platformId, true)
     .map((entry) => entry.extension.toLowerCase());
+}
+
+export function listPrimaryRomExtensionMappings(): PlatformRomExtension[] {
+  return platformDao().listRomExtensions(undefined, true);
 }
 
 export function listSupportedRomExtensions(): string[] {

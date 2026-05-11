@@ -3,10 +3,6 @@ import { AlertTriangle, ArrowLeft, ChevronDown, CircleX, FolderCheck, FolderOpen
 import { Platform, RomFolderScanResult } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
-import {
-  getPersistedRomImportPlatformId,
-  setPersistedRomImportPlatformId
-} from "../../lib/appStatePersistence";
 import "./RomFolderImporter.css";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 interface FolderEntry {
@@ -18,6 +14,10 @@ interface FolderEntry {
   includeSubfolders?: boolean;
 }
 
+type PlatformSelection = number | "" | "automatic";
+
+const AUTO_PLATFORM_VALUE = "automatic";
+
 export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
@@ -27,7 +27,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
   const platforms = useGameStockStore((state) => state.platforms);
   const folderEntries = useGameStockStore((state) => state.romFolderEntries as FolderEntry[]);
   const setFolderEntries = useGameStockStore((state) => state.setRomFolderEntries as (value: FolderEntry[] | ((current: FolderEntry[]) => FolderEntry[])) => void);
-  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
+  const [selectedFolderKey, setSelectedFolderKey] = useState<string | null>(null);
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
     let canceled = false;
     if (!folderEntries.length) return undefined;
 
-    void refreshFolderCounts(folderEntries)
+    void refreshFolderCounts(folderEntries, platforms)
       .then((nextEntries) => {
         if (canceled) return;
         setFolderEntries(nextEntries);
@@ -50,31 +50,32 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
     };
   }, [folderEntries.length, platforms]);
 
-  function handleFolderAdded(entry: FolderEntry): void {
-    const nextEntries = upsertFolderEntry(folderEntries, entry);
+  function handleFolderAdded(entries: FolderEntry[]): void {
+    const nextEntries = upsertFolderEntries(folderEntries, entries);
     setFolderEntries(nextEntries);
     setAddFolderOpen(false);
     onImportStarted();
   }
 
-  function requestDeleteFolder(folderPath: string): void {
-    setSelectedFolderPath(folderPath);
+  function requestDeleteFolder(entry: FolderEntry): void {
+    setSelectedFolderKey(folderEntryKey(entry));
     setConfirmDelete(true);
   }
 
   async function confirmDeleteSelectedFolder(): Promise<void> {
-    if (!selectedFolderPath) return;
-    const entry = folderEntries.find((item) => item.folderPath === selectedFolderPath);
+    if (!selectedFolderKey) return;
+    const entry = folderEntries.find((item) => folderEntryKey(item) === selectedFolderKey);
+    if (!entry) return;
     setConfirmDelete(false);
     setBusy(true);
     setError(null);
     try {
-      await window.gameStockAPI.romFolderImport.deleteFolderRecords({ folderPath: selectedFolderPath, platformId: entry?.platformId });
-      const nextEntries = folderEntries.filter((e) => e.folderPath !== selectedFolderPath);
+      await window.gameStockAPI.romFolderImport.deleteFolderRecords({ folderPath: entry.folderPath, platformId: entry.platformId });
+      const nextEntries = folderEntries.filter((item) => folderEntryKey(item) !== selectedFolderKey);
       setFolderEntries(nextEntries);
-      setSelectedFolderPath(null);
+      setSelectedFolderKey(null);
       setSelectedGameId(null);
-      if (entry?.platformId === selectedPlatformId) setSelectedPlatformId(null);
+      if (entry.platformId === selectedPlatformId) setSelectedPlatformId(null);
       reloadGames();
       reloadPlatforms();
     } catch (err) {
@@ -84,15 +85,19 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
     }
   }
 
+  const selectedFolderEntry = selectedFolderKey
+    ? folderEntries.find((item) => folderEntryKey(item) === selectedFolderKey) ?? null
+    : null;
+
   return (
     <div className="rom-folder-panel">
       {error ? <div className="import-alert">{error}</div> : null}
 
       <SummaryStep
         entries={folderEntries}
-        selectedFolderPath={selectedFolderPath}
+        selectedFolderKey={selectedFolderKey}
         busy={busy}
-        onSelectFolder={setSelectedFolderPath}
+        onSelectFolder={(entry) => setSelectedFolderKey(folderEntryKey(entry))}
         onAddFolder={() => setAddFolderOpen(true)}
         onDeleteFolder={requestDeleteFolder}
       />
@@ -123,7 +128,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
               <p>Remover pasta do GameStock?</p>
             </div>
             <p className="confirm-message">Esta ação remove apenas os registros desta pasta no GameStock. As ROMs originais continuam na pasta, e as imagens baixadas ficam guardadas como cache.</p>
-            <p className="confirm-path">{selectedFolderPath}</p>
+            <p className="confirm-path">{selectedFolderEntry ? `${selectedFolderEntry.platformName} - ${selectedFolderEntry.folderPath}` : ""}</p>
             <div className="confirm-actions">
               <button type="button" onClick={() => setConfirmDelete(false)}>
                 <X aria-hidden="true" size={16} />
@@ -144,12 +149,12 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
 function AddFolderPanel({ platforms, onCancel, onAdded }: {
   platforms: Platform[];
   onCancel(): void;
-  onAdded(entry: FolderEntry): void;
+  onAdded(entries: FolderEntry[]): void;
 }) {
   const setRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [folderPath, setFolderPath] = useState("");
-  const [platformId, setPlatformId] = useState<number | "">("");
+  const [platformId, setPlatformId] = useState<PlatformSelection>(AUTO_PLATFORM_VALUE);
   const [includeSubfolders, setIncludeSubfolders] = useState(false);
   const [scan, setScan] = useState<RomFolderScanResult | null>(null);
   const [reviewView, setReviewView] = useState<"candidates" | "ignored">("candidates");
@@ -160,19 +165,9 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const draggable = useDraggableDialog<HTMLDivElement>();
   const sortedPlatforms = [...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
   const selectedPlatform = typeof platformId === "number" ? sortedPlatforms.find((platform) => platform.id === platformId) ?? null : null;
-
-  useEffect(() => {
-    let canceled = false;
-    void getPersistedRomImportPlatformId()
-      .then((savedPlatformId) => {
-        if (!canceled) setPlatformId(savedPlatformId);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      canceled = true;
-    };
-  }, []);
+  const selectedPlatformLabel = platformId === AUTO_PLATFORM_VALUE
+    ? "Detecção automática"
+    : selectedPlatform?.name ?? "Selecione uma plataforma";
 
   useEffect(() => {
     if (!platformPickerOpen) return undefined;
@@ -199,20 +194,26 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
     if (selected) setFolderPath(selected);
   }
 
-  function choosePlatform(nextPlatformId: number | ""): void {
+  function choosePlatform(nextPlatformId: PlatformSelection): void {
     setPlatformId(nextPlatformId);
     setPlatformPickerOpen(false);
   }
 
   async function scanFolder(): Promise<void> {
     if (!folderPath || !platformId) return;
+    const detectionMode = platformId === AUTO_PLATFORM_VALUE ? "automatic" : "manual";
+    const selectedPlatformId = typeof platformId === "number" ? platformId : null;
     setBusy(true);
     setError(null);
     try {
-      const nextScan = await window.gameStockAPI.romFolderImport.scan({ folderPaths: [folderPath], platformId, includeSubfolders });
+      const nextScan = await window.gameStockAPI.romFolderImport.scan({
+        folderPaths: [folderPath],
+        platformId: selectedPlatformId,
+        detectionMode,
+        includeSubfolders
+      });
       setScan(nextScan);
       setReviewView("candidates");
-      void setPersistedRomImportPlatformId(platformId);
       setStep("review");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -222,26 +223,19 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   }
 
   async function startImport(): Promise<void> {
-    if (!scan || !platformId || !scan.candidates.length) return;
+    if (!scan || !scan.candidates.length) return;
     setBusy(true);
     setError(null);
     try {
       const job = await window.gameStockAPI.romFolderImport.import({
         folderPaths: scan.folderPaths,
         romFilePaths: scan.romFilePaths,
-        platformId,
+        platformId: scan.platformId,
+        detectionMode: scan.detectionMode,
         includeSubfolders: scan.includeSubfolders
       });
       setRomImportJob(job);
-      const platform = platforms.find((p) => p.id === platformId);
-      onAdded({
-        folderPath: scan.folderPaths[0],
-        platformId,
-        platformName: platform?.name ?? scan.platformName,
-        indexedCount: 0,
-        totalCount: scan.candidates.length,
-        includeSubfolders: scan.includeSubfolders
-      });
+      onAdded(buildFolderEntriesFromScan(scan));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
@@ -294,17 +288,24 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
                 onClick={() => setPlatformPickerOpen((current) => !current)}
                 disabled={busy}
               >
-                <span>{selectedPlatform?.name ?? "Selecione uma plataforma"}</span>
+                <span>{selectedPlatformLabel}</span>
                 <ChevronDown size={16} aria-hidden="true" />
               </button>
               {platformPickerOpen ? (
                 <div className="platform-picker-menu" role="listbox" aria-label="Plataformas">
                   <button
                     type="button"
-                    className={`platform-picker-option ${!selectedPlatform ? "selected" : ""}`}
+                    className={`platform-picker-option ${platformId === AUTO_PLATFORM_VALUE ? "selected" : ""}`}
+                    onClick={() => choosePlatform(AUTO_PLATFORM_VALUE)}
+                  >
+                    Detecção automática
+                  </button>
+                  <button
+                    type="button"
+                    className={`platform-picker-option ${platformId === "" ? "selected" : ""}`}
                     onClick={() => choosePlatform("")}
                   >
-                    Selecione uma plataforma
+                    Selecionar manualmente
                   </button>
                   {sortedPlatforms.map((platform) => (
                     <button
@@ -337,7 +338,16 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
         <div className="add-folder-dialog-body">
           <div className="review-header">
             <p className="eyebrow">{scan.platformName}</p>
-            <p>{scan.includeSubfolders ? "Busca inclui subpastas desta pasta." : "Busca apenas arquivos da pasta selecionada."}</p>
+            <p>{scan.detectionMode === "automatic"
+              ? `${scan.detectedPlatforms.length} plataforma(s) detectada(s). Extensões genéricas ficam em ignorados.`
+              : scan.includeSubfolders ? "Busca inclui subpastas desta pasta." : "Busca apenas arquivos da pasta selecionada."}</p>
+            {scan.detectionMode === "automatic" && scan.detectedPlatforms.length ? (
+              <div className="detected-platforms" aria-label="Plataformas detectadas">
+                {scan.detectedPlatforms.map((platform) => (
+                  <span key={platform.platformId}>{platform.platformName} ({platform.count})</span>
+                ))}
+              </div>
+            ) : null}
             <div className="review-metrics">
               <button
                 type="button"
@@ -365,6 +375,7 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
               ? scan.candidates.map((candidate) => (
                 <div key={candidate.romPath} className="candidate-row">
                   <strong>{candidate.titleCandidate}</strong>
+                  {scan.detectionMode === "automatic" ? <span className="candidate-platform">{candidate.platformName}</span> : null}
                   <span className="candidate-filename">{candidate.filename}</span>
                   <span className="candidate-path">{candidate.folderPath}</span>
                 </div>
@@ -411,18 +422,18 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
 
 function SummaryStep({
   entries,
-  selectedFolderPath,
+  selectedFolderKey,
   busy,
   onSelectFolder,
   onAddFolder,
   onDeleteFolder
 }: {
   entries: FolderEntry[];
-  selectedFolderPath: string | null;
+  selectedFolderKey: string | null;
   busy: boolean;
-  onSelectFolder(folderPath: string): void;
+  onSelectFolder(entry: FolderEntry): void;
   onAddFolder(): void;
-  onDeleteFolder(folderPath: string): void;
+  onDeleteFolder(entry: FolderEntry): void;
 }) {
   return (
     <div className="rom-folder-step">
@@ -437,13 +448,13 @@ function SummaryStep({
           </div>
           {entries.length ? entries.map((entry) => (
             <div
-              key={entry.folderPath}
-              className={`folder-table-row ${entry.folderPath === selectedFolderPath ? "selected" : ""}`}
-              onClick={() => onSelectFolder(entry.folderPath)}
+              key={folderEntryKey(entry)}
+              className={`folder-table-row ${folderEntryKey(entry) === selectedFolderKey ? "selected" : ""}`}
+              onClick={() => onSelectFolder(entry)}
               role="row"
             >
-              <span role="cell">{entry.folderPath}</span>
-              <span role="cell">{entry.platformName}{entry.includeSubfolders ? " + subpastas" : ""}</span>
+              <span role="cell" title={entry.folderPath}>{entry.folderPath}</span>
+              <span role="cell" title={formatFolderPlatformLabel(entry)}>{formatFolderPlatformLabel(entry)}</span>
               <span role="cell">{entry.totalCount ?? entry.indexedCount}</span>
               <div className="folder-table-action-cell" role="cell">
                 <button
@@ -453,7 +464,7 @@ function SummaryStep({
                   disabled={busy}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onDeleteFolder(entry.folderPath);
+                    onDeleteFolder(entry);
                   }}
                 >
                   <Trash2 aria-hidden="true" size={16} />
@@ -478,20 +489,68 @@ function SummaryStep({
   );
 }
 
-function upsertFolderEntry(entries: FolderEntry[], nextEntry: FolderEntry): FolderEntry[] {
-  return [...entries.filter((entry) => entry.folderPath !== nextEntry.folderPath), nextEntry];
+function upsertFolderEntries(entries: FolderEntry[], nextEntries: FolderEntry[]): FolderEntry[] {
+  const merged = new Map(entries.map((entry) => [folderEntryKey(entry), entry]));
+  for (const entry of nextEntries) {
+    merged.set(folderEntryKey(entry), entry);
+  }
+  return [...merged.values()];
 }
 
-async function refreshFolderCounts(entries: FolderEntry[]): Promise<FolderEntry[]> {
-  const counts = await window.gameStockAPI.romFolderImport.countFolderRecords(
-    entries.map((entry) => ({ folderPath: entry.folderPath, platformId: entry.platformId }))
+function folderEntryKey(entry: FolderEntry): string {
+  return `${entry.platformId}:${entry.folderPath}`;
+}
+
+function formatFolderPlatformLabel(entry: FolderEntry): string {
+  return `${entry.platformName}${entry.includeSubfolders ? " + subpastas" : ""}`;
+}
+
+function buildFolderEntriesFromScan(scan: RomFolderScanResult): FolderEntry[] {
+  const folderPath = scan.folderPaths[0] ?? scan.candidates[0]?.folderPath ?? "";
+  return scan.detectedPlatforms.map((platform) => ({
+    folderPath,
+    platformId: platform.platformId,
+    platformName: platform.platformName,
+    indexedCount: 0,
+    totalCount: platform.count,
+    includeSubfolders: scan.includeSubfolders
+  }));
+}
+
+async function refreshFolderCounts(entries: FolderEntry[], platforms: Platform[]): Promise<FolderEntry[]> {
+  const existingByKey = new Map(entries.map((entry) => [folderEntryKey(entry), entry]));
+  const folderPaths = Array.from(new Set(entries.map((entry) => entry.folderPath)));
+  const knownPlatforms = platforms.length
+    ? platforms
+    : entries.map((entry) => ({ id: entry.platformId, name: entry.platformName } as Platform));
+  const requests = folderPaths.flatMap((folderPath) =>
+    knownPlatforms.map((platform) => ({ folderPath, platformId: platform.id }))
   );
-  return entries.map((entry, index) => {
-    const dbCount = counts[index]?.count ?? entry.indexedCount;
-    return {
-      ...entry,
+  const counts = await window.gameStockAPI.romFolderImport.countFolderRecords(requests);
+  const refreshed = new Map<string, FolderEntry>();
+
+  for (let index = 0; index < requests.length; index += 1) {
+    const request = requests[index];
+    const platform = knownPlatforms.find((item) => item.id === request.platformId);
+    const key = `${request.platformId}:${request.folderPath}`;
+    const existing = existingByKey.get(key);
+    const dbCount = counts[index]?.count ?? existing?.indexedCount ?? 0;
+    if (!existing && dbCount <= 0) continue;
+
+    refreshed.set(key, {
+      folderPath: request.folderPath,
+      platformId: request.platformId!,
+      platformName: existing?.platformName ?? platform?.name ?? "Plataforma",
       indexedCount: dbCount,
-      totalCount: entry.totalCount ?? dbCount
-    };
-  });
+      totalCount: existing?.totalCount ?? dbCount,
+      includeSubfolders: existing?.includeSubfolders ?? entries.find((entry) => entry.folderPath === request.folderPath)?.includeSubfolders ?? false
+    });
+  }
+
+  for (const entry of entries) {
+    const key = folderEntryKey(entry);
+    if (!refreshed.has(key)) refreshed.set(key, entry);
+  }
+
+  return Array.from(refreshed.values());
 }

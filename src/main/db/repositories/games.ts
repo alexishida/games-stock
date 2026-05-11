@@ -26,8 +26,8 @@ export function deleteGame(id: number): { success: true } {
   return gameDao().delete(id);
 }
 
-export function deleteGamesByRomFolder(folderPath: string): { success: true; deleted: number } {
-  return gameDao().deleteByRomFolder(folderPath);
+export function deleteGamesByRomFolder(folderPath: string, platformId?: number): { success: true; deleted: number } {
+  return gameDao().deleteByRomFolder(folderPath, platformId);
 }
 
 export function countGamesByRomFolder(folderPath: string, platformId?: number): number {

@@ -377,6 +377,13 @@ export type RomFolderImportStage =
   | "error";
 
 export type RomFolderMatchStatus = "matched" | "unmatched" | "ambiguous";
+export type RomFolderPlatformDetectionMode = "manual" | "automatic";
+
+export interface RomFolderDetectedPlatform {
+  platformId: number;
+  platformName: string;
+  count: number;
+}
 
 export interface RomFolderImportCandidate {
   folderPath: string;
@@ -397,15 +404,18 @@ export interface RomFolderIgnoredItem {
 export interface RomFolderScanRequest {
   folderPaths: string[];
   romFilePaths?: string[];
-  platformId: number;
+  platformId?: number | null;
+  detectionMode?: RomFolderPlatformDetectionMode;
   includeSubfolders?: boolean;
 }
 
 export interface RomFolderScanResult {
   folderPaths: string[];
   romFilePaths: string[];
-  platformId: number;
+  platformId: number | null;
   platformName: string;
+  detectionMode: RomFolderPlatformDetectionMode;
+  detectedPlatforms: RomFolderDetectedPlatform[];
   includeSubfolders: boolean;
   candidates: RomFolderImportCandidate[];
   ignored: number;
@@ -421,7 +431,8 @@ export interface RomFolderMatchedCandidate extends RomFolderImportCandidate {
 export interface RomFolderImportRequest {
   folderPaths: string[];
   romFilePaths?: string[];
-  platformId: number;
+  platformId?: number | null;
+  detectionMode?: RomFolderPlatformDetectionMode;
   includeSubfolders?: boolean;
 }
 
@@ -456,8 +467,10 @@ export interface RomFolderImportResult {
   jobId?: string;
   folderPaths: string[];
   romFilePaths: string[];
-  platformId: number;
+  platformId: number | null;
   platformName: string;
+  detectionMode: RomFolderPlatformDetectionMode;
+  detectedPlatforms: RomFolderDetectedPlatform[];
   includeSubfolders: boolean;
   items: RomFolderImportItemResult[];
   summary: RomFolderImportSummary;
@@ -478,8 +491,10 @@ export interface RomFolderImportJob {
   jobId: string;
   folderPaths: string[];
   romFilePaths: string[];
-  platformId: number;
+  platformId: number | null;
   platformName: string;
+  detectionMode: RomFolderPlatformDetectionMode;
+  detectedPlatforms: RomFolderDetectedPlatform[];
   includeSubfolders: boolean;
   status: "running" | "completed" | "failed" | "interrupted";
   startedAt: string;

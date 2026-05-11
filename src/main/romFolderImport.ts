@@ -3,7 +3,7 @@ import path from "node:path";
 import { getImagesDir } from "./db/database";
 import { ALL_SUPPORTED_ROM_EXTENSIONS } from "./db/platformCatalog";
 import { createGame, upsertLaunchBoxGame } from "./db/repositories/games";
-import { getLaunchBoxAliasesForPlatformId, getPrimaryRomExtensionsForPlatform, listPlatforms } from "./db/repositories/platforms";
+import { getLaunchBoxAliasesForPlatformId, getPrimaryRomExtensionsForPlatform, listPlatforms, listPrimaryRomExtensionMappings } from "./db/repositories/platforms";
 import { buildIndex, ensureMetadata } from "./lib/launchbox/db";
 import { downloadImages } from "./lib/launchbox/scraper";
 import {
@@ -21,6 +21,16 @@ import {
 } from "../shared/types";
 
 type ProgressCallback = (progress: RomFolderImportProgress) => void;
+type ScanEntry = { folderPath: string; romPath: string; filename: string };
+
+interface PlatformRef {
+  platformId: number;
+  platformName: string;
+}
+
+interface AutomaticPlatformDetector {
+  byExtension: Map<string, PlatformRef[]>;
+}
 
 interface MatchEntry {
   game: LaunchBoxGame;
@@ -34,6 +44,30 @@ interface MatchContext {
 }
 
 export const SUPPORTED_ROM_EXTENSIONS = ALL_SUPPORTED_ROM_EXTENSIONS;
+const AUTOMATIC_PLATFORM_NAME = "Detecção automática";
+const AUTO_DETECT_GENERIC_ROM_EXTENSIONS = new Set([
+  ".7z",
+  ".zip",
+  ".rar",
+  ".tar",
+  ".gz",
+  ".bz2",
+  ".xz",
+  ".bin",
+  ".iso",
+  ".img",
+  ".cue",
+  ".ccd",
+  ".sub",
+  ".mdf",
+  ".mds",
+  ".nrg",
+  ".chd",
+  ".rom",
+  ".dat",
+  ".pak",
+  ".wad"
+]);
 
 const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = [
   "Box - Back",
@@ -44,16 +78,25 @@ const DEFAULT_MEDIA_TYPES: LaunchBoxImageType[] = [
 ];
 
 export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResult {
-  const platform = requirePlatform(request.platformId);
-  const allowedExtensions = getAllowedRomExtensions(platform.id);
+  const detectionMode = request.detectionMode === "automatic" || !request.platformId ? "automatic" : "manual";
   const folderPaths = request.folderPaths.map((folderPath) => path.resolve(folderPath));
   const romFilePaths = (request.romFilePaths ?? []).map((filePath) => path.resolve(filePath));
   const includeSubfolders = Boolean(request.includeSubfolders);
   const ignoredItems: RomFolderIgnoredItem[] = [];
 
-  const folderCandidates = folderPaths.flatMap((folderPath) => {
-    const entries = listFolderEntries(folderPath, includeSubfolders);
-    return entries.flatMap((entry): RomFolderImportCandidate[] => {
+  const entries: ScanEntry[] = [
+    ...folderPaths.flatMap((folderPath) => listFolderEntries(folderPath, includeSubfolders)),
+    ...romFilePaths.map((romPath) => ({
+      folderPath: path.dirname(romPath),
+      romPath,
+      filename: path.basename(romPath)
+    }))
+  ];
+
+  if (detectionMode === "manual") {
+    const platform = requirePlatform(request.platformId ?? 0);
+    const allowedExtensions = getAllowedRomExtensions(platform.id);
+    const candidates = entries.flatMap((entry): RomFolderImportCandidate[] => {
       const ext = path.extname(entry.filename).toLowerCase();
       if (!allowedExtensions.has(ext)) {
         ignoredItems.push({
@@ -65,46 +108,49 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
         return [];
       }
 
-      return [{
+      return [buildCandidate(entry, { platformId: platform.id, platformName: platform.name })];
+    });
+
+    return {
+      folderPaths,
+      romFilePaths,
+      platformId: platform.id,
+      platformName: platform.name,
+      detectionMode,
+      detectedPlatforms: buildDetectedPlatforms(candidates),
+      includeSubfolders,
+      candidates,
+      ignored: ignoredItems.length,
+      ignoredItems
+    };
+  }
+
+  const detector = createAutomaticPlatformDetector();
+  const candidates = entries.flatMap((entry): RomFolderImportCandidate[] => {
+    const ext = path.extname(entry.filename).toLowerCase();
+    const detection = detectPlatformForExtension(ext, detector);
+    if (!detection.platform) {
+      ignoredItems.push({
         folderPath: entry.folderPath,
         romPath: entry.romPath,
         filename: entry.filename,
-        titleCandidate: normalizeRomTitle(entry.filename),
-        platformId: platform.id,
-        platformName: platform.name
-      }];
-    });
-  });
-
-  const fileCandidates = romFilePaths.flatMap((romPath): RomFolderImportCandidate[] => {
-    const ext = path.extname(romPath).toLowerCase();
-    if (!allowedExtensions.has(ext)) {
-      ignoredItems.push({
-        folderPath: path.dirname(romPath),
-        romPath,
-        filename: path.basename(romPath),
-        reason: buildUnsupportedExtensionReason(ext, platform.name)
+        reason: detection.reason
       });
       return [];
     }
 
-    return [{
-      folderPath: path.dirname(romPath),
-      romPath,
-      filename: path.basename(romPath),
-      titleCandidate: normalizeRomTitle(path.basename(romPath)),
-      platformId: platform.id,
-      platformName: platform.name
-    }];
+    return [buildCandidate(entry, detection.platform)];
   });
 
   return {
     folderPaths,
     romFilePaths,
-    platformId: platform.id,
-    platformName: platform.name,
+    platformId: null,
+    platformName: AUTOMATIC_PLATFORM_NAME,
+    detectionMode,
+    detectedPlatforms: buildDetectedPlatforms(candidates),
     includeSubfolders,
-    candidates: [...folderCandidates, ...fileCandidates],
+    candidates,
     ignored: ignoredItems.length,
     ignoredItems
   };
@@ -121,7 +167,14 @@ export async function importRomFolder(request: RomFolderImportRequest, onProgres
     onProgress?.({ current: progress.current, total: progress.total, filename: progress.filename, stage: progress.status === "error" ? "error" : "preparing_metadata" });
   });
   const launchBoxIndex = await buildIndex();
-  const matchContext = createMatchContext(scan.platformId, launchBoxIndex);
+  const matchContexts = new Map<number, MatchContext>();
+  const getMatchContext = (platformId: number): MatchContext => {
+    const cached = matchContexts.get(platformId);
+    if (cached) return cached;
+    const next = createMatchContext(platformId, launchBoxIndex);
+    matchContexts.set(platformId, next);
+    return next;
+  };
 
   for (let index = 0; index < scan.candidates.length; index += 1) {
     const candidate = scan.candidates[index];
@@ -129,7 +182,7 @@ export async function importRomFolder(request: RomFolderImportRequest, onProgres
 
     try {
       onProgress?.({ current, total, folderPath: candidate.folderPath, filename: candidate.filename, stage: "matching", message: `Buscando ${candidate.titleCandidate}` });
-      const matched = matchCandidate(candidate, launchBoxIndex, matchContext);
+      const matched = matchCandidate(candidate, launchBoxIndex, getMatchContext(candidate.platformId));
       if (matched.status !== "matched" || !matched.match) {
         const placeholder = upsertUnmatchedGame(candidate);
         summary.unmatched += 1;
@@ -180,6 +233,8 @@ export async function importRomFolder(request: RomFolderImportRequest, onProgres
     romFilePaths: scan.romFilePaths,
     platformId: scan.platformId,
     platformName: scan.platformName,
+    detectionMode: scan.detectionMode,
+    detectedPlatforms: scan.detectedPlatforms,
     includeSubfolders: scan.includeSubfolders,
     items,
     summary
@@ -205,6 +260,67 @@ function listFolderEntries(folderPath: string, includeSubfolders: boolean): Arra
   }
 
   return files;
+}
+
+function buildCandidate(entry: ScanEntry, platform: PlatformRef): RomFolderImportCandidate {
+  return {
+    folderPath: entry.folderPath,
+    romPath: entry.romPath,
+    filename: entry.filename,
+    titleCandidate: normalizeRomTitle(entry.filename),
+    platformId: platform.platformId,
+    platformName: platform.platformName
+  };
+}
+
+function buildDetectedPlatforms(candidates: RomFolderImportCandidate[]): RomFolderScanResult["detectedPlatforms"] {
+  const counts = new Map<number, { platformName: string; count: number }>();
+  for (const candidate of candidates) {
+    const current = counts.get(candidate.platformId) ?? { platformName: candidate.platformName, count: 0 };
+    current.count += 1;
+    counts.set(candidate.platformId, current);
+  }
+
+  return [...counts.entries()]
+    .map(([platformId, entry]) => ({ platformId, platformName: entry.platformName, count: entry.count }))
+    .sort((a, b) => a.platformName.localeCompare(b.platformName, "pt-BR", { sensitivity: "base" }));
+}
+
+function createAutomaticPlatformDetector(): AutomaticPlatformDetector {
+  const byExtension = new Map<string, PlatformRef[]>();
+
+  for (const mapping of listPrimaryRomExtensionMappings()) {
+    const extension = normalizeExtension(mapping.extension);
+    if (!extension) continue;
+    const platformName = mapping.platform_name;
+    if (!platformName) continue;
+    const platforms = byExtension.get(extension) ?? [];
+    if (!platforms.some((platform) => platform.platformId === mapping.platform_id)) {
+      platforms.push({ platformId: mapping.platform_id, platformName });
+    }
+    byExtension.set(extension, platforms);
+  }
+
+  return { byExtension };
+}
+
+function detectPlatformForExtension(ext: string, detector: AutomaticPlatformDetector): { platform: PlatformRef | null; reason: string } {
+  const extension = normalizeExtension(ext);
+  if (!extension) return { platform: null, reason: "Arquivo sem extensão para detecção automática" };
+  if (AUTO_DETECT_GENERIC_ROM_EXTENSIONS.has(extension)) {
+    return { platform: null, reason: `Extensão ${extension} é genérica e não entra na detecção automática` };
+  }
+
+  const platforms = detector.byExtension.get(extension) ?? [];
+  if (!platforms.length) return { platform: null, reason: `Extensão ${extension} não cadastrada para detecção automática` };
+  if (platforms.length === 1) return { platform: platforms[0], reason: "" };
+
+  const names = platforms.map((platform) => platform.platformName);
+  const suffix = names.length > 4 ? `, +${names.length - 4}` : "";
+  return {
+    platform: null,
+    reason: `Extensão ${extension} pertence a várias plataformas: ${names.slice(0, 4).join(", ")}${suffix}`
+  };
 }
 
 export function matchCandidate(candidate: RomFolderImportCandidate, index: Record<string, LaunchBoxGame>, context = createMatchContext(candidate.platformId, index)): RomFolderMatchedCandidate {
@@ -331,6 +447,12 @@ function findDownloadedMedia(files: string[], marker: string): string | null {
 function getAllowedRomExtensions(platformId: number): Set<string> {
   const configured = getPrimaryRomExtensionsForPlatform(platformId);
   return new Set((configured.length ? configured : SUPPORTED_ROM_EXTENSIONS).map((extension) => extension.toLowerCase()));
+}
+
+function normalizeExtension(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return "";
+  return trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
 }
 
 function buildUnsupportedExtensionReason(ext: string, platformName: string): string {

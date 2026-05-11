@@ -155,9 +155,13 @@ export class GameDao {
     return { success: true };
   }
 
-  deleteByRomFolder(folderPath: string): { success: true; deleted: number } {
+  deleteByRomFolder(folderPath: string, platformId?: number): { success: true; deleted: number } {
     const normalizedFolder = normalizeFsPath(folderPath);
-    const rows = this.database.prepare("SELECT id, rom_path FROM games WHERE rom_path IS NOT NULL").all() as Array<{ id: number; rom_path: string }>;
+    const rows = platformId
+      ? this.database
+        .prepare("SELECT id, rom_path FROM games WHERE platform_id = ? AND rom_path IS NOT NULL")
+        .all(platformId) as Array<{ id: number; rom_path: string }>
+      : this.database.prepare("SELECT id, rom_path FROM games WHERE rom_path IS NOT NULL").all() as Array<{ id: number; rom_path: string }>;
     const ids = rows
       .filter((row) => isPathInsideFolder(row.rom_path, normalizedFolder))
       .map((row) => row.id);
