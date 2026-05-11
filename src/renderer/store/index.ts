@@ -219,13 +219,11 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   hydrateRomImportJobs: (jobs) => set((state) => {
     const runningJob = jobs.find((job) => job.status === "running") ?? null;
     const nextJob = runningJob ?? state.lastRomImportJob;
-    void setPersistedLastRomImportJob(nextJob);
     return { lastRomImportJob: nextJob };
   }),
   updateRomImportProgress: (progress) => set((state) => {
     if (!progress.jobId) return {};
     const nextJob = buildRomImportJobFromProgress(state.lastRomImportJob, progress);
-    void setPersistedLastRomImportJob(nextJob);
     return { lastRomImportJob: nextJob };
   }),
   completeRomImportJob: (result) => set((state) => {
@@ -260,10 +258,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     const updated = state.mediaSyncJobs.map((j) =>
       j.jobId === target.jobId ? buildMediaJobFromProgress(j, progress) : j
     );
-    void setPersistedMediaSyncJobs(updated);
-    return {
-      mediaSyncJobs: updated
-    };
+    return { mediaSyncJobs: updated };
   }),
   finishMediaSyncJob: (jobId, result) => set((state) => {
     const current = state.mediaSyncJobs.find((j) => j.jobId === jobId) ?? null;
@@ -337,7 +332,6 @@ export const useGameStockStore = create<GameStockState>((set) => ({
       error: progress.stage === "error" ? progress.message : existing?.error
     });
     const updated = upsertDataPortabilityJob(state.dataPortabilityJobs, next);
-    void setPersistedDataPortabilityJobs(updated);
     return { dataPortabilityJobs: updated };
   }),
   completeDataPortabilityJob: (job) => set((state) => {

@@ -116,7 +116,7 @@ O sistema SHALL permitir escanear uma pasta em modo automatico, usando as extens
 - **THEN** cada ROM e criada ou atualizada usando o `platformId` detectado no proprio candidato
 
 ### Requirement: Execucao em background e progresso
-O sistema SHALL executar o job de importacao de forma assincrona no processo main, emitindo eventos de progresso e conclusao ao renderer via IPC.
+O sistema SHALL executar o job de importacao de forma assincrona no processo main, emitindo eventos de progresso e conclusao ao renderer via IPC. Ao dispensar uma notificacao de job concluido, falhado ou interrompido, o sistema SHALL remover o job do estado persistido do app (SQLite), garantindo que a notificacao nao reaparea no proximo startup.
 
 #### Scenario: Progresso durante importacao
 - **WHEN** um job esta rodando
@@ -129,6 +129,10 @@ O sistema SHALL executar o job de importacao de forma assincrona no processo mai
 #### Scenario: Stage de importacao
 - **WHEN** o job avanca entre etapas
 - **THEN** o `stage` no evento de progresso reflete: `preparing_metadata`, `matching`, `downloading`, `saving` ou `done`
+
+#### Scenario: Dispensar notificacao concluida
+- **WHEN** o usuario fecha o card de notificacao de um job com status `completed`, `failed` ou `interrupted`
+- **THEN** o job e removido do estado persistido do app e nao reaparece na proxima inicializacao do app
 
 ### Requirement: Persistencia de entradas do importador
 O sistema SHALL salvar e carregar as entradas de pasta configuradas do estado persistido do app via `appState`, com migracao de formatos legados vindos do `localStorage`.

@@ -102,3 +102,14 @@ Todo modal React do projeto deve ser arrastável dentro da área da janela princ
 - Em implementação nova, preferir reutilizar hook/utilitário compartilhado de drag em vez de duplicar lógica inline.
 - Só abrir exceção para modal não arrastável quando houver motivo claro de UX e isso for descrito explicitamente na tarefa.
 - Botões de ação no rodapé de modal devem ficar alinhados à direita (`justify-content: flex-end`) com gap consistente.
+
+## Regra aprendida: persistência de jobs assíncronos
+
+Actions de progresso de jobs (`updateRomImportProgress`, `updateMediaSyncProgress`, `updateDataPortabilityProgress`) **nunca** devem chamar `setPersistedXxx()`. Escrever SQLite a cada tick gera centenas de writes por segundo durante imports ativos.
+
+Persistir apenas em transições de estado terminal:
+- Job **start** → persiste `status: "running"` (para detectar "interrupted" após crash)
+- Job **complete / fail** → persiste estado final
+- Job **dismiss** → remove do SQLite
+
+Ticks de progresso atualizam apenas o estado Zustand em memória. A detecção de "interrupted" funciona porque qualquer job com `status: "running"` lido do SQLite na inicialização é convertido para `"interrupted"` pelo próprio `getPersistedXxx()`.

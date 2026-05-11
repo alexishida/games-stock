@@ -91,6 +91,11 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
   const setLastRomImportJob = useGameStockStore((state) => state.setLastRomImportJob);
   const total = job.progress.total || 1;
 
+  function handleDismiss(): void {
+    setLastRomImportJob(null);
+    onDismiss();
+  }
+
   async function resumeImport(): Promise<void> {
     setLastRomImportJob(null);
     try {
@@ -120,7 +125,7 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
       <div className="notification-title">
         <strong>{title}</strong>
         {job.status !== "running" ? (
-          <button type="button" onClick={onDismiss} aria-label="Dispensar">
+          <button type="button" onClick={handleDismiss} aria-label="Dispensar">
             <X aria-hidden="true" size={14} />
           </button>
         ) : null}
