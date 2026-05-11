@@ -97,6 +97,7 @@ Todo modal React do projeto deve ser arrastável dentro da área da janela princ
 - O drag deve funcionar pelo corpo do modal sempre que possível.
 - Controles interativos (`button`, `input`, `select`, `textarea`, `label`, links e elementos com `role="button"`) não devem iniciar drag, para manter clique, foco e seleção funcionando.
 - O modal deve iniciar centralizado e ter deslocamento limitado para não sair da área visível da janela.
+- Para mover modal arrastável, preferir `position: relative/fixed` com `top/left` ou variáveis equivalentes. Evitar `transform: translate(...)` no container do modal quando ele puder abrir outro modal por cima, porque isso prende overlays `position: fixed` filhos ao retângulo do modal pai.
 - Quando o modal precisar cobrir toda a área arrastável, usar overlay `position: fixed; inset: 0`; para modal empilhado, permitir fundo transparente quando isso fizer mais sentido visual.
 - Em implementação nova, preferir reutilizar hook/utilitário compartilhado de drag em vez de duplicar lógica inline.
 - Só abrir exceção para modal não arrastável quando houver motivo claro de UX e isso for descrito explicitamente na tarefa.

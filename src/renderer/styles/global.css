@@ -327,7 +327,9 @@ button {
 }
 
 .draggable-modal {
-  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
+  position: relative;
+  left: var(--dialog-x, 0);
+  top: var(--dialog-y, 0);
   user-select: none;
   cursor: grab;
 }

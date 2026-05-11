@@ -200,7 +200,6 @@
   background: var(--bg-panel);
   box-shadow: var(--shadow-modal);
   padding: 18px;
-  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
   user-select: none;
 }
 

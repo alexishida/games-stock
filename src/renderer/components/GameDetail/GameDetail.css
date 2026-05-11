@@ -860,7 +860,6 @@
   height: min(620px, calc(100vh - 56px));
   border-color: var(--border-strong);
   border-radius: 12px;
-  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
   user-select: none;
 }
 

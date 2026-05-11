@@ -54,6 +54,7 @@ export function useDraggableDialog<T extends HTMLElement>({
   }, []);
 
   function startDialogDrag(event: ReactPointerEvent<T>): void {
+    event.stopPropagation();
     if ((event.target as HTMLElement).closest(interactiveSelector)) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragState.current = {
@@ -68,6 +69,7 @@ export function useDraggableDialog<T extends HTMLElement>({
   function dragDialog(event: ReactPointerEvent<T>): void {
     const drag = dragState.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    event.stopPropagation();
     setDialogOffset(clampDialogOffset(
       drag.originX + event.clientX - drag.startX,
       drag.originY + event.clientY - drag.startY
@@ -76,6 +78,7 @@ export function useDraggableDialog<T extends HTMLElement>({
 
   function stopDialogDrag(event: ReactPointerEvent<T>): void {
     if (dragState.current?.pointerId !== event.pointerId) return;
+    event.stopPropagation();
     dragState.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
