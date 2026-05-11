@@ -7,7 +7,7 @@ import { GameCardPlaceholder } from "./GameCardPlaceholder";
 
 export function GameCard({ game }: { game: Game }) {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
-  const selectGame = useGameStockStore((state) => state.selectGame);
+  const setSelectedGame = useGameStockStore((state) => state.setSelectedGame);
   const upsertGame = useGameStockStore((state) => state.upsertGame);
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const platformsReloadToken = useGameStockStore((state) => state.platformsReloadToken);
@@ -86,7 +86,7 @@ export function GameCard({ game }: { game: Game }) {
   ].filter(Boolean).join(" ");
 
   function handleSelect(): void {
-    selectGame(game);
+    setSelectedGame(game);
   }
 
   function handleCardKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {

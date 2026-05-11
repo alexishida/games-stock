@@ -6,7 +6,7 @@ import { localMediaUrl } from "../../utils/media";
 
 export function GameListRow({ game }: { game: Game }) {
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
-  const selectGame = useGameStockStore((state) => state.selectGame);
+  const setSelectedGame = useGameStockStore((state) => state.setSelectedGame);
   const coverUrl = localMediaUrl(game.box_art_path);
   const [isLandscape, setIsLandscape] = useState(false);
   const [launching, setLaunching] = useState(false);
@@ -31,7 +31,7 @@ export function GameListRow({ game }: { game: Game }) {
   }
 
   function handleSelect(): void {
-    selectGame(game);
+    setSelectedGame(game);
   }
 
   function handleRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {

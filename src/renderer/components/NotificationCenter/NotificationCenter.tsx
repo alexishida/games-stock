@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { DataPortabilityJob, RomFolderImportJob, RomFolderImportProgress } from "../../../shared/types";
 import { MediaSyncJob, useGameStockStore } from "../../store";
+import { timestamp } from "../../lib/time";
 import "./NotificationCenter.css";
 
 type NotificationItem =
@@ -97,6 +98,7 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
   }
 
   async function resumeImport(): Promise<void> {
+    const interrupted = job;
     setLastRomImportJob(null);
     try {
       const newJob = await window.gameStockAPI.romFolderImport.import({
@@ -108,7 +110,7 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
       });
       setLastRomImportJob(newJob);
     } catch {
-      // import error will surface via job status
+      setLastRomImportJob(interrupted);
     }
   }
   const percent = job.status === "completed" ? 100 : Math.min(100, Math.round((job.progress.current / total) * 100));
@@ -146,6 +148,7 @@ function RomNotificationCard({ job, onDismiss }: { job: RomFolderImportJob; onDi
 
 function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismiss(): void }) {
   const openSettings = useGameStockStore((state) => state.openSettings);
+  const dismissMediaSyncJob = useGameStockStore((state) => state.dismissMediaSyncJob);
   const percent = job.status === "running" ? job.percent : 100;
   const progressText = job.status === "completed"
     ? "Concluído"
@@ -161,7 +164,11 @@ function MediaNotificationCard({ job, onDismiss }: { job: MediaSyncJob; onDismis
       <div className="notification-title">
         <strong>{job.title}</strong>
         {job.status !== "running" ? (
-          <button type="button" onClick={onDismiss} aria-label="Dispensar">
+          <button
+            type="button"
+            onClick={() => { dismissMediaSyncJob(job.jobId); onDismiss(); }}
+            aria-label="Dispensar"
+          >
             <X aria-hidden="true" size={14} />
           </button>
         ) : null}
@@ -210,12 +217,6 @@ function statusText(status: DataPortabilityJob["status"]): string {
   if (status === "failed") return "Erro";
   if (status === "interrupted") return "Interrompido";
   return "Rodando";
-}
-
-function timestamp(value: string | undefined): number {
-  if (!value) return 0;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : 0;
 }
 
 function sameNotificationText(left: string, right: string): boolean {
