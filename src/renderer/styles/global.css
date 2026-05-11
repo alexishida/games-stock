@@ -326,6 +326,30 @@ button {
   box-shadow: var(--shadow-modal);
 }
 
+.draggable-modal {
+  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
+  user-select: none;
+  cursor: grab;
+}
+
+.draggable-modal button,
+.draggable-modal [role="button"] {
+  cursor: pointer;
+  user-select: auto;
+}
+
+.draggable-modal input,
+.draggable-modal label,
+.draggable-modal select,
+.draggable-modal textarea {
+  cursor: auto;
+  user-select: auto;
+}
+
+.draggable-modal header {
+  cursor: inherit;
+}
+
 .management-modal header,
 .management-modal footer {
   display: flex;

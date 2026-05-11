@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Platform, PlatformEmulator, PlatformMappingsInput } from "../../../shared/types";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 
@@ -25,6 +26,7 @@ function PlatformFormModal({ mode, onClose }: { mode: ModalMode; onClose: () => 
   const [category, setCategory] = useState(mode.kind === "edit" ? normalizeCategory(mode.platform.category) : "Console");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const draggable = useDraggableDialog<HTMLElement>();
 
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault();
@@ -47,7 +49,15 @@ function PlatformFormModal({ mode, onClose }: { mode: ModalMode; onClose: () => 
 
   return (
     <div className="modal-backdrop">
-      <section className="management-modal platform-form-modal">
+      <section
+        ref={draggable.dialogRef}
+        className="management-modal platform-form-modal draggable-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <header>
           <h2>{mode.kind === "edit" ? "Editar plataforma" : "Nova plataforma"}</h2>
           <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
@@ -95,6 +105,7 @@ function PlatformMappingsModal({ platform, onClose }: { platform: Platform; onCl
   const [error, setError] = useState("");
   const [aliases, setAliases] = useState<MappingRow[]>([]);
   const [extensions, setExtensions] = useState<ExtensionRow[]>([]);
+  const draggable = useDraggableDialog<HTMLElement>();
 
   useEffect(() => {
     let cancelled = false;
@@ -179,7 +190,15 @@ function PlatformMappingsModal({ platform, onClose }: { platform: Platform; onCl
 
   return (
     <div className="modal-backdrop">
-      <section className="management-modal platform-mappings-modal">
+      <section
+        ref={draggable.dialogRef}
+        className="management-modal platform-mappings-modal draggable-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <header>
           <div>
             <h2>Vínculos de plataforma</h2>

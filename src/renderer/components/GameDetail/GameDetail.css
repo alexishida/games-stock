@@ -872,24 +872,6 @@
   overflow: auto;
 }
 
-.draggable-detail-modal header {
-  cursor: grab;
-}
-
-.draggable-detail-modal button,
-.draggable-detail-modal [role="button"] {
-  cursor: pointer;
-  user-select: auto;
-}
-
-.draggable-detail-modal input,
-.draggable-detail-modal label,
-.draggable-detail-modal select,
-.draggable-detail-modal textarea {
-  cursor: auto;
-  user-select: auto;
-}
-
 .detail-metadata-modal header {
   align-items: flex-start;
 }

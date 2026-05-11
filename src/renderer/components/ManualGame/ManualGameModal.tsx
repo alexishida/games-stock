@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { GameCreateInput } from "../../../shared/types";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 
 const emptyDraft: Partial<GameCreateInput> = {
@@ -24,6 +25,7 @@ export function ManualGameModal() {
   const [draft, setDraft] = useState<Partial<GameCreateInput>>(emptyDraft);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const draggable = useDraggableDialog<HTMLElement>();
 
   useEffect(() => {
     if (open) {
@@ -61,7 +63,15 @@ export function ManualGameModal() {
 
   return (
     <div className="modal-backdrop">
-      <section className="management-modal">
+      <section
+        ref={draggable.dialogRef}
+        className="management-modal draggable-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <header>
           <h2>Novo jogo</h2>
           <button type="button" className="icon-button modal-close-button" onClick={() => setOpen(false)} aria-label="Fechar">

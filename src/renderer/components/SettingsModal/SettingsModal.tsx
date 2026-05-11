@@ -3,6 +3,7 @@ import { DatabaseBackup, ExternalLink, FolderOpen, Gamepad2, HardDrive, Images, 
 import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
 import { EmulatorsSettings } from "../EmulatorsSettings/EmulatorsSettings";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
@@ -36,6 +37,7 @@ export function SettingsModal() {
   const setSection = useGameStockStore((state) => state.setSettingsSection);
   const [appVersion, setAppVersion] = useState("");
   const [storageStats, setStorageStats] = useState<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string } | null>(null);
+  const draggable = useDraggableDialog<HTMLDivElement>();
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +67,15 @@ export function SettingsModal() {
 
   return (
     <div className="modal-backdrop">
-      <div className="settings-modal">
+      <div
+        ref={draggable.dialogRef}
+        className="settings-modal draggable-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <nav className="settings-nav">
           <p className="settings-nav-label">
             <Settings aria-hidden="true" size={15} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />

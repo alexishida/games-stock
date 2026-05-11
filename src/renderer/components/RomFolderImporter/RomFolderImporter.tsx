@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { AlertTriangle, ArrowLeft, ChevronDown, CircleX, FolderCheck, FolderOpen, FolderPlus, Save, Trash2, X } from "lucide-react";
 import { Platform, RomFolderScanResult } from "../../../shared/types";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import {
   getPersistedRomFolderEntries,
@@ -33,6 +33,7 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteDialogDraggable = useDraggableDialog<HTMLDivElement>();
 
   useEffect(() => {
     let canceled = false;
@@ -126,7 +127,15 @@ export function RomFolderImporter({ onImportStarted }: { onImportStarted(): void
 
       {confirmDelete ? (
         <div className="panel-confirm-overlay delete-confirm-overlay">
-          <div className="confirm-dialog">
+          <div
+            ref={deleteDialogDraggable.dialogRef}
+            className="confirm-dialog draggable-modal"
+            style={deleteDialogDraggable.style}
+            onPointerDown={deleteDialogDraggable.startDialogDrag}
+            onPointerMove={deleteDialogDraggable.dragDialog}
+            onPointerUp={deleteDialogDraggable.stopDialogDrag}
+            onPointerCancel={deleteDialogDraggable.stopDialogDrag}
+          >
             <div className="confirm-dialog-title">
               <AlertTriangle aria-hidden="true" size={22} />
               <p>Remover pasta do GameStock?</p>
@@ -165,11 +174,8 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [platformPickerOpen, setPlatformPickerOpen] = useState(false);
-  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
-  const dialogRef = useRef<HTMLDivElement | null>(null);
   const platformPickerRef = useRef<HTMLDivElement | null>(null);
-  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
-  const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
+  const draggable = useDraggableDialog<HTMLDivElement>();
   const sortedPlatforms = [...platforms].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
   const selectedPlatform = typeof platformId === "number" ? sortedPlatforms.find((platform) => platform.id === platformId) ?? null : null;
 
@@ -205,46 +211,6 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
       window.removeEventListener("keydown", handleEscape);
     };
   }, [platformPickerOpen]);
-
-  function clampDialogOffset(x: number, y: number): { x: number; y: number } {
-    const rect = dialogRef.current?.getBoundingClientRect();
-    if (!rect) return { x, y };
-
-    const margin = 12;
-    const maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - margin);
-    const maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - margin);
-    return {
-      x: Math.min(maxX, Math.max(-maxX, x)),
-      y: Math.min(maxY, Math.max(-maxY, y))
-    };
-  }
-
-  function startDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
-    if ((event.target as HTMLElement).closest(interactiveSelector)) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragState.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: dialogOffset.x,
-      originY: dialogOffset.y
-    };
-  }
-
-  function dragDialog(event: ReactPointerEvent<HTMLDivElement>): void {
-    const drag = dragState.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    setDialogOffset(clampDialogOffset(
-      drag.originX + event.clientX - drag.startX,
-      drag.originY + event.clientY - drag.startY
-    ));
-  }
-
-  function stopDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
-    if (dragState.current?.pointerId !== event.pointerId) return;
-    dragState.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  }
 
   async function chooseFolder(): Promise<void> {
     const selected = await window.gameStockAPI.dialogs.openRomFolder();
@@ -302,13 +268,13 @@ function AddFolderPanel({ platforms, onCancel, onAdded }: {
 
   return (
     <div
-      ref={dialogRef}
-      className={`add-folder-dialog ${step === "review" ? "review" : ""}`}
-      style={{ "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties}
-      onPointerDown={startDialogDrag}
-      onPointerMove={dragDialog}
-      onPointerUp={stopDialogDrag}
-      onPointerCancel={stopDialogDrag}
+      ref={draggable.dialogRef}
+      className={`add-folder-dialog draggable-modal ${step === "review" ? "review" : ""}`}
+      style={draggable.style}
+      onPointerDown={draggable.startDialogDrag}
+      onPointerMove={draggable.dragDialog}
+      onPointerUp={draggable.stopDialogDrag}
+      onPointerCancel={draggable.stopDialogDrag}
     >
       <div className="add-folder-dialog-header">
         <strong>{step === "configure" ? "Adicionar pasta" : "Revisar ROMs"}</strong>

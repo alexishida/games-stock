@@ -1,6 +1,7 @@
 import { type MouseEvent, useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, Trophy, X } from "lucide-react";
 import { GameMediaItem, PlatformEmulator } from "../../../shared/types";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
@@ -30,6 +31,7 @@ export function GameDetail() {
   const [emulatorLoading, setEmulatorLoading] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState("");
+  const editModalDraggable = useDraggableDialog<HTMLElement>();
 
   useEffect(() => {
     setIsCoverLandscape(false);
@@ -367,7 +369,19 @@ export function GameDetail() {
 
       {isEditModalOpen && (
         <div className="detail-edit-backdrop" onMouseDown={() => setIsEditModalOpen(false)} role="presentation">
-          <section className="management-modal detail-edit-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="detail-edit-title">
+          <section
+            ref={editModalDraggable.dialogRef}
+            className="management-modal detail-edit-modal draggable-modal"
+            style={editModalDraggable.style}
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={editModalDraggable.startDialogDrag}
+            onPointerMove={editModalDraggable.dragDialog}
+            onPointerUp={editModalDraggable.stopDialogDrag}
+            onPointerCancel={editModalDraggable.stopDialogDrag}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detail-edit-title"
+          >
             <header>
               <h2 id="detail-edit-title">Editar cadastro</h2>
               <button type="button" className="icon-button modal-close-button" onClick={() => setIsEditModalOpen(false)} aria-label="Fechar">

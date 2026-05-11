@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { ChevronDown, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
 import { Emulator, Platform, PlatformEmulator, RetroArchCoreInventory } from "../../../shared/types";
 import { getRetroArchCoreCandidatesForPlatform, getRetroArchCoreForPlatform, RETROARCH_CORE_NAMES } from "../../../shared/retroarch";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./EmulatorsSettings.css";
@@ -46,61 +46,6 @@ function buildCoreOptions(
   }
 
   return { recommended, installed };
-}
-
-function useDraggableDialog() {
-  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
-  const dialogRef = useRef<HTMLElement | null>(null);
-  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
-  const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
-
-  function clampDialogOffset(x: number, y: number): { x: number; y: number } {
-    const rect = dialogRef.current?.getBoundingClientRect();
-    if (!rect) return { x, y };
-
-    const margin = 12;
-    const maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - margin);
-    const maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - margin);
-    return {
-      x: Math.min(maxX, Math.max(-maxX, x)),
-      y: Math.min(maxY, Math.max(-maxY, y))
-    };
-  }
-
-  function startDialogDrag(event: ReactPointerEvent<HTMLElement>): void {
-    if ((event.target as HTMLElement).closest(interactiveSelector)) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragState.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: dialogOffset.x,
-      originY: dialogOffset.y
-    };
-  }
-
-  function dragDialog(event: ReactPointerEvent<HTMLElement>): void {
-    const drag = dragState.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    setDialogOffset(clampDialogOffset(
-      drag.originX + event.clientX - drag.startX,
-      drag.originY + event.clientY - drag.startY
-    ));
-  }
-
-  function stopDialogDrag(event: ReactPointerEvent<HTMLElement>): void {
-    if (dragState.current?.pointerId !== event.pointerId) return;
-    dragState.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  }
-
-  return {
-    dialogRef,
-    style: { "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties,
-    startDialogDrag,
-    dragDialog,
-    stopDialogDrag
-  };
 }
 
 // EmulatorFormModal
@@ -151,7 +96,7 @@ function EmulatorFormModal({
     <div className="emulator-secondary-overlay">
       <section
         ref={draggable.dialogRef}
-        className="management-modal emulator-form-modal draggable-emulator-modal"
+        className="management-modal emulator-form-modal draggable-modal"
         style={draggable.style}
         onPointerDown={draggable.startDialogDrag}
         onPointerMove={draggable.dragDialog}
@@ -280,7 +225,7 @@ function LinkPlatformModal({
     <div className="emulator-secondary-overlay">
       <section
         ref={draggable.dialogRef}
-        className="management-modal emulator-form-modal draggable-emulator-modal"
+        className="management-modal emulator-form-modal draggable-modal"
         style={draggable.style}
         onPointerDown={draggable.startDialogDrag}
         onPointerMove={draggable.dragDialog}
@@ -505,10 +450,7 @@ function RetroArchPlatformCores({
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [openCorePickerPlatformId, setOpenCorePickerPlatformId] = useState<number | null>(null);
-  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const dragState = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
-  const interactiveSelector = "button, input, select, textarea, label, option, [role='button'], a";
+  const draggable = useDraggableDialog<HTMLDivElement>();
 
   const filteredConfigs = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -522,46 +464,6 @@ function RetroArchPlatformCores({
       );
     });
   }, [configs, coreInventory?.installedCores, search]);
-
-  function clampDialogOffset(x: number, y: number): { x: number; y: number } {
-    const rect = dialogRef.current?.getBoundingClientRect();
-    if (!rect) return { x, y };
-
-    const margin = 12;
-    const maxX = Math.max(0, (window.innerWidth - rect.width) / 2 - margin);
-    const maxY = Math.max(0, (window.innerHeight - rect.height) / 2 - margin);
-    return {
-      x: Math.min(maxX, Math.max(-maxX, x)),
-      y: Math.min(maxY, Math.max(-maxY, y))
-    };
-  }
-
-  function startDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
-    if ((event.target as HTMLElement).closest(interactiveSelector)) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragState.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: dialogOffset.x,
-      originY: dialogOffset.y
-    };
-  }
-
-  function dragDialog(event: ReactPointerEvent<HTMLDivElement>): void {
-    const drag = dragState.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    setDialogOffset(clampDialogOffset(
-      drag.originX + event.clientX - drag.startX,
-      drag.originY + event.clientY - drag.startY
-    ));
-  }
-
-  function stopDialogDrag(event: ReactPointerEvent<HTMLDivElement>): void {
-    if (dragState.current?.pointerId !== event.pointerId) return;
-    dragState.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  }
 
   useEffect(() => {
     if (openCorePickerPlatformId === null) return;
@@ -661,13 +563,13 @@ function RetroArchPlatformCores({
   return (
     <div className="emulator-secondary-overlay">
       <div
-        ref={dialogRef}
-        className="retroarch-core-dialog"
-        style={{ "--dialog-x": `${dialogOffset.x}px`, "--dialog-y": `${dialogOffset.y}px` } as CSSProperties}
-        onPointerDown={startDialogDrag}
-        onPointerMove={dragDialog}
-        onPointerUp={stopDialogDrag}
-        onPointerCancel={stopDialogDrag}
+        ref={draggable.dialogRef}
+        className="retroarch-core-dialog draggable-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
       >
         <header className="retroarch-core-dialog-header">
           <div>

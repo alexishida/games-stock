@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { LaunchBoxImageType } from "../../../shared/types";
+import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useLaunchBoxImporter } from "../../hooks/useLaunchBoxImporter";
 import { useGameStockStore } from "../../store";
 import { ProgressBar } from "./ProgressBar";
@@ -19,6 +20,7 @@ export function LaunchBoxImporter() {
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
   const platforms = useGameStockStore((state) => state.platforms);
   const importer = useLaunchBoxImporter();
+  const draggable = useDraggableDialog<HTMLElement>();
 
   useEffect(() => {
     if (importerOpen) void importer.ensure();
@@ -28,7 +30,15 @@ export function LaunchBoxImporter() {
 
   return (
     <div className="modal-backdrop">
-      <section className="importer-modal">
+      <section
+        ref={draggable.dialogRef}
+        className="importer-modal draggable-modal"
+        style={draggable.style}
+        onPointerDown={draggable.startDialogDrag}
+        onPointerMove={draggable.dragDialog}
+        onPointerUp={draggable.stopDialogDrag}
+        onPointerCancel={draggable.stopDialogDrag}
+      >
         <header>
           <h2>Importar do LaunchBox</h2>
           <button type="button" className="icon-button modal-close-button" onClick={() => setImporterOpen(false)} aria-label="Fechar">

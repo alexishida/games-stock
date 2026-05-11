@@ -23,6 +23,8 @@ Quando o usuário pedir "abrir uma nova janela", "abrir em uma janela", ou qualq
 
 - Overlay: `position: absolute; inset: 0` dentro de um container `position: relative`
 - Dialog flutuante por cima: div com `border`, `border-radius`, `background: var(--bg-panel)`, `box-shadow`
+- Todo modal React do projeto deve ser **arrastável por padrão**, inclusive modal principal, modal de formulário, modal de confirmação e modal secundário sobreposto, salvo exceção explícita de UX muito bem justificada
+- Reutilizar lógica compartilhada de drag (ex.: hook utilitário no renderer) em vez de reimplementar comportamento diferente em cada modal
 - Ver `.panel-confirm-overlay` + `.confirm-dialog` em `RomFolderImporter.css` como referência
 
 `BrowserWindow` adicional só é justificado para funcionalidade completamente independente da janela principal (ex.: janela de configurações do sistema operacional). Fluxos de cadastro, formulários, confirmações e assistentes sempre usam modal React.
@@ -88,12 +90,14 @@ Quando já existir um modal aberto e outro modal/confirmação for aberto acima 
 
 Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve usar `background: rgba(...)` quando usado dentro do modal de configurações. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
 
-## Regra aprendida: modais secundarios arrastaveis
+## Regra aprendida: todos modais arrastaveis
 
-Todo modal secundário aberto sobre outro modal deve ser arrastável dentro da área da janela principal. Use overlay React, não `BrowserWindow`.
+Todo modal React do projeto deve ser arrastável dentro da área da janela principal. Isso inclui modal principal, modal secundário, confirmação, assistente, formulário e modal aberto sobre outro modal. Use overlay React, não `BrowserWindow`.
 
 - O drag deve funcionar pelo corpo do modal sempre que possível.
 - Controles interativos (`button`, `input`, `select`, `textarea`, `label`, links e elementos com `role="button"`) não devem iniciar drag, para manter clique, foco e seleção funcionando.
 - O modal deve iniciar centralizado e ter deslocamento limitado para não sair da área visível da janela.
-- Quando o modal secundário precisar cobrir toda a área arrastável, usar overlay `position: fixed; inset: 0; background: transparent`.
-- Botões de ação no rodapé de modal secundário devem ficar alinhados à direita (`justify-content: flex-end`) com gap consistente.
+- Quando o modal precisar cobrir toda a área arrastável, usar overlay `position: fixed; inset: 0`; para modal empilhado, permitir fundo transparente quando isso fizer mais sentido visual.
+- Em implementação nova, preferir reutilizar hook/utilitário compartilhado de drag em vez de duplicar lógica inline.
+- Só abrir exceção para modal não arrastável quando houver motivo claro de UX e isso for descrito explicitamente na tarefa.
+- Botões de ação no rodapé de modal devem ficar alinhados à direita (`justify-content: flex-end`) com gap consistente.

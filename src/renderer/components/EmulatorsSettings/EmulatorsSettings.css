@@ -16,29 +16,6 @@
   margin-top: 4px;
 }
 
-.draggable-emulator-modal {
-  transform: translate(var(--dialog-x, 0), var(--dialog-y, 0));
-  user-select: none;
-}
-
-.draggable-emulator-modal header {
-  cursor: grab;
-}
-
-.draggable-emulator-modal button,
-.draggable-emulator-modal [role="button"] {
-  cursor: pointer;
-  user-select: auto;
-}
-
-.draggable-emulator-modal input,
-.draggable-emulator-modal label,
-.draggable-emulator-modal select,
-.draggable-emulator-modal textarea {
-  cursor: auto;
-  user-select: auto;
-}
-
 .emulator-exe-row {
   display: flex;
   gap: 6px;
