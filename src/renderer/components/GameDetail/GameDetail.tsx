@@ -90,6 +90,33 @@ export function GameDetail() {
   const pendingSelectRef = useRef<"first" | "last" | null>(null);
 
   /**
+   * Ref atualizado a cada render com as callbacks de navegação e o estado do lightbox.
+   * Permite que o listener de teclado (registrado uma vez) sempre use os valores mais recentes
+   * sem precisar re-registrar o evento a cada mudança de estado.
+   */
+  const keyNavRef = useRef<{
+    prev: (() => void) | null;
+    next: (() => void) | null;
+    lightboxOpen: boolean;
+  }>({ prev: null, next: null, lightboxOpen: false });
+
+  /**
+   * Navega entre jogos com ArrowLeft / ArrowRight.
+   * Ignorado quando: lightbox aberto (setas navegam imagens), foco em input/textarea/select.
+   */
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (keyNavRef.current.lightboxOpen) return;
+      const tag = (event.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (event.key === "ArrowLeft") keyNavRef.current.prev?.();
+      if (event.key === "ArrowRight") keyNavRef.current.next?.();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  /**
    * Quando `games` muda (nova página carregada), honra a seleção pendente definida
    * por `selectNextGame` / `selectPreviousGame` ao cruzar a borda da página.
    */
@@ -334,6 +361,9 @@ export function GameDetail() {
       setCurrentPage(currentPage + 1);
     }
   }
+
+  // Atualiza o ref a cada render para que o listener de teclado use sempre as callbacks e estado atuais
+  keyNavRef.current = { prev: selectPreviousGame, next: selectNextGame, lightboxOpen: lightboxIndex !== null };
 
   /**
    * Abre o lightbox na imagem correspondente à URL clicada.
