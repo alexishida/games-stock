@@ -139,6 +139,34 @@ export interface PortableRomLocationImportSummary {
   romFolderEntries: number; // Entradas de pasta de ROM importadas
 }
 
+/** Dados portáveis do inventário físico de hardware para exportação/importação. */
+export interface PortableInventoryBundle {
+  itemTypes: Array<{ id: number; name: string; is_default: number }>;
+  conservationStates: Array<{ id: number; name: string; is_default: number }>;
+  items: Array<{
+    name: string;
+    platformName: string | null;
+    itemTypeName: string | null;
+    conservationStateName: string | null;
+    description: string;
+    acquisition_date: string | null;
+    acquisition_url: string | null;
+    color: string | null;
+    value: number | null;
+    serial_number: string | null;
+    region: string | null;
+    storage_location: string | null;
+    loan_to: string | null;
+  }>;
+  /** Referências às fotos dos itens; arquivos físicos ficam em inventario/images/ */
+  photos: Array<{
+    itemName: string;
+    platformName: string | null;
+    file_path: string;
+    sort_order: number;
+  }>;
+}
+
 export class DataPortabilityDao {
   constructor(private readonly database: Database.Database) {}
 
@@ -640,6 +668,155 @@ export class DataPortabilityDao {
       .prepare("SELECT id FROM emulators WHERE LOWER(name) = LOWER(?)")
       .get(name.trim()) as { id: number } | undefined;
     return row?.id ?? null;
+  }
+
+  // ── Inventário físico de hardware ────────────────────────────────────────
+
+  /**
+   * Exporta todos os dados do inventário físico de hardware.
+   * Retorna tipos de item, estados de conservação, itens e fotos (sem arquivos).
+   */
+  listInventoryData(): PortableInventoryBundle {
+    const itemTypes = this.database
+      .prepare("SELECT id, name, is_default FROM item_types ORDER BY name COLLATE NOCASE")
+      .all() as PortableInventoryBundle["itemTypes"];
+
+    const conservationStates = this.database
+      .prepare("SELECT id, name, is_default FROM conservation_states ORDER BY name COLLATE NOCASE")
+      .all() as PortableInventoryBundle["conservationStates"];
+
+    const items = (this.database.prepare(`
+      SELECT
+        hi.name,
+        p.name  AS platformName,
+        it.name AS itemTypeName,
+        cs.name AS conservationStateName,
+        hi.description,
+        hi.acquisition_date,
+        hi.acquisition_url,
+        hi.color,
+        hi.value,
+        hi.serial_number,
+        hi.region,
+        hi.storage_location,
+        hi.loan_to
+      FROM hardware_items hi
+      LEFT JOIN platforms           p  ON p.id  = hi.platform_id
+      LEFT JOIN item_types          it ON it.id = hi.item_type_id
+      LEFT JOIN conservation_states cs ON cs.id = hi.conservation_state_id
+      ORDER BY hi.name COLLATE NOCASE
+    `).all()) as PortableInventoryBundle["items"];
+
+    // Fotos com caminho absoluto para que o exportador as inclua no ZIP
+    const photos = (this.database.prepare(`
+      SELECT
+        hi.name AS itemName,
+        p.name  AS platformName,
+        ph.file_path,
+        ph.sort_order
+      FROM hardware_item_photos ph
+      JOIN hardware_items hi ON hi.id = ph.item_id
+      LEFT JOIN platforms p ON p.id = hi.platform_id
+      ORDER BY hi.name COLLATE NOCASE, ph.sort_order ASC, ph.id ASC
+    `).all()) as PortableInventoryBundle["photos"];
+
+    return { itemTypes, conservationStates, items, photos };
+  }
+
+  /**
+   * Importa dados do inventário físico de hardware.
+   * Cria tipos/estados que não existem; insere/atualiza itens por `name + platformName`.
+   * Fotos já foram copiadas para disco antes desta chamada; recebe os file_paths finais.
+   */
+  importInventoryData(
+    bundle: PortableInventoryBundle,
+    photoFilePaths: Map<string, string[]>  // chave: `itemName|platformName`, valor: lista de file_paths
+  ): { itemsCreated: number; itemsUpdated: number } {
+    const summary = { itemsCreated: 0, itemsUpdated: 0 };
+
+    // Garante existência dos tipos de item
+    const ensureType = this.database.prepare("INSERT OR IGNORE INTO item_types (name, is_default) VALUES (?, 0)");
+    for (const t of bundle.itemTypes) {
+      ensureType.run(t.name);
+    }
+
+    // Garante existência dos estados de conservação
+    const ensureState = this.database.prepare("INSERT OR IGNORE INTO conservation_states (name, is_default) VALUES (?, 0)");
+    for (const s of bundle.conservationStates) {
+      ensureState.run(s.name);
+    }
+
+    const getTypeId  = (name: string | null) => name ? (this.database.prepare("SELECT id FROM item_types WHERE LOWER(name) = LOWER(?)").get(name) as { id: number } | undefined)?.id ?? null : null;
+    const getStateId = (name: string | null) => name ? (this.database.prepare("SELECT id FROM conservation_states WHERE LOWER(name) = LOWER(?)").get(name) as { id: number } | undefined)?.id ?? null : null;
+
+    for (const item of bundle.items) {
+      if (!item.name?.trim()) continue;
+
+      const platformId = item.platformName ? this.getPlatformIdByName(item.platformName) : null;
+      const itemTypeId = getTypeId(item.itemTypeName ?? null);
+      const stateId    = getStateId(item.conservationStateName ?? null);
+
+      // Tenta encontrar item existente por name + platform (case-insensitive)
+      const existingRow = this.database.prepare(`
+        SELECT hi.id FROM hardware_items hi
+        WHERE LOWER(hi.name) = LOWER(?)
+          AND (hi.platform_id = ? OR (hi.platform_id IS NULL AND ? IS NULL))
+        LIMIT 1
+      `).get(item.name.trim(), platformId, platformId) as { id: number } | undefined;
+
+      if (existingRow) {
+        // Atualiza item existente
+        this.database.prepare(`
+          UPDATE hardware_items SET
+            item_type_id = ?, conservation_state_id = ?,
+            description = ?, acquisition_date = ?, acquisition_url = ?,
+            color = ?, value = ?, serial_number = ?, region = ?,
+            storage_location = ?, loan_to = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).run(
+          itemTypeId, stateId,
+          item.description ?? "",
+          item.acquisition_date ?? null, item.acquisition_url ?? null,
+          item.color ?? null, item.value ?? null, item.serial_number ?? null,
+          item.region ?? null, item.storage_location ?? null, item.loan_to ?? null,
+          existingRow.id
+        );
+        summary.itemsUpdated += 1;
+
+        // Adiciona novas fotos (não sobrescreve as existentes)
+        const key = `${item.name.trim()}|${item.platformName ?? ""}`;
+        for (const fp of (photoFilePaths.get(key) ?? [])) {
+          const maxRow = this.database.prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM hardware_item_photos WHERE item_id = ?").get(existingRow.id) as { m: number };
+          this.database.prepare("INSERT INTO hardware_item_photos (item_id, file_path, sort_order) VALUES (?, ?, ?)").run(existingRow.id, fp, maxRow.m + 1);
+        }
+      } else {
+        // Cria novo item
+        const result = this.database.prepare(`
+          INSERT INTO hardware_items
+            (name, platform_id, item_type_id, conservation_state_id, description,
+             acquisition_date, acquisition_url, color, value, serial_number,
+             region, storage_location, loan_to)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          item.name.trim(), platformId, itemTypeId, stateId,
+          item.description ?? "",
+          item.acquisition_date ?? null, item.acquisition_url ?? null,
+          item.color ?? null, item.value ?? null, item.serial_number ?? null,
+          item.region ?? null, item.storage_location ?? null, item.loan_to ?? null
+        );
+        const newId = Number(result.lastInsertRowid);
+        summary.itemsCreated += 1;
+
+        // Insere fotos para o novo item
+        const key = `${item.name.trim()}|${item.platformName ?? ""}`;
+        let sortOrder = 0;
+        for (const fp of (photoFilePaths.get(key) ?? [])) {
+          this.database.prepare("INSERT INTO hardware_item_photos (item_id, file_path, sort_order) VALUES (?, ?, ?)").run(newId, fp, sortOrder++);
+        }
+      }
+    }
+
+    return summary;
   }
 
   /**

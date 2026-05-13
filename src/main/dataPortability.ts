@@ -35,6 +35,7 @@ import {
   DataPortabilityDao,
   PortableEmulator,
   PortableGameMetadata,
+  PortableInventoryBundle,
   PortableMediaEntry,
   PortablePlatform,
   PortablePlatformAlias,
@@ -42,6 +43,7 @@ import {
   PortableRomExtension,
   PortableRomLocation
 } from "./db/dao/dataPortabilityDao";
+import { getInventarioImagesDir } from "./db/database";
 
 /** Versão do esquema de backup; incrementar ao mudar estrutura do pacote de forma incompatível. */
 const SCHEMA_VERSION = 1;
@@ -69,6 +71,7 @@ interface BackupData {
   platformEmulators: PortablePlatformEmulator[];
   romLocations: PortableRomLocation[];
   romFolderEntries: DataPortabilityRomFolderEntry[];
+  inventory: PortableInventoryBundle;
 }
 
 /** Backup carregado em memória: arquivo ZIP, manifesto e dados deserializados. */
@@ -187,6 +190,29 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
     counts.romFolderEntries = dao.countRomFolderEntries(romFolderEntries);
     archiveEntries.push(createJsonEntry("data/romLocations.json", { games: romLocations, romFolderEntries }));
     report("rom_locations", `${romLocations.length} localizacao(oes) de ROM adicionadas ao pacote`);
+  }
+
+  if (categories.includes("inventoryImages")) {
+    const inventoryBundle = dao.listInventoryData();
+    const inventarioImagesDir = getInventarioImagesDir();
+    const inventoryFiles = listImageFilesForBackup(inventarioImagesDir);
+
+    counts.inventoryItems = inventoryBundle.items.length;
+    counts.inventoryPhotos = inventoryBundle.photos.length;
+
+    // Adiciona arquivos de foto ao ZIP sob prefixo `inventory-media/`
+    for (const file of inventoryFiles) {
+      archiveEntries.push({
+        kind: "file",
+        entryName: `inventory-media/${file.relativePath}`,
+        sourcePath: file.sourcePath,
+        size: file.size
+      });
+    }
+
+    // Salva metadados do inventário no JSON
+    archiveEntries.push(createJsonEntry("data/inventory.json", inventoryBundle));
+    report("metadata", `${inventoryBundle.items.length} item(ns) de inventario adicionados ao pacote`);
   }
 
   // Manifesto sempre incluído por último para refletir contagens finais
@@ -311,6 +337,10 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
 
       if (categories.includes("images")) {
         importImages(loaded, dao, copiedFiles, summary, (message) => report("images", message));
+      }
+
+      if (categories.includes("inventoryImages")) {
+        importInventoryImages(loaded, dao, copiedFiles, summary, (message) => report("importing", message));
       }
     })();
   } catch (error) {
@@ -439,6 +469,8 @@ function loadBackup(packagePath: string): LoadedBackup {
   const emulators = readOptionalJson<{ emulators?: PortableEmulator[]; platformEmulators?: PortablePlatformEmulator[] }>(zip, "data/emulators.json", {});
   const romLocations = readOptionalJson<{ games?: PortableRomLocation[]; romFolderEntries?: DataPortabilityRomFolderEntry[] }>(zip, "data/romLocations.json", {});
 
+  const emptyInventory: PortableInventoryBundle = { itemTypes: [], conservationStates: [], items: [], photos: [] };
+
   return {
     zip,
     manifest,
@@ -451,7 +483,8 @@ function loadBackup(packagePath: string): LoadedBackup {
       emulators: emulators.emulators ?? [],
       platformEmulators: emulators.platformEmulators ?? [],
       romLocations: romLocations.games ?? [],
-      romFolderEntries: normalizeRomFolderEntries(romLocations.romFolderEntries ?? [])
+      romFolderEntries: normalizeRomFolderEntries(romLocations.romFolderEntries ?? []),
+      inventory: readOptionalJson<PortableInventoryBundle>(zip, "data/inventory.json", emptyInventory)
     }
   };
 }
@@ -574,6 +607,7 @@ function detectAvailableCategories(loaded: LoadedBackup): DataPortabilityCategor
     Boolean(loaded.zip.getEntry("data/platformMappings.json")) ||
     Boolean(loaded.zip.getEntry("data/emulators.json"));
   const hasRomLocations = Boolean(loaded.zip.getEntry("data/romLocations.json"));
+  const hasInventory = Boolean(loaded.zip.getEntry("data/inventory.json"));
 
   return DATA_PORTABILITY_CATEGORIES.filter((category) => {
     switch (category) {
@@ -585,6 +619,8 @@ function detectAvailableCategories(loaded: LoadedBackup): DataPortabilityCategor
         return hasPlatforms;
       case "romLocations":
         return hasRomLocations;
+      case "inventoryImages":
+        return hasInventory;
       default:
         return false;
     }
@@ -615,6 +651,10 @@ function buildPreviewCounts(
     counts.romLocations = loaded.data.romLocations.length;
     counts.romFolderEntries = loaded.data.romFolderEntries.length;
   }
+  if (availableCategories.includes("inventoryImages")) {
+    counts.inventoryItems = loaded.data.inventory.items.length;
+    counts.inventoryPhotos = loaded.data.inventory.photos.length;
+  }
 
   return counts;
 }
@@ -630,6 +670,8 @@ function categoryLabel(category: DataPortabilityCategory): string {
       return "plataformas";
     case "romLocations":
       return "localizacoes de ROMs";
+    case "inventoryImages":
+      return "inventario de hardware";
     default:
       return category;
   }
@@ -649,6 +691,73 @@ function normalizeRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): Da
       indexedCount: Number(entry.indexedCount) || 0,
       includeSubfolders: Boolean(entry.includeSubfolders)
     }));
+}
+
+/**
+ * Importa fotos e metadados do inventário de hardware do pacote para o banco local.
+ * Extrai os arquivos de imagem para o diretório de inventário, reescreve os file_paths
+ * e insere/atualiza itens por `name + platformName`.
+ */
+/**
+ * Importa fotos e metadados do inventário de hardware do pacote para o banco local.
+ *
+ * Estratégia de matching de fotos:
+ * - O `file_path` no bundle é absoluto na máquina de origem — não serve diretamente.
+ * - Os arquivos de foto no ZIP têm relativePath preservado (ex: `42/uuid.jpg`).
+ * - Extraímos todos os arquivos de `inventory-media/` para o inventarioImagesDir local.
+ * - Construímos um mapa `basename → destPath` (UUID é único, então basename é chave estável).
+ * - Para cada foto no bundle, buscamos o destPath pelo basename do `file_path` original.
+ */
+function importInventoryImages(
+  loaded: LoadedBackup,
+  dao: DataPortabilityDao,
+  copiedFiles: string[],
+  summary: DataPortabilityImportSummary,
+  onItem?: (message: string) => void
+): void {
+  const inventarioImagesDir = getInventarioImagesDir();
+  fs.mkdirSync(inventarioImagesDir, { recursive: true });
+
+  // Extrai arquivos de foto do ZIP e constrói mapa basename → destPath
+  const basenameToDestPath = new Map<string, string>();
+
+  const inventoryEntries = loaded.zip.getEntries().filter(
+    (entry) => !entry.isDirectory && entry.entryName.startsWith("inventory-media/")
+  );
+
+  for (const zipEntry of inventoryEntries) {
+    const relativePath = normalizeZipRelativePath(zipEntry.entryName.slice("inventory-media/".length));
+    if (!relativePath) continue;
+
+    const destPath = path.join(inventarioImagesDir, relativePath);
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.writeFileSync(destPath, zipEntry.getData());
+    copiedFiles.push(destPath);
+    basenameToDestPath.set(path.basename(destPath), destPath);
+    onItem?.(`Foto de inventario extraida: ${path.basename(destPath)}`);
+  }
+
+  // Constrói mapa (itemName|platformName) → lista de file_paths locais
+  // usando o basename como chave estável (UUIDs garantem unicidade)
+  const photoFilePaths = new Map<string, string[]>();
+  for (const photo of loaded.data.inventory.photos) {
+    const basename = path.basename(photo.file_path);
+    const localPath = basenameToDestPath.get(basename);
+    if (!localPath) continue; // Foto referenciada mas não presente no pacote
+
+    const key = `${photo.itemName}|${photo.platformName ?? ""}`;
+    const arr = photoFilePaths.get(key) ?? [];
+    arr.push(localPath);
+    photoFilePaths.set(key, arr);
+  }
+
+  const result = dao.importInventoryData(loaded.data.inventory, photoFilePaths);
+  summary.inventoryImages = {
+    itemsCreated: result.itemsCreated,
+    itemsUpdated: result.itemsUpdated,
+    photosImported: Array.from(photoFilePaths.values()).reduce((acc, arr) => acc + arr.length, 0)
+  };
+  onItem?.(`${result.itemsCreated} item(ns) criados, ${result.itemsUpdated} atualizados`);
 }
 
 /** Cria um objeto de sumário de importação zerado, com os avisos de validação iniciais. */

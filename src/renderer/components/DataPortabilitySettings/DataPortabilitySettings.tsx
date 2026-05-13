@@ -46,6 +46,10 @@ const CATEGORY_LABELS: Record<DataPortabilityCategory, { title: string; descript
   romLocations: {
     title: "Localizações de ROMs",
     description: "Caminhos de ROM e pastas configuradas"
+  },
+  inventoryImages: {
+    title: "Inventário (itens e fotos)",
+    description: "Itens físicos de hardware e fotos do inventário"
   }
 };
 
@@ -230,6 +234,9 @@ export function DataPortabilitySettings({
               <span>{preview.counts.platforms ?? 0} plataformas</span>
               <span>{preview.counts.images ?? 0} imagens</span>
               <span>{preview.counts.romLocations ?? 0} ROMs</span>
+              {(preview.counts.inventoryItems ?? 0) > 0 && (
+                <span>{preview.counts.inventoryItems} itens de inventário</span>
+              )}
             </div>
             {/* Grade de seleção de categorias — restrita às disponíveis no pacote */}
             <CategoryGrid selected={importCategories} available={preview.availableCategories} onChange={setImportCategories} />

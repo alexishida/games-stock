@@ -153,6 +153,21 @@ interface GameStockState {
   // --- Jobs de portabilidade de dados (backup/restore) ---
   dataPortabilityJobs: DataPortabilityJob[];
 
+  // --- Modo da sidebar ---
+  /** Modo de navegação da sidebar: 'library' (padrão) ou 'inventory'. */
+  sidebarMode: "library" | "inventory";
+  /** Sinaliza abertura do formulário de criação do inventário. */
+  inventoryCreateOpen: boolean;
+
+  // --- Filtros do inventário de hardware ---
+  /** Filtros ativos no módulo de inventário. */
+  inventoryFilters: {
+    platformId: number | null;
+    itemTypeId: number | null;
+    conservationStateId: number | null;
+    search: string | null;
+  };
+
   // --- Flags de estado global ---
   /** Indica se o download inicial do Metadata.zip está em andamento. */
   metadataStartupRunning: boolean;
@@ -219,6 +234,12 @@ interface GameStockState {
   completeDataPortabilityJob(value: DataPortabilityJob): void;
   /** Remove job de portabilidade do store e persiste a lista atualizada. */
   dismissDataPortabilityJob(jobId: string): void;
+  /** Define o modo de navegação da sidebar. */
+  setSidebarMode(value: "library" | "inventory"): void;
+  /** Abre/fecha o formulário de criação de item do inventário. */
+  setInventoryCreateOpen(value: boolean): void;
+  /** Atualiza os filtros do inventário de hardware. */
+  setInventoryFilters(value: { platformId?: number | null; itemTypeId?: number | null; conservationStateId?: number | null; search?: string | null }): void;
   setMetadataStartupRunning(value: boolean): void;
   setCoverStats(value: CoverSyncStats): void;
   /** Incrementa reloadToken para forçar recarga dos jogos. */
@@ -256,6 +277,9 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   dataPortabilityJobs: [],
   metadataStartupRunning: false,
   coverStats: null,
+  sidebarMode: "library",
+  inventoryCreateOpen: false,
+  inventoryFilters: { platformId: null, itemTypeId: null, conservationStateId: null, search: null },
 
   // Ao trocar plataforma, reseta filtro de coleção, página e seleção de jogo
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null, selectedGame: null }),
@@ -467,6 +491,12 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     return { dataPortabilityJobs: updated };
   }),
 
+  setSidebarMode: (sidebarMode) => set({ sidebarMode }),
+  setInventoryCreateOpen: (inventoryCreateOpen) => set({ inventoryCreateOpen }),
+  // Mescla os filtros fornecidos com os atuais (permite atualizar um campo por vez)
+  setInventoryFilters: (filters) => set((state) => ({
+    inventoryFilters: { ...state.inventoryFilters, ...filters }
+  })),
   setMetadataStartupRunning: (metadataStartupRunning) => set({ metadataStartupRunning }),
   setCoverStats: (coverStats) => set({ coverStats }),
   // Incrementar token força useEffect nos hooks a buscar dados novamente

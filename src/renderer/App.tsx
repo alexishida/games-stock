@@ -12,6 +12,7 @@ import { Gamepad2, Layers3, Star, Trophy } from "lucide-react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
+import { HardwareInventory } from "./components/HardwareInventory";
 import { LaunchBoxImporter } from "./components/LaunchBoxImporter/LaunchBoxImporter";
 import { ManualGameModal } from "./components/ManualGame/ManualGameModal";
 import { NotificationCenter } from "./components/NotificationCenter/NotificationCenter";
@@ -101,6 +102,7 @@ export default function App() {
 
   // Leitura de estado do store para controle de UI e ações
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
+  const sidebarMode = useGameStockStore((state) => state.sidebarMode);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
   const openSettings = useGameStockStore((state) => state.openSettings);
@@ -295,10 +297,14 @@ export default function App() {
     <div className="app-shell">
       <Sidebar />
       <div className="app-right">
-        <TopBar />
+        {/* TopBar é específica da biblioteca de jogos; oculta no modo inventário */}
+        {sidebarMode === "library" && <TopBar />}
         <main className="main-area">
-          {/* Exibe detalhe do jogo selecionado ou a visão de biblioteca */}
-          {selectedGameId ? <GameDetail /> : <LibraryView />}
+          {/* Alterna entre biblioteca de jogos e inventário de hardware */}
+          {sidebarMode === "inventory"
+            ? <HardwareInventory />
+            : selectedGameId ? <GameDetail /> : <LibraryView />
+          }
         </main>
       </div>
       {/* Modais globais — montados sempre para preservar estado mesmo quando fechados */}

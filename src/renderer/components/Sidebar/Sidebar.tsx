@@ -1,17 +1,16 @@
 /**
  * Sidebar.tsx
  *
- * Barra lateral principal da aplicação.
- * Contém o logo/marca do app, navegação principal (Biblioteca / Inventário),
- * filtros de coleção (Favoritos, Jogando, Concluído) e a árvore de plataformas.
- * No rodapé, exibe o botão de acesso às configurações.
+ * Barra lateral principal da aplicação com suporte a dois modos de navegação:
+ * - `library`: exibe filtros de coleção e árvore de plataformas (comportamento original).
+ * - `inventory`: exibe filtros de inventário (plataformas com itens, tipos, estados).
  *
- * A versão do app é carregada via IPC ao montar e exibida abaixo do nome.
- * O Inventário está previsto na UI mas ainda não tem funcionalidade implementada.
+ * Botões "Biblioteca" e "Inventário" ficam fixos no topo em ambos os modos.
+ * Botão "Configurar" permanece fixo no rodapé em ambos os modos.
  */
 
 import { type ReactNode, useEffect, useState } from "react";
-import { Gamepad2, Library, Settings, Star, Trophy } from "lucide-react";
+import { Cpu, Gamepad2, Library, Plus, Settings, Star, Trophy } from "lucide-react";
 import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";
@@ -20,11 +19,7 @@ import "./Sidebar.css";
 /** Definição de um filtro de coleção exibido no nav da sidebar */
 type FilterDef = { value: CollectionFilter; label: string; icon: ReactNode; countKey: keyof CollectionCounts };
 
-/**
- * Filtros de coleção disponíveis na sidebar.
- * Cada filtro tem um valor (CollectionFilter), label, ícone e chave de contagem
- * correspondente no objeto collectionCounts do store.
- */
+/** Filtros de coleção disponíveis no modo biblioteca. */
 const COLLECTION_FILTERS: FilterDef[] = [
   { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} />, countKey: "favorites" },
   { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} />, countKey: "playing" },
@@ -33,47 +28,63 @@ const COLLECTION_FILTERS: FilterDef[] = [
 
 /**
  * Componente de sidebar principal.
- * Gerencia a versão do app (carregada via IPC), o filtro de coleção ativo
- * e a navegação para configurações.
+ * Alterna entre modo biblioteca e modo inventário via `sidebarMode` no store.
  */
 export function Sidebar() {
-  // Abre o modal de configurações na seção especificada
-  const openSettings = useGameStockStore((state) => state.openSettings);
-  // Filtro de coleção ativo (ex.: "favorites", "playing", "completed", "all")
-  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
-  // Contagens de jogos por filtro de coleção para exibir badges nos botões
-  const collectionCounts = useGameStockStore((state) => state.collectionCounts);
-  // Atualiza o filtro de coleção no store
-  const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
-  // Limpa a seleção de plataforma ao navegar para "Biblioteca"
+  const openSettings          = useGameStockStore((state) => state.openSettings);
+  const collectionFilter      = useGameStockStore((state) => state.collectionFilter);
+  const collectionCounts      = useGameStockStore((state) => state.collectionCounts);
+  const setCollectionFilter   = useGameStockStore((state) => state.setCollectionFilter);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
+  const sidebarMode             = useGameStockStore((state) => state.sidebarMode);
+  const setSidebarMode          = useGameStockStore((state) => state.setSidebarMode);
+  const inventoryFilters        = useGameStockStore((state) => state.inventoryFilters);
+  const setInventoryFilters     = useGameStockStore((state) => state.setInventoryFilters);
+  const setInventoryCreateOpen  = useGameStockStore((state) => state.setInventoryCreateOpen);
 
-  // Versão do app exibida abaixo do nome na marca
   const [appVersion, setAppVersion] = useState("");
 
-  // Toda navegação atual pertence a Biblioteca.
-  // Só deve perder estado ativo quando existir fluxo real de Inventário.
-  const isLibraryActive = true;
+  // Dados para os filtros do modo inventário
+  const [itemTypes, setItemTypes] = useState<Array<{ id: number; name: string; count: number }>>([]);
+  const [conservationStates, setConservationStates] = useState<Array<{ id: number; name: string; count: number }>>([]);
+  const totalItems = itemTypes.reduce((acc, t) => acc + t.count, 0);
 
-  /**
-   * Busca a versão do app via IPC ao montar a sidebar.
-   * Usa flag `mounted` para ignorar atualização após desmontagem.
-   */
+  // Carrega versão do app
   useEffect(() => {
     let mounted = true;
+    void window.gameStockAPI.app.getVersion().then((v) => { if (mounted) setAppVersion(v); });
+    return () => { mounted = false; };
+  }, []);
 
-    void window.gameStockAPI.app.getVersion().then((version) => {
-      if (mounted) setAppVersion(version);
+  // Carrega dados dos filtros do inventário ao entrar no modo inventory
+  useEffect(() => {
+    if (sidebarMode !== "inventory") return;
+    let canceled = false;
+
+    void Promise.all([
+      window.gameStockAPI.hardwareInventory.typesListWithCounts(),
+      window.gameStockAPI.hardwareInventory.statesListWithCounts()
+    ]).then(([types, states]) => {
+      if (canceled) return;
+      setItemTypes(types);
+      setConservationStates(states);
     });
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    return () => { canceled = true; };
+  }, [sidebarMode]);
+
+  function handleSwitchToLibrary() {
+    setSidebarMode("library");
+    setSelectedPlatformId(null);
+  }
+
+  function handleSwitchToInventory() {
+    setSidebarMode("inventory");
+  }
 
   return (
     <aside className="sidebar">
-      {/* Marca do app: ícone, nome, subtítulo e versão */}
+      {/* Marca do app */}
       <div className="brand-lockup">
         <div className="brand-mark">
           <Gamepad2 aria-hidden="true" size={22} />
@@ -81,50 +92,124 @@ export function Sidebar() {
         <div>
           <strong>GameStock</strong>
           <span>Games Management</span>
-          {/* Exibe a versão apenas quando carregada */}
           {appVersion ? <small className="brand-version">v{appVersion}</small> : null}
         </div>
       </div>
 
-      {/* Navegação principal: Biblioteca e Inventário */}
+      {/* Navegação principal: Biblioteca | Inventário — sempre visível */}
       <nav className="sidebar-nav" aria-label="Navegação principal">
-        {/* Biblioteca: limpa seleção de plataforma ao clicar */}
-        <button type="button" className={isLibraryActive ? "nav-item active" : "nav-item"} onClick={() => setSelectedPlatformId(null)}>
+        <button
+          type="button"
+          className={sidebarMode === "library" ? "nav-item active" : "nav-item"}
+          onClick={handleSwitchToLibrary}
+        >
           <Library aria-hidden="true" size={18} />
           Biblioteca
         </button>
-        {/* Inventário: item de navegação previsto, sem funcionalidade ainda */}
-        <button type="button" className="nav-item">
-          <Gamepad2 aria-hidden="true" size={18} />
+        <button
+          type="button"
+          className={sidebarMode === "inventory" ? "nav-item active" : "nav-item"}
+          onClick={handleSwitchToInventory}
+        >
+          <Cpu aria-hidden="true" size={18} />
           Inventário
         </button>
       </nav>
 
       <div className="sidebar-separator" />
 
-      {/* Filtros de coleção: Favoritos, Jogando, Concluído */}
-      <nav className="sidebar-nav" aria-label="Filtros de coleção">
-        {COLLECTION_FILTERS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            className={collectionFilter === item.value ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
-            onClick={() => setCollectionFilter(item.value)}
-          >
-            {item.icon}
-            {item.label}
-            {/* Badge com contagem de jogos no filtro */}
-            <span className="nav-item-count">{collectionCounts[item.countKey]}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Conteúdo contextual dependente do modo */}
+      {sidebarMode === "library"
+        ? (
+            <>
+              {/* Filtros de coleção */}
+              <nav className="sidebar-nav" aria-label="Filtros de coleção">
+                {COLLECTION_FILTERS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={collectionFilter === item.value ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
+                    onClick={() => setCollectionFilter(item.value)}
+                  >
+                    {item.icon}
+                    {item.label}
+                    <span className="nav-item-count">{collectionCounts[item.countKey]}</span>
+                  </button>
+                ))}
+              </nav>
+              <div className="sidebar-separator" />
+              {/* Árvore de plataformas */}
+              <PlatformTree />
+            </>
+          )
+        : (
+            /* Filtros do inventário de hardware */
+            <div className="hw-sidebar-filters">
+              {/* Filtro por tipo */}
+              {itemTypes.length > 0 && (
+                <section>
+                  <div className="sidebar-label">Tipo</div>
+                  {itemTypes.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={inventoryFilters.itemTypeId === t.id ? "tree-item selected" : "tree-item"}
+                      onClick={() => setInventoryFilters({ itemTypeId: inventoryFilters.itemTypeId === t.id ? null : t.id })}
+                    >
+                      {t.name}
+                      <span className="nav-item-count">{t.count}</span>
+                    </button>
+                  ))}
+                </section>
+              )}
 
-      <div className="sidebar-separator" />
+              {/* Filtro por condição */}
+              {conservationStates.length > 0 && (
+                <section>
+                  <div className="sidebar-label">Condição</div>
+                  {/* Opção "Todas" mostra total geral */}
+                  <button
+                    type="button"
+                    className={inventoryFilters.conservationStateId === null ? "tree-item selected" : "tree-item"}
+                    onClick={() => setInventoryFilters({ conservationStateId: null })}
+                  >
+                    Todas
+                    <span className="nav-item-count">{totalItems}</span>
+                  </button>
+                  {conservationStates.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={inventoryFilters.conservationStateId === s.id ? "tree-item selected" : "tree-item"}
+                      onClick={() => setInventoryFilters({ conservationStateId: s.id })}
+                    >
+                      {s.name}
+                      <span className="nav-item-count">{s.count}</span>
+                    </button>
+                  ))}
+                </section>
+              )}
 
-      {/* Árvore de plataformas com filtragem por categoria */}
-      <PlatformTree />
+              {itemTypes.length === 0 && (
+                <p className="hw-sidebar-empty">Nenhum item no inventário ainda.</p>
+              )}
+            </div>
+          )
+      }
 
-      {/* Botão de configurações no rodapé da sidebar */}
+      {/* Botão "Novo item" — visível só no modo inventário, acima de Configurações */}
+      {sidebarMode === "inventory" && (
+        <button
+          type="button"
+          className="scan-button"
+          onClick={() => setInventoryCreateOpen(true)}
+        >
+          <Plus aria-hidden="true" size={18} />
+          Novo item
+        </button>
+      )}
+
+      {/* Botão de configurações — sempre visível em ambos os modos */}
       <button type="button" className="scan-button" onClick={() => openSettings("biblioteca")}>
         <Settings aria-hidden="true" size={18} />
         Configurações

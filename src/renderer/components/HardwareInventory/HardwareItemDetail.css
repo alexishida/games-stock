@@ -1,0 +1,312 @@
+/* HardwareItemDetail.css — Detalhe de item de hardware */
+
+.hw-detail {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  background: var(--bg-primary);
+}
+
+/* ── Hero ────────────────────────────────────────────────────────── */
+
+.hw-detail-hero {
+  position: relative;
+  min-height: 320px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.hw-detail-hero-bg,
+.hw-detail-hero-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hw-detail-hero-bg {
+  object-fit: cover;
+  object-position: center 30%;
+  filter: blur(10px) saturate(0.85) contrast(1.08) brightness(0.7);
+  transform: scale(1.06);
+}
+
+.hw-detail-hero-fallback {
+  background:
+    linear-gradient(135deg, rgba(0, 219, 231, 0.14), transparent 46%),
+    var(--bg-panel);
+}
+
+.hw-detail-hero-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, var(--bg-primary) 0%, rgba(19, 19, 19, 0.75) 38%, rgba(19, 19, 19, 0.12) 100%),
+    linear-gradient(to right, rgba(19, 19, 19, 0.88), transparent 58%);
+}
+
+/* Botões topo-direita: voltar + prev/next */
+.hw-detail-top-actions {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Card da foto principal — proporção paisagem (sem rotação) */
+.hw-detail-cover-card {
+  display: grid;
+  width: 320px;
+  height: 200px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: var(--accent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.56);
+}
+
+.hw-detail-cover-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hw-detail-cover-card svg {
+  color: var(--text-secondary);
+}
+
+/* ── Conteúdo abaixo do hero ────────────────────────────────────── */
+
+.hw-detail-content-grid {
+  display: grid;
+  /* detalhes ocupa mais espaço que galeria */
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 24px 48px;
+}
+
+/* ── Painel de detalhes ─────────────────────────────────────────── */
+
+.hw-detail-dl {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.hw-detail-row {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+
+/* zebra striping sutil */
+.hw-detail-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hw-detail-row:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.hw-detail-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.hw-detail-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.hw-detail-value--empty {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.hw-detail-link {
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+  text-decoration: none;
+}
+
+.hw-detail-link:hover { text-decoration: underline; }
+
+/* ── Galeria ──────────────────────────────────────────────────────── */
+
+.hw-detail-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.hw-detail-gallery-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hw-detail-gallery-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-surface);
+  padding: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.hw-detail-gallery-thumb:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.hw-detail-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.2s;
+}
+
+.hw-detail-gallery-thumb:hover img {
+  transform: scale(1.04);
+}
+
+.hw-gallery-cover-badge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: var(--accent);
+  color: #002022;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Botão de remover: overlay absoluto no canto superior direito do thumb */
+.hw-gallery-thumb-remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 180, 171, 0.5);
+  background: rgba(40, 10, 8, 0.75);
+  color: #ffb4ab;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  padding: 0;
+  backdrop-filter: blur(4px);
+}
+
+.hw-detail-gallery-thumb:hover .hw-gallery-thumb-remove {
+  opacity: 1;
+}
+
+.hw-gallery-thumb-remove:hover {
+  background: rgba(180, 40, 30, 0.85) !important;
+  border-color: #ffb4ab !important;
+}
+
+.hw-gallery-thumb-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.hw-gallery-thumb-actions button {
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.hw-gallery-thumb-actions button:hover { border-color: var(--accent); color: var(--text-primary); }
+
+.hw-gallery-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── Confirmação de deleção ────────────────────────────────────────── */
+
+.hw-confirm-dialog {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  max-width: 320px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+
+.hw-confirm-dialog p { margin: 0; font-size: 14px; color: var(--text-primary); }
+.hw-confirm-dialog span { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+.hw-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hw-confirm-actions button {
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.hw-confirm-delete-btn {
+  background: rgba(255, 180, 171, 0.15) !important;
+  border-color: #ffb4ab !important;
+  color: #ffb4ab !important;
+}
+
+.hw-confirm-delete-btn:hover { background: rgba(255, 180, 171, 0.25) !important; }

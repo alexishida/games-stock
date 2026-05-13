@@ -199,5 +199,52 @@ export const IPC_CHANNELS = {
   view: {
     /** Evento push para alternar entre os modos de visualização disponíveis. */
     set: "view:set"
+  },
+
+  /**
+   * Inventário físico de hardware: consoles, controles, cabos, acessórios e outros itens.
+   * Inclui CRUD de itens, tipos de item, estados de conservação e galeria de fotos.
+   */
+  hardwareInventory: {
+    /** Lista itens com filtros opcionais (plataforma, tipo, estado, busca). */
+    itemsList:   "hardwareInventory:items:list",
+    /** Retorna um item pelo ID. */
+    itemsGet:    "hardwareInventory:items:get",
+    /** Cria um novo item de hardware. */
+    itemsCreate: "hardwareInventory:items:create",
+    /** Atualiza os dados de um item existente. */
+    itemsUpdate: "hardwareInventory:items:update",
+    /** Remove um item e seus arquivos de foto do disco. */
+    itemsDelete: "hardwareInventory:items:delete",
+
+    /** Lista todos os tipos de item cadastrados. */
+    typesList:   "hardwareInventory:types:list",
+    /** Lista tipos com contagem de itens associados. */
+    typesListWithCounts: "hardwareInventory:types:listWithCounts",
+    /** Cria um novo tipo de item personalizado. */
+    typesCreate: "hardwareInventory:types:create",
+    /** Remove um tipo de item pelo ID. */
+    typesDelete: "hardwareInventory:types:delete",
+
+    /** Lista todos os estados de conservação cadastrados. */
+    statesList:   "hardwareInventory:states:list",
+    /** Lista estados com contagem de itens associados. */
+    statesListWithCounts: "hardwareInventory:states:listWithCounts",
+    /** Cria um novo estado de conservação personalizado. */
+    statesCreate: "hardwareInventory:states:create",
+    /** Remove um estado de conservação pelo ID. */
+    statesDelete: "hardwareInventory:states:delete",
+
+    /** Lista as fotos de um item. */
+    photosList:   "hardwareInventory:photos:list",
+    /** Adiciona uma foto ao item: copia o arquivo para userData e cria o registro. */
+    photosAdd:    "hardwareInventory:photos:add",
+    /** Remove uma foto pelo ID e exclui o arquivo do disco. */
+    photosRemove: "hardwareInventory:photos:remove",
+    /** Troca a ordem de duas fotos na galeria de um item. */
+    photosReorder: "hardwareInventory:photos:reorder",
+
+    /** Lista plataformas que possuem ao menos um item de hardware cadastrado. */
+    platformsWithItems: "hardwareInventory:platforms:withItems"
   }
 } as const;

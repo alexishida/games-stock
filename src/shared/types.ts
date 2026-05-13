@@ -213,6 +213,99 @@ export interface PlatformMappingsInput {
 }
 
 // ---------------------------------------------------------------------------
+// Inventário físico de hardware
+// ---------------------------------------------------------------------------
+
+/** Tipo de item de hardware (ex: Console, Controle, Cabo). */
+export interface HardwareItemType {
+  id: number;
+  name: string;
+  /** 1 = padrão do sistema; 0 = criado pelo usuário */
+  is_default: number;
+  created_at: string;
+}
+
+/** Estado de conservação de um item de hardware (ex: Novo, Bom, Ruim). */
+export interface ConservationState {
+  id: number;
+  name: string;
+  /** 1 = padrão do sistema; 0 = criado pelo usuário */
+  is_default: number;
+  created_at: string;
+}
+
+/** Foto associada a um item de hardware. */
+export interface HardwareItemPhoto {
+  id: number;
+  item_id: number;
+  file_path: string;
+  sort_order: number;
+  created_at: string;
+}
+
+/** Item físico de hardware cadastrado no inventário. */
+export interface HardwareItem {
+  id: number;
+  name: string;
+  platform_id: number | null;
+  platform_name: string | null;
+  item_type_id: number | null;
+  item_type_name: string | null;
+  conservation_state_id: number | null;
+  conservation_state_name: string | null;
+  description: string;
+  acquisition_date: string | null;
+  acquisition_url: string | null;
+  color: string | null;
+  value: number | null;
+  serial_number: string | null;
+  region: string | null;
+  storage_location: string | null;
+  loan_to: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Caminho da foto de capa (menor sort_order), ou null se sem fotos. */
+  cover_photo_path: string | null;
+}
+
+/** Filtros opcionais para listagem de itens de hardware. */
+export interface HardwareItemFilters {
+  platformId?: number | null;
+  itemTypeId?: number | null;
+  conservationStateId?: number | null;
+  search?: string | null;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Resultado paginado da listagem de itens de hardware. */
+export interface HardwareItemListResult {
+  items: HardwareItem[];
+  total: number;
+  filtered: number;
+}
+
+/** Campos para criação de um item de hardware. */
+export interface HardwareItemCreateInput {
+  name: string;
+  platform_id?: number | null;
+  item_type_id?: number | null;
+  conservation_state_id?: number | null;
+  description: string;
+  acquisition_date?: string | null;
+  acquisition_url?: string | null;
+  color?: string | null;
+  value?: number | null;
+  serial_number?: string | null;
+  region?: string | null;
+  storage_location?: string | null;
+  loan_to?: string | null;
+}
+
+/** Campos para atualização de um item de hardware (todos opcionais). */
+export type HardwareItemUpdateInput = Partial<HardwareItemCreateInput>;
+
+// ---------------------------------------------------------------------------
 // Portabilidade de dados (exportação / importação de backup)
 // ---------------------------------------------------------------------------
 
@@ -220,14 +313,15 @@ export interface PlatformMappingsInput {
  * Categorias de dados suportadas no pacote de backup.
  * Cada categoria é independente e pode ser incluída/excluída individualmente.
  */
-export type DataPortabilityCategory = "metadata" | "images" | "platforms" | "romLocations";
+export type DataPortabilityCategory = "metadata" | "images" | "platforms" | "romLocations" | "inventoryImages";
 
 /** Array com todas as categorias disponíveis, na ordem padrão de exportação. */
 export const DATA_PORTABILITY_CATEGORIES: DataPortabilityCategory[] = [
   "metadata",
   "images",
   "platforms",
-  "romLocations"
+  "romLocations",
+  "inventoryImages"
 ];
 
 /** Severidade de um aviso ou erro gerado durante exportação/importação. */
@@ -259,6 +353,10 @@ export interface DataPortabilityCounts {
   romFolderEntries: number;
   /** Total de emuladores exportados/importados. */
   emulators: number;
+  /** Total de itens de hardware do inventário exportados/importados. */
+  inventoryItems: number;
+  /** Total de fotos do inventário exportadas/importadas. */
+  inventoryPhotos: number;
 }
 
 /** Manifesto incluído no pacote de backup com metadados da exportação. */
@@ -390,6 +488,15 @@ export interface DataPortabilityImportSummary {
     skipped: number;
     /** Entradas de pasta de ROM importadas. */
     romFolderEntries: number;
+  };
+  /** Contagens de itens de inventário de hardware processados. */
+  inventoryImages?: {
+    /** Itens de hardware criados. */
+    itemsCreated: number;
+    /** Itens de hardware atualizados. */
+    itemsUpdated: number;
+    /** Fotos de inventário copiadas. */
+    photosImported: number;
   };
   /** Avisos gerados durante a importação. */
   warnings: DataPortabilityWarning[];

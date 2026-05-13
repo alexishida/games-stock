@@ -15,7 +15,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
-import { closeDatabase, getDatabase, getImagesDir, getUserDataDir } from "./db/database";
+import { closeDatabase, getDatabase, getImagesDir, getInventarioImagesDir, getUserDataDir } from "./db/database";
+import { HardwareItemDao } from "./db/dao/hardwareItemDao";
+import { HardwareItemTypeDao } from "./db/dao/hardwareItemTypeDao";
+import { HardwareConservationStateDao } from "./db/dao/hardwareConservationStateDao";
+import { HardwareItemPhotoDao } from "./db/dao/hardwareItemPhotoDao";
 import { getAppUserDataDir } from "./appPaths";
 import { spawn } from "node:child_process";
 import * as games from "./db/repositories/games";
@@ -392,6 +396,96 @@ function registerIpc(): void {
     );
     return { success: true as const, deleted: byRomPath.deleted + byLegacyTitles.deleted };
   });
+
+  // ── Inventário de hardware físico ──────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.itemsList, (_event, filters) =>
+    new HardwareItemDao(getDatabase()).list(filters)
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.itemsGet, (_event, id: number) =>
+    new HardwareItemDao(getDatabase()).get(id)
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.itemsCreate, (_event, data) =>
+    new HardwareItemDao(getDatabase()).create(data)
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.itemsUpdate, (_event, id: number, data) =>
+    new HardwareItemDao(getDatabase()).update(id, data)
+  );
+
+  // Handler de exclusão: remove registros do banco e o diretório de fotos do disco.
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.itemsDelete, (_event, id: number) => {
+    const db = getDatabase();
+    new HardwareItemDao(db).delete(id);
+    // Após deletar o item (cascade apaga hardware_item_photos), remove os arquivos de foto.
+    const itemImagesDir = path.join(getInventarioImagesDir(), String(id));
+    if (fs.existsSync(itemImagesDir)) {
+      fs.rmSync(itemImagesDir, { recursive: true, force: true });
+    }
+    return { success: true as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.typesList, () =>
+    new HardwareItemTypeDao(getDatabase()).list()
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.typesListWithCounts, () =>
+    new HardwareItemTypeDao(getDatabase()).listWithCounts()
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.typesCreate, (_event, name: string) =>
+    new HardwareItemTypeDao(getDatabase()).create(name)
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.typesDelete, (_event, id: number) => {
+    new HardwareItemTypeDao(getDatabase()).delete(id);
+    return { success: true as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.statesList, () =>
+    new HardwareConservationStateDao(getDatabase()).list()
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.statesListWithCounts, () =>
+    new HardwareConservationStateDao(getDatabase()).listWithCounts()
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.statesCreate, (_event, name: string) =>
+    new HardwareConservationStateDao(getDatabase()).create(name)
+  );
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.statesDelete, (_event, id: number) => {
+    new HardwareConservationStateDao(getDatabase()).delete(id);
+    return { success: true as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.photosList, (_event, itemId: number) =>
+    new HardwareItemPhotoDao(getDatabase()).listByItem(itemId)
+  );
+
+  // Handler de adição de foto: copia o arquivo para userData com nome UUID e cria registro no banco.
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.photosAdd, (_event, itemId: number, sourcePath: string) => {
+    const ext = path.extname(sourcePath).toLowerCase() || ".jpg";
+    const uuid = crypto.randomUUID();
+    const destDir = path.join(getInventarioImagesDir(), String(itemId));
+    fs.mkdirSync(destDir, { recursive: true });
+    const destPath = path.join(destDir, `${uuid}${ext}`);
+    fs.copyFileSync(sourcePath, destPath);
+    return new HardwareItemPhotoDao(getDatabase()).create(itemId, destPath);
+  });
+
+  // Handler de remoção de foto: apaga o arquivo do disco e remove o registro do banco.
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.photosRemove, (_event, photoId: number) => {
+    const db = getDatabase();
+    const photoDao = new HardwareItemPhotoDao(db);
+    const photo = db.prepare("SELECT file_path FROM hardware_item_photos WHERE id = ?").get(photoId) as { file_path: string } | undefined;
+    photoDao.delete(photoId);
+    if (photo?.file_path && fs.existsSync(photo.file_path)) {
+      fs.unlinkSync(photo.file_path);
+    }
+    return { success: true as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.photosReorder, (_event, idA: number, idB: number) => {
+    new HardwareItemPhotoDao(getDatabase()).reorder(idA, idB);
+    return { success: true as const };
+  });
+
+  ipcMain.handle(IPC_CHANNELS.hardwareInventory.platformsWithItems, () =>
+    new HardwareItemDao(getDatabase()).listPlatformsWithItems()
+  );
 }
 
 /** Envia progresso de operação LaunchBox para o renderer via IPC push. */

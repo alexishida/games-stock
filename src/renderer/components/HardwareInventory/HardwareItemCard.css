@@ -1,0 +1,143 @@
+/* HardwareItemCard.css — Card de item de hardware para a grade do inventário */
+
+.hw-card {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border, #3a494b);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card, #201f1f);
+  cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+
+.hw-card:hover {
+  border-color: rgba(0, 219, 231, 0.42);
+  box-shadow: 0 10px 28px rgba(0, 219, 231, 0.1), 0 6px 16px rgba(0,0,0,.3);
+  transform: translateY(-2px);
+}
+
+.hw-card.selected {
+  border-color: var(--accent, #00dbe7);
+  box-shadow: 0 0 0 2px rgba(0, 219, 231, 0.35);
+}
+
+.hw-card:focus-visible {
+  outline: 2px solid var(--accent, #00dbe7);
+  outline-offset: 2px;
+}
+
+/* Área de capa (foto ou placeholder) */
+.hw-card-cover {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background: var(--bg-surface, #1c1b1b);
+  overflow: hidden;
+}
+
+.hw-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Placeholder quando não há foto */
+.hw-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-muted, #849495);
+  background: var(--bg-surface, #1c1b1b);
+}
+
+.hw-card-placeholder span {
+  font-size: 10px;
+  text-align: center;
+  max-width: 80%;
+  line-height: 1.3;
+  opacity: 0.7;
+}
+
+/* Gradiente + texto sobrepostos na foto */
+.hw-card-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to top, rgba(0,0,0,.75) 0%, transparent 100%);
+}
+
+.hw-card-copy {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hw-card-platform {
+  font-size: 10px;
+  color: var(--accent-dim, #00dbe7);
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hw-card-copy strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* Metadados abaixo da capa */
+.hw-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  flex-wrap: wrap;
+}
+
+.hw-card-type {
+  font-size: 10px;
+  color: var(--text-secondary, #b9cacb);
+  background: var(--bg-surface, #1c1b1b);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+/* Badge de condição com cores semânticas */
+.hw-card-condition {
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+.condition-new    { background: rgba(0, 219, 231, 0.15); color: #00dbe7; }
+.condition-great  { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.condition-good   { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.condition-bad    { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+.condition-repair { background: rgba(251, 113, 133, 0.15); color: #fb7185; }

@@ -11,6 +11,7 @@
 import type { AppStateEntry } from "../shared/appState";
 import {
   CollectionCounts,
+  ConservationState,
   CoverSyncResult,
   CoverSyncStats,
   DataPortabilityExportRequest,
@@ -27,6 +28,13 @@ import {
   GameMediaItem,
   GameSortBy,
   GameUpdateInput,
+  HardwareItem,
+  HardwareItemCreateInput,
+  HardwareItemFilters,
+  HardwareItemListResult,
+  HardwareItemPhoto,
+  HardwareItemType,
+  HardwareItemUpdateInput,
   LaunchBoxDownloadParams,
   LaunchBoxDownloadResult,
   LaunchBoxGame,
@@ -271,6 +279,50 @@ export interface GameStockAPI {
      * @returns Função de cleanup para remover o listener.
      */
     onSet(callback: (mode: ViewMode) => void): () => void;
+  };
+
+  /** Inventário físico de hardware: CRUD de itens, tipos, estados e fotos. */
+  hardwareInventory: {
+    /** Lista itens com filtros opcionais (plataforma, tipo, estado, busca). */
+    itemsList(filters?: HardwareItemFilters): Promise<HardwareItemListResult>;
+    /** Retorna um item pelo ID, ou null se não encontrado. */
+    itemsGet(id: number): Promise<HardwareItem | null>;
+    /** Cria um novo item de hardware. */
+    itemsCreate(data: HardwareItemCreateInput): Promise<HardwareItem>;
+    /** Atualiza um item de hardware existente. */
+    itemsUpdate(id: number, data: HardwareItemUpdateInput): Promise<HardwareItem>;
+    /** Remove um item e seus arquivos de foto do disco. */
+    itemsDelete(id: number): Promise<{ success: true }>;
+
+    /** Lista todos os tipos de item cadastrados. */
+    typesList(): Promise<HardwareItemType[]>;
+    /** Lista tipos com contagem de itens associados. */
+    typesListWithCounts(): Promise<Array<{ id: number; name: string; count: number }>>;
+    /** Cria um novo tipo de item personalizado. */
+    typesCreate(name: string): Promise<HardwareItemType>;
+    /** Remove um tipo de item pelo ID. */
+    typesDelete(id: number): Promise<{ success: true }>;
+
+    /** Lista todos os estados de conservação cadastrados. */
+    statesList(): Promise<ConservationState[]>;
+    /** Lista estados com contagem de itens associados. */
+    statesListWithCounts(): Promise<Array<{ id: number; name: string; count: number }>>;
+    /** Cria um novo estado de conservação personalizado. */
+    statesCreate(name: string): Promise<ConservationState>;
+    /** Remove um estado de conservação pelo ID. */
+    statesDelete(id: number): Promise<{ success: true }>;
+
+    /** Lista as fotos de um item, ordenadas por sort_order. */
+    photosList(itemId: number): Promise<HardwareItemPhoto[]>;
+    /** Adiciona uma foto ao item; copia o arquivo para userData e retorna o registro criado. */
+    photosAdd(itemId: number, sourcePath: string): Promise<HardwareItemPhoto>;
+    /** Remove uma foto pelo ID e exclui o arquivo do disco. */
+    photosRemove(photoId: number): Promise<{ success: true }>;
+    /** Troca a ordem de duas fotos na galeria. */
+    photosReorder(idA: number, idB: number): Promise<{ success: true }>;
+
+    /** Lista plataformas com ao menos um item de hardware cadastrado. */
+    platformsWithItems(): Promise<Array<{ id: number; name: string; count: number }>>;
   };
 
   /** Ações de UI da biblioteca disparadas pelo menu nativo. */

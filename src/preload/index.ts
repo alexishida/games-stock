@@ -26,6 +26,9 @@ import {
   GameCreateInput,
   GameFilters,
   GameUpdateInput,
+  HardwareItemCreateInput,
+  HardwareItemFilters,
+  HardwareItemUpdateInput,
   PlatformMappings,
   PlatformMappingsInput,
   LaunchBoxDownloadParams,
@@ -290,6 +293,50 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.view.set, listener);
       return () => ipcRenderer.removeListener(IPC_CHANNELS.view.set, listener);
     }
+  },
+
+  /** Inventário físico de hardware: CRUD de itens, tipos, estados e fotos. */
+  hardwareInventory: {
+    /** Lista itens com filtros opcionais. */
+    itemsList:   (filters?: HardwareItemFilters) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.itemsList, filters),
+    /** Retorna um item pelo ID. */
+    itemsGet:    (id: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.itemsGet, id),
+    /** Cria um novo item de hardware. */
+    itemsCreate: (data: HardwareItemCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.itemsCreate, data),
+    /** Atualiza um item de hardware existente. */
+    itemsUpdate: (id: number, data: HardwareItemUpdateInput) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.itemsUpdate, id, data),
+    /** Remove um item e seus arquivos de foto. */
+    itemsDelete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.itemsDelete, id),
+
+    /** Lista todos os tipos de item cadastrados. */
+    typesList:   () => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.typesList),
+    /** Lista tipos com contagem de itens associados. */
+    typesListWithCounts: () => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.typesListWithCounts),
+    /** Cria um novo tipo de item. */
+    typesCreate: (name: string) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.typesCreate, name),
+    /** Remove um tipo de item. */
+    typesDelete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.typesDelete, id),
+
+    /** Lista todos os estados de conservação. */
+    statesList:   () => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.statesList),
+    /** Lista estados com contagem de itens associados. */
+    statesListWithCounts: () => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.statesListWithCounts),
+    /** Cria um novo estado de conservação. */
+    statesCreate: (name: string) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.statesCreate, name),
+    /** Remove um estado de conservação. */
+    statesDelete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.statesDelete, id),
+
+    /** Lista as fotos de um item. */
+    photosList:   (itemId: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.photosList, itemId),
+    /** Adiciona uma foto ao item a partir de um caminho de arquivo local. */
+    photosAdd:    (itemId: number, sourcePath: string) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.photosAdd, itemId, sourcePath),
+    /** Remove uma foto pelo ID. */
+    photosRemove: (photoId: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.photosRemove, photoId),
+    /** Troca a ordem de duas fotos na galeria. */
+    photosReorder: (idA: number, idB: number) => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.photosReorder, idA, idB),
+
+    /** Lista plataformas com ao menos um item de hardware cadastrado. */
+    platformsWithItems: () => ipcRenderer.invoke(IPC_CHANNELS.hardwareInventory.platformsWithItems)
   },
 
   /** Ações de UI da biblioteca disparadas pelo menu nativo. */

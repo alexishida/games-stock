@@ -52,6 +52,9 @@ export function getDatabase(): Database.Database {
   // Ativa integridade referencial (foreign keys) — desabilitada por padrão no SQLite.
   db.pragma("foreign_keys = ON");
 
+  // Garante que o diretório de fotos do inventário existe.
+  fs.mkdirSync(getInventarioImagesDir(), { recursive: true });
+
   // Sequência de inicialização: schema → migrations → deduplicação → seed.
   applySchema(db);
   migratePlatformAliases(db);
@@ -60,6 +63,7 @@ export function getDatabase(): Database.Database {
   seedPlatforms(db);
   seedPlatformMappings(db);
   seedEmulators(db);
+  seedHardwareInventoryDefaults(db);
   backfillCachedCoverPaths(db);
   return db;
 }
@@ -180,6 +184,61 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_favorite ON games(favorite);
     CREATE INDEX IF NOT EXISTS idx_games_play_status ON games(play_status);
     CREATE INDEX IF NOT EXISTS idx_games_rom_path ON games(rom_path);
+  `);
+
+  // ── Inventário de hardware físico ──────────────────────────────────────────
+
+  database.exec(`
+    -- Tipos de item de hardware configuráveis pelo usuário (ex: Console, Controle).
+    CREATE TABLE IF NOT EXISTS item_types (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT    NOT NULL UNIQUE,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Estados de conservação dos itens de hardware (ex: Novo, Bom, Ruim).
+    CREATE TABLE IF NOT EXISTS conservation_states (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT    NOT NULL UNIQUE,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Itens físicos de hardware cadastrados no inventário.
+    CREATE TABLE IF NOT EXISTS hardware_items (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      name                  TEXT    NOT NULL,
+      platform_id           INTEGER REFERENCES platforms(id) ON DELETE SET NULL,
+      item_type_id          INTEGER REFERENCES item_types(id) ON DELETE SET NULL,
+      conservation_state_id INTEGER REFERENCES conservation_states(id) ON DELETE SET NULL,
+      description           TEXT    NOT NULL DEFAULT '',
+      acquisition_date      TEXT,
+      acquisition_url       TEXT,
+      color                 TEXT,
+      value                 REAL,
+      serial_number         TEXT,
+      region                TEXT,
+      storage_location      TEXT,
+      loan_to               TEXT,
+      created_at            TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at            TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_hardware_items_platform  ON hardware_items(platform_id);
+    CREATE INDEX IF NOT EXISTS idx_hardware_items_type      ON hardware_items(item_type_id);
+    CREATE INDEX IF NOT EXISTS idx_hardware_items_state     ON hardware_items(conservation_state_id);
+
+    -- Fotos associadas a um item de hardware, com ordenação configurável.
+    CREATE TABLE IF NOT EXISTS hardware_item_photos (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id    INTEGER NOT NULL REFERENCES hardware_items(id) ON DELETE CASCADE,
+      file_path  TEXT    NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_hardware_item_photos_item ON hardware_item_photos(item_id, sort_order);
   `);
 }
 
@@ -477,6 +536,48 @@ function sanitizeMediaPath(value: string): string {
     .trim()
     .replace(/\s+/g, "-")
     .slice(0, 120);
+}
+
+/**
+ * Seed: insere os tipos de item e estados de conservação padrão do inventário de hardware.
+ * Usa `INSERT OR IGNORE` para ser idempotente — pode ser executado a cada inicialização.
+ */
+function seedHardwareInventoryDefaults(database: Database.Database): void {
+  const insertType = database.prepare("INSERT OR IGNORE INTO item_types (name, is_default) VALUES (?, 1)");
+  const insertState = database.prepare("INSERT OR IGNORE INTO conservation_states (name, is_default) VALUES (?, 1)");
+
+  const defaultTypes = [
+    "Console",
+    "Controle",
+    "Cabo de Energia",
+    "Cabo de Vídeo",
+    "Cartucho/Mídia",
+    "Memória/Memory Card",
+    "Acessório",
+    "Outros"
+  ];
+
+  const defaultStates = [
+    "Novo",
+    "Ótimo",
+    "Bom",
+    "Ruim",
+    "Necessita Reparo"
+  ];
+
+  const transaction = database.transaction(() => {
+    for (const name of defaultTypes) insertType.run(name);
+    for (const name of defaultStates) insertState.run(name);
+  });
+  transaction();
+}
+
+/**
+ * Retorna o diretório raiz onde as fotos do inventário de hardware são armazenadas.
+ * Estrutura: <userData>/inventario/images/<item_id>/
+ */
+export function getInventarioImagesDir(): string {
+  return path.join(getUserDataDir(), "inventario", "images");
 }
 
 /**
