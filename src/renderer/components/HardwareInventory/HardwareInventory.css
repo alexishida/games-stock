@@ -25,6 +25,7 @@
   position: relative;
   flex: 1;
   max-width: 480px;
+  min-width: 180px;
 }
 
 .hw-search-icon {
@@ -52,6 +53,19 @@
 
 .hw-search-input:focus { border-color: var(--accent, #00dbe7); }
 
+/* Status da toolbar mostra contagem ou item aberto sem ocupar a area da busca. */
+.hw-inventory-toolbar-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+  color: var(--text-muted, #849495);
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Contador de resultados */
 .hw-inventory-count {
   font-size: 11px;
@@ -72,4 +86,28 @@
 .hw-inventory-grid-full {
   display: flex;
   flex-direction: column;
+}
+
+/* Detalhe ocupa a area restante enquanto a toolbar permanece fixa no topo. */
+.hw-inventory-detail-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 780px) {
+  .hw-inventory-toolbar {
+    align-items: stretch;
+    height: auto;
+    flex-direction: column;
+    padding: 10px 16px;
+  }
+
+  .hw-search-wrap,
+  .hw-inventory-toolbar-status {
+    width: 100%;
+    max-width: none;
+  }
 }

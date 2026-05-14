@@ -22,14 +22,69 @@ interface Props {
   onNavigate: (item: HardwareItem) => void;
 }
 
-/** Linha de detalhe label + valor — sempre visível, mostra "—" quando vazio */
-function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+interface DetailRowProps {
+  label: string;
+  value: string | null | undefined;
+  href?: string | null;
+}
+
+interface DetailSummaryItemProps {
+  label: string;
+  value: string | null | undefined;
+}
+
+/** Linha de detalhe label + valor com estado vazio consistente. */
+function DetailRow({ label, value, href }: DetailRowProps) {
+  const displayValue = value?.trim();
+  const isEmpty = !displayValue;
+
   return (
     <div className="hw-detail-row">
       <dt className="hw-detail-label">{label}</dt>
-      <dd className={`hw-detail-value${!value?.trim() ? " hw-detail-value--empty" : ""}`}>{value?.trim() || "—"}</dd>
+      <dd className={`hw-detail-value${isEmpty ? " hw-detail-value--empty" : ""}`}>
+        {displayValue && href
+          ? <a href={href} target="_blank" rel="noopener noreferrer" className="hw-detail-link" title={href}>{displayValue}</a>
+          : displayValue || "Não informado"
+        }
+      </dd>
     </div>
   );
+}
+
+/** Item do resumo superior, usado para dados mais escaneaveis do inventario. */
+function DetailSummaryItem({ label, value }: DetailSummaryItemProps) {
+  const displayValue = value?.trim();
+
+  return (
+    <div className="hw-detail-summary-item">
+      <dt>{label}</dt>
+      <dd className={!displayValue ? "hw-detail-value--empty" : undefined}>{displayValue || "Não informado"}</dd>
+    </div>
+  );
+}
+
+/** Formata valor monetario em real sem espalhar regra de exibicao pelo JSX. */
+function formatCurrency(value: number | null | undefined): string | null {
+  if (value == null) return null;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+/** Formata data ISO simples sem deslocamento de fuso horario. */
+function formatDate(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return value;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/** Reduz URL longa para host quando possivel, mantendo o link completo no href. */
+function formatUrlLabel(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return value;
+  }
 }
 
 /**
@@ -60,6 +115,10 @@ export function HardwareItemDetail({ item, allItems, onEdit, onDelete, onClose, 
   const galleryPhotos = photos;
 
   const lightboxPhoto = lightboxIndex !== null ? galleryPhotos[lightboxIndex] ?? null : null;
+  // Valores formatados ficam centralizados para manter o JSX de dados mais legivel.
+  const acquisitionDate = formatDate(item.acquisition_date);
+  const paidValue = formatCurrency(item.value);
+  const acquisitionUrlLabel = formatUrlLabel(item.acquisition_url);
 
   async function handleDeleteConfirmed() {
     setDeleting(true);
@@ -194,30 +253,54 @@ export function HardwareItemDetail({ item, allItems, onEdit, onDelete, onClose, 
 
       {/* ── Conteúdo abaixo do hero ──────────────────────────────────── */}
       <div className="hw-detail-content-grid">
-        {/* Painel: campos adicionais */}
-        <section className="detail-panel hw-detail-fields">
-          <h2>Detalhes</h2>
-          <dl className="hw-detail-dl">
-            <DetailRow label="Plataforma"            value={item.platform_name} />
-            <DetailRow label="Tipo"                  value={item.item_type_name} />
-            <DetailRow label="Condição"              value={item.conservation_state_name} />
-            <DetailRow label="Data de aquisição"     value={item.acquisition_date} />
-            <DetailRow label="Valor pago"            value={item.value != null ? `R$ ${item.value.toFixed(2)}` : null} />
-            <DetailRow label="Cor"                   value={item.color} />
-            <DetailRow label="Região"                value={item.region} />
-            <DetailRow label="Número de série"       value={item.serial_number} />
-            <DetailRow label="Local de armazenamento" value={item.storage_location} />
-            <DetailRow label="Emprestado para"       value={item.loan_to} />
-            <div className="hw-detail-row">
-              <dt className="hw-detail-label">URL de aquisição</dt>
-              <dd className="hw-detail-value">
-                {item.acquisition_url
-                  ? <a href={item.acquisition_url} target="_blank" rel="noopener noreferrer" className="hw-detail-link">{item.acquisition_url}</a>
-                  : <span className="hw-detail-value--empty">—</span>
-                }
-              </dd>
-            </div>
+        {/* Painel: dados organizados por decisao de consulta do inventario. */}
+        <section className="detail-panel hw-detail-info-panel">
+          <h2>Dados do item</h2>
+
+          <dl className="hw-detail-summary-strip" aria-label="Resumo do item">
+            <DetailSummaryItem label="Plataforma" value={item.platform_name} />
+            <DetailSummaryItem label="Tipo" value={item.item_type_name} />
+            <DetailSummaryItem label="Condição" value={item.conservation_state_name} />
+            <DetailSummaryItem label="Valor pago" value={paidValue} />
           </dl>
+
+          <div className="hw-detail-section-grid">
+            <section className="hw-detail-section">
+              <h3>Identificação</h3>
+              <dl className="hw-detail-dl">
+                <DetailRow label="Plataforma" value={item.platform_name} />
+                <DetailRow label="Tipo" value={item.item_type_name} />
+                <DetailRow label="Condição" value={item.conservation_state_name} />
+                <DetailRow label="Cor" value={item.color} />
+                <DetailRow label="Região" value={item.region} />
+              </dl>
+            </section>
+
+            <section className="hw-detail-section">
+              <h3>Aquisição</h3>
+              <dl className="hw-detail-dl">
+                <DetailRow label="Data" value={acquisitionDate} />
+                <DetailRow label="Valor pago" value={paidValue} />
+                <DetailRow label="Origem" value={acquisitionUrlLabel} href={item.acquisition_url} />
+              </dl>
+            </section>
+
+            <section className="hw-detail-section">
+              <h3>Controle físico</h3>
+              <dl className="hw-detail-dl">
+                <DetailRow label="Número de série" value={item.serial_number} />
+                <DetailRow label="Local" value={item.storage_location} />
+                <DetailRow label="Emprestado para" value={item.loan_to} />
+              </dl>
+            </section>
+
+            {item.description?.trim() && (
+              <section className="hw-detail-section hw-detail-section-wide">
+                <h3>Descrição</h3>
+                <p className="hw-detail-description">{item.description.trim()}</p>
+              </section>
+            )}
+          </div>
         </section>
 
         {/* Painel: galeria de fotos */}

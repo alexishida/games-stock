@@ -87,48 +87,120 @@
 
 .hw-detail-content-grid {
   display: grid;
-  /* detalhes ocupa mais espaço que galeria */
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  /* Dados ocupam mais espaco que galeria para reduzir leitura em lista longa. */
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+  align-items: start;
   gap: 16px;
   padding: 20px 24px 48px;
 }
 
 /* ── Painel de detalhes ─────────────────────────────────────────── */
 
+.hw-detail-info-panel {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.hw-detail-info-panel h2,
+.hw-detail-gallery-panel h2 {
+  margin-bottom: 0;
+}
+
+/* Resumo superior: dados mais importantes ficam escaneaveis antes dos grupos. */
+.hw-detail-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.hw-detail-summary-item {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.hw-detail-summary-item + .hw-detail-summary-item {
+  border-left: 1px solid var(--border);
+}
+
+.hw-detail-summary-item dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.hw-detail-summary-item dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hw-detail-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+
+/* Grupos usam separacao leve, sem criar cards dentro do painel principal. */
+.hw-detail-section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(132, 148, 149, 0.18);
+}
+
+.hw-detail-section-wide {
+  grid-column: 1 / -1;
+}
+
+.hw-detail-section h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .hw-detail-dl {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0;
+  margin: 0;
 }
 
 .hw-detail-row {
   display: grid;
-  grid-template-columns: 168px 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(112px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
   align-items: baseline;
-  padding: 9px 10px;
-  border-radius: 6px;
-  transition: background 0.12s;
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(132, 148, 149, 0.12);
 }
 
-/* zebra striping sutil */
-.hw-detail-row:nth-child(even) {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.hw-detail-row:hover {
-  background: rgba(255, 255, 255, 0.055);
+.hw-detail-row:last-child {
+  border-bottom: 0;
 }
 
 .hw-detail-label {
   font-size: 11.5px;
   font-weight: 600;
   color: var(--text-muted);
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
 .hw-detail-value {
+  min-width: 0;
   font-size: 13px;
   color: var(--text-primary);
   word-break: break-word;
@@ -137,17 +209,25 @@
 .hw-detail-value--empty {
   color: var(--text-muted);
   font-style: italic;
-  opacity: 0.6;
+  opacity: 0.68;
 }
 
 .hw-detail-link {
   font-size: 12px;
   color: var(--accent);
-  word-break: break-all;
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
 .hw-detail-link:hover { text-decoration: underline; }
+
+.hw-detail-description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
 
 /* ── Galeria ──────────────────────────────────────────────────────── */
 
@@ -310,3 +390,31 @@
 }
 
 .hw-confirm-delete-btn:hover { background: rgba(255, 180, 171, 0.25) !important; }
+
+/* Quebras responsivas mantem busca, hero, dados e galeria sem sobreposicao. */
+@media (max-width: 1100px) {
+  .hw-detail-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .hw-detail-summary-strip,
+  .hw-detail-section-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hw-detail-summary-item + .hw-detail-summary-item {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .hw-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .hw-detail-cover-card {
+    width: min(320px, 100%);
+  }
+}

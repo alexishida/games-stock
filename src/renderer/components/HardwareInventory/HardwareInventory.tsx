@@ -3,9 +3,9 @@
  *
  * Componente orquestrador do módulo de inventário físico de hardware.
  *
- * Quando nenhum item está selecionado → exibe barra de busca + grade paginada.
- * Quando um item é selecionado → exibe HardwareItemDetail em tela cheia,
- * seguindo o mesmo padrão de alternância do GameDetail na biblioteca.
+ * A barra de busca permanece fixa no topo em todos os estados.
+ * Quando nenhum item esta selecionado, exibe a grade paginada.
+ * Quando um item e selecionado, exibe HardwareItemDetail abaixo da busca.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -90,30 +90,7 @@ export function HardwareInventory() {
     reloadItems();
   }
 
-  // Quando item selecionado → tela cheia de detalhe (mesmo padrão do GameDetail)
-  if (selectedItem) {
-    return (
-      <>
-        <HardwareItemDetail
-          item={selectedItem}
-          allItems={result.items}
-          onEdit={() => handleOpenEdit(selectedItem)}
-          onDelete={handleDeleteComplete}
-          onClose={() => setSelectedItem(null)}
-          onNavigate={(item) => setSelectedItem(item)}
-        />
-        {formOpen && (
-          <HardwareItemForm
-            item={editItem}
-            onSave={handleFormSave}
-            onClose={() => setFormOpen(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // Grade de itens
+  // A busca fica sempre visivel no topo para permitir voltar/filtrar sem sair do inventario.
   return (
     <div className="hw-inventory">
       {/* Barra de busca */}
@@ -128,30 +105,44 @@ export function HardwareInventory() {
             className="hw-search-input"
           />
         </div>
+        <span className="hw-inventory-toolbar-status">
+          {selectedItem
+            ? `Detalhando ${selectedItem.name}`
+            : loading
+              ? "Carregando..."
+              : result.filtered === result.total
+                ? `${result.total} item${result.total !== 1 ? "s" : ""}`
+                : `${result.filtered} de ${result.total} item${result.total !== 1 ? "s" : ""}`
+          }
+        </span>
       </div>
 
-      {/* Contador */}
-      <div className="hw-inventory-count">
-        {loading
-          ? "Carregando…"
-          : result.filtered === result.total
-            ? `${result.total} item${result.total !== 1 ? "s" : ""}`
-            : `${result.filtered} de ${result.total} item${result.total !== 1 ? "s" : ""}`
-        }
-      </div>
-
-      {/* Grade */}
-      <div className="hw-inventory-grid-area hw-inventory-grid-full">
-        <HardwareInventoryGrid
-          items={result.items}
-          total={result.total}
-          filtered={result.filtered}
-          page={page}
-          onPageChange={setPage}
-          selectedItemId={null}
-          onSelectItem={setSelectedItem}
-        />
-      </div>
+      {selectedItem ? (
+        /* Area dedicada ao detalhe sem remover a busca fixa acima. */
+        <div className="hw-inventory-detail-area">
+          <HardwareItemDetail
+            item={selectedItem}
+            allItems={result.items}
+            onEdit={() => handleOpenEdit(selectedItem)}
+            onDelete={handleDeleteComplete}
+            onClose={() => setSelectedItem(null)}
+            onNavigate={(item) => setSelectedItem(item)}
+          />
+        </div>
+      ) : (
+        /* Grade de itens */
+        <div className="hw-inventory-grid-area hw-inventory-grid-full">
+          <HardwareInventoryGrid
+            items={result.items}
+            total={result.total}
+            filtered={result.filtered}
+            page={page}
+            onPageChange={setPage}
+            selectedItemId={null}
+            onSelectItem={setSelectedItem}
+          />
+        </div>
+      )}
 
       {formOpen && (
         <HardwareItemForm
