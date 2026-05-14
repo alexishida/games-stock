@@ -9,6 +9,9 @@
 
 import type Database from "better-sqlite3";
 
+/** Rotulo exibido quando o item serve varias plataformas, sem criar plataforma na biblioteca. */
+const MULTIPLATFORM_LABEL = "Multiplataforma";
+
 /** Filtros opcionais para listagem de itens de hardware. */
 export interface HardwareItemFilters {
   platformId?: number | null;
@@ -24,6 +27,8 @@ export interface HardwareItem {
   id: number;
   name: string;
   platform_id: number | null;
+  /** 1 = item serve varias plataformas; 0 = usa plataforma real da biblioteca. */
+  is_multiplatform: number;
   platform_name: string | null;
   item_type_id: number | null;
   item_type_name: string | null;
@@ -48,6 +53,8 @@ export interface HardwareItem {
 export interface HardwareItemCreateInput {
   name: string;
   platform_id?: number | null;
+  /** Mantem "Multiplataforma" restrito ao inventario, sem criar entrada em `platforms`. */
+  is_multiplatform?: boolean | number | null;
   item_type_id?: number | null;
   conservation_state_id?: number | null;
   description: string;
@@ -78,7 +85,11 @@ function baseSelect(): string {
       hi.id,
       hi.name,
       hi.platform_id,
-      p.name  AS platform_name,
+      hi.is_multiplatform,
+      CASE
+        WHEN hi.is_multiplatform = 1 THEN '${MULTIPLATFORM_LABEL}'
+        ELSE p.name
+      END AS platform_name,
       hi.item_type_id,
       it.name AS item_type_name,
       hi.conservation_state_id,
@@ -103,12 +114,22 @@ function baseSelect(): string {
   `;
 }
 
-/** Constrói cláusula WHERE e array de parâmetros com base nos filtros fornecidos. */
+/** Normaliza a plataforma do item para que "Multiplataforma" exista apenas no inventario. */
+function normalizePlatformAssignment(data: Pick<HardwareItemCreateInput, "platform_id" | "is_multiplatform">): { platformId: number | null; isMultiplatform: 0 | 1 } {
+  const isMultiplatform = data.is_multiplatform === true || data.is_multiplatform === 1;
+  return {
+    platformId: isMultiplatform ? null : data.platform_id ?? null,
+    isMultiplatform: isMultiplatform ? 1 : 0
+  };
+}
+
+/** Constroi clausula WHERE e array de parametros com base nos filtros fornecidos. */
 function buildWhere(filters: HardwareItemFilters): { sql: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
 
   if (filters.platformId != null) {
+    clauses.push("hi.is_multiplatform = 0");
     clauses.push("hi.platform_id = ?");
     params.push(filters.platformId);
   }
@@ -176,15 +197,17 @@ export class HardwareItemDao {
    * Cria um novo item de hardware e retorna o registro completo.
    */
   create(data: HardwareItemCreateInput): HardwareItem {
+    const platform = normalizePlatformAssignment(data);
     const result = this.database.prepare(`
       INSERT INTO hardware_items
-        (name, platform_id, item_type_id, conservation_state_id, description,
+        (name, platform_id, is_multiplatform, item_type_id, conservation_state_id, description,
          acquisition_date, acquisition_url, color, value, serial_number,
          region, storage_location, loan_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name,
-      data.platform_id ?? null,
+      platform.platformId,
+      platform.isMultiplatform,
       data.item_type_id ?? null,
       data.conservation_state_id ?? null,
       data.description,
@@ -214,7 +237,12 @@ export class HardwareItemDao {
     };
 
     if ("name" in data)                  addField("name",                  data.name);
-    if ("platform_id" in data)           addField("platform_id",           data.platform_id ?? null);
+    if ("platform_id" in data || "is_multiplatform" in data) {
+      // Atualiza plataforma e flag juntas para manter o marcador restrito ao inventario.
+      const platform = normalizePlatformAssignment(data);
+      addField("platform_id", platform.platformId);
+      addField("is_multiplatform", platform.isMultiplatform);
+    }
     if ("item_type_id" in data)          addField("item_type_id",          data.item_type_id ?? null);
     if ("conservation_state_id" in data) addField("conservation_state_id", data.conservation_state_id ?? null);
     if ("description" in data)           addField("description",           data.description);

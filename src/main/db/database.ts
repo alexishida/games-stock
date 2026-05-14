@@ -210,6 +210,7 @@ function applySchema(database: Database.Database): void {
       id                    INTEGER PRIMARY KEY AUTOINCREMENT,
       name                  TEXT    NOT NULL,
       platform_id           INTEGER REFERENCES platforms(id) ON DELETE SET NULL,
+      is_multiplatform      INTEGER NOT NULL DEFAULT 0,
       item_type_id          INTEGER REFERENCES item_types(id) ON DELETE SET NULL,
       conservation_state_id INTEGER REFERENCES conservation_states(id) ON DELETE SET NULL,
       description           TEXT    NOT NULL DEFAULT '',
@@ -240,6 +241,11 @@ function applySchema(database: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_hardware_item_photos_item ON hardware_item_photos(item_id, sort_order);
   `);
+
+  // Migration incremental: marcador interno para itens que servem varias plataformas
+  // sem criar uma plataforma visivel na biblioteca de jogos.
+  addColumnIfMissing(database, "hardware_items", "is_multiplatform", "INTEGER NOT NULL DEFAULT 0");
+  database.exec("CREATE INDEX IF NOT EXISTS idx_hardware_items_multi ON hardware_items(is_multiplatform)");
 }
 
 /**

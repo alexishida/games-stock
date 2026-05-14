@@ -248,6 +248,8 @@ export interface HardwareItem {
   id: number;
   name: string;
   platform_id: number | null;
+  /** 1 = item serve varias plataformas; 0 = usa plataforma real da biblioteca. */
+  is_multiplatform: number;
   platform_name: string | null;
   item_type_id: number | null;
   item_type_name: string | null;
@@ -289,6 +291,8 @@ export interface HardwareItemListResult {
 export interface HardwareItemCreateInput {
   name: string;
   platform_id?: number | null;
+  /** Mantem "Multiplataforma" restrito ao inventario, sem aparecer na biblioteca. */
+  is_multiplatform?: boolean | number | null;
   item_type_id?: number | null;
   conservation_state_id?: number | null;
   description: string;

@@ -737,7 +737,7 @@ function importInventoryImages(
     onItem?.(`Foto de inventario extraida: ${path.basename(destPath)}`);
   }
 
-  // Constrói mapa (itemName|platformName) → lista de file_paths locais
+  // Constroi mapa por chave portatil do item -> lista de file_paths locais
   // usando o basename como chave estável (UUIDs garantem unicidade)
   const photoFilePaths = new Map<string, string[]>();
   for (const photo of loaded.data.inventory.photos) {
@@ -745,7 +745,7 @@ function importInventoryImages(
     const localPath = basenameToDestPath.get(basename);
     if (!localPath) continue; // Foto referenciada mas não presente no pacote
 
-    const key = `${photo.itemName}|${photo.platformName ?? ""}`;
+    const key = portableInventoryItemKey(photo.itemName, photo.platformName ?? null, isPortableInventoryMultiplatform(photo));
     const arr = photoFilePaths.get(key) ?? [];
     arr.push(localPath);
     photoFilePaths.set(key, arr);
@@ -760,7 +760,22 @@ function importInventoryImages(
   onItem?.(`${result.itemsCreated} item(ns) criados, ${result.itemsUpdated} atualizados`);
 }
 
-/** Cria um objeto de sumário de importação zerado, com os avisos de validação iniciais. */
+/** Detecta marcador multiplataforma no pacote sem depender de uma plataforma real. */
+function isPortableInventoryMultiplatform(entry: { platformName?: string | null; isMultiplatform?: boolean | number }): boolean {
+  return entry.isMultiplatform === true || entry.isMultiplatform === 1 || normalizePortableInventoryName(entry.platformName ?? "") === normalizePortableInventoryName("Multiplataforma");
+}
+
+/** Gera chave estavel para casar fotos extraidas com metadados do item. */
+function portableInventoryItemKey(itemName: string, platformName: string | null, isMultiplatform: boolean): string {
+  return `${itemName.trim()}|${isMultiplatform ? "__multiplatform__" : platformName ?? ""}`;
+}
+
+/** Normaliza nomes apenas para reconhecer o rotulo reservado de multiplataforma. */
+function normalizePortableInventoryName(value: string): string {
+  return value.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+}
+
+/** Cria um objeto de sumario de importacao zerado, com os avisos de validacao iniciais. */
 function createEmptySummary(warnings: DataPortabilityWarning[]): DataPortabilityImportSummary {
   return {
     metadata: { created: 0, updated: 0, skipped: 0 },

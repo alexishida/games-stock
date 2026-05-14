@@ -17,6 +17,9 @@ import { HardwareItemTypeSelector } from "./HardwareItemTypeSelector";
 import { ConservationStateSelector } from "./ConservationStateSelector";
 import "./HardwareItemForm.css";
 
+/** Valor sentinela usado apenas no formulario para representar item multiplataforma. */
+const MULTIPLATFORM_OPTION_VALUE = "__multiplatform__";
+
 interface Props {
   /** Item a editar; null para criação. */
   item?: HardwareItem | null;
@@ -27,7 +30,7 @@ interface Props {
 /** Estado interno do formulário mapeando todos os campos editáveis. */
 interface FormState {
   name: string;
-  platform_id: number | null;
+  platformChoice: string;
   item_type_id: number | null;
   conservation_state_id: number | null;
   description: string;
@@ -45,7 +48,7 @@ interface FormState {
 function buildInitialState(item?: HardwareItem | null): FormState {
   return {
     name:                 item?.name ?? "",
-    platform_id:          item?.platform_id ?? null,
+    platformChoice:       item?.is_multiplatform ? MULTIPLATFORM_OPTION_VALUE : item?.platform_id ? String(item.platform_id) : "",
     item_type_id:         item?.item_type_id ?? null,
     conservation_state_id: item?.conservation_state_id ?? null,
     description:          item?.description ?? "",
@@ -91,7 +94,7 @@ export function HardwareItemForm({ item, onSave, onClose }: Props) {
   function validate(): boolean {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
     if (!form.name.trim()) newErrors.name = "Nome obrigatório.";
-    if (!form.platform_id) newErrors.platform_id = "Plataforma obrigatória.";
+    if (!form.platformChoice) newErrors.platformChoice = "Plataforma obrigatória.";
     if (!form.item_type_id) newErrors.item_type_id = "Tipo obrigatório.";
     if (!form.conservation_state_id) newErrors.conservation_state_id = "Condição obrigatória.";
     setErrors(newErrors);
@@ -102,9 +105,13 @@ export function HardwareItemForm({ item, onSave, onClose }: Props) {
     if (!validate()) return;
     setSaving(true);
     try {
+      // Multiplataforma fica como marcador interno do inventario, nao como plataforma real.
+      const isMultiplatform = form.platformChoice === MULTIPLATFORM_OPTION_VALUE;
+      const platformId = isMultiplatform ? null : Number(form.platformChoice) || null;
       const payload: HardwareItemCreateInput = {
         name:                 form.name.trim(),
-        platform_id:          form.platform_id,
+        platform_id:          platformId,
+        is_multiplatform:     isMultiplatform,
         item_type_id:         form.item_type_id,
         conservation_state_id: form.conservation_state_id,
         description:          form.description.trim(),
@@ -194,15 +201,16 @@ export function HardwareItemForm({ item, onSave, onClose }: Props) {
           <div className="hw-form-field">
             <label>Plataforma *</label>
             <select
-              value={form.platform_id ?? ""}
-              onChange={(e) => setField("platform_id", e.target.value ? Number(e.target.value) : null)}
+              value={form.platformChoice}
+              onChange={(e) => setField("platformChoice", e.target.value)}
             >
               <option value="">Selecione uma plataforma...</option>
+              <option value={MULTIPLATFORM_OPTION_VALUE}>Multiplataforma</option>
               {platforms.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            {errors.platform_id && <span className="hw-form-error">{errors.platform_id}</span>}
+            {errors.platformChoice && <span className="hw-form-error">{errors.platformChoice}</span>}
           </div>
 
           <div className="hw-form-field">

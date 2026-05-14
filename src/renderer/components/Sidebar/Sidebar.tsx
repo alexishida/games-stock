@@ -149,6 +149,15 @@ export function Sidebar() {
               {itemTypes.length > 0 && (
                 <section>
                   <div className="sidebar-label">Tipo</div>
+                  {/* Opcao "Todos" limpa apenas o filtro de tipo e preserva os demais filtros do inventario. */}
+                  <button
+                    type="button"
+                    className={inventoryFilters.itemTypeId === null ? "tree-item selected" : "tree-item"}
+                    onClick={() => setInventoryFilters({ itemTypeId: null })}
+                  >
+                    Todos
+                    <span className="nav-item-count">{totalItems}</span>
+                  </button>
                   {itemTypes.map((t) => (
                     <button
                       key={t.id}

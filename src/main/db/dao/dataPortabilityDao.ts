@@ -146,6 +146,8 @@ export interface PortableInventoryBundle {
   items: Array<{
     name: string;
     platformName: string | null;
+    /** true quando o item usa marcador interno de multiplataforma do inventario. */
+    isMultiplatform?: boolean | number;
     itemTypeName: string | null;
     conservationStateName: string | null;
     description: string;
@@ -162,6 +164,8 @@ export interface PortableInventoryBundle {
   photos: Array<{
     itemName: string;
     platformName: string | null;
+    /** Replica o marcador do item para casar fotos sem depender de plataforma real. */
+    isMultiplatform?: boolean | number;
     file_path: string;
     sort_order: number;
   }>;
@@ -689,6 +693,7 @@ export class DataPortabilityDao {
       SELECT
         hi.name,
         p.name  AS platformName,
+        hi.is_multiplatform AS isMultiplatform,
         it.name AS itemTypeName,
         cs.name AS conservationStateName,
         hi.description,
@@ -712,6 +717,7 @@ export class DataPortabilityDao {
       SELECT
         hi.name AS itemName,
         p.name  AS platformName,
+        hi.is_multiplatform AS isMultiplatform,
         ph.file_path,
         ph.sort_order
       FROM hardware_item_photos ph
@@ -725,12 +731,12 @@ export class DataPortabilityDao {
 
   /**
    * Importa dados do inventário físico de hardware.
-   * Cria tipos/estados que não existem; insere/atualiza itens por `name + platformName`.
+   * Cria tipos/estados que nao existem; insere/atualiza itens por nome + plataforma/flag.
    * Fotos já foram copiadas para disco antes desta chamada; recebe os file_paths finais.
    */
   importInventoryData(
     bundle: PortableInventoryBundle,
-    photoFilePaths: Map<string, string[]>  // chave: `itemName|platformName`, valor: lista de file_paths
+    photoFilePaths: Map<string, string[]>  // chave portatil do item, valor: lista de file_paths
   ): { itemsCreated: number; itemsUpdated: number } {
     const summary = { itemsCreated: 0, itemsUpdated: 0 };
 
@@ -752,7 +758,10 @@ export class DataPortabilityDao {
     for (const item of bundle.items) {
       if (!item.name?.trim()) continue;
 
-      const platformId = item.platformName ? this.getPlatformIdByName(item.platformName) : null;
+      // Multiplataforma usa flag propria e nunca cria/resolve plataforma real.
+      const isMultiplatform = isPortableInventoryMultiplatform(item);
+      const isMultiplatformFlag = isMultiplatform ? 1 : 0;
+      const platformId = isMultiplatform ? null : item.platformName ? this.getPlatformIdByName(item.platformName) : null;
       const itemTypeId = getTypeId(item.itemTypeName ?? null);
       const stateId    = getStateId(item.conservationStateName ?? null);
 
@@ -760,20 +769,23 @@ export class DataPortabilityDao {
       const existingRow = this.database.prepare(`
         SELECT hi.id FROM hardware_items hi
         WHERE LOWER(hi.name) = LOWER(?)
+          AND hi.is_multiplatform = ?
           AND (hi.platform_id = ? OR (hi.platform_id IS NULL AND ? IS NULL))
         LIMIT 1
-      `).get(item.name.trim(), platformId, platformId) as { id: number } | undefined;
+      `).get(item.name.trim(), isMultiplatformFlag, platformId, platformId) as { id: number } | undefined;
 
       if (existingRow) {
         // Atualiza item existente
         this.database.prepare(`
           UPDATE hardware_items SET
+            platform_id = ?, is_multiplatform = ?,
             item_type_id = ?, conservation_state_id = ?,
             description = ?, acquisition_date = ?, acquisition_url = ?,
             color = ?, value = ?, serial_number = ?, region = ?,
             storage_location = ?, loan_to = ?, updated_at = datetime('now')
           WHERE id = ?
         `).run(
+          platformId, isMultiplatformFlag,
           itemTypeId, stateId,
           item.description ?? "",
           item.acquisition_date ?? null, item.acquisition_url ?? null,
@@ -784,7 +796,7 @@ export class DataPortabilityDao {
         summary.itemsUpdated += 1;
 
         // Adiciona novas fotos (não sobrescreve as existentes)
-        const key = `${item.name.trim()}|${item.platformName ?? ""}`;
+        const key = portableInventoryItemKey(item.name, item.platformName ?? null, isMultiplatform);
         for (const fp of (photoFilePaths.get(key) ?? [])) {
           const maxRow = this.database.prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM hardware_item_photos WHERE item_id = ?").get(existingRow.id) as { m: number };
           this.database.prepare("INSERT INTO hardware_item_photos (item_id, file_path, sort_order) VALUES (?, ?, ?)").run(existingRow.id, fp, maxRow.m + 1);
@@ -793,12 +805,12 @@ export class DataPortabilityDao {
         // Cria novo item
         const result = this.database.prepare(`
           INSERT INTO hardware_items
-            (name, platform_id, item_type_id, conservation_state_id, description,
+            (name, platform_id, is_multiplatform, item_type_id, conservation_state_id, description,
              acquisition_date, acquisition_url, color, value, serial_number,
              region, storage_location, loan_to)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          item.name.trim(), platformId, itemTypeId, stateId,
+          item.name.trim(), platformId, isMultiplatformFlag, itemTypeId, stateId,
           item.description ?? "",
           item.acquisition_date ?? null, item.acquisition_url ?? null,
           item.color ?? null, item.value ?? null, item.serial_number ?? null,
@@ -808,7 +820,7 @@ export class DataPortabilityDao {
         summary.itemsCreated += 1;
 
         // Insere fotos para o novo item
-        const key = `${item.name.trim()}|${item.platformName ?? ""}`;
+        const key = portableInventoryItemKey(item.name, item.platformName ?? null, isMultiplatform);
         let sortOrder = 0;
         for (const fp of (photoFilePaths.get(key) ?? [])) {
           this.database.prepare("INSERT INTO hardware_item_photos (item_id, file_path, sort_order) VALUES (?, ?, ?)").run(newId, fp, sortOrder++);
@@ -841,6 +853,16 @@ export class DataPortabilityDao {
       .get(entry.title.trim(), platformId) as { id: number } | undefined;
     return row?.id ?? null;
   }
+}
+
+/** Detecta marcador multiplataforma aceitando backups novos e rotulos legados. */
+function isPortableInventoryMultiplatform(entry: { platformName?: string | null; isMultiplatform?: boolean | number }): boolean {
+  return entry.isMultiplatform === true || entry.isMultiplatform === 1 || normalizeName(entry.platformName ?? "") === normalizeName("Multiplataforma");
+}
+
+/** Gera chave estavel para casar metadados e fotos de um item do inventario. */
+function portableInventoryItemKey(itemName: string, platformName: string | null, isMultiplatform: boolean): string {
+  return `${itemName.trim()}|${isMultiplatform ? "__multiplatform__" : platformName ?? ""}`;
 }
 
 /**
