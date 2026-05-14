@@ -101,6 +101,13 @@ Resumo:
 - o commit/hash da build entra automatico no proximo dev/build
 - se `git` nao estiver disponivel, o app mostra apenas a versao base
 
+Exemplo opcional de tag de release apos gerar uma versao:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## Testes
 
 Smoke test da importacao por pasta de ROMs:
