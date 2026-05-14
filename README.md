@@ -74,6 +74,33 @@ Gerar instalador NSIS e build portatil do Windows em `release/`:
 npm run dist:windows
 ```
 
+## Versao do App
+
+A versao base do aplicativo fica em `package.json`, no campo `version`.
+
+Exemplo:
+
+```json
+"version": "0.1.0"
+```
+
+O numero do build e gerado automaticamente a partir do commit atual com `git rev-parse --short=7 HEAD`.
+
+Antes de `npm run dev:windows`, `npm run build:renderer`, `npm run build:main` e `npm run dist:windows`, o projeto executa `npm run sync:build-meta`, que atualiza o arquivo gerado `src/shared/build-meta.ts`.
+
+Formato exibido no app:
+
+```text
+0.1.0 (build 61a3ed1)
+```
+
+Resumo:
+
+- altere a versao manualmente em `package.json`
+- nao edite `src/shared/build-meta.ts` manualmente
+- o commit/hash da build entra automatico no proximo dev/build
+- se `git` nao estiver disponivel, o app mostra apenas a versao base
+
 ## Testes
 
 Smoke test da importacao por pasta de ROMs:

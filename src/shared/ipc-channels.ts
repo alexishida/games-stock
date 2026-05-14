@@ -99,7 +99,7 @@ export const IPC_CHANNELS = {
 
   /** Informações gerais sobre a aplicação. */
   app: {
-    /** Retorna a versão atual da aplicação (definida no package.json). */
+    /** Retorna a versão atual da aplicação, incluindo metadado de build quando disponível. */
     getVersion: "app:getVersion",
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats: "app:getStorageStats"

@@ -32,6 +32,7 @@ import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romF
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
+import { APP_VERSION_LABEL } from "../shared/build-meta";
 
 /** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
@@ -50,7 +51,7 @@ configureElectronStoragePaths();
 
 /** Retorna o título da janela principal com a versão do app. */
 function getWindowTitle(): string {
-  return `GameStock v${app.getVersion()}`;
+  return `GameStock v${APP_VERSION_LABEL}`;
 }
 
 /**
@@ -314,7 +315,7 @@ function registerIpc(): void {
 
   // ── Shell / app ────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
-  ipcMain.handle(IPC_CHANNELS.app.getVersion, () => app.getVersion());
+  ipcMain.handle(IPC_CHANNELS.app.getVersion, () => APP_VERSION_LABEL);
   ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => {
     const dataDirPath = getUserDataDir();
     const totalGames = games.getCoverStats().total;
@@ -562,7 +563,7 @@ function startDataPortabilityJob(
       jobId,
       kind,
       request,
-      appVersion: app.getVersion(),
+      appVersion: APP_VERSION_LABEL,
       userDataDir: getUserDataDir()
     }
   });
