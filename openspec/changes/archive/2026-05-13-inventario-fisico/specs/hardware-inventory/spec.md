@@ -27,7 +27,7 @@ O sistema SHALL fornecer tipos de item pré-cadastrados como defaults: "Console"
 - **THEN** o tipo é salvo na tabela `item_types` e fica disponível para todos os itens futuros
 
 ### Requirement: Estados de conservação configuráveis
-O sistema SHALL fornecer estados de conservação pré-cadastrados: "Novo", "Ótimo", "Bom", "Ruim" e "Necessita Reparo". O usuário SHALL poder cadastrar novos estados e eles SHALL aparecer no seletor do formulário.
+O sistema SHALL fornecer estados de conservação pré-cadastrados: "Novo", "Ótimo", "Bom", "Ruim" e "Com Defeito". O usuário SHALL poder cadastrar novos estados e eles SHALL aparecer no seletor do formulário.
 
 #### Scenario: Selecionar estado pré-cadastrado
 - **WHEN** o usuário abre o seletor de condição no formulário

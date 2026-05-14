@@ -28,7 +28,7 @@ A sidebar atual (`library-ui`) exibe árvore de plataformas fixamente. O módulo
 
 **Defaults sugeridos:**
 - Tipos: Console, Controle, Cabo de Energia, Cabo de Vídeo, Cartucho/Mídia, Memória/Memory Card, Acessório, Outros
-- Condição: Novo, Ótimo, Bom, Ruim, Necessita Reparo
+- Condição: Novo, Ótimo, Bom, Ruim, Com Defeito
 
 ### D2: Fotos em tabela separada `hardware_item_photos`
 

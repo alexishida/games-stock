@@ -60,6 +60,7 @@ export function getDatabase(): Database.Database {
   migratePlatformAliases(db);
   dedupeGamesByLaunchBoxId(db);
   ensureGamesLaunchBoxUniqueIndex(db);
+  migrateLegacyHardwareConservationStates(db);
   seedPlatforms(db);
   seedPlatformMappings(db);
   seedEmulators(db);
@@ -259,6 +260,45 @@ function ensureGamesLaunchBoxUniqueIndex(database: Database.Database): void {
     ON games(platform_id, launchbox_id)
     WHERE launchbox_id IS NOT NULL AND TRIM(launchbox_id) != '';
   `);
+}
+
+/**
+ * Renomeia estado padrão legado "Necessita Reparo" para "Com Defeito".
+ * Se o nome novo já existir, reaponta os itens para ele e remove a entrada antiga.
+ */
+function migrateLegacyHardwareConservationStates(database: Database.Database): void {
+  const findStateByName = database.prepare(`
+    SELECT id
+    FROM conservation_states
+    WHERE LOWER(name) = LOWER(?)
+    LIMIT 1
+  `);
+  const reassignItems = database.prepare(`
+    UPDATE hardware_items
+    SET conservation_state_id = ?
+    WHERE conservation_state_id = ?
+  `);
+  const renameState = database.prepare(`
+    UPDATE conservation_states
+    SET name = ?, is_default = 1
+    WHERE id = ?
+  `);
+  const deleteState = database.prepare("DELETE FROM conservation_states WHERE id = ?");
+
+  const transaction = database.transaction(() => {
+    const legacyState = findStateByName.get("Necessita Reparo") as { id: number } | undefined;
+    if (!legacyState) return;
+
+    const currentState = findStateByName.get("Com Defeito") as { id: number } | undefined;
+    if (currentState) {
+      reassignItems.run(currentState.id, legacyState.id);
+      deleteState.run(legacyState.id);
+      return;
+    }
+
+    renameState.run("Com Defeito", legacyState.id);
+  });
+  transaction();
 }
 
 /**
@@ -568,7 +608,7 @@ function seedHardwareInventoryDefaults(database: Database.Database): void {
     "Ótimo",
     "Bom",
     "Ruim",
-    "Necessita Reparo"
+    "Com Defeito"
   ];
 
   const transaction = database.transaction(() => {
