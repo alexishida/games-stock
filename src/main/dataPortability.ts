@@ -1023,9 +1023,10 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
       cursor = writeUInt32LE(centralHeader, sizeRequiresZip64 ? ZIP32_MAX : size, cursor);
       cursor = writeUInt16LE(centralHeader, entryNameBuffer.length, cursor);
       cursor = writeUInt16LE(centralHeader, centralExtra.length, cursor);
+      cursor = writeUInt16LE(centralHeader, 0, cursor); // file comment length
       cursor = writeUInt16LE(centralHeader, 0, cursor); // disk number start
-      cursor = writeUInt16LE(centralHeader, 0, cursor); // internal attributes
-      cursor = writeUInt32LE(centralHeader, 0, cursor); // external attributes
+      cursor = writeUInt16LE(centralHeader, 0, cursor); // internal file attributes
+      cursor = writeUInt32LE(centralHeader, 0, cursor); // external file attributes
       cursor = writeUInt32LE(centralHeader, offsetRequiresZip64 ? ZIP32_MAX : localHeaderOffset, cursor);
       entryNameBuffer.copy(centralHeader, cursor);
       centralExtra.copy(centralHeader, cursor + entryNameBuffer.length);
