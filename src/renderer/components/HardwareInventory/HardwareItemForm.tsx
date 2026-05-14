@@ -185,6 +185,7 @@ export function HardwareItemForm({ item, onSave, onClose }: Props) {
         {/* Cabeçalho segue mesma hierarquia visual dos demais modais de gestão. */}
         <header className="hw-form-header">
           <div>
+            <p className="eyebrow">Inventário físico</p>
             <h2>{isEdit ? "Editar item de hardware" : "Novo item de hardware"}</h2>
           </div>
           <button type="button" className="icon-button modal-close-button" onClick={onClose} aria-label="Fechar">
@@ -238,7 +239,7 @@ export function HardwareItemForm({ item, onSave, onClose }: Props) {
               {errors.conservation_state_id && <span className="hw-form-error">{errors.conservation_state_id}</span>}
             </label>
 
-            <label>
+            <label className="hw-form-description-field">
               Descrição
               <textarea
                 value={form.description}

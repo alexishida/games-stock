@@ -1,12 +1,14 @@
 /* HardwareItemForm.css — Formulário de criação/edição de item de hardware */
 
 .hw-form-dialog {
-  width: min(560px, calc(100vw - 48px));
+  width: min(900px, calc(100vw - 48px));
   max-height: min(760px, calc(100vh - 48px));
   border-color: var(--border-strong);
   border-radius: 12px;
   overflow: hidden;
-  padding: 16px 16px 14px;
+  padding: 20px 24px 18px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  container-type: inline-size;
 }
 
 .hw-form-header {
@@ -30,8 +32,10 @@
 }
 
 .hw-form-body {
-  display: flex;
-  flex-direction: column;
+  /* Organiza o formulário em duas colunas só quando o modal tem largura útil. */
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(280px, 320px);
+  align-content: start;
   gap: 14px;
   min-height: 0;
   overflow: auto;
@@ -39,12 +43,35 @@
 }
 
 .hw-form-fields {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
   gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(132, 148, 149, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015)),
+    rgba(27, 27, 27, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.hw-form-fields > label:nth-child(1),
+.hw-form-fields > label:nth-child(2),
+.hw-form-fields > label:nth-child(5) {
+  grid-column: 1 / -1;
 }
 
 .hw-form-fields textarea {
-  min-height: 140px;
   font-weight: 400;
+}
+
+.hw-form-description-field textarea {
+  /* Força altura real do campo, pois `rows` pode vencer o min-height em algumas combinações do bundle. */
+  height: 180px;
+  min-height: 180px;
 }
 
 .hw-form-error {
@@ -65,42 +92,58 @@
 .hw-form-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
-  width: fit-content;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-control);
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(0, 242, 255, 0.24);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 242, 255, 0.12), transparent 42%),
+    rgba(18, 18, 18, 0.9);
   color: var(--text-primary);
   font-size: var(--form-control-font-size);
-  padding: 7px 10px;
+  font-weight: 800;
+  padding: 10px 12px;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .hw-form-toggle:hover {
   border-color: rgba(0, 242, 255, 0.44);
-  background: var(--bg-control-hover);
+  background:
+    radial-gradient(circle at top right, rgba(0, 242, 255, 0.16), transparent 42%),
+    var(--bg-control-hover);
 }
 
 .hw-form-extra {
+  grid-column: 2;
+  grid-row: 2;
   gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid rgba(132, 148, 149, 0.22);
+  border-radius: 12px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
-    rgba(18, 18, 18, 0.72);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015)),
+    rgba(27, 27, 27, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .hw-form-photos {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  grid-column: 2;
+  grid-row: 3;
+  gap: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid rgba(132, 148, 149, 0.22);
+  border-radius: 12px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
-    rgba(18, 18, 18, 0.72);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015)),
+    rgba(27, 27, 27, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .hw-form-photos-header {
@@ -108,6 +151,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(132, 148, 149, 0.18);
   color: var(--text-secondary);
   font-size: var(--form-label-font-size);
   font-weight: 800;
@@ -120,6 +166,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  flex: 0 0 auto;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-control);
@@ -137,7 +184,8 @@
 .hw-form-photo-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .hw-form-photo-item {
@@ -209,10 +257,24 @@
 }
 
 .hw-form-photo-hint {
+  grid-column: 2;
+  grid-row: 3;
   margin: 0;
+  min-height: 74px;
+  border: 1px solid rgba(132, 148, 149, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015)),
+    rgba(27, 27, 27, 0.9);
   color: var(--text-muted);
   font-size: 12px;
   font-style: italic;
+  line-height: 1.5;
+  padding: 16px;
+}
+
+.hw-form-photos > .hw-form-error {
+  margin: 12px 14px 0;
 }
 
 .hw-selector {
@@ -300,10 +362,28 @@
   margin-top: 2px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 860px) {
   .hw-form-dialog {
-    width: min(100vw - 24px, 560px);
+    width: min(100vw - 24px, 900px);
     max-height: calc(100vh - 24px);
+    padding: 16px;
+  }
+
+  .hw-form-body {
+    grid-template-columns: 1fr;
+  }
+
+  .hw-form-fields,
+  .hw-form-toggle,
+  .hw-form-extra,
+  .hw-form-photos,
+  .hw-form-photo-hint {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .hw-form-fields {
+    grid-template-columns: 1fr;
   }
 
   .hw-form-row,
@@ -312,7 +392,34 @@
   }
 
   .hw-form-photos-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@container (max-width: 820px) {
+  .hw-form-body {
+    grid-template-columns: 1fr;
+  }
+
+  .hw-form-fields,
+  .hw-form-toggle,
+  .hw-form-extra,
+  .hw-form-photos,
+  .hw-form-photo-hint {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .hw-form-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .hw-form-row,
+  .hw-selector-new {
+    grid-template-columns: 1fr;
+  }
+
+  .hw-form-photos-header {
+    flex-wrap: wrap;
   }
 }
