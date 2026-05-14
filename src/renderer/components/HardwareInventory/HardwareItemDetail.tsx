@@ -222,7 +222,7 @@ export function HardwareItemDetail({ item, allItems, onEdit, onDelete, onClose, 
               {item.conservation_state_name && <span>{item.conservation_state_name}</span>}
             </div>
             <h1>{item.name}</h1>
-            {item.description && <p>{item.description}</p>}
+            {/* Descrição fica só na área de dados para evitar repetição visual no topo. */}
           </div>
 
           {/* Ações */}

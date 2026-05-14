@@ -21,6 +21,7 @@ import {
   Game,
   GameListResult,
   GameSortBy,
+  HardwareInventorySortBy,
   LaunchBoxProgress,
   Platform,
   RomFolderImportJob,
@@ -158,6 +159,10 @@ interface GameStockState {
   sidebarMode: "library" | "inventory";
   /** Sinaliza abertura do formulário de criação do inventário. */
   inventoryCreateOpen: boolean;
+  /** Modo de exibicao do inventario: cards ou lista. */
+  inventoryViewMode: ViewMode;
+  /** Criterio de ordenacao dos itens do inventario. */
+  inventorySortBy: HardwareInventorySortBy;
 
   // --- Filtros do inventário de hardware ---
   /** Filtros ativos no módulo de inventário. */
@@ -238,6 +243,10 @@ interface GameStockState {
   setSidebarMode(value: "library" | "inventory"): void;
   /** Abre/fecha o formulário de criação de item do inventário. */
   setInventoryCreateOpen(value: boolean): void;
+  /** Altera entre visualizacao em cards e lista no inventario. */
+  setInventoryViewMode(value: ViewMode): void;
+  /** Atualiza a ordenacao do inventario. */
+  setInventorySortBy(value: HardwareInventorySortBy): void;
   /** Atualiza os filtros do inventário de hardware. */
   setInventoryFilters(value: { platformId?: number | null; itemTypeId?: number | null; conservationStateId?: number | null; search?: string | null }): void;
   setMetadataStartupRunning(value: boolean): void;
@@ -279,6 +288,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   coverStats: null,
   sidebarMode: "library",
   inventoryCreateOpen: false,
+  inventoryViewMode: "grid",
+  inventorySortBy: "name",
   inventoryFilters: { platformId: null, itemTypeId: null, conservationStateId: null, search: null },
 
   // Ao trocar plataforma, reseta filtro de coleção, página e seleção de jogo
@@ -493,6 +504,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
 
   setSidebarMode: (sidebarMode) => set({ sidebarMode }),
   setInventoryCreateOpen: (inventoryCreateOpen) => set({ inventoryCreateOpen }),
+  setInventoryViewMode: (inventoryViewMode) => set({ inventoryViewMode }),
+  setInventorySortBy: (inventorySortBy) => set({ inventorySortBy }),
   // Mescla os filtros fornecidos com os atuais (permite atualizar um campo por vez)
   setInventoryFilters: (filters) => set((state) => ({
     inventoryFilters: { ...state.inventoryFilters, ...filters }

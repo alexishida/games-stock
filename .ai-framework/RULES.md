@@ -15,6 +15,16 @@ Sempre que for criar alguma funcionalidade, tela, modal, botão, campos de formu
 ### Icones
 Usar sempre `lucide-react` para ícones da UI. A dependência deve ficar local no projeto, importando apenas os ícones necessários em cada componente. Não usar Material Symbols, fontes remotas de ícones ou SVG inline quando existir equivalente Lucide.
 
+### Topo padrao de colecoes
+
+Telas que exibem colecoes navegaveis (biblioteca e inventario) devem usar o mesmo padrao de topo:
+
+- Busca a esquerda, com icone `Search` do `lucide-react`, altura de 34px, largura maxima visual de 480px e placeholder especifico da area.
+- Controles a direita: botao de ordenacao com `ArrowUpDown`, alternancia de visualizacao em cards/lista com `Grid2X2` e `List`, e contador no formato `Exibindo X de Y <entidade>`.
+- A estrutura visual deve reutilizar as classes/padroes da `TopBar` (`topbar`, `topbar-search`, `topbar-menu`, `view-switch`, `topbar-count`) sempre que possivel.
+- O inventario fisico deve obrigatoriamente oferecer as duas visualizacoes: cards e lista. A alternancia do inventario nao deve interferir na visualizacao da biblioteca.
+- Quando um detalhe estiver aberto, o topo pode manter apenas a busca se os controles de lista/cards deixarem de fazer sentido naquele estado.
+
 ### Janelas e modais
 
 **Nunca criar uma `BrowserWindow` separada do Electron para fluxos de UI.**

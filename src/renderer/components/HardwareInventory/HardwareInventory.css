@@ -7,75 +7,16 @@
   overflow: hidden;
 }
 
-/* Barra de busca — mesma altura e estilo que o TopBar */
-.hw-inventory-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 52px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border, #3a494b);
+/* Topo do inventario reutiliza o mesmo padrao visual da biblioteca. */
+.hw-inventory-topbar {
   flex-shrink: 0;
-  background: rgba(19, 19, 19, 0.88);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
-.hw-search-wrap {
-  position: relative;
-  flex: 1;
-  max-width: 480px;
+.hw-inventory-topbar .topbar-search {
   min-width: 180px;
 }
 
-.hw-search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted, #849495);
-  pointer-events: none;
-}
-
-.hw-search-input {
-  width: 100%;
-  height: 34px;
-  background: var(--bg-control, rgba(255,255,255,.04));
-  border: 1px solid var(--border, #3a494b);
-  border-radius: 6px;
-  color: var(--text-primary, #e5e2e1);
-  font-size: var(--form-control-font-size, 13px);
-  padding: 0 12px 0 36px;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.15s;
-}
-
-.hw-search-input:focus { border-color: var(--accent, #00dbe7); }
-
-/* Status da toolbar mostra contagem ou item aberto sem ocupar a area da busca. */
-.hw-inventory-toolbar-status {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 42%;
-  overflow: hidden;
-  color: var(--text-muted, #849495);
-  font-size: 11px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Contador de resultados */
-.hw-inventory-count {
-  font-size: 11px;
-  color: var(--text-muted, #849495);
-  padding: 4px 16px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border, #3a494b);
-}
-
-/* Grade ocupa toda a área disponível */
+/* Area de itens ocupa toda a area disponivel para cards ou lista. */
 .hw-inventory-grid-area {
   flex: 1;
   min-height: 0;
@@ -98,16 +39,20 @@
 }
 
 @media (max-width: 780px) {
-  .hw-inventory-toolbar {
+  .hw-inventory-topbar {
     align-items: stretch;
     height: auto;
-    flex-direction: column;
+    flex-wrap: wrap;
     padding: 10px 16px;
   }
 
-  .hw-search-wrap,
-  .hw-inventory-toolbar-status {
+  .hw-inventory-topbar .topbar-search {
     width: 100%;
     max-width: none;
   }
+
+  .hw-inventory-topbar .topbar-count {
+    margin-left: auto;
+  }
+
 }

@@ -12,12 +12,17 @@ import type Database from "better-sqlite3";
 /** Rotulo exibido quando o item serve varias plataformas, sem criar plataforma na biblioteca. */
 const MULTIPLATFORM_LABEL = "Multiplataforma";
 
+/** Criterios permitidos para ordenar o inventario fisico. */
+type HardwareInventorySortBy = "name" | "type" | "recent";
+
 /** Filtros opcionais para listagem de itens de hardware. */
 export interface HardwareItemFilters {
   platformId?: number | null;
   itemTypeId?: number | null;
   conservationStateId?: number | null;
   search?: string | null;
+  /** Ordenacao aplicada diretamente no SQLite para preservar a paginacao correta. */
+  sortBy?: HardwareInventorySortBy;
   page?: number;
   pageSize?: number;
 }
@@ -152,6 +157,21 @@ function buildWhere(filters: HardwareItemFilters): { sql: string; params: unknow
   };
 }
 
+/**
+ * Constroi a ordenacao dos itens de hardware.
+ * Mantem `name` como fallback estavel para evitar saltos entre paginas.
+ */
+function buildOrder(sortBy: HardwareInventorySortBy = "name"): string {
+  switch (sortBy) {
+    case "type":
+      return "ORDER BY it.name IS NULL, it.name COLLATE NOCASE, hi.name COLLATE NOCASE";
+    case "recent":
+      return "ORDER BY hi.created_at DESC, hi.id DESC";
+    case "name":
+      return "ORDER BY hi.name COLLATE NOCASE";
+  }
+}
+
 export class HardwareItemDao {
   constructor(private readonly database: Database.Database) {}
 
@@ -176,7 +196,7 @@ export class HardwareItemDao {
     ).count;
 
     const items = this.database
-      .prepare(`${baseSelect()} ${where.sql} ORDER BY hi.name COLLATE NOCASE LIMIT ? OFFSET ?`)
+      .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters.sortBy)} LIMIT ? OFFSET ?`)
       .all(...where.params, pageSize, offset) as HardwareItem[];
 
     return { items, total, filtered };

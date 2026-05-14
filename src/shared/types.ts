@@ -92,6 +92,9 @@ export interface CoverSyncResult extends CoverSyncStats {
 /** Critério de ordenação da lista de jogos na biblioteca. */
 export type GameSortBy = "title" | "year" | "recent";
 
+/** Criterio de ordenacao da lista de itens do inventario de hardware. */
+export type HardwareInventorySortBy = "name" | "type" | "recent";
+
 // ---------------------------------------------------------------------------
 // Emuladores
 // ---------------------------------------------------------------------------
@@ -276,6 +279,8 @@ export interface HardwareItemFilters {
   itemTypeId?: number | null;
   conservationStateId?: number | null;
   search?: string | null;
+  /** Ordenacao aplicada no SQLite para manter paginas consistentes. */
+  sortBy?: HardwareInventorySortBy;
   page?: number;
   pageSize?: number;
 }
