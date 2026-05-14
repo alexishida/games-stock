@@ -250,158 +250,161 @@ export function HardwareItemForm({ item, onSave, onClose }: Props) {
             </label>
           </div>
 
-          <button
-            type="button"
-            className="hw-form-toggle"
-            onClick={() => setExtraOpen((current) => !current)}
-          >
-            {extraOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
-            Detalhes adicionais
-          </button>
-
-          {extraOpen && (
-            <div className="management-form hw-form-extra">
-              <div className="hw-form-row">
-                <label>
-                  Data de aquisição
-                  <input
-                    type="date"
-                    value={form.acquisition_date}
-                    onChange={(e) => setField("acquisition_date", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Valor pago (R$)
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.value}
-                    onChange={(e) => setField("value", e.target.value)}
-                    placeholder="0.00"
-                  />
-                </label>
-              </div>
-
-              <label>
-                URL de aquisição
-                <input
-                  type="url"
-                  value={form.acquisition_url}
-                  onChange={(e) => setField("acquisition_url", e.target.value)}
-                  placeholder="https://..."
-                />
-              </label>
-
-              <div className="hw-form-row">
-                <label>
-                  Cor
-                  <input
-                    type="text"
-                    value={form.color}
-                    onChange={(e) => setField("color", e.target.value)}
-                    placeholder="Ex: Cinza"
-                  />
-                </label>
-                <label>
-                  Região
-                  <input
-                    type="text"
-                    value={form.region}
-                    onChange={(e) => setField("region", e.target.value)}
-                    placeholder="Ex: NTSC-U/C"
-                  />
-                </label>
-              </div>
-
-              <div className="hw-form-row">
-                <label>
-                  Número de série
-                  <input
-                    type="text"
-                    value={form.serial_number}
-                    onChange={(e) => setField("serial_number", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Local de armazenamento
-                  <input
-                    type="text"
-                    value={form.storage_location}
-                    onChange={(e) => setField("storage_location", e.target.value)}
-                    placeholder="Ex: Prateleira 3"
-                  />
-                </label>
-              </div>
-
-              <label>
-                Emprestado para
-                <input
-                  type="text"
-                  value={form.loan_to}
-                  onChange={(e) => setField("loan_to", e.target.value)}
-                  placeholder="Nome da pessoa"
-                />
-              </label>
-            </div>
-          )}
-
-          {isEdit && (
-            <div className="hw-form-photos">
-              <div className="hw-form-photos-header">
-                <span>Fotos ({photos.length})</span>
-                <button type="button" className="hw-form-photo-add-btn" onClick={() => void handleAddPhoto()}>
-                  <ImagePlus size={14} aria-hidden="true" />
-                  Adicionar foto
-                </button>
-              </div>
-
-              {photoError && <span className="hw-form-error">{photoError}</span>}
-
-              {photos.length > 0 && (
-                <div className="hw-form-photo-list">
-                  {photos.map((photo, idx) => (
-                    <div key={photo.id} className="hw-form-photo-item">
-                      <img
-                        src={localMediaUrl(photo.file_path) ?? ""}
-                        alt={`Foto ${idx + 1}`}
-                        draggable={false}
-                      />
-                      <div className="hw-form-photo-actions">
-                        {idx > 0 && (
-                          <button
-                            type="button"
-                            title="Mover para cima"
-                            onClick={() => void handleReorder(photo.id, photos[idx - 1].id)}
-                          >↑</button>
-                        )}
-                        {idx < photos.length - 1 && (
-                          <button
-                            type="button"
-                            title="Mover para baixo"
-                            onClick={() => void handleReorder(photo.id, photos[idx + 1].id)}
-                          >↓</button>
-                        )}
-                        <button
-                          type="button"
-                          className="hw-photo-remove-btn"
-                          title="Remover foto"
-                          onClick={() => void handleRemovePhoto(photo.id, photo.file_path)}
-                        >
-                          <Trash2 size={12} aria-hidden="true" />
-                        </button>
-                      </div>
-                      {idx === 0 && <span className="hw-photo-cover-badge">Capa</span>}
-                    </div>
-                  ))}
+          {/* Coluna direita como flex container — evita conflito de grid-row entre fotos e extra */}
+          <div className="hw-form-right">
+            {isEdit && (
+              <div className="hw-form-photos">
+                <div className="hw-form-photos-header">
+                  <span>Fotos ({photos.length})</span>
+                  <button type="button" className="hw-form-photo-add-btn" onClick={() => void handleAddPhoto()}>
+                    <ImagePlus size={14} aria-hidden="true" />
+                    Adicionar foto
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
 
-          {!isEdit && (
-            <p className="hw-form-photo-hint">Salve o item primeiro para adicionar fotos.</p>
-          )}
+                {photoError && <span className="hw-form-error">{photoError}</span>}
+
+                {photos.length > 0 && (
+                  <div className="hw-form-photo-list">
+                    {photos.map((photo, idx) => (
+                      <div key={photo.id} className="hw-form-photo-item">
+                        <img
+                          src={localMediaUrl(photo.file_path) ?? ""}
+                          alt={`Foto ${idx + 1}`}
+                          draggable={false}
+                        />
+                        <div className="hw-form-photo-actions">
+                          {idx > 0 && (
+                            <button
+                              type="button"
+                              title="Mover para cima"
+                              onClick={() => void handleReorder(photo.id, photos[idx - 1].id)}
+                            >↑</button>
+                          )}
+                          {idx < photos.length - 1 && (
+                            <button
+                              type="button"
+                              title="Mover para baixo"
+                              onClick={() => void handleReorder(photo.id, photos[idx + 1].id)}
+                            >↓</button>
+                          )}
+                          <button
+                            type="button"
+                            className="hw-photo-remove-btn"
+                            title="Remover foto"
+                            onClick={() => void handleRemovePhoto(photo.id, photo.file_path)}
+                          >
+                            <Trash2 size={12} aria-hidden="true" />
+                          </button>
+                        </div>
+                        {idx === 0 && <span className="hw-photo-cover-badge">Capa</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!isEdit && (
+              <p className="hw-form-photo-hint">Salve o item primeiro para adicionar fotos.</p>
+            )}
+
+            <button
+              type="button"
+              className="hw-form-toggle"
+              onClick={() => setExtraOpen((current) => !current)}
+            >
+              {extraOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+              Detalhes adicionais
+            </button>
+
+            {extraOpen && (
+              <div className="management-form hw-form-extra">
+                <div className="hw-form-row">
+                  <label>
+                    Data de aquisição
+                    <input
+                      type="date"
+                      value={form.acquisition_date}
+                      onChange={(e) => setField("acquisition_date", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Valor pago (R$)
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.value}
+                      onChange={(e) => setField("value", e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  URL de aquisição
+                  <input
+                    type="url"
+                    value={form.acquisition_url}
+                    onChange={(e) => setField("acquisition_url", e.target.value)}
+                    placeholder="https://..."
+                  />
+                </label>
+
+                <div className="hw-form-row">
+                  <label>
+                    Cor
+                    <input
+                      type="text"
+                      value={form.color}
+                      onChange={(e) => setField("color", e.target.value)}
+                      placeholder="Ex: Cinza"
+                    />
+                  </label>
+                  <label>
+                    Região
+                    <input
+                      type="text"
+                      value={form.region}
+                      onChange={(e) => setField("region", e.target.value)}
+                      placeholder="Ex: NTSC-U/C"
+                    />
+                  </label>
+                </div>
+
+                <div className="hw-form-row">
+                  <label>
+                    Número de série
+                    <input
+                      type="text"
+                      value={form.serial_number}
+                      onChange={(e) => setField("serial_number", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Local de armazenamento
+                    <input
+                      type="text"
+                      value={form.storage_location}
+                      onChange={(e) => setField("storage_location", e.target.value)}
+                      placeholder="Ex: Prateleira 3"
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  Emprestado para
+                  <input
+                    type="text"
+                    value={form.loan_to}
+                    onChange={(e) => setField("loan_to", e.target.value)}
+                    placeholder="Nome da pessoa"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
 
         <footer className="hw-form-footer">
