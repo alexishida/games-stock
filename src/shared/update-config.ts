@@ -5,6 +5,7 @@
  * fallback seguro para o processo main compilado via TypeScript puro.
  */
 
+import { app } from "electron";
 import { APP_BUILD_COMMIT } from "./build-meta";
 
 /** Endpoint padrão publicado para o manifesto remoto do GameStock. */
@@ -20,14 +21,21 @@ declare const __BUILD_NUMBER__: string | number | undefined;
  * Lê valor textual de update com fallback para `process.env` no main.
  *
  * O `typeof` evita `ReferenceError` quando a constante do Vite não existe no
- * runtime Node.js do Electron.
+ * runtime Node.js do Electron. Em desenvolvimento local, retornamos string
+ * vazia para pular splash/updater e não travar `npm run dev:windows`.
  */
 function readUpdateManifestUrl(): string {
-  if (typeof __UPDATE_MANIFEST_URL__ === "string" && __UPDATE_MANIFEST_URL__.trim()) {
+  if (typeof __UPDATE_MANIFEST_URL__ === "string") {
     return __UPDATE_MANIFEST_URL__.trim();
   }
 
-  return process.env.UPDATE_MANIFEST_URL?.trim() || DEFAULT_UPDATE_MANIFEST_URL;
+  if (typeof process.env.UPDATE_MANIFEST_URL === "string") {
+    return process.env.UPDATE_MANIFEST_URL.trim();
+  }
+
+  // Mantém endpoint padrão só na build empacotada; no app solto/desenvolvimento
+  // o boot segue direto para janela principal.
+  return app.isPackaged ? DEFAULT_UPDATE_MANIFEST_URL : "";
 }
 
 /**
