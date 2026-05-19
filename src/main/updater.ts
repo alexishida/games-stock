@@ -285,12 +285,14 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
     }
 
     if (result.kind === "no-connection") {
+      const logPath = appendUpdaterErrorLog(new Error(result.error));
       console.warn("[updater] Verificação em modo offline:", result.error);
       emitStatus(splashWindow, {
         phase: "no-connection",
         message: "Sem conexão para verificar atualizações.",
         requiresAction: true,
-        error: result.error
+        error: result.error,
+        errorLogPath: logPath
       });
       await waitForContinueRequest();
       emitOpenMain(splashWindow);
@@ -298,11 +300,13 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
     }
 
     if (result.kind === "error") {
+      const logPath = appendUpdaterErrorLog(new Error(result.error));
       console.error("[updater] Falha na verificação de update:", result.error);
       emitStatus(splashWindow, {
         phase: "error",
         message: "Falha ao verificar atualizações.",
-        error: result.error
+        error: result.error,
+        errorLogPath: logPath
       });
       await sleep(1_000);
       emitOpenMain(splashWindow);
@@ -407,19 +411,23 @@ export async function runManualUpdateFlow(targetContents: WebContents): Promise<
       const result = await checkForUpdate();
 
       if (result.kind === "no-connection") {
+        const logPath = appendUpdaterErrorLog(new Error(result.error));
         emitStatus(targetContents, {
           phase: "no-connection",
           message: "Sem conexão para verificar atualizações.",
-          error: result.error
+          error: result.error,
+          errorLogPath: logPath
         });
         return;
       }
 
       if (result.kind === "error") {
+        const logPath = appendUpdaterErrorLog(new Error(result.error));
         emitStatus(targetContents, {
           phase: "error",
           message: "Falha ao verificar atualizações.",
-          error: result.error
+          error: result.error,
+          errorLogPath: logPath
         });
         return;
       }
