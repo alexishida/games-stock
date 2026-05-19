@@ -49,11 +49,11 @@ const romFolderJobs = new Map<string, RomFolderImportJob>();
 /** Mapa de jobs de portabilidade de dados (exportação/importação) desta sessão. */
 const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
 
-// Aplica staging pendente antes de qualquer inicialização visual do app
-applyStagedUpdateFromLaunchArgs();
-
 // Configura os caminhos de dados do Electron antes de qualquer módulo que os acesse
 configureElectronStoragePaths();
+
+// Aplica staging pendente antes de qualquer inicialização visual do app
+applyStagedUpdateFromLaunchArgs();
 
 /** Retorna o título da janela principal com a versão do app. */
 function getWindowTitle(): string {

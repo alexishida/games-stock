@@ -17,6 +17,7 @@ import http from "node:http";
 import https from "node:https";
 import { pipeline } from "node:stream/promises";
 import { Worker } from "node:worker_threads";
+import { getAppUserDataDir } from "./appPaths";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { BUILD_NUMBER, UPDATE_MANIFEST_URL } from "../shared/update-config";
 import { UpdateManifest, UpdaterStatus } from "../shared/updater";
@@ -64,6 +65,9 @@ let continueResolver: (() => void) | null = null;
 /** Flag em memória para evitar perder cliques caso o handler chegue cedo. */
 let continueRequested = false;
 
+/** Falha pendente ocorrida ao aplicar staging no boot seguinte ao download. */
+let pendingStartupUpdaterFailure: UpdaterStatus | null = null;
+
 /**
  * Permite que o handler IPC marque que o usuário escolheu seguir offline.
  *
@@ -74,6 +78,18 @@ export function requestUpdaterSkip(): void {
   continueRequested = true;
   continueResolver?.();
   continueResolver = null;
+}
+
+/**
+ * Entrega e limpa eventual falha de aplicação de update ocorrida no startup.
+ *
+ * Esse estado nasce antes da splash existir, então fica em memória até o fluxo
+ * de boot pedir o valor para renderizar o erro ao usuário.
+ */
+function consumePendingStartupUpdaterFailure(): UpdaterStatus | null {
+  const failure = pendingStartupUpdaterFailure;
+  pendingStartupUpdaterFailure = null;
+  return failure;
 }
 
 /**
@@ -186,6 +202,10 @@ export function applyStagedUpdateFromLaunchArgs(argv: string[] = process.argv): 
   const sourceAsarUnpackedDir = path.join(stagingRoot, "resources", "app.asar.unpacked");
 
   if (!fs.existsSync(sourceAppDir) && !fs.existsSync(sourceAsarPath)) {
+    registerPendingStartupUpdaterFailure(
+      "Falha ao aplicar atualização baixada.",
+      new Error("Staging de update inválido: conteúdo extraído não contém app/ nem resources/app.asar.")
+    );
     cleanupStagingDirSync(stagingRoot);
     return false;
   }
@@ -218,6 +238,7 @@ export function applyStagedUpdateFromLaunchArgs(argv: string[] = process.argv): 
     return true;
   } catch (error) {
     console.error("[updater] Falha ao aplicar staging de update:", error);
+    registerPendingStartupUpdaterFailure("Falha ao aplicar atualização baixada.", error);
     cleanupStagingDirSync(stagingRoot);
     return false;
   }
@@ -241,6 +262,14 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
   }, UPDATE_FLOW_TIMEOUT_MS);
 
   try {
+    const startupFailure = consumePendingStartupUpdaterFailure();
+    if (startupFailure) {
+      emitStatus(splashWindow, startupFailure);
+      await waitForContinueRequest();
+      emitOpenMain(splashWindow);
+      return "open-main";
+    }
+
     emitStatus(splashWindow, {
       phase: "checking",
       message: "Verificando atualizações..."
@@ -654,6 +683,23 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Registra falha ocorrida na etapa de aplicação do staging do update.
+ *
+ * O erro acontece cedo no boot, antes da splash existir. Por isso persistimos
+ * log em disco e guardamos um payload em memória para a próxima tela inicial.
+ */
+function registerPendingStartupUpdaterFailure(message: string, error: unknown): void {
+  const details = error instanceof Error ? error.message : String(error);
+  pendingStartupUpdaterFailure = {
+    phase: "error",
+    message,
+    error: details,
+    errorLogPath: appendUpdaterErrorLog(error),
+    requiresAction: true
+  };
+}
+
+/**
  * Adiciona `timestamp` na URL do ZIP para evitar cache intermediário no CDN.
  *
  * O manifesto continua estável com `latest.zip`, mas cada download real recebe
@@ -751,7 +797,7 @@ function normalizeBuildNumber(buildNumber: string | number): string {
  */
 function appendUpdaterErrorLog(error: unknown): string {
   try {
-    const logsDir = path.join(app.getPath("userData"), "logs");
+    const logsDir = path.join(getAppUserDataDir(), "logs");
     const logPath = path.join(logsDir, "updater-error.log");
     const details = error instanceof Error
       ? `${error.name}: ${error.message}\n${error.stack ?? "stack indisponivel"}`
