@@ -2,14 +2,14 @@
  * Gera os artefatos finais usados pelo bucket S3 após `npm run dist:windows`.
  *
  * Saídas:
- * - `release/s3/<build>.zip` com o conteúdo da pasta `release/win-unpacked`
- * - `release/s3/meta-dados.json` com versão, build, data e URL pública do ZIP
+ * - `release/s3/latest.zip` com o conteúdo da pasta `release/win-unpacked`
+ * - `release/s3/meta-dados.json` com versão, build, data e URL pública fixa do ZIP
  *
  * Regras:
  * - O ZIP contém os arquivos na raiz, sem pasta encapsulando `win-unpacked`
  * - `_update_staging` e outros artefatos transitórios não entram no pacote
- * - A URL final usa `S3_RELEASE_BASE_URL` quando existir; caso contrário, usa
- *   `https://s3.alexishida.com/gamestock`
+ * - A URL final do update é fixa para manter o mesmo endpoint público
+ *   consumido pelo updater: `http://s3.alexishida.com/gamestock/latest.zip`
  */
 
 const fs = require("node:fs");
@@ -34,8 +34,11 @@ const packageJsonPath = path.join(rootDir, "package.json");
 /** Caminho do arquivo gerado com metadados da build atual. */
 const buildMetaPath = path.join(rootDir, "src", "shared", "build-meta.ts");
 
-/** URL base pública dos artefatos publicados no bucket S3. */
-const s3BaseUrl = (process.env.S3_RELEASE_BASE_URL || "https://s3.alexishida.com/gamestock").replace(/\/+$/g, "");
+/** Nome fixo do ZIP publicado para o fluxo de atualização automática. */
+const latestZipFileName = "latest.zip";
+
+/** URL pública fixa consumida pelo updater para sempre apontar ao pacote atual. */
+const latestZipPublicUrl = "http://s3.alexishida.com/gamestock/latest.zip";
 
 /** Entradas transitórias que não devem ser distribuídas no ZIP de update. */
 const excludedTopLevelNames = new Set(["_update_staging"]);
@@ -134,7 +137,7 @@ function writeMetadataFile(version, buildCommit, zipFileName) {
     data: formatPublishedAt(),
     versao: version,
     build: buildCommit,
-    path: `${s3BaseUrl}/${zipFileName}`
+    path: latestZipPublicUrl
   };
 
   fs.writeFileSync(
@@ -153,7 +156,7 @@ function main() {
 
   const version = readVersion();
   const buildCommit = readBuildCommit();
-  const zipFileName = `${buildCommit}.zip`;
+  const zipFileName = latestZipFileName;
   const zipFilePath = path.join(s3Dir, zipFileName);
 
   createS3Zip(zipFilePath);

@@ -140,10 +140,11 @@ export async function downloadUpdate(
 ): Promise<string> {
   const tempDir = path.join(os.tmpdir(), "gamestock-updater");
   const filePath = path.join(tempDir, `update-${Date.now()}.zip`);
+  const downloadUrl = appendTimestampQuery(url);
   await fs.promises.mkdir(tempDir, { recursive: true });
 
   try {
-    await downloadFile(url, filePath, onProgress, signal);
+    await downloadFile(downloadUrl, filePath, onProgress, signal);
     return filePath;
   } catch (error) {
     await fs.promises.rm(filePath, { force: true }).catch(() => undefined);
@@ -650,6 +651,18 @@ function cleanupStagingDirSync(stagingRoot: string): void {
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Adiciona `timestamp` na URL do ZIP para evitar cache intermediário no CDN.
+ *
+ * O manifesto continua estável com `latest.zip`, mas cada download real recebe
+ * uma query string única para forçar busca do arquivo mais recente.
+ */
+function appendTimestampQuery(url: string): string {
+  const nextUrl = new URL(url);
+  nextUrl.searchParams.set("timestamp", String(Date.now()));
+  return nextUrl.toString();
 }
 
 /** Dados locais do app exibidos na splash via IPC. */
