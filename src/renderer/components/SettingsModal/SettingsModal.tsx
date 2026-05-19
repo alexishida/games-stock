@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { DatabaseBackup, ExternalLink, FolderOpen, Gamepad2, HardDrive, Images, Info, Library, MonitorPlay, Settings, Waypoints, X } from "lucide-react";
+import { DatabaseBackup, ExternalLink, FolderOpen, Gamepad2, HardDrive, Images, Info, Library, MonitorPlay, RefreshCw, Settings, Waypoints, X } from "lucide-react";
 import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
 import { EmulatorsSettings } from "../EmulatorsSettings/EmulatorsSettings";
@@ -26,6 +26,7 @@ import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
+import type { UpdaterAppInfo, UpdaterStatus } from "../../../shared/updater";
 import "./SettingsModal.css";
 
 /**
@@ -58,6 +59,134 @@ const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title: string 
 };
 
 /**
+ * Fases que representam operação ativa do updater manual.
+ * Enquanto uma delas estiver presente, o botão da UI fica bloqueado.
+ */
+const RUNNING_UPDATER_PHASES = new Set<UpdaterStatus["phase"]>(["checking", "downloading", "applying"]);
+
+/**
+ * Retorna `true` quando a fase recebida ainda representa trabalho em andamento.
+ */
+function isUpdaterBusy(status: UpdaterStatus | null): boolean {
+  return status ? RUNNING_UPDATER_PHASES.has(status.phase) : false;
+}
+
+/**
+ * Gera texto principal do card de atualização com base no último status recebido.
+ */
+function updaterSummary(status: UpdaterStatus | null): string {
+  if (!status) {
+    return "Pronto para comparar sua instalação com a release publicada.";
+  }
+
+  if (status.phase === "up-to-date") {
+    return "Sua instalação já corresponde à release publicada.";
+  }
+
+  if (status.phase === "no-connection") {
+    return "Não foi possível acessar o servidor de atualização.";
+  }
+
+  if (status.phase === "error") {
+    return "Não foi possível concluir a verificação.";
+  }
+
+  if (status.phase === "downloading") {
+    return "Atualização encontrada. Baixando pacote para preparar a troca.";
+  }
+
+  if (status.phase === "applying") {
+    return "Pacote baixado. Preparando reinicialização do aplicativo.";
+  }
+
+  return status.message;
+}
+
+/**
+ * Gera texto auxiliar com próximos passos e detalhes de erro/progresso.
+ */
+function updaterDetail(status: UpdaterStatus | null, appInfo: UpdaterAppInfo | null): string {
+  const installedLabel = appInfo
+    ? `Instalada: ${formatUpdaterVersion(appInfo.version)}, build ${formatUpdaterBuild(appInfo.buildNumber)}.`
+    : "Dados da build instalada ainda carregando.";
+
+  if (!status) {
+    return `${installedLabel} Use Buscar atualização para consultar a versão disponível.`;
+  }
+
+  if (status.phase === "downloading") {
+    return typeof status.percent === "number"
+      ? `${status.percent}% concluído. O app reinicia automaticamente ao terminar.`
+      : "Download em andamento. O app reinicia automaticamente ao terminar.";
+  }
+
+  if (status.phase === "up-to-date") {
+    return `Disponível: ${formatUpdaterVersion(status.version)}, build ${formatUpdaterBuild(status.buildNumber)}.`;
+  }
+
+  if (status.phase === "error" || status.phase === "no-connection") {
+    return status.error ?? "Tente novamente em instantes.";
+  }
+
+  if (status.phase === "applying") {
+    return "O app vai reiniciar automaticamente ao terminar.";
+  }
+
+  return status.message;
+}
+
+/**
+ * Define o rótulo dinâmico do botão conforme etapa atual do updater.
+ */
+function updaterButtonLabel(status: UpdaterStatus | null): string {
+  if (!status) return "Buscar atualização";
+  if (status.phase === "checking") return "Buscando...";
+  if (status.phase === "downloading") return "Baixando...";
+  if (status.phase === "applying") return "Aplicando...";
+  return "Buscar atualização";
+}
+
+/**
+ * Formata versão para exibição consistente com prefixo `v`.
+ */
+function formatUpdaterVersion(version: string | undefined): string {
+  return version?.trim() ? `v${version}` : "—";
+}
+
+/**
+ * Formata identificador de build para exibição humana no modal.
+ */
+function formatUpdaterBuild(buildNumber: string | number | undefined): string {
+  if (typeof buildNumber === "number") return String(buildNumber);
+  return buildNumber?.trim() ? buildNumber : "—";
+}
+
+/**
+ * Retorna rótulo curto de status para leitura rápida no topo do modal.
+ */
+function updaterStatusLabel(status: UpdaterStatus | null): string {
+  if (!status) return "Aguardando busca";
+  if (status.phase === "checking") return "Buscando atualização";
+  if (status.phase === "downloading") return "Baixando pacote";
+  if (status.phase === "applying") return "Preparando reinício";
+  if (status.phase === "up-to-date") return "Atualizado";
+  if (status.phase === "no-connection") return "Sem conexão";
+  return "Falha";
+}
+
+/**
+ * Formata data do manifesto, aceitando ISO ou formato legado `YYYY-MM-DD HH:mm:ss`.
+ */
+function formatUpdaterReleaseDate(value: string | undefined): string {
+  if (!value?.trim()) return "—";
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!match) return trimmed;
+  const [, year, month, day, hour, minute] = match;
+  return hour && minute ? `${day}/${month}/${year} ${hour}:${minute}` : `${day}/${month}/${year}`;
+}
+
+/**
  * Modal de configurações principal do app.
  * Busca versão e estatísticas de armazenamento via IPC ao abrir.
  * Controla a seção ativa via store (settingsSection).
@@ -76,9 +205,17 @@ export function SettingsModal() {
   const [appVersion, setAppVersion] = useState("");
   // Estatísticas de armazenamento: total de jogos, tamanho e caminho da pasta de dados
   const [storageStats, setStorageStats] = useState<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string } | null>(null);
+  // Versão semântica e build local usados no modal de atualização
+  const [updaterAppInfo, setUpdaterAppInfo] = useState<UpdaterAppInfo | null>(null);
+  // Último status recebido do updater manual disparado pela seção "Sobre"
+  const [updaterStatus, setUpdaterStatus] = useState<UpdaterStatus | null>(null);
+  // Controla abertura do modal secundário de atualização manual
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   // Hook para tornar o modal arrastável
   const draggable = useDraggableDialog<HTMLDivElement>();
+  // Hook específico do modal secundário de atualização
+  const updateDialogDraggable = useDraggableDialog<HTMLDivElement>();
 
   /**
    * Busca versão e estatísticas de armazenamento via IPC sempre que o modal abre.
@@ -94,11 +231,24 @@ export function SettingsModal() {
     void window.gameStockAPI.app.getStorageStats().then((stats) => {
       if (mounted) setStorageStats(stats);
     });
+    void window.gameStockAPI.updater.getAppInfo().then((info) => {
+      if (mounted) setUpdaterAppInfo(info);
+    });
 
     return () => {
       mounted = false;
     };
   }, [open]);
+
+  /**
+   * Escuta eventos de status do updater enviados pelo processo main.
+   * O mesmo contrato da splash é reaproveitado pela verificação manual.
+   */
+  useEffect(() => {
+    return window.gameStockAPI.updater.onStatus((status) => {
+      setUpdaterStatus(status);
+    });
+  }, []);
 
   // Não renderiza quando o modal está fechado
   if (!open) return null;
@@ -118,6 +268,18 @@ export function SettingsModal() {
   // Labels formatados para as métricas da seção "Geral"
   const totalGamesLabel = storageStats ? `${storageStats.totalGames} jogos` : "Carregando";
   const dataDirSizeLabel = storageStats ? `${storageStats.dataDirSizeMb.toFixed(1)} MB` : "Carregando";
+  // Feedback derivado do último status do updater manual
+  const updaterBusy = isUpdaterBusy(updaterStatus);
+  const updateSummaryText = updaterSummary(updaterStatus);
+  const updateDetailText = updaterDetail(updaterStatus, updaterAppInfo);
+  const updateButtonText = updaterButtonLabel(updaterStatus);
+  // Labels normalizados para versão/build local e remoto exibidos no modal
+  const localUpdaterVersionLabel = formatUpdaterVersion(updaterAppInfo?.version);
+  const localUpdaterBuildLabel = formatUpdaterBuild(updaterAppInfo?.buildNumber);
+  const remoteUpdaterVersionLabel = formatUpdaterVersion(updaterStatus?.version);
+  const remoteUpdaterBuildLabel = formatUpdaterBuild(updaterStatus?.buildNumber);
+  const remoteUpdaterReleaseDateLabel = formatUpdaterReleaseDate(updaterStatus?.releaseDate);
+  const updateStatusLabel = updaterStatusLabel(updaterStatus);
 
   return (
     <div className="modal-backdrop">
@@ -338,17 +500,110 @@ export function SettingsModal() {
                   </div>
                 </div>
 
-                {/* Botão para abrir a pasta de dados no gerenciador de arquivos */}
-                <button
-                  type="button"
-                  className="about-open-folder-button"
-                  onClick={() => storageStats && void window.gameStockAPI.shell.openPath(storageStats.dataDirPath)}
-                  disabled={!storageStats}
-                >
-                  <FolderOpen aria-hidden="true" size={15} />
-                  Abrir pasta de dados
-                  <ExternalLink aria-hidden="true" size={13} className="about-open-folder-external" />
-                </button>
+                {/* Ações principais da seção Sobre: abrir modal de update e pasta de dados. */}
+                <div className="about-actions">
+                  {/* Botão para abrir a pasta de dados no gerenciador de arquivos */}
+                  <button
+                    type="button"
+                    className="about-open-folder-button"
+                    onClick={() => storageStats && void window.gameStockAPI.shell.openPath(storageStats.dataDirPath)}
+                    disabled={!storageStats}
+                  >
+                    <FolderOpen aria-hidden="true" size={15} />
+                    Abrir pasta de dados
+                    <ExternalLink aria-hidden="true" size={13} className="about-open-folder-external" />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="about-open-folder-button"
+                    onClick={() => setUpdateDialogOpen(true)}
+                  >
+                    <RefreshCw aria-hidden="true" size={15} className={updaterBusy ? "about-update-spin" : ""} />
+                    Buscar atualização
+                  </button>
+                </div>
+
+                {/* Modal secundário arrastável com status detalhado de atualização. */}
+                {updateDialogOpen && (
+                  <div className="settings-secondary-overlay">
+                    <section
+                      ref={updateDialogDraggable.dialogRef}
+                      className="about-update-dialog draggable-modal"
+                      style={updateDialogDraggable.style}
+                      onPointerDown={updateDialogDraggable.startDialogDrag}
+                      onPointerMove={updateDialogDraggable.dragDialog}
+                      onPointerUp={updateDialogDraggable.stopDialogDrag}
+                      onPointerCancel={updateDialogDraggable.stopDialogDrag}
+                    >
+                      <header className="about-update-dialog-header">
+                        <div>
+                          <h3>Buscar atualização</h3>
+                        </div>
+                        <button
+                          type="button"
+                          className="icon-button modal-close-button"
+                          onClick={() => setUpdateDialogOpen(false)}
+                          aria-label="Fechar"
+                        >
+                          <X aria-hidden="true" size={18} />
+                        </button>
+                      </header>
+
+                      <div className="about-update-dialog-body">
+                        <p className="about-update-status-text">{updateSummaryText} {updateDetailText}</p>
+
+                        {/* Tabela compacta com dados instalados e remotos para diagnóstico rápido. */}
+                        <div className="about-meta about-update-meta">
+                          <div className="about-meta-row">
+                            <span className="about-meta-label">Status</span>
+                            <span className="about-meta-value">{updateStatusLabel}</span>
+                          </div>
+                          <div className="about-meta-row">
+                            <span className="about-meta-label">Versão instalada</span>
+                            <span className="about-meta-value">{localUpdaterVersionLabel}</span>
+                          </div>
+                          <div className="about-meta-row">
+                            <span className="about-meta-label">Build instalada</span>
+                            <span className="about-meta-value">{localUpdaterBuildLabel}</span>
+                          </div>
+                          <div className="about-meta-row">
+                            <span className="about-meta-label">Versão disponível</span>
+                            <span className="about-meta-value">{remoteUpdaterVersionLabel}</span>
+                          </div>
+                          <div className="about-meta-row">
+                            <span className="about-meta-label">Build disponível</span>
+                            <span className="about-meta-value">{remoteUpdaterBuildLabel}</span>
+                          </div>
+                          <div className="about-meta-row">
+                            <span className="about-meta-label">Publicada em</span>
+                            <span className="about-meta-value">{remoteUpdaterReleaseDateLabel}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <footer className="about-update-dialog-footer">
+                        <button
+                          type="button"
+                          className="text-button danger form-action-button"
+                          onClick={() => setUpdateDialogOpen(false)}
+                        >
+                          <X aria-hidden="true" size={14} />
+                          Fechar
+                        </button>
+                        <button
+                          type="button"
+                          className="text-button active form-action-button"
+                          onClick={() => void window.gameStockAPI.updater.checkNow()}
+                          disabled={updaterBusy}
+                        >
+                          <RefreshCw aria-hidden="true" size={14} className={updaterBusy ? "about-update-spin" : ""} />
+                          {updateButtonText}
+                        </button>
+                      </footer>
+                    </section>
+                  </div>
+                )}
               </div>
             )}
           </div>

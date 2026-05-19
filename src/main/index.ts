@@ -30,7 +30,7 @@ import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { createSplashWindow } from "./splash-window";
-import { applyStagedUpdateFromLaunchArgs, requestUpdaterSkip, runUpdateFlow, updaterAppInfo } from "./updater";
+import { applyStagedUpdateFromLaunchArgs, requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
@@ -332,6 +332,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.updater.skip, () => {
     requestUpdaterSkip();
   });
+  // Permite disparar verificação manual pela tela "Sobre" no renderer.
+  ipcMain.handle(IPC_CHANNELS.updater.checkNow, (event) => runManualUpdateFlow(event.sender));
   ipcMain.handle(IPC_CHANNELS.updater.getAppInfo, () => updaterAppInfo);
 
   // ── Estado persistido da UI (appState) ────────────────────────────────────

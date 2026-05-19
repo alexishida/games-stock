@@ -196,7 +196,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 32px 24px 24px;
+  justify-content: center;
+  min-height: 100%;
+  padding: 14px 24px 12px;
   text-align: center;
   gap: 0;
 }
@@ -204,8 +206,8 @@
 .about-app-icon {
   display: grid;
   place-items: center;
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border: 1px solid rgba(0, 242, 255, 0.3);
   border-radius: 20px;
   background:
@@ -213,11 +215,11 @@
     rgba(0, 242, 255, 0.06);
   box-shadow: 0 0 32px rgba(0, 242, 255, 0.12), inset 0 1px 0 rgba(255,255,255,0.06);
   color: var(--accent);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .about-app-name {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   color: var(--text-primary);
   font-size: 28px;
   font-weight: 900;
@@ -235,15 +237,15 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .about-description {
   max-width: 400px;
-  margin: 0 0 28px;
+  margin: 0 0 18px;
   color: var(--text-secondary);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
 .about-divider {
@@ -251,7 +253,7 @@
   max-width: 360px;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .about-meta {
@@ -298,11 +300,102 @@
   color: var(--accent);
 }
 
+/* Linha de ações da seção Sobre. */
+.about-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* Overlay do modal secundário de atualização aberto sobre Configurações. */
+.settings-secondary-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+/* Diálogo arrastável com detalhes de versão/build e ação de checagem manual. */
+.about-update-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  width: min(460px, calc(100vw - 48px));
+  max-height: min(640px, calc(100vh - 48px));
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-modal);
+  padding: 18px;
+}
+
+.about-update-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.about-update-dialog-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.about-update-dialog-body {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.about-update-status-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.about-update-meta {
+  max-width: none;
+}
+
+.about-update-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Ícone gira apenas durante checagem/download/aplicação. */
+.about-update-spin {
+  animation: about-update-spin 1s linear infinite;
+}
+
+@keyframes about-update-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .about-open-folder-button {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 20px;
   padding: 9px 16px;
   border: 1px solid rgba(132, 148, 149, 0.3);
   border-radius: 8px;
@@ -333,5 +426,11 @@
 @media (max-width: 780px) {
   .settings-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .about-open-folder-button {
+    width: 100%;
+    max-width: 360px;
+    justify-content: center;
   }
 }

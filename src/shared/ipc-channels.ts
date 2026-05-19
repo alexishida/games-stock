@@ -109,6 +109,8 @@ export const IPC_CHANNELS = {
   updater: {
     /** Evento push com mudanças de fase/progresso enviadas do main para a splash. */
     status: "updater:status",
+    /** Inicia uma verificação manual de update a partir da janela principal. */
+    checkNow: "updater:check-now",
     /** Handler acionado quando o usuário escolhe seguir em modo offline. */
     skip: "updater:skip",
     /** Evento push opcional para sinalizar que a janela principal deve abrir. */

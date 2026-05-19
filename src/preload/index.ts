@@ -163,6 +163,8 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.updater.status, listener);
       return () => ipcRenderer.removeListener(IPC_CHANNELS.updater.status, listener);
     },
+    /** Dispara uma verificação manual de update a partir do renderer. */
+    checkNow: () => ipcRenderer.invoke(IPC_CHANNELS.updater.checkNow) as Promise<void>,
     /** Solicita continuação em modo offline quando não há conectividade. */
     skip: () => ipcRenderer.invoke(IPC_CHANNELS.updater.skip) as Promise<void>,
     /** Retorna versão local e identificador da build instalada. */

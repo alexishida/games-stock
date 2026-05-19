@@ -177,6 +177,8 @@ export interface GameStockAPI {
      * @returns Função de cleanup para remover o listener.
      */
     onStatus(callback: (status: UpdaterStatus) => void): () => void;
+    /** Dispara uma verificação manual de update na janela principal. */
+    checkNow(): Promise<void>;
     /** Solicita continuação do boot sem verificar update. */
     skip(): Promise<void>;
     /** Retorna versão semântica e identificador de build local. */

@@ -9,7 +9,7 @@
  * - Aplicar staging no próximo boot quando a flag `--apply-update` existir.
  */
 
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, WebContents } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -67,6 +67,9 @@ let continueRequested = false;
 
 /** Falha pendente ocorrida ao aplicar staging no boot seguinte ao download. */
 let pendingStartupUpdaterFailure: UpdaterStatus | null = null;
+
+/** Promise compartilhada para evitar múltiplos checks manuais em paralelo. */
+let activeManualUpdateFlow: Promise<void> | null = null;
 
 /**
  * Permite que o handler IPC marque que o usuário escolheu seguir offline.
@@ -310,8 +313,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
       emitStatus(splashWindow, {
         phase: "up-to-date",
         message: "GameStock já está atualizado.",
-        version: result.manifest.version,
-        buildNumber: result.manifest.buildNumber
+        ...buildManifestStatusDetails(result.manifest)
       });
       await sleep(500);
       emitOpenMain(splashWindow);
@@ -322,8 +324,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
       phase: "downloading",
       message: `Baixando atualização v${result.manifest.version}...`,
       percent: 0,
-      version: result.manifest.version,
-      buildNumber: result.manifest.buildNumber
+      ...buildManifestStatusDetails(result.manifest)
     });
 
     const zipPath = await downloadUpdate(result.manifest.downloadUrl, (progress) => {
@@ -331,8 +332,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
         phase: "downloading",
         message: `Baixando atualização v${result.manifest.version}...`,
         percent: progress.percent,
-        version: result.manifest.version,
-        buildNumber: result.manifest.buildNumber
+        ...buildManifestStatusDetails(result.manifest)
       });
     }, abortController.signal);
 
@@ -344,8 +344,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
     emitStatus(splashWindow, {
       phase: "applying",
       message: "Preparando atualização para reinicialização...",
-      version: result.manifest.version,
-      buildNumber: result.manifest.buildNumber
+      ...buildManifestStatusDetails(result.manifest)
     });
 
     const stagingRoot = await applyUpdate(zipPath);
@@ -387,11 +386,123 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
 }
 
 /**
- * Envia um payload de status para o renderer da splash, se a janela ainda existir.
+ * Executa verificação manual de update a partir da janela principal.
+ *
+ * Reutiliza o mesmo backend do boot, mas sem bloquear abertura do app e sem
+ * depender da splash. Quando encontra nova versão, baixa, prepara staging e
+ * relança o app automaticamente ao concluir.
  */
-function emitStatus(splashWindow: BrowserWindow, status: UpdaterStatus): void {
-  if (splashWindow.isDestroyed()) return;
-  splashWindow.webContents.send(IPC_CHANNELS.updater.status, status);
+export async function runManualUpdateFlow(targetContents: WebContents): Promise<void> {
+  if (activeManualUpdateFlow) {
+    return activeManualUpdateFlow;
+  }
+
+  activeManualUpdateFlow = (async () => {
+    try {
+      emitStatus(targetContents, {
+        phase: "checking",
+        message: "Verificando atualizações..."
+      });
+
+      const result = await checkForUpdate();
+
+      if (result.kind === "no-connection") {
+        emitStatus(targetContents, {
+          phase: "no-connection",
+          message: "Sem conexão para verificar atualizações.",
+          error: result.error
+        });
+        return;
+      }
+
+      if (result.kind === "error") {
+        emitStatus(targetContents, {
+          phase: "error",
+          message: "Falha ao verificar atualizações.",
+          error: result.error
+        });
+        return;
+      }
+
+      if (result.kind === "up-to-date") {
+        emitStatus(targetContents, {
+          phase: "up-to-date",
+          message: "GameStock já está atualizado.",
+          ...buildManifestStatusDetails(result.manifest)
+        });
+        return;
+      }
+
+      emitStatus(targetContents, {
+        phase: "downloading",
+        message: `Baixando atualização v${result.manifest.version}...`,
+        percent: 0,
+        ...buildManifestStatusDetails(result.manifest)
+      });
+
+      const zipPath = await downloadUpdate(result.manifest.downloadUrl, (progress) => {
+        emitStatus(targetContents, {
+          phase: "downloading",
+          message: `Baixando atualização v${result.manifest.version}...`,
+          percent: progress.percent,
+          ...buildManifestStatusDetails(result.manifest)
+        });
+      });
+
+      emitStatus(targetContents, {
+        phase: "applying",
+        message: "Preparando atualização para reinicialização...",
+        ...buildManifestStatusDetails(result.manifest)
+      });
+
+      const stagingRoot = await applyUpdate(zipPath);
+      await fs.promises.rm(zipPath, { force: true }).catch(() => undefined);
+
+      app.relaunch({ args: buildRelaunchArgs(stagingRoot) });
+      app.exit(0);
+    } catch (error) {
+      const logPath = appendUpdaterErrorLog(error);
+      const message = error instanceof Error ? error.message : "Falha inesperada no updater.";
+      emitStatus(targetContents, {
+        phase: isConnectionError(error) ? "no-connection" : "error",
+        message: isConnectionError(error)
+          ? "Sem conexão para verificar atualizações."
+          : "Falha ao baixar ou aplicar atualização.",
+        error: message,
+        errorLogPath: logPath
+      });
+    } finally {
+      activeManualUpdateFlow = null;
+    }
+  })();
+
+  return activeManualUpdateFlow;
+}
+
+/**
+ * Envia um payload de status para qualquer renderer inscrito no fluxo do updater.
+ *
+ * Aceita `BrowserWindow` (caso da splash) ou `WebContents` direto
+ * (caso da janela principal em verificação manual).
+ */
+function emitStatus(target: BrowserWindow | WebContents, status: UpdaterStatus): void {
+  const webContents = target instanceof BrowserWindow ? target.webContents : target;
+  if (webContents.isDestroyed()) return;
+  webContents.send(IPC_CHANNELS.updater.status, status);
+}
+
+/**
+ * Converte metadados do manifesto remoto para o payload de status do updater.
+ *
+ * Mantém splash e modal manual com a mesma fonte de versão, build e notas.
+ */
+function buildManifestStatusDetails(manifest: UpdateManifest): Pick<UpdaterStatus, "version" | "buildNumber" | "releaseDate" | "releaseNotes"> {
+  return {
+    version: manifest.version,
+    buildNumber: manifest.buildNumber,
+    releaseDate: manifest.releaseDate,
+    releaseNotes: manifest.releaseNotes
+  };
 }
 
 /**

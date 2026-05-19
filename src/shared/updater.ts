@@ -35,6 +35,10 @@ export interface UpdaterStatus {
   requiresAction?: boolean;
   version?: string;
   buildNumber?: UpdaterBuildNumber;
+  /** Data de publicação da release remota, quando o manifesto já foi consultado. */
+  releaseDate?: string;
+  /** Notas da release remota, quando o manifesto já foi consultado. */
+  releaseNotes?: string;
 }
 
 /** Dados locais da instalação exibidos na splash. */
