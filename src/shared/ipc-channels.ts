@@ -105,6 +105,18 @@ export const IPC_CHANNELS = {
     getStorageStats: "app:getStorageStats"
   },
 
+  /** Comunicação dedicada do fluxo de atualização automática com a splash screen. */
+  updater: {
+    /** Evento push com mudanças de fase/progresso enviadas do main para a splash. */
+    status: "updater:status",
+    /** Handler acionado quando o usuário escolhe seguir em modo offline. */
+    skip: "updater:skip",
+    /** Evento push opcional para sinalizar que a janela principal deve abrir. */
+    openMain: "updater:open-main",
+    /** Retorna versão semântica e identificador da build instalada. */
+    getAppInfo: "updater:get-app-info"
+  },
+
   /**
    * Armazenamento chave-valor persistido de estado da aplicação (SQLite).
    * Usado para guardar configurações de UI e estado de jobs entre sessões.

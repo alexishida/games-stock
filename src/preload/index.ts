@@ -15,6 +15,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import type { AppStateEntry } from "../shared/appState";
+import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
 import {
   CoverSyncStats,
   DataPortabilityExportRequest,
@@ -152,6 +153,20 @@ const api = {
     getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.app.getVersion) as Promise<string>,
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>
+  },
+
+  /** Fluxo dedicado do updater consumido pela splash screen. */
+  updater: {
+    /** Escuta mudanças de status/progresso emitidas pelo processo principal. */
+    onStatus: (callback: (status: UpdaterStatus) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, status: UpdaterStatus) => callback(status);
+      ipcRenderer.on(IPC_CHANNELS.updater.status, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.updater.status, listener);
+    },
+    /** Solicita continuação em modo offline quando não há conectividade. */
+    skip: () => ipcRenderer.invoke(IPC_CHANNELS.updater.skip) as Promise<void>,
+    /** Retorna versão local e identificador da build instalada. */
+    getAppInfo: () => ipcRenderer.invoke(IPC_CHANNELS.updater.getAppInfo) as Promise<UpdaterAppInfo>
   },
 
   /**

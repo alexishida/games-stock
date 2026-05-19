@@ -108,6 +108,69 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+## Auto Update
+
+O GameStock agora pode verificar updates antes de abrir a janela principal. Esse fluxo depende de duas variaveis de build no CI:
+
+- `UPDATE_MANIFEST_URL`: URL publica do JSON com metadados da release atual.
+- `BUILD_NUMBER`: identificador textual da build exibido na splash. Se nao existir, o app reaproveita o hash curto do commit gerado em `src/shared/build-meta.ts`.
+- Na ausencia dessas variaveis, o app usa o endpoint padrao `https://s3.alexishida.com/gamestock/meta-dados.json`.
+
+Quando `UPDATE_MANIFEST_URL` nao estiver definida, o app pula a splash e abre direto a janela principal. Isso mantém o fluxo de desenvolvimento local sem bloqueio.
+
+### Formato do manifesto
+
+O endpoint remoto precisa responder HTTP `200` com um JSON neste formato:
+
+```json
+{
+  "version": "0.2.0",
+  "buildNumber": "20260518.1",
+  "releaseDate": "2026-05-18",
+  "downloadUrl": "https://example.com/releases/gamestock-0.2.0.zip",
+  "releaseNotes": "Correcoes, melhorias e novos recursos"
+}
+```
+
+Tambem existe compatibilidade com o formato legado em pt-br atualmente publicado no S3:
+
+```json
+{
+  "data": "2026-05-18 22:26:00",
+  "versao": "0.0.1",
+  "build": "53133c5",
+  "path": "https://s3.alexishida.com/gamestock/53133c5.zip"
+}
+```
+
+Regras usadas pelo updater:
+
+- `version` e comparada com `app.getVersion()` usando semver simples (`x.y.z`); se a versao for igual mas o `buildNumber`/`build` for diferente, o update tambem e aplicado.
+- `downloadUrl` deve apontar para um `.zip` contendo uma pasta raiz `app/`.
+- Alias aceitos no manifesto: `versao` para `version`, `data` para `releaseDate` e `path` para `downloadUrl`.
+- erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash.
+- erro de servidor, JSON invalido ou download corrompido nao bloqueia o app: a splash fecha e o GameStock abre normalmente.
+
+### Publicacao de release
+
+Passo a passo recomendado:
+
+1. Atualize o campo `version` do `package.json`.
+2. Gere os artefatos com `npm run build:renderer` e `npm run build:main` ou `npm run dist:windows`.
+3. Monte um pacote `.zip` da pasta `app/` que sera instalada no `resourcesPath/app`.
+4. Publique o `.zip` em uma URL acessivel pelo app.
+5. Atualize o JSON do manifesto remoto com a nova `version`, `buildNumber`, `releaseDate`, `downloadUrl` e `releaseNotes`.
+6. No CI, injete `UPDATE_MANIFEST_URL` e opcionalmente `BUILD_NUMBER` durante o build final distribuido aos usuarios.
+
+Fluxo em runtime:
+
+- splash abre antes da janela principal
+- app verifica o manifesto com timeout de 5s
+- se houver versao remota mais nova, baixa o ZIP para pasta temporaria
+- ZIP e extraido para `_update_staging`
+- app relanca com `--apply-update <stagingPath>` e copia staging para `resourcesPath/app`
+- boot seguinte repete a verificacao normalmente
+
 ## Testes
 
 Smoke test da importacao por pasta de ROMs:

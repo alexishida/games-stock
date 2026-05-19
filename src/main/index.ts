@@ -29,10 +29,13 @@ import * as appState from "./db/repositories/appState";
 import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
+import { createSplashWindow } from "./splash-window";
+import { applyStagedUpdateFromLaunchArgs, requestUpdaterSkip, runUpdateFlow, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
+import { UPDATE_MANIFEST_URL } from "../shared/update-config";
 
 /** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
@@ -45,6 +48,9 @@ const romFolderJobs = new Map<string, RomFolderImportJob>();
 
 /** Mapa de jobs de portabilidade de dados (exportação/importação) desta sessão. */
 const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
+
+// Aplica staging pendente antes de qualquer inicialização visual do app
+applyStagedUpdateFromLaunchArgs();
 
 // Configura os caminhos de dados do Electron antes de qualquer módulo que os acesse
 configureElectronStoragePaths();
@@ -148,11 +154,12 @@ async function createWindow(): Promise<void> {
 
   if (process.env.VITE_DEV_SERVER_URL || !app.isPackaged) {
     // Modo de desenvolvimento: conecta ao servidor Vite com HMR
-    await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173");
+    const devServerUrl = process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173";
+    await mainWindow.loadURL(new URL("/src/renderer/index.html", devServerUrl).toString());
     mainWindow.webContents.openDevTools();
   } else {
     // Produção: carrega o bundle compilado
-    await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+    await mainWindow.loadFile(path.join(__dirname, "../renderer/src/renderer/index.html"));
   }
 }
 
@@ -322,6 +329,10 @@ function registerIpc(): void {
     const dataDirSizeMb = Math.round(getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
     return { totalGames, dataDirSizeMb, dataDirPath };
   });
+  ipcMain.handle(IPC_CHANNELS.updater.skip, () => {
+    requestUpdaterSkip();
+  });
+  ipcMain.handle(IPC_CHANNELS.updater.getAppInfo, () => updaterAppInfo);
 
   // ── Estado persistido da UI (appState) ────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.appState.get, (_event, key: string) => appState.getAppState(key));
@@ -701,12 +712,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
 
 // ── Ciclo de vida do Electron ──────────────────────────────────────────────
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null); // Remove menu nativo padrão do Electron
-  registerMediaProtocol();
-  registerIpc();
-  void createWindow();
-});
+void bootstrapApplication();
 
 app.on("activate", () => {
   // macOS: recria a janela se o app for ativado sem janelas abertas (clique no dock)
@@ -722,6 +728,35 @@ app.on("before-quit", () => {
   isQuitting = true;
   closeDatabase();
 });
+
+/**
+ * Inicializa a aplicação com splash + updater quando configurado.
+ *
+ * Em ambiente local sem `UPDATE_MANIFEST_URL`, o boot segue direto para a
+ * janela principal para não atrapalhar o fluxo de desenvolvimento.
+ */
+async function bootstrapApplication(): Promise<void> {
+  await app.whenReady();
+  Menu.setApplicationMenu(null); // Remove menu nativo padrão do Electron
+  registerMediaProtocol();
+  registerIpc();
+
+  if (!UPDATE_MANIFEST_URL) {
+    await createWindow();
+    return;
+  }
+
+  const splashWindow = await createSplashWindow();
+  const flowResult = await runUpdateFlow(splashWindow);
+  if (flowResult !== "open-main") return;
+
+  // Criamos a principal antes de fechar a splash para evitar `window-all-closed`.
+  const createMainWindowPromise = createWindow();
+  if (!splashWindow.isDestroyed()) {
+    splashWindow.close();
+  }
+  await createMainWindowPromise;
+}
 
 // ── Protocolo customizado gamestock-media ──────────────────────────────────
 

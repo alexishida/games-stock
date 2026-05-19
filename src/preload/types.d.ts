@@ -9,6 +9,7 @@
  */
 
 import type { AppStateEntry } from "../shared/appState";
+import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
 import {
   CollectionCounts,
   ConservationState,
@@ -167,6 +168,19 @@ export interface GameStockAPI {
     getVersion(): Promise<string>;
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
+  };
+
+  /** Fluxo do updater usado pela splash screen. */
+  updater: {
+    /**
+     * Registra listener para mudanças de fase/progresso do updater.
+     * @returns Função de cleanup para remover o listener.
+     */
+    onStatus(callback: (status: UpdaterStatus) => void): () => void;
+    /** Solicita continuação do boot sem verificar update. */
+    skip(): Promise<void>;
+    /** Retorna versão semântica e identificador de build local. */
+    getAppInfo(): Promise<UpdaterAppInfo>;
   };
 
   /**

@@ -1,0 +1,254 @@
+/**
+ * Estilos da splash screen.
+ *
+ * Mantém o visual do design system do projeto com fundo escuro, brilho ciano
+ * e superfícies glassmorphism compactas para o boot do app.
+ */
+
+body {
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+}
+
+.splash-shell {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(0, 242, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 88% 14%, rgba(172, 226, 255, 0.12), transparent 24%),
+    linear-gradient(160deg, rgba(14, 14, 14, 0.98), rgba(24, 24, 24, 0.98));
+  -webkit-app-region: drag;
+}
+
+.splash-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 22px;
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(28, 27, 27, 0.92);
+  box-shadow: var(--shadow-modal);
+  padding: 22px;
+  backdrop-filter: blur(18px);
+}
+
+.splash-glow {
+  position: absolute;
+  inset: auto -40px -70px auto;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 242, 255, 0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.splash-header,
+.splash-status-row,
+.splash-progress-meta,
+.splash-offline-title,
+.splash-offline-actions {
+  display: flex;
+  align-items: center;
+}
+
+.splash-header {
+  gap: 14px;
+}
+
+.splash-brand-mark,
+.splash-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.splash-brand-mark {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(0, 242, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--accent-muted);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.splash-brand-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.splash-brand-copy strong,
+.splash-status-copy strong {
+  color: var(--text-primary);
+}
+
+.splash-brand-copy strong {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.splash-body,
+.splash-status-copy {
+  display: grid;
+}
+
+.splash-body {
+  align-content: start;
+  gap: 22px;
+}
+
+.splash-version-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.splash-version-strip span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+.splash-status-row {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.splash-status-icon {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent);
+}
+
+.splash-status-icon.phase-error,
+.splash-status-icon.phase-no-connection {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.34);
+  background: rgba(127, 29, 29, 0.26);
+}
+
+.splash-status-copy {
+  gap: 6px;
+  min-width: 0;
+}
+
+.splash-status-copy strong {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.splash-status-copy small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.splash-progress-block {
+  display: grid;
+  gap: 8px;
+}
+
+.splash-progress-meta {
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.splash-progress-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.splash-progress-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-muted));
+  box-shadow: 0 0 18px rgba(0, 242, 255, 0.25);
+}
+
+.splash-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  border-radius: 18px;
+  -webkit-app-region: no-drag;
+}
+
+.splash-offline-dialog {
+  display: grid;
+  gap: 14px;
+  width: min(360px, calc(100% - 32px));
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-modal);
+  padding: 20px;
+}
+
+.splash-offline-title {
+  gap: 10px;
+  color: #fecaca;
+}
+
+.splash-offline-dialog p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.splash-offline-actions {
+  justify-content: flex-end;
+}
+
+.splash-offline-actions button {
+  -webkit-app-region: no-drag;
+}
+
+.spin {
+  animation: splash-spin 1.15s linear infinite;
+}
+
+@keyframes splash-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
