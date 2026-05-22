@@ -2,7 +2,6 @@
  * Ponto de entrada do processo principal (main process) do Electron.
  *
  * Responsabilidades:
- * - Configurar caminhos de dados do Electron antes de qualquer outro módulo.
  * - Registrar o protocolo customizado `gamestock-media` para servir imagens locais.
  * - Criar e gerenciar a janela principal (`BrowserWindow`).
  * - Registrar todos os handlers IPC que expõem funcionalidades ao renderer.
@@ -20,7 +19,6 @@ import { HardwareItemDao } from "./db/dao/hardwareItemDao";
 import { HardwareItemTypeDao } from "./db/dao/hardwareItemTypeDao";
 import { HardwareConservationStateDao } from "./db/dao/hardwareConservationStateDao";
 import { HardwareItemPhotoDao } from "./db/dao/hardwareItemPhotoDao";
-import { getAppUserDataDir } from "./appPaths";
 import { spawn } from "node:child_process";
 import * as games from "./db/repositories/games";
 import * as platforms from "./db/repositories/platforms";
@@ -30,7 +28,7 @@ import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { createSplashWindow } from "./splash-window";
-import { applyStagedUpdateFromLaunchArgs, requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, updaterAppInfo } from "./updater";
+import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
@@ -49,45 +47,9 @@ const romFolderJobs = new Map<string, RomFolderImportJob>();
 /** Mapa de jobs de portabilidade de dados (exportação/importação) desta sessão. */
 const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
 
-// Configura os caminhos de dados do Electron antes de qualquer módulo que os acesse
-configureElectronStoragePaths();
-
-// Aplica staging pendente antes de qualquer inicialização visual do app.
-// Se a cópia teve sucesso, o novo app.asar já está no disco mas o processo atual
-// ainda executa o código antigo (carregado antes da cópia). Precisamos relançar
-// sem --apply-update para que o Electron carregue o bundle novo na próxima sessão.
-if (applyStagedUpdateFromLaunchArgs()) {
-  const cleanArgs: string[] = [];
-  for (let i = 1; i < process.argv.length; i++) {
-    if (process.argv[i] === "--apply-update") { i++; continue; }
-    cleanArgs.push(process.argv[i]);
-  }
-  app.relaunch({ args: cleanArgs });
-  app.exit(0);
-}
-
 /** Retorna o título da janela principal com a versão do app. */
 function getWindowTitle(): string {
   return `GameStock v${APP_VERSION_LABEL}`;
-}
-
-/**
- * Configura os diretórios de dados, sessão e cache do Electron para usar
- * o diretório gerenciado pelo GameStock em vez dos padrões do Electron.
- *
- * Deve ser chamado antes de `app.whenReady()`.
- */
-function configureElectronStoragePaths(): void {
-  const dataDir = getAppUserDataDir();
-  const sessionDir = path.join(dataDir, "session");
-  const cacheDir = path.join(sessionDir, "Cache");
-  fs.mkdirSync(cacheDir, { recursive: true });
-  app.setPath("userData", dataDir);
-  app.setPath("sessionData", sessionDir);
-  // Direciona o cache de disco do Chromium para o diretório controlado pelo app
-  app.commandLine.appendSwitch("disk-cache-dir", cacheDir);
-  // Desativa cache de shaders GPU (evita arquivos de cache espalhados)
-  app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 }
 
 // Registra o esquema customizado antes de `app.whenReady()`, conforme requisito do Electron
