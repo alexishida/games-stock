@@ -2,9 +2,17 @@
 
 GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
+## Capturas de tela
+
 ![Biblioteca principal](screenshot/principal.jpg)
 
-![Detalhe do jogo](screenshot/game-detail.jpg)
+![Detalhe do jogo](screenshot/detail.jpg)
+
+![Inventario fisico](screenshot/inventario.jpg)
+
+![Formulario do inventario fisico](screenshot/inventario-form.jpg)
+
+![Backup e portabilidade de dados](screenshot/backup.jpg)
 
 ## Funcionalidades
 
