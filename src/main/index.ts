@@ -52,8 +52,19 @@ const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
 // Configura os caminhos de dados do Electron antes de qualquer módulo que os acesse
 configureElectronStoragePaths();
 
-// Aplica staging pendente antes de qualquer inicialização visual do app
-applyStagedUpdateFromLaunchArgs();
+// Aplica staging pendente antes de qualquer inicialização visual do app.
+// Se a cópia teve sucesso, o novo app.asar já está no disco mas o processo atual
+// ainda executa o código antigo (carregado antes da cópia). Precisamos relançar
+// sem --apply-update para que o Electron carregue o bundle novo na próxima sessão.
+if (applyStagedUpdateFromLaunchArgs()) {
+  const cleanArgs: string[] = [];
+  for (let i = 1; i < process.argv.length; i++) {
+    if (process.argv[i] === "--apply-update") { i++; continue; }
+    cleanArgs.push(process.argv[i]);
+  }
+  app.relaunch({ args: cleanArgs });
+  app.exit(0);
+}
 
 /** Retorna o título da janela principal com a versão do app. */
 function getWindowTitle(): string {
@@ -126,8 +137,8 @@ async function createWindow(): Promise<void> {
     minWidth: 1024,
     minHeight: 768,
     title: getWindowTitle(),
-    // Ícone da janela — em dev aponta para build/icon.png; no pacote o exe já embute o ícone
-    icon: path.join(__dirname, "../../build/icon.png"),
+    // Ícone da janela — usa icon-win.png no Windows; no pacote o exe já embute o ícone via electron-builder
+    icon: path.join(__dirname, process.platform === "win32" ? "../../build/icon-win.png" : "../../build/icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
