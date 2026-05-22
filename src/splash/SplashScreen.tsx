@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Gamepad2, RefreshCw, TriangleAlert, WifiOff } from "lucide-react";
 import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
+import splashHero from "../renderer/assets/gamestock-splash.png";
 
 /** Estado inicial exibido enquanto o main ainda não enviou progresso real. */
 const INITIAL_STATUS: UpdaterStatus = {
@@ -100,24 +101,14 @@ export function SplashScreen() {
 
   return (
     <div className="splash-shell">
-      <div className="splash-card" role="status" aria-live="polite">
-        <div className="splash-glow" aria-hidden="true" />
-        <header className="splash-header">
-          <div className="splash-brand-mark" aria-hidden="true">
-            <Gamepad2 size={22} />
-          </div>
-          <div className="splash-brand-copy">
-            <span className="eyebrow">Inicialização</span>
-            <strong>GameStock</strong>
-          </div>
-        </header>
+      <div className="splash-card" role="status" aria-live="polite" style={{ backgroundImage: `url(${splashHero})` }}>
+
+        <div className="splash-version-strip" aria-hidden="true">
+          <span>{`v${appInfo.version}`}</span>
+          <span>{`build ${appInfo.buildNumber}`}</span>
+        </div>
 
         <section className="splash-body">
-          <div className="splash-version-strip">
-            <span>{`v${appInfo.version}`}</span>
-            <span>{`build ${appInfo.buildNumber}`}</span>
-          </div>
-
           <div className="splash-status-row">
             <span className={`splash-status-icon phase-${status.phase}`}>
               {presentation.icon}

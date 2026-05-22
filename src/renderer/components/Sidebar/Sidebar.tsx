@@ -11,6 +11,7 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { Cpu, Gamepad2, Library, Plus, Settings, Star, Trophy } from "lucide-react";
+import logoSrc from "../../assets/logo.png";
 import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";
@@ -86,11 +87,8 @@ export function Sidebar() {
     <aside className="sidebar">
       {/* Marca do app */}
       <div className="brand-lockup">
-        <div className="brand-mark">
-          <Gamepad2 aria-hidden="true" size={22} />
-        </div>
-        <div>
-          <strong>GameStock</strong>
+        <img src={logoSrc} alt="GameStock" className="brand-logo" />
+        <div className="brand-meta">
           <span>Games Management</span>
           {appVersion ? <small className="brand-version">v{appVersion}</small> : null}
         </div>

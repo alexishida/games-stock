@@ -19,12 +19,12 @@ export type SplashWindow = BrowserWindow;
  */
 export async function createSplashWindow(): Promise<SplashWindow> {
   const splashWindow = new BrowserWindow({
-    width: 480,
-    height: 320,
-    minWidth: 480,
-    minHeight: 320,
-    maxWidth: 480,
-    maxHeight: 320,
+    width: 640,
+    height: 400,
+    minWidth: 640,
+    minHeight: 400,
+    maxWidth: 640,
+    maxHeight: 400,
     show: false,
     frame: false,
     transparent: false,

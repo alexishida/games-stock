@@ -126,6 +126,8 @@ async function createWindow(): Promise<void> {
     minWidth: 1024,
     minHeight: 768,
     title: getWindowTitle(),
+    // Ícone da janela — em dev aponta para build/icon.png; no pacote o exe já embute o ícone
+    icon: path.join(__dirname, "../../build/icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

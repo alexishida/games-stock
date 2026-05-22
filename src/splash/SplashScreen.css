@@ -1,59 +1,70 @@
 /**
  * Estilos da splash screen.
  *
- * Mantém o visual do design system do projeto com fundo escuro, brilho ciano
- * e superfícies glassmorphism compactas para o boot do app.
+ * Imagem ocupa 100% da janela sem bordas. Versão no canto superior direito.
+ * Status de boot ancorado no rodapé com gradiente escuro para legibilidade.
  */
 
 body {
   overflow: hidden;
+  margin: 0;
 }
 
 #root {
   width: 100%;
+  height: 100%;
 }
 
 .splash-shell {
-  display: grid;
   width: 100%;
   height: 100%;
-  place-items: center;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(0, 242, 255, 0.18), transparent 30%),
-    radial-gradient(circle at 88% 14%, rgba(172, 226, 255, 0.12), transparent 24%),
-    linear-gradient(160deg, rgba(14, 14, 14, 0.98), rgba(24, 24, 24, 0.98));
   -webkit-app-region: drag;
 }
 
+/* Card ocupa toda a janela — sem borda, sem padding lateral extra */
 .splash-card {
   position: relative;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 22px;
-  width: calc(100% - 28px);
-  height: calc(100% - 28px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-    rgba(28, 27, 27, 0.92);
-  box-shadow: var(--shadow-modal);
-  padding: 22px;
-  backdrop-filter: blur(18px);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 0 20px 20px;
 }
 
-.splash-glow {
+/* Gradiente cobrindo parte inferior para legibilidade do texto */
+.splash-card::before {
+  content: '';
   position: absolute;
-  inset: auto -40px -70px auto;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(0, 242, 255, 0.16), transparent 68%);
+  inset: 45% 0 0 0;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.92) 65%);
   pointer-events: none;
+  z-index: 0;
 }
 
-.splash-header,
+/* Versão e build — canto superior direito, sem bordas */
+.splash-version-strip {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.splash-version-strip span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 .splash-status-row,
 .splash-progress-meta,
 .splash-offline-title,
@@ -62,42 +73,11 @@ body {
   align-items: center;
 }
 
-.splash-header {
-  gap: 14px;
-}
-
-.splash-brand-mark,
 .splash-status-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-}
-
-.splash-brand-mark {
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(0, 242, 255, 0.34);
-  border-radius: 14px;
-  background: rgba(0, 242, 255, 0.12);
-  color: var(--accent-muted);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.splash-brand-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.splash-brand-copy strong,
-.splash-status-copy strong {
-  color: var(--text-primary);
-}
-
-.splash-brand-copy strong {
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
 }
 
 .splash-body,
@@ -106,94 +86,77 @@ body {
 }
 
 .splash-body {
+  position: relative;
+  z-index: 1;
   align-content: start;
-  gap: 22px;
-}
-
-.splash-version-strip {
-  display: flex;
-  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-}
-
-.splash-version-strip span {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  padding: 6px 10px;
-  text-transform: uppercase;
 }
 
 .splash-status-row {
   align-items: flex-start;
-  gap: 14px;
+  gap: 10px;
 }
 
 .splash-status-icon {
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
   color: var(--accent);
+  border: none;
 }
 
 .splash-status-icon.phase-error,
 .splash-status-icon.phase-no-connection {
   color: #fecaca;
-  border-color: rgba(248, 113, 113, 0.34);
-  background: rgba(127, 29, 29, 0.26);
+  background: rgba(127, 29, 29, 0.5);
 }
 
 .splash-status-copy {
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .splash-status-copy strong {
-  font-size: 16px;
-  font-weight: 800;
-  line-height: 1.35;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .splash-status-copy small {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .splash-progress-block {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .splash-progress-meta {
   justify-content: space-between;
   gap: 10px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 .splash-progress-track {
-  height: 4px;
+  height: 3px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .splash-progress-track span {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-muted));
-  box-shadow: 0 0 18px rgba(0, 242, 255, 0.25);
+  box-shadow: 0 0 12px rgba(0, 242, 255, 0.3);
 }
 
 .splash-overlay {
@@ -202,9 +165,8 @@ body {
   z-index: 2;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.68);
+  background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(8px);
-  border-radius: 18px;
   -webkit-app-region: no-drag;
 }
 
@@ -244,11 +206,6 @@ body {
 }
 
 @keyframes splash-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }

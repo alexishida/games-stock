@@ -4,7 +4,6 @@
  * Modal principal de configurações do GameStock.
  * Exibe um layout com navegação lateral (nav) e conteúdo à direita,
  * permitindo alternar entre as seções:
- *  - Geral: resumo da instalação (versão, biblioteca, armazenamento)
  *  - Plataformas: gerenciamento de plataformas (PlatformManager)
  *  - Emuladores: configuração de emuladores (EmulatorsSettings)
  *  - Biblioteca: pastas de ROMs (RomFolderImporter)
@@ -17,7 +16,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { DatabaseBackup, ExternalLink, FolderOpen, Gamepad2, HardDrive, Images, Info, Library, MonitorPlay, RefreshCw, Settings, Waypoints, X } from "lucide-react";
+import { DatabaseBackup, ExternalLink, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, Settings, X } from "lucide-react";
+import logoSrc from "../../assets/logo.png";
 import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
 import { EmulatorsSettings } from "../EmulatorsSettings/EmulatorsSettings";
@@ -25,7 +25,6 @@ import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { SettingsSection, useGameStockStore } from "../../store";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
-import { SectionIntro } from "../SectionIntro/SectionIntro";
 import type { UpdaterAppInfo, UpdaterStatus } from "../../../shared/updater";
 import "./SettingsModal.css";
 
@@ -35,7 +34,6 @@ import "./SettingsModal.css";
  * O agrupamento controla onde os separadores aparecem no nav.
  */
 const NAV_ITEMS: Array<{ id: SettingsSection; label: string; Icon: typeof FolderOpen; group: "library" | "app" }> = [
-  { id: "geral", label: "Geral", Icon: Settings, group: "app" },
   { id: "plataformas", label: "Plataformas", Icon: Gamepad2, group: "library" },
   { id: "emuladores", label: "Emuladores", Icon: MonitorPlay, group: "library" },
   { id: "biblioteca", label: "Biblioteca", Icon: FolderOpen, group: "library" },
@@ -46,16 +44,15 @@ const NAV_ITEMS: Array<{ id: SettingsSection; label: string; Icon: typeof Folder
 
 /**
  * Títulos e eyebrows (subtítulos de contexto) para cada seção.
- * Eyebrow é opcional; aparece acima do título principal no header do conteúdo.
+ * Eyebrow e título são opcionais para permitir seções com header textual oculto.
  */
-const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title: string }> = {
-  geral: { eyebrow: "Aplicativo", title: "Configurações gerais" },
+const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title?: string }> = {
   backup: { eyebrow: "Aplicativo", title: "Backup da biblioteca" },
   biblioteca: { title: "Gerenciar biblioteca" },
   plataformas: { title: "Gerenciar plataformas" },
   emuladores: { title: "Gerenciar emuladores" },
   covers: { title: "Gerenciar mídia da biblioteca" },
-  sobre: { eyebrow: "Aplicativo", title: "Sobre o GameStock" }
+  sobre: {}
 };
 
 /**
@@ -201,7 +198,7 @@ export function SettingsModal() {
   // Muda a seção ativa
   const setSection = useGameStockStore((state) => state.setSettingsSection);
 
-  // Versão do app exibida na seção "Geral" e "Sobre"
+  // Versão do app exibida nas seções "Backup" e "Sobre"
   const [appVersion, setAppVersion] = useState("");
   // Estatísticas de armazenamento: total de jogos, tamanho e caminho da pasta de dados
   const [storageStats, setStorageStats] = useState<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string } | null>(null);
@@ -260,14 +257,6 @@ export function SettingsModal() {
   const appNavItems = NAV_ITEMS.filter((item) => item.group === "app");
   const libraryNavItems = NAV_ITEMS.filter((item) => item.group === "library");
 
-  // "Geral" aparece no topo do nav, antes do separador
-  const generalNavItem = appNavItems.find((item) => item.id === "geral");
-  // Itens de app restantes (Backup, Sobre) ficam após os itens de biblioteca
-  const secondaryAppNavItems = appNavItems.filter((item) => item.id !== "geral");
-
-  // Labels formatados para as métricas da seção "Geral"
-  const totalGamesLabel = storageStats ? `${storageStats.totalGames} jogos` : "Carregando";
-  const dataDirSizeLabel = storageStats ? `${storageStats.dataDirSizeMb.toFixed(1)} MB` : "Carregando";
   // Feedback derivado do último status do updater manual
   const updaterBusy = isUpdaterBusy(updaterStatus);
   const updateSummaryText = updaterSummary(updaterStatus);
@@ -299,18 +288,6 @@ export function SettingsModal() {
             <Settings aria-hidden="true" size={15} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />
             Configurações
           </p>
-
-          {/* Item "Geral" no topo, separado dos itens de biblioteca */}
-          {generalNavItem ? (
-            <button
-              type="button"
-              className={`settings-nav-item ${section === generalNavItem.id ? "active" : ""}`}
-              onClick={() => setSection(generalNavItem.id)}
-            >
-              <generalNavItem.Icon aria-hidden="true" size={18} />
-              {generalNavItem.label}
-            </button>
-          ) : null}
 
           <div className="settings-nav-separator" aria-hidden="true" />
 
@@ -344,8 +321,8 @@ export function SettingsModal() {
 
           <div className="settings-nav-separator" aria-hidden="true" />
 
-          {/* Itens secundários do grupo "app": Backup, Sobre */}
-          {secondaryAppNavItems.map(({ Icon, ...item }) => (
+          {/* Itens do grupo "app": Backup e Sobre. */}
+          {appNavItems.map(({ Icon, ...item }) => (
             <button
               key={item.id}
               type="button"
@@ -363,9 +340,9 @@ export function SettingsModal() {
           {/* Header com eyebrow, título da seção e botão de fechar */}
           <header className="settings-header">
             <div>
-              {/* Eyebrow de contexto (ex.: "Aplicativo") exibido quando definido */}
+              {/* Textos de contexto exibidos somente quando definidos pela seção ativa. */}
               {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-              <h2>{title}</h2>
+              {title && <h2>{title}</h2>}
             </div>
             <button type="button" className="icon-button modal-close-button" onClick={() => setOpen(false)} aria-label="Fechar">
               <X aria-hidden="true" size={18} />
@@ -374,68 +351,6 @@ export function SettingsModal() {
 
           {/* Corpo da seção: renderização condicional por seção ativa */}
           <div className="settings-body">
-
-            {/* Seção: Geral — resumo de versão, biblioteca e armazenamento */}
-            {section === "geral" && (
-              <section className="settings-section-grid">
-                <SectionIntro
-                  title="Resumo do aplicativo"
-                  description="Estado atual da instalação, biblioteca local e armazenamento usado pelo GameStock."
-                />
-
-                {/* Cards de métricas: versão, total de jogos, tamanho em disco */}
-                <div className="settings-summary-grid">
-                  <article className="settings-summary-card">
-                    <div className="settings-summary-label">
-                      <Waypoints aria-hidden="true" size={14} />
-                      <span>Versão</span>
-                    </div>
-                    <strong className="settings-summary-value">{appVersion || "Carregando"}</strong>
-                  </article>
-
-                  <article className="settings-summary-card">
-                    <div className="settings-summary-label">
-                      <Library aria-hidden="true" size={14} />
-                      <span>Biblioteca</span>
-                    </div>
-                    <strong className="settings-summary-value">{totalGamesLabel}</strong>
-                  </article>
-
-                  <article className="settings-summary-card">
-                    <div className="settings-summary-label">
-                      <HardDrive aria-hidden="true" size={14} />
-                      <span>Dados locais</span>
-                    </div>
-                    <strong className="settings-summary-value">{dataDirSizeLabel}</strong>
-                  </article>
-                </div>
-
-                {/* Card informativo com botão para abrir a pasta de dados no Explorer */}
-                <div className="settings-info-card">
-                  <div className="settings-info-card-icon">
-                    <FolderOpen aria-hidden="true" size={18} />
-                  </div>
-                  <div>
-                    <strong>Pasta de dados</strong>
-                    <p>
-                      Arquivos locais, banco e imagens da biblioteca ficam centralizados na pasta de dados do aplicativo.
-                    </p>
-                    {/* Abre a pasta de dados no gerenciador de arquivos via IPC */}
-                    <button
-                      type="button"
-                      className="about-open-folder-button"
-                      onClick={() => storageStats && void window.gameStockAPI.shell.openPath(storageStats.dataDirPath)}
-                      disabled={!storageStats}
-                    >
-                      <FolderOpen aria-hidden="true" size={15} />
-                      Abrir pasta de dados
-                      <ExternalLink aria-hidden="true" size={13} className="about-open-folder-external" />
-                    </button>
-                  </div>
-                </div>
-              </section>
-            )}
-
             {/* Seção: Backup — exportação e importação de dados */}
             {section === "backup" && (
               <DataPortabilitySettings appVersion={appVersion} storageStats={storageStats} />
@@ -465,11 +380,8 @@ export function SettingsModal() {
             {/* Seção: Sobre — informações do app, créditos e pasta de dados */}
             {section === "sobre" && (
               <div className="about-page">
-                {/* Ícone decorativo do app */}
-                <div className="about-app-icon">
-                  <Gamepad2 aria-hidden="true" size={40} />
-                </div>
-                <h3 className="about-app-name">GameStock</h3>
+                {/* Logo do app */}
+                <img src={logoSrc} alt="GameStock" className="about-app-logo" />
                 {/* Badge de versão exibido apenas quando carregado */}
                 {appVersion && (
                   <span className="about-version-badge">v{appVersion}</span>

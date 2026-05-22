@@ -42,7 +42,7 @@ import { timestamp } from "../lib/time";
 const MAX_PORTABILITY_JOBS = 5;
 
 /** Seções disponíveis no modal de configurações. */
-export type SettingsSection = "geral" | "backup" | "biblioteca" | "plataformas" | "covers" | "emuladores" | "sobre";
+export type SettingsSection = "backup" | "biblioteca" | "plataformas" | "covers" | "emuladores" | "sobre";
 
 /** Permite que setters aceitem tanto um valor direto quanto uma função de atualização (padrão functional update). */
 type SetterValue<T> = T | ((current: T) => T);
@@ -275,7 +275,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   selectedGame: null,
   importerOpen: false,
   settingsOpen: false,
-  settingsSection: "geral",
+  settingsSection: "biblioteca",
   createGameOpen: false,
   reloadToken: 0,
   platformsReloadToken: 0,
