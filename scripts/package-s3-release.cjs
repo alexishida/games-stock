@@ -2,14 +2,15 @@
  * Gera os artefatos finais usados pelo bucket S3 após `npm run dist:windows`.
  *
  * Saídas:
- * - `release/s3/latest.zip` com o payload aplicavel da pasta `release/win-unpacked`
+ * - `release/s3/update.zip` com o payload aplicavel da pasta `release/win-unpacked`
+ * - `release/s3/latest.zip` com o pacote completo da pasta `release/win-unpacked`
  * - `release/s3/meta-dados.json` com versão, build, data e URL pública fixa do ZIP
  *
  * Regras:
- * - O ZIP contem `resources/app.asar` e `resources/app.asar.unpacked` quando houver
+ * - `update.zip` contem `resources/app.asar` e `resources/app.asar.unpacked` quando houver
+ * - `latest.zip` contem os arquivos na raiz, sem pasta encapsulando `win-unpacked`
  * - `_update_staging*` e outros artefatos transitórios não entram no pacote
- * - A URL final do update é fixa para manter o mesmo endpoint público
- *   consumido pelo updater: `http://s3.alexishida.com/gamestock/latest.zip`
+ * - A URL final do update aponta para `update.zip`; `latest.zip` fica como pacote completo
  */
 
 const fs = require("node:fs");
@@ -37,11 +38,14 @@ const packageJsonPath = path.join(rootDir, "package.json");
 /** Caminho do arquivo gerado com metadados da build atual. */
 const buildMetaPath = path.join(rootDir, "src", "shared", "build-meta.ts");
 
-/** Nome fixo do ZIP publicado para o fluxo de atualização automática. */
+/** Nome fixo do ZIP pequeno consumido pelo fluxo de atualização automática. */
+const updateZipFileName = "update.zip";
+
+/** Nome fixo do ZIP completo publicado junto aos artefatos S3. */
 const latestZipFileName = "latest.zip";
 
-/** URL pública fixa consumida pelo updater para sempre apontar ao pacote atual. */
-const latestZipPublicUrl = "http://s3.alexishida.com/gamestock/latest.zip";
+/** URL pública fixa consumida pelo updater para sempre apontar ao update atual. */
+const updateZipPublicUrl = "http://s3.alexishida.com/gamestock/update.zip";
 
 /** Prefixos transitórios que não devem ser distribuídos no ZIP de update. */
 const excludedTopLevelPrefixes = ["_update_staging"];
@@ -164,23 +168,32 @@ function addUpdatePayloadToZip(zip) {
 }
 
 /**
- * Gera ZIP final com o payload de update na raiz do pacote.
+ * Gera ZIP pequeno com o payload de update na raiz do pacote.
  */
-function createS3Zip(zipFilePath) {
+function createUpdateZip(zipFilePath) {
   const zip = new AdmZip();
   addUpdatePayloadToZip(zip);
   zip.writeZip(zipFilePath);
 }
 
 /**
+ * Gera ZIP completo com todos os arquivos da build extraida.
+ */
+function createLatestZip(zipFilePath) {
+  const zip = new AdmZip();
+  addDirectoryToZip(zip, unpackedDir);
+  zip.writeZip(zipFilePath);
+}
+
+/**
  * Escreve manifesto `meta-dados.json` consumido pelo updater.
  */
-function writeMetadataFile(version, buildCommit, zipFileName) {
+function writeMetadataFile(version, buildCommit) {
   const metadata = {
     data: formatPublishedAt(),
     versao: version,
     build: buildCommit,
-    path: latestZipPublicUrl
+    path: updateZipPublicUrl
   };
 
   fs.writeFileSync(
@@ -199,14 +212,16 @@ function main() {
 
   const version = readVersion();
   const buildCommit = readBuildCommit();
-  const zipFileName = latestZipFileName;
-  const zipFilePath = path.join(s3Dir, zipFileName);
+  const updateZipPath = path.join(s3Dir, updateZipFileName);
+  const latestZipPath = path.join(s3Dir, latestZipFileName);
 
-  createS3Zip(zipFilePath);
-  writeMetadataFile(version, buildCommit, zipFileName);
+  createUpdateZip(updateZipPath);
+  createLatestZip(latestZipPath);
+  writeMetadataFile(version, buildCommit);
 
   console.log(`Artefatos S3 gerados em: ${s3Dir}`);
-  console.log(`ZIP: ${zipFileName}`);
+  console.log(`Update ZIP: ${updateZipFileName}`);
+  console.log(`Latest ZIP: ${latestZipFileName}`);
   console.log("Manifesto: meta-dados.json");
 }
 

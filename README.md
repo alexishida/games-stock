@@ -73,7 +73,7 @@ Compilar o processo main e o preload:
 npm run build:main
 ```
 
-Gerar instalador NSIS e build portatil do Windows em `release/`, e empacotar `release/s3/latest.zip` com `release/s3/meta-dados.json` para publicacao:
+Gerar instalador NSIS e build portatil do Windows em `release/`, e empacotar `release/s3/update.zip`, `release/s3/latest.zip` e `release/s3/meta-dados.json` para publicacao:
 
 ```bash
 npm run dist:windows
@@ -132,7 +132,7 @@ O endpoint remoto precisa responder HTTP `200` com um JSON neste formato:
   "versao": "1.0.0",
   "build": "11e2fc4",
   "data": "2026-05-21 23:46:58",
-  "path": "https://s3.alexishida.com/gamestock/latest.zip"
+  "path": "https://s3.alexishida.com/gamestock/update.zip"
 }
 ```
 
@@ -150,15 +150,16 @@ Regras usadas pelo updater:
 Passo a passo recomendado:
 
 1. Atualize o campo `version` do `package.json`.
-2. Execute `npm run dist:windows` — gera instalador, portatil, `release/s3/latest.zip` e `release/s3/meta-dados.json`.
-3. Publique `release/s3/latest.zip` na URL configurada.
-4. Publique `release/s3/meta-dados.json` no endpoint do manifesto.
+2. Execute `npm run dist:windows` — gera instalador, portatil, `release/s3/update.zip`, `release/s3/latest.zip` e `release/s3/meta-dados.json`.
+3. Publique `release/s3/update.zip` na URL configurada no manifesto.
+4. Publique `release/s3/latest.zip` como pacote completo da build.
+5. Publique `release/s3/meta-dados.json` no endpoint do manifesto.
 
 Fluxo em runtime:
 
 - splash abre antes da janela principal
 - app verifica o manifesto com timeout de 5s
-- se houver versao remota mais nova, baixa o ZIP para pasta temporaria
+- se houver versao remota mais nova, baixa `update.zip` para pasta temporaria
 - ZIP e extraido para staging unico `_update_staging_<id>`
 - app relanca com `--apply-update <stagingPath>` e copia staging para `resources/app.asar` ou `resourcesPath/app`
 - boot seguinte repete a verificacao normalmente
