@@ -2,12 +2,12 @@
  * Gera os artefatos finais usados pelo bucket S3 após `npm run dist:windows`.
  *
  * Saídas:
- * - `release/s3/latest.zip` com o conteúdo da pasta `release/win-unpacked`
+ * - `release/s3/latest.zip` com o payload aplicavel da pasta `release/win-unpacked`
  * - `release/s3/meta-dados.json` com versão, build, data e URL pública fixa do ZIP
  *
  * Regras:
- * - O ZIP contém os arquivos na raiz, sem pasta encapsulando `win-unpacked`
- * - `_update_staging` e outros artefatos transitórios não entram no pacote
+ * - O ZIP contem `resources/app.asar` e `resources/app.asar.unpacked` quando houver
+ * - `_update_staging*` e outros artefatos transitórios não entram no pacote
  * - A URL final do update é fixa para manter o mesmo endpoint público
  *   consumido pelo updater: `http://s3.alexishida.com/gamestock/latest.zip`
  */
@@ -25,6 +25,9 @@ const releaseDir = path.join(rootDir, "release");
 /** Pasta com a build extraída usada como base do ZIP para update. */
 const unpackedDir = path.join(releaseDir, "win-unpacked");
 
+/** Pasta `resources` da build extraida, onde ficam app.asar e nativos. */
+const unpackedResourcesDir = path.join(unpackedDir, "resources");
+
 /** Pasta final com artefatos prontos para upload ao S3. */
 const s3Dir = path.join(releaseDir, "s3");
 
@@ -40,8 +43,8 @@ const latestZipFileName = "latest.zip";
 /** URL pública fixa consumida pelo updater para sempre apontar ao pacote atual. */
 const latestZipPublicUrl = "http://s3.alexishida.com/gamestock/latest.zip";
 
-/** Entradas transitórias que não devem ser distribuídas no ZIP de update. */
-const excludedTopLevelNames = new Set(["_update_staging"]);
+/** Prefixos transitórios que não devem ser distribuídos no ZIP de update. */
+const excludedTopLevelPrefixes = ["_update_staging"];
 
 /**
  * Lê a versão base diretamente do package.json.
@@ -99,10 +102,12 @@ function prepareS3Directory() {
  * O filtro remove diretórios transitórios do topo e ignora paths ausentes.
  */
 function addDirectoryToZip(zip, sourceDir, relativePrefix = "") {
+  if (!fs.existsSync(sourceDir)) return;
+
   const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (!relativePrefix && excludedTopLevelNames.has(entry.name)) {
+    if (!relativePrefix && isExcludedTopLevelEntry(entry.name)) {
       continue;
     }
 
@@ -121,11 +126,49 @@ function addDirectoryToZip(zip, sourceDir, relativePrefix = "") {
 }
 
 /**
- * Gera ZIP final com os arquivos da build na raiz do pacote.
+ * Evita empacotar staging fixo antigo ou staging unico novo.
+ */
+function isExcludedTopLevelEntry(name) {
+  return excludedTopLevelPrefixes.some((prefix) => name.startsWith(prefix));
+}
+
+/**
+ * Adiciona arquivo unico ao ZIP com caminho interno explicito.
+ */
+function addFileToZip(zip, sourceFilePath, zipEntryPath) {
+  const zipDirectory = path.posix.dirname(zipEntryPath);
+  const zipFileName = path.posix.basename(zipEntryPath);
+  zip.addLocalFile(sourceFilePath, zipDirectory === "." ? "" : zipDirectory, zipFileName);
+}
+
+/**
+ * Adiciona ao ZIP somente o payload que o updater sabe aplicar.
+ */
+function addUpdatePayloadToZip(zip) {
+  const appAsarPath = path.join(unpackedResourcesDir, "app.asar");
+  const appAsarUnpackedDir = path.join(unpackedResourcesDir, "app.asar.unpacked");
+  const appDir = path.join(unpackedResourcesDir, "app");
+
+  if (fs.existsSync(appAsarPath)) {
+    addFileToZip(zip, appAsarPath, "resources/app.asar");
+    addDirectoryToZip(zip, appAsarUnpackedDir, "resources/app.asar.unpacked");
+    return;
+  }
+
+  if (fs.existsSync(appDir)) {
+    addDirectoryToZip(zip, appDir, "app");
+    return;
+  }
+
+  throw new Error(`Payload de update nao encontrado em: ${unpackedResourcesDir}`);
+}
+
+/**
+ * Gera ZIP final com o payload de update na raiz do pacote.
  */
 function createS3Zip(zipFilePath) {
   const zip = new AdmZip();
-  addDirectoryToZip(zip, unpackedDir);
+  addUpdatePayloadToZip(zip);
   zip.writeZip(zipFilePath);
 }
 

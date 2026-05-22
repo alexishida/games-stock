@@ -11,19 +11,22 @@ GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jog
 - **Biblioteca de jogos**: crie, edite, exclua e consulte jogos com titulo, plataforma, publisher, ano, genero, classificacao, notas, favorito e status de jogo.
 - **Grade e lista**: navegue por cards com capas ou por uma lista compacta, com paginacao, ordenacao e navegacao por teclado.
 - **Detalhe do jogo**: veja capa, background, screenshot, metadados, caminho da ROM e formulario de edicao em uma tela dedicada.
-- **Importacao de metadados no formulario**: busque e importe metadados da LaunchBox diretamente pelo formulario de edicao do jogo.
+- **Importacao de metadados no formulario**: busque e importe metadados de bases publicas diretamente pelo formulario de edicao do jogo.
 - **Filtros de colecao**: filtre por todos, favoritos, jogando, concluidos e nao jogados.
 - **Busca e plataformas**: pesquise por titulo e navegue pela sidebar com plataformas agrupadas por categoria.
-- **Gerenciador de plataformas**: cadastre, edite e remova plataformas; configure aliases LaunchBox para correspondencia de metadados e extensoes de ROM aceitas por plataforma.
+- **Gerenciador de plataformas**: cadastre, edite e remova plataformas; configure aliases para correspondencia de metadados e extensoes de ROM aceitas por plataforma.
 - **Gerenciador de emuladores**: cadastre emuladores por plataforma, defina o emulador padrao e lance jogos diretamente pela tela de detalhe.
 - **Integracao RetroArch**: detecte cores instalados, configure o core padrao por plataforma e lance jogos com o core correto automaticamente.
-- **Cadastro manual**: adicione jogos sem depender da LaunchBox.
+- **Cadastro manual**: adicione jogos sem depender de fontes externas.
 - **Associacao de ROMs**: selecione arquivos ROM por dialogos nativos do sistema.
-- **Importador LaunchBox**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
+- **Importador de metadados**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
 - **Importacao por pasta de ROMs**: escaneie pastas ou arquivos, revise candidatos, rode importacao em background e acompanhe progresso. Suporta busca em subpastas e deteccao automatica de plataforma por extensao de ROM.
-- **Sincronizacao de capas**: atualize midias de jogos vinculados a LaunchBox, acompanhe multiplos jobs simultaneos e veja estatisticas de capas.
+- **Sincronizacao de capas**: atualize midias de jogos com metadados remotos, acompanhe multiplos jobs simultaneos e veja estatisticas de capas.
 - **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI. Jobs concluidos ficam visiveis ate serem dispensados manualmente.
 - **Resiliencia de jobs**: jobs interrompidos por fechamento do app sao detectados na proxima abertura e exibem botao de retomada. Cards de job tem borda colorida por status (azul=rodando, verde=concluido, vermelho=falhou, amarelo=interrompido).
+- **Inventario fisico de hardware**: cadastre e gerencie consoles, perifericos e acessorios fisicos com estado de conservacao, fotos e notas. Visualizacao em cards ou lista com filtro por tipo.
+- **Portabilidade de dados**: exporte e importe backup comprimido (`.gamestock-backup`) com metadados, imagens e configuracoes de plataformas e pastas de ROMs. Disponivel em Configuracoes.
+- **Verificacao manual de update**: botao em Configuracoes para buscar atualizacoes sem reiniciar o app.
 - **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/gamestock/`.
 
 ## Requisitos
@@ -48,6 +51,8 @@ npm run dev:windows
 
 Esse comando inicia o Vite em `127.0.0.1:5173`, compila `main` e `preload` em modo watch, espera os artefatos em `dist/` e abre o Electron.
 
+Em desenvolvimento, a splash e o updater sao pulados automaticamente. O app abre direto na janela principal.
+
 Se `ELECTRON_RUN_AS_NODE` estiver definido no shell, limpe antes de iniciar o Electron manualmente:
 
 ```powershell
@@ -68,7 +73,7 @@ Compilar o processo main e o preload:
 npm run build:main
 ```
 
-Gerar instalador NSIS e build portatil do Windows em `release/`:
+Gerar instalador NSIS e build portatil do Windows em `release/`, e empacotar `release/s3/latest.zip` com `release/s3/meta-dados.json` para publicacao:
 
 ```bash
 npm run dist:windows
@@ -81,7 +86,7 @@ A versao base do aplicativo fica em `package.json`, no campo `version`.
 Exemplo:
 
 ```json
-"version": "0.1.0"
+"version": "1.0.0"
 ```
 
 O numero do build e gerado automaticamente a partir do commit atual com `git rev-parse --short=7 HEAD`.
@@ -91,7 +96,7 @@ Antes de `npm run dev:windows`, `npm run build:renderer`, `npm run build:main` e
 Formato exibido no app:
 
 ```text
-0.1.0 (build 61a3ed1)
+1.0.0 (build 11e2fc4)
 ```
 
 Resumo:
@@ -104,19 +109,19 @@ Resumo:
 Exemplo opcional de tag de release apos gerar uma versao:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## Auto Update
 
-O GameStock agora pode verificar updates antes de abrir a janela principal. Esse fluxo depende de duas variaveis de build no CI:
+O GameStock verifica atualizacoes na splash antes de abrir a janela principal. O comportamento varia por ambiente:
 
-- `UPDATE_MANIFEST_URL`: URL publica do JSON com metadados da release atual.
-- `BUILD_NUMBER`: identificador textual da build exibido na splash. Se nao existir, o app reaproveita o hash curto do commit gerado em `src/shared/build-meta.ts`.
-- Na ausencia dessas variaveis, o app usa o endpoint padrao `https://s3.alexishida.com/gamestock/meta-dados.json`.
+- **Desenvolvimento** (`npm run dev:windows`): splash e updater sao pulados; janela principal abre direto.
+- **App empacotado** (`dist:windows`): usa o endpoint padrao `https://s3.alexishida.com/gamestock/meta-dados.json`.
+- **CI/build customizado**: sobrescreva o endpoint injetando a variavel de build `UPDATE_MANIFEST_URL`.
 
-Quando `UPDATE_MANIFEST_URL` nao estiver definida, o app pula a splash e abre direto a janela principal. Isso mantém o fluxo de desenvolvimento local sem bloqueio.
+Alem do fluxo automatico na abertura, o usuario pode acionar **Buscar atualizacao** manualmente em Configuracoes a qualquer momento.
 
 ### Formato do manifesto
 
@@ -124,51 +129,38 @@ O endpoint remoto precisa responder HTTP `200` com um JSON neste formato:
 
 ```json
 {
-  "version": "0.2.0",
-  "buildNumber": "20260518.1",
-  "releaseDate": "2026-05-18",
-  "downloadUrl": "https://example.com/releases/gamestock-0.2.0.zip",
-  "releaseNotes": "Correcoes, melhorias e novos recursos"
+  "versao": "1.0.0",
+  "build": "11e2fc4",
+  "data": "2026-05-21 23:46:58",
+  "path": "https://s3.alexishida.com/gamestock/latest.zip"
 }
 ```
 
-Tambem existe compatibilidade com o formato legado em pt-br atualmente publicado no S3:
-
-```json
-{
-  "data": "2026-05-18 22:26:00",
-  "versao": "0.0.1",
-  "build": "53133c5",
-  "path": "https://s3.alexishida.com/gamestock/53133c5.zip"
-}
-```
+Aliases aceitos: `version` para `versao`, `releaseDate` para `data`, `downloadUrl` para `path`, `buildNumber` para `build`.
 
 Regras usadas pelo updater:
 
-- `version` e comparada com `app.getVersion()` usando semver simples (`x.y.z`); se a versao for igual mas o `buildNumber`/`build` for diferente, o update tambem e aplicado.
-- `downloadUrl` deve apontar para um `.zip` contendo uma pasta raiz `app/`.
-- Alias aceitos no manifesto: `versao` para `version`, `data` para `releaseDate` e `path` para `downloadUrl`.
-- erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash.
-- erro de servidor, JSON invalido ou download corrompido nao bloqueia o app: a splash fecha e o GameStock abre normalmente.
+- `versao` e comparada com `app.getVersion()` usando semver simples (`x.y.z`); se a versao for igual mas o `build` for diferente, o update tambem e aplicado.
+- `path` deve apontar para um `.zip` contendo `resources/app.asar` ou uma pasta raiz `app/`.
+- Erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash.
+- Erro de servidor, JSON invalido ou download corrompido nao bloqueia o app: a splash fecha e o GameStock abre normalmente.
 
 ### Publicacao de release
 
 Passo a passo recomendado:
 
 1. Atualize o campo `version` do `package.json`.
-2. Gere os artefatos com `npm run build:renderer` e `npm run build:main` ou `npm run dist:windows`.
-3. Monte um pacote `.zip` da pasta `app/` que sera instalada no `resourcesPath/app`.
-4. Publique o `.zip` em uma URL acessivel pelo app.
-5. Atualize o JSON do manifesto remoto com a nova `version`, `buildNumber`, `releaseDate`, `downloadUrl` e `releaseNotes`.
-6. No CI, injete `UPDATE_MANIFEST_URL` e opcionalmente `BUILD_NUMBER` durante o build final distribuido aos usuarios.
+2. Execute `npm run dist:windows` — gera instalador, portatil, `release/s3/latest.zip` e `release/s3/meta-dados.json`.
+3. Publique `release/s3/latest.zip` na URL configurada.
+4. Publique `release/s3/meta-dados.json` no endpoint do manifesto.
 
 Fluxo em runtime:
 
 - splash abre antes da janela principal
 - app verifica o manifesto com timeout de 5s
 - se houver versao remota mais nova, baixa o ZIP para pasta temporaria
-- ZIP e extraido para `_update_staging`
-- app relanca com `--apply-update <stagingPath>` e copia staging para `resourcesPath/app`
+- ZIP e extraido para staging unico `_update_staging_<id>`
+- app relanca com `--apply-update <stagingPath>` e copia staging para `resources/app.asar` ou `resourcesPath/app`
 - boot seguinte repete a verificacao normalmente
 
 ## Testes
@@ -179,19 +171,19 @@ Smoke test da importacao por pasta de ROMs:
 npm run test:rom-folder-import
 ```
 
-E2E da importacao LaunchBox contra o app compilado:
+E2E do importador de metadados contra o app compilado:
 
 ```bash
 npm run test:launchbox:e2e
 ```
 
-E2E da importacao LaunchBox contra o app empacotado em `release/win-unpacked/`:
+E2E do importador de metadados contra o app empacotado em `release/win-unpacked/`:
 
 ```bash
 npm run test:launchbox:e2e:packaged
 ```
 
-O E2E compila o app, baixa/cacheia metadados LaunchBox, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade.
+O E2E compila o app, baixa/cacheia metadados publicos, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade.
 
 ## Dados Locais
 
@@ -201,14 +193,14 @@ O GameStock armazena dados de runtime fora do repositorio:
 |---------|----------|
 | `%APPDATA%/gamestock/gamestock.db` | Banco SQLite |
 | `%APPDATA%/gamestock/images/` | Capas, backgrounds, screenshots e outras midias baixadas |
-| `%APPDATA%/gamestock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache da LaunchBox |
+| `%APPDATA%/gamestock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache de metadados |
 | `%APPDATA%/gamestock/window-bounds.json` | Posicao e tamanho da janela |
 
 Entradas de pastas de ROMs configuradas, historico de jobs e estado persistido da UI ficam no SQLite local, na tabela `app_state`.
 
-## Importador LaunchBox
+## Importador de Metadados
 
-O importador baixa `https://gamesdb.launchbox-app.com/Metadata.zip`, extrai `Metadata.xml` e cria um indice local em `index.json`. O cache e reutilizado quando tem menos de 24 horas, salvo quando uma atualizacao forcada e solicitada.
+O importador baixa e extrai um pacote publico de metadados e cria um indice local em `index.json`. O cache e reutilizado quando tem menos de 24 horas, salvo quando uma atualizacao forcada e solicitada.
 
 A busca usa o indice local, pode filtrar por plataforma e limita resultados para manter a UI responsiva. Ao importar, o GameStock cria ou atualiza o jogo no SQLite, baixa as imagens escolhidas e gera um `cover.jpg` otimizado com `sharp` quando ha imagem "Box - Front".
 
@@ -220,7 +212,18 @@ Extensoes suportadas incluem `.zip`, `.rom`, `.bin`, `.iso`, `.img`, `.cue`, `.n
 
 O assistente oferece dois modos: plataforma manual (usuario escolhe) e **deteccao automatica**, que usa as extensoes principais cadastradas por plataforma para identificar e separar ROMs de multiplas plataformas na mesma pasta. A busca em subpastas e opcional e pode ser ativada no formulario de configuracao.
 
-Durante o job, o app tenta casar cada ROM com a LaunchBox por titulo e plataforma. Jogos com match sao criados ou atualizados sem duplicar registros; ROMs sem match entram no resumo final.
+Durante o job, o app tenta casar cada ROM com a base de metadados por titulo e plataforma. Jogos com match sao criados ou atualizados sem duplicar registros; ROMs sem match entram no resumo final.
+
+## Portabilidade de Dados
+
+Disponivel em **Configuracoes**. Permite exportar e importar um pacote `.gamestock-backup` (ZIP) com as seguintes categorias independentes:
+
+- `metadata` — dados do SQLite (jogos, plataformas, emuladores, inventario)
+- `images` — capas, backgrounds e screenshots
+- `platforms` — configuracoes de plataformas
+- `romLocations` — entradas de pastas de ROMs configuradas
+
+Na importacao, imagens sao regravadas para o diretorio de dados atual; caminhos absolutos de outra maquina nao sao preservados. ROMs fisicas nao entram no backup. A importacao e transacional: qualquer falha reverte o banco e exibe resumo do erro.
 
 ## Stack
 
@@ -232,8 +235,9 @@ Durante o job, o app tenta casar cada ROM com a LaunchBox por titulo e plataform
 | Banco | SQLite via `better-sqlite3` |
 | IPC | `contextBridge` / `ipcRenderer` |
 | Midia | `sharp` |
-| LaunchBox | `adm-zip` + `xml2js` |
+| Metadados | `adm-zip` + `xml2js` |
 | UI icons | `lucide-react` |
+| Listas virtualizadas | `react-window` |
 | Build | `electron-builder` |
 
 ## Arquitetura

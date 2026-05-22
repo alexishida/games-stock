@@ -178,16 +178,21 @@ export async function downloadUpdate(
  * acontece no próximo boot via flag `--apply-update`.
  */
 export async function applyUpdate(zipPath: string): Promise<string> {
-  const stagingRoot = getUpdateStagingRoot();
+  const stagingRoot = createUpdateStagingRoot();
 
-  await extractUpdateArchive(zipPath, stagingRoot);
+  try {
+    await extractUpdateArchive(zipPath, stagingRoot);
 
-  if (!hasSupportedStagingPayload(stagingRoot)) {
+    if (!hasSupportedStagingPayload(stagingRoot)) {
+      throw new Error("Pacote de atualização inválido: ZIP não contém app/ nem resources/app.asar.");
+    }
+
+    return stagingRoot;
+  } catch (error) {
+    // Remove apenas o staging desta tentativa; outros updates podem estar em outro sufixo.
     await cleanupStagingDir(stagingRoot);
-    throw new Error("Pacote de atualização inválido: ZIP não contém app/ nem resources/app.asar.");
+    throw error;
   }
-
-  return stagingRoot;
 }
 
 /**
@@ -326,7 +331,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
 
     emitStatus(splashWindow, {
       phase: "downloading",
-      message: `Baixando atualização v${result.manifest.version}...`,
+      message: `Baixando atualização ${formatRemoteUpdateLabel(result.manifest)}...`,
       percent: 0,
       ...buildManifestStatusDetails(result.manifest)
     });
@@ -334,7 +339,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
     const zipPath = await downloadUpdate(result.manifest.downloadUrl, (progress) => {
       emitStatus(splashWindow, {
         phase: "downloading",
-        message: `Baixando atualização v${result.manifest.version}...`,
+        message: `Baixando atualização ${formatRemoteUpdateLabel(result.manifest)}...`,
         percent: progress.percent,
         ...buildManifestStatusDetails(result.manifest)
       });
@@ -443,7 +448,7 @@ export async function runManualUpdateFlow(targetContents: WebContents): Promise<
 
       emitStatus(targetContents, {
         phase: "downloading",
-        message: `Baixando atualização v${result.manifest.version}...`,
+        message: `Baixando atualização ${formatRemoteUpdateLabel(result.manifest)}...`,
         percent: 0,
         ...buildManifestStatusDetails(result.manifest)
       });
@@ -451,7 +456,7 @@ export async function runManualUpdateFlow(targetContents: WebContents): Promise<
       const zipPath = await downloadUpdate(result.manifest.downloadUrl, (progress) => {
         emitStatus(targetContents, {
           phase: "downloading",
-          message: `Baixando atualização v${result.manifest.version}...`,
+          message: `Baixando atualização ${formatRemoteUpdateLabel(result.manifest)}...`,
           percent: progress.percent,
           ...buildManifestStatusDetails(result.manifest)
         });
@@ -511,6 +516,13 @@ function buildManifestStatusDetails(manifest: UpdateManifest): Pick<UpdaterStatu
     releaseDate: manifest.releaseDate,
     releaseNotes: manifest.releaseNotes
   };
+}
+
+/**
+ * Formata versão e build remotos para deixar claro qual pacote será baixado.
+ */
+function formatRemoteUpdateLabel(manifest: UpdateManifest): string {
+  return `v${manifest.version} build ${normalizeBuildNumber(manifest.buildNumber)}`;
 }
 
 /**
@@ -770,10 +782,14 @@ function readApplyUpdateFlag(argv: string[]): string | null {
 }
 
 /**
- * Retorna o diretório absoluto usado para staging do update.
+ * Cria um diretorio absoluto e unico para staging do update.
+ *
+ * O sufixo evita corrida entre tentativas simultaneas, onde um fluxo antigo
+ * poderia apagar o `app.asar` enquanto outro ainda extrai o ZIP.
  */
-function getUpdateStagingRoot(): string {
-  return path.join(path.dirname(process.resourcesPath), "_update_staging");
+function createUpdateStagingRoot(): string {
+  const uniqueSuffix = `${process.pid}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  return path.join(path.dirname(process.resourcesPath), `_update_staging_${uniqueSuffix}`);
 }
 
 /**
@@ -901,7 +917,19 @@ async function extractUpdateArchive(zipPath: string, stagingRoot: string): Promi
  */
 function hasSupportedStagingPayload(stagingRoot: string): boolean {
   return fs.existsSync(path.join(stagingRoot, "app"))
-    || fs.existsSync(path.join(stagingRoot, "resources", "app.asar"));
+    || hasReadableFile(path.join(stagingRoot, "resources", "app.asar"));
+}
+
+/**
+ * Confirma que o arquivo principal do pacote existe e nao esta vazio.
+ */
+function hasReadableFile(filePath: string): boolean {
+  try {
+    const stat = fs.statSync(filePath);
+    return stat.isFile() && stat.size > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
