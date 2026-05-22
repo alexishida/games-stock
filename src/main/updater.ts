@@ -209,7 +209,11 @@ export function applyStagedUpdateFromLaunchArgs(argv: string[] = process.argv): 
   const sourceAsarPath = path.join(stagingRoot, "resources", "app.asar");
   const sourceAsarUnpackedDir = path.join(stagingRoot, "resources", "app.asar.unpacked");
 
-  if (!fs.existsSync(sourceAppDir) && !fs.existsSync(sourceAsarPath)) {
+  const hasSourcePayload = withAsarFilesystemDisabled(() => (
+    fs.existsSync(sourceAppDir) || fs.existsSync(sourceAsarPath)
+  ));
+
+  if (!hasSourcePayload) {
     registerPendingStartupUpdaterFailure(
       "Falha ao aplicar atualização baixada.",
       new Error("Staging de update inválido: conteúdo extraído não contém app/ nem resources/app.asar.")
@@ -223,24 +227,26 @@ export function applyStagedUpdateFromLaunchArgs(argv: string[] = process.argv): 
   const targetAsarUnpackedDir = path.join(process.resourcesPath, "app.asar.unpacked");
 
   try {
-    // Suporta dois formatos de pacote:
-    // 1. `app/` em builds sem asar
-    // 2. `resources/app.asar` + `app.asar.unpacked` em win-unpacked/NSIS
-    if (fs.existsSync(sourceAppDir)) {
-      fs.rmSync(targetAppDir, { recursive: true, force: true });
-      fs.mkdirSync(path.dirname(targetAppDir), { recursive: true });
-      fs.cpSync(sourceAppDir, targetAppDir, { force: true, recursive: true });
-    }
+    withAsarFilesystemDisabled(() => {
+      // Suporta dois formatos de pacote:
+      // 1. `app/` em builds sem asar
+      // 2. `resources/app.asar` + `app.asar.unpacked` em win-unpacked/NSIS
+      if (fs.existsSync(sourceAppDir)) {
+        fs.rmSync(targetAppDir, { recursive: true, force: true });
+        fs.mkdirSync(path.dirname(targetAppDir), { recursive: true });
+        fs.cpSync(sourceAppDir, targetAppDir, { force: true, recursive: true });
+      }
 
-    if (fs.existsSync(sourceAsarPath)) {
-      fs.mkdirSync(process.resourcesPath, { recursive: true });
-      fs.copyFileSync(sourceAsarPath, targetAsarPath);
-    }
+      if (fs.existsSync(sourceAsarPath)) {
+        fs.mkdirSync(process.resourcesPath, { recursive: true });
+        fs.copyFileSync(sourceAsarPath, targetAsarPath);
+      }
 
-    if (fs.existsSync(sourceAsarUnpackedDir)) {
-      fs.rmSync(targetAsarUnpackedDir, { recursive: true, force: true });
-      fs.cpSync(sourceAsarUnpackedDir, targetAsarUnpackedDir, { force: true, recursive: true });
-    }
+      if (fs.existsSync(sourceAsarUnpackedDir)) {
+        fs.rmSync(targetAsarUnpackedDir, { recursive: true, force: true });
+        fs.cpSync(sourceAsarUnpackedDir, targetAsarUnpackedDir, { force: true, recursive: true });
+      }
+    });
 
     cleanupStagingDirSync(stagingRoot);
     return true;
@@ -793,10 +799,43 @@ function createUpdateStagingRoot(): string {
 }
 
 /**
+ * Executa operacoes de disco do updater sem a camada ASAR virtual do Electron.
+ *
+ * O staging manipula o arquivo real `app.asar`; sem isso, `fs` interpreta esse
+ * trecho do caminho como pacote montado e pode lancar `Invalid package`.
+ */
+function withAsarFilesystemDisabled<T>(operation: () => T): T {
+  const previousNoAsar = process.noAsar;
+  process.noAsar = true;
+
+  try {
+    return operation();
+  } finally {
+    process.noAsar = previousNoAsar;
+  }
+}
+
+/**
+ * Executa operacoes assincronas de staging mantendo ASAR virtual desativado.
+ */
+async function withAsarFilesystemDisabledAsync<T>(operation: () => Promise<T>): Promise<T> {
+  const previousNoAsar = process.noAsar;
+  process.noAsar = true;
+
+  try {
+    return await operation();
+  } finally {
+    process.noAsar = previousNoAsar;
+  }
+}
+
+/**
  * Remove staging de forma tolerante a erro no fluxo assíncrono.
  */
 async function cleanupStagingDir(stagingRoot: string): Promise<void> {
-  await fs.promises.rm(stagingRoot, { recursive: true, force: true }).catch(() => undefined);
+  await withAsarFilesystemDisabledAsync(() => (
+    fs.promises.rm(stagingRoot, { recursive: true, force: true })
+  )).catch(() => undefined);
 }
 
 /**
@@ -804,7 +843,9 @@ async function cleanupStagingDir(stagingRoot: string): Promise<void> {
  */
 function cleanupStagingDirSync(stagingRoot: string): void {
   try {
-    fs.rmSync(stagingRoot, { recursive: true, force: true });
+    withAsarFilesystemDisabled(() => {
+      fs.rmSync(stagingRoot, { recursive: true, force: true });
+    });
   } catch {
     // Ignora falha de limpeza porque a próxima inicialização pode tentar de novo.
   }
@@ -916,8 +957,10 @@ async function extractUpdateArchive(zipPath: string, stagingRoot: string): Promi
  * Verifica se o staging extraído contém um formato de payload suportado.
  */
 function hasSupportedStagingPayload(stagingRoot: string): boolean {
-  return fs.existsSync(path.join(stagingRoot, "app"))
-    || hasReadableFile(path.join(stagingRoot, "resources", "app.asar"));
+  return withAsarFilesystemDisabled(() => (
+    fs.existsSync(path.join(stagingRoot, "app"))
+    || hasReadableFile(path.join(stagingRoot, "resources", "app.asar"))
+  ));
 }
 
 /**

@@ -21,16 +21,35 @@ function main(): void {
   const { zipPath, stagingRoot } = workerData as UpdateExtractWorkerData;
 
   try {
-    fs.rmSync(stagingRoot, { recursive: true, force: true });
-    fs.mkdirSync(stagingRoot, { recursive: true });
+    withAsarFilesystemDisabled(() => {
+      fs.rmSync(stagingRoot, { recursive: true, force: true });
+      fs.mkdirSync(stagingRoot, { recursive: true });
 
-    extractArchiveToDirectory(zipPath, stagingRoot);
+      extractArchiveToDirectory(zipPath, stagingRoot);
+    });
     parentPort?.postMessage({ ok: true });
   } catch (error) {
     parentPort?.postMessage({
       ok: false,
       error: error instanceof Error ? error.message : "Falha ao extrair ZIP de update."
     });
+  }
+}
+
+/**
+ * Executa escrita/leitura de staging sem a camada ASAR virtual do Electron.
+ *
+ * O updater grava um arquivo chamado `app.asar`; sem isso, o Electron tenta
+ * abrir esse caminho como pacote ASAR montado e pode falhar com `Invalid package`.
+ */
+function withAsarFilesystemDisabled<T>(operation: () => T): T {
+  const previousNoAsar = process.noAsar;
+  process.noAsar = true;
+
+  try {
+    return operation();
+  } finally {
+    process.noAsar = previousNoAsar;
   }
 }
 
