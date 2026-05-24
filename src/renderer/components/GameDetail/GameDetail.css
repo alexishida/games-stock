@@ -192,6 +192,8 @@
 .detail-hero-play-button {
   gap: 7px;
   min-height: 44px;
+  /* Mantem largura estavel quando o texto troca de "Jogar" para "Abrindo...". */
+  min-width: 132px;
   border: 1px solid rgba(74, 222, 128, 0.55);
   background: #16a34a;
   color: #f0fdf4;
@@ -382,6 +384,18 @@
   word-break: break-all;
   text-overflow: unset;
   max-width: 95%;
+}
+
+.detail-file-list {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.detail-file-list-item {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .detail-ok {

@@ -7,9 +7,10 @@
  * Permite seleção por clique ou teclado.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Gamepad2, Play, Star, Trophy } from "lucide-react";
 import { Game } from "../../../shared/types";
+import { requestGameLaunch } from "../../lib/gameLaunch";
 import { useGameStockStore } from "../../store";
 import { localMediaUrl } from "../../utils/media";
 
@@ -18,9 +19,9 @@ import { localMediaUrl } from "../../utils/media";
  *
  * @param game - Objeto com os dados do jogo representado nesta linha.
  */
-export function GameListRow({ game }: { game: Game }) {
-  // ID do jogo atualmente selecionado no store global
-  const selectedGameId = useGameStockStore((state) => state.selectedGameId);
+export const GameListRow = memo(function GameListRow({ game }: { game: Game }) {
+  // Booleano derivado reduz re-render para a linha selecionada e a anterior
+  const selected = useGameStockStore((state) => state.selectedGameId === game.id);
   // Ação para selecionar um jogo no store global
   const setSelectedGame = useGameStockStore((state) => state.setSelectedGame);
 
@@ -47,7 +48,8 @@ export function GameListRow({ game }: { game: Game }) {
     setLaunchError("");
     setLaunching(true);
     try {
-      await window.gameStockAPI.games.launch(game.id);
+      const result = await requestGameLaunch(game.id);
+      if (result === "selection-required") return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao lançar jogo";
       setLaunchError(msg);
@@ -78,7 +80,7 @@ export function GameListRow({ game }: { game: Game }) {
       role="button"
       tabIndex={0}
       // Aplica classe "selected" quando esta linha corresponde ao jogo selecionado
-      className={selectedGameId === game.id ? "game-list-row selected" : "game-list-row"}
+      className={selected ? "game-list-row selected" : "game-list-row"}
       onClick={handleSelect}
       onKeyDown={handleRowKeyDown}
     >
@@ -131,4 +133,4 @@ export function GameListRow({ game }: { game: Game }) {
       </span>
     </div>
   );
-}
+});

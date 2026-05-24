@@ -11,10 +11,12 @@
 
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, Trophy, X } from "lucide-react";
-import { GameMediaItem, PlatformEmulator } from "../../../shared/types";
+import { GameMediaItem, GameVersionOption, PlatformEmulator } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { PAGE_SIZE } from "../../hooks/useGames";
+import { getDefaultPlatformEmulator } from "../../lib/defaultEmulators";
+import { requestGameLaunch } from "../../lib/gameLaunch";
 import { localMediaUrl } from "../../utils/media";
 import { GameForm } from "./GameForm";
 import "./GameDetail.css";
@@ -70,6 +72,8 @@ export function GameDetail() {
 
   // Itens de mídia (galeria) do jogo, carregados via IPC
   const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
+  // Variantes relacionadas ao jogo atual, usadas para exibir todos os arquivos encontrados.
+  const [relatedVersions, setRelatedVersions] = useState<GameVersionOption[]>([]);
 
   // Emulador padrão associado à plataforma do jogo
   const [defaultEmulator, setDefaultEmulator] = useState<PlatformEmulator | null>(null);
@@ -186,6 +190,29 @@ export function GameDetail() {
   }, [selectedGameId]);
 
   /**
+   * Busca variantes relacionadas para listar todos os arquivos ROM encontrados
+   * para o mesmo jogo-base dentro da plataforma atual.
+   */
+  useEffect(() => {
+    let canceled = false;
+    setRelatedVersions([]);
+    if (!selectedGameId) return undefined;
+
+    window.gameStockAPI.games
+      .listVersions(selectedGameId)
+      .then((items) => {
+        if (!canceled) setRelatedVersions(items);
+      })
+      .catch(() => {
+        if (!canceled) setRelatedVersions([]);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [reloadToken, selectedGameId]);
+
+  /**
    * Busca o emulador padrão da plataforma do jogo via IPC.
    * Roda ao trocar de jogo ou quando as plataformas são recarregadas.
    */
@@ -198,13 +225,9 @@ export function GameDetail() {
     }
 
     setEmulatorLoading(true);
-    window.gameStockAPI.emulators
-      .listByPlatform(game.platform_id)
-      .then((items) => {
-        if (!canceled) setDefaultEmulator(items.find((item) => item.is_default === 1) ?? null);
-      })
-      .catch(() => {
-        if (!canceled) setDefaultEmulator(null);
+    getDefaultPlatformEmulator(game.platform_id, platformsReloadToken)
+      .then((emulator) => {
+        if (!canceled) setDefaultEmulator(emulator);
       })
       .finally(() => {
         if (!canceled) setEmulatorLoading(false);
@@ -244,9 +267,14 @@ export function GameDetail() {
   const genre = game.genre || "Gênero não informado";
   const year = game.year?.toString() ?? "Ano não informado";
   const overview = game.notes?.trim() || "Sem descrição cadastrada para este jogo.";
+  const launchCountLabel = `Jogadas: ${game.launch_count} ${game.launch_count === 1 ? "vez" : "vezes"}`;
 
   // Nome do arquivo da ROM (extrai apenas o nome do caminho completo)
   const fileName = game.rom_path?.split(/[\\/]/).pop() ?? "ROM não associada";
+  const foundRomFiles = relatedVersions.length
+    ? Array.from(new Set(relatedVersions.map((version) => version.romFileName)))
+    : [fileName];
+  const shouldShowFoundFiles = foundRomFiles.length > 1;
   const hasRom = Boolean(game.rom_path?.trim());
   const hasDefaultEmulator = Boolean(defaultEmulator);
 
@@ -324,7 +352,8 @@ export function GameDetail() {
     setLaunchError("");
     setLaunching(true);
     try {
-      await window.gameStockAPI.games.launch(currentGame.id);
+      const result = await requestGameLaunch(currentGame.id);
+      if (result === "selection-required") return;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao lançar jogo";
       setLaunchError(message);
@@ -511,6 +540,18 @@ export function GameDetail() {
               <dt>ROM</dt>
               <dd>{fileName}</dd>
             </div>
+            {shouldShowFoundFiles && (
+              <div className="detail-info-row-wrap">
+                <dt>Arquivos encontrados</dt>
+                <dd>
+                  <span className="detail-file-list">
+                    {foundRomFiles.map((romFile) => (
+                      <span key={romFile} className="detail-file-list-item">{romFile}</span>
+                    ))}
+                  </span>
+                </dd>
+              </div>
+            )}
             <div>
               <dt>Box Art</dt>
               <dd>{game.box_art_path ? "Associada" : "Não associada"}</dd>
@@ -519,6 +560,10 @@ export function GameDetail() {
               <dt>Status</dt>
               {/* Classe "detail-ok" adiciona cor verde quando ROM está configurada */}
               <dd className={game.rom_path ? "detail-ok" : ""}>{game.rom_path ? "Pronto" : "Pendente"}</dd>
+            </div>
+            <div>
+              <dt>Histórico</dt>
+              <dd>{launchCountLabel}</dd>
             </div>
           </dl>
         </section>

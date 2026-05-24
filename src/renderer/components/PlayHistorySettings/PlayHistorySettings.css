@@ -1,0 +1,49 @@
+.play-history-settings {
+  display: grid;
+  gap: 16px;
+}
+
+.play-history-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.play-history-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(132, 148, 149, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.play-history-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.play-history-card strong {
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.play-history-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .play-history-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .play-history-actions {
+    flex-direction: column;
+  }
+}

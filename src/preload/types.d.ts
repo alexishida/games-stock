@@ -25,10 +25,12 @@ import {
   Game,
   GameCreateInput,
   GameFilters,
+  GameLaunchStats,
   GameListResult,
   GameMediaItem,
   GameSortBy,
   GameUpdateInput,
+  GameVersionOption,
   HardwareItem,
   HardwareItemCreateInput,
   HardwareItemFilters,
@@ -78,6 +80,8 @@ export interface GameStockAPI {
     listMedia(id: number): Promise<GameMediaItem[]>;
     /** Retorna contagens de favoritos, jogando e concluídos. */
     collectionCounts(): Promise<CollectionCounts>;
+    /** Retorna estatísticas agregadas do histórico de partidas. */
+    launchStats(): Promise<GameLaunchStats>;
     /** Retorna estatísticas sobre capas baixadas e disponíveis. */
     coverStats(): Promise<CoverSyncStats>;
     /**
@@ -93,6 +97,10 @@ export interface GameStockAPI {
     update(id: number, data: GameUpdateInput): Promise<Game>;
     /** Remove um jogo da biblioteca. */
     delete(id: number): Promise<{ success: true }>;
+    /** Lista versões relacionadas de um mesmo jogo-base antes do launch. */
+    listVersions(id: number): Promise<GameVersionOption[]>;
+    /** Zera manualmente todos os contadores de partidas. */
+    resetLaunchStats(): Promise<{ success: true; updated: number }>;
     /** Inicia o jogo com o emulador padrão da plataforma. */
     launch(id: number): Promise<{ success: true }>;
   };
@@ -166,6 +174,8 @@ export interface GameStockAPI {
   app: {
     /** Retorna a versão atual da aplicação. */
     getVersion(): Promise<string>;
+    /** Retorna apenas o caminho da pasta de dados, sem calcular tamanho em disco. */
+    getDataDirPath(): Promise<string>;
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
   };

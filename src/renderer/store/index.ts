@@ -21,6 +21,7 @@ import {
   Game,
   GameListResult,
   GameSortBy,
+  GameVersionOption,
   HardwareInventorySortBy,
   LaunchBoxProgress,
   Platform,
@@ -42,7 +43,7 @@ import { timestamp } from "../lib/time";
 const MAX_PORTABILITY_JOBS = 5;
 
 /** Seções disponíveis no modal de configurações. */
-export type SettingsSection = "backup" | "biblioteca" | "plataformas" | "covers" | "emuladores" | "sobre";
+export type SettingsSection = "backup" | "biblioteca" | "plataformas" | "covers" | "emuladores" | "partidas" | "sobre";
 
 /** Permite que setters aceitem tanto um valor direto quanto uma função de atualização (padrão functional update). */
 type SetterValue<T> = T | ((current: T) => T);
@@ -131,6 +132,8 @@ interface GameStockState {
   settingsSection: SettingsSection;
   /** Controla a visibilidade do modal de criação manual de jogo. */
   createGameOpen: boolean;
+  /** Controla o modal de seleção de versões antes do launch. */
+  launchSelection: { sourceGameId: number; options: GameVersionOption[] } | null;
 
   // --- Tokens de recarga (incrementados para forçar re-fetch) ---
   /** Token que, ao mudar, força recarga dos jogos nos hooks. */
@@ -202,6 +205,10 @@ interface GameStockState {
   /** Abre o modal de configurações já na seção indicada. */
   openSettings(section: SettingsSection): void;
   setCreateGameOpen(value: boolean): void;
+  /** Abre o modal de seleção de versões para um jogo com múltiplas variantes. */
+  openLaunchSelection(sourceGameId: number, options: GameVersionOption[]): void;
+  /** Fecha o modal de seleção de versões. */
+  closeLaunchSelection(): void;
   setCollectionCounts(value: CollectionCounts): void;
   /** Hidrata entradas de pastas de ROM a partir do SQLite (sem persistir de volta). */
   hydrateRomFolderEntries(value: PersistedRomFolderEntry[]): void;
@@ -277,9 +284,10 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   settingsOpen: false,
   settingsSection: "biblioteca",
   createGameOpen: false,
+  launchSelection: null,
   reloadToken: 0,
   platformsReloadToken: 0,
-  collectionCounts: { favorites: 0, playing: 0, completed: 0 },
+  collectionCounts: { favorites: 0, playing: 0, completed: 0, mostPlayed: 0 },
   romFolderEntries: [],
   lastRomImportJob: null,
   mediaSyncJobs: [],
@@ -340,6 +348,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setSettingsSection: (settingsSection) => set({ settingsSection }),
   openSettings: (settingsSection) => set({ settingsOpen: true, settingsSection }),
   setCreateGameOpen: (createGameOpen) => set({ createGameOpen }),
+  openLaunchSelection: (sourceGameId, options) => set({ launchSelection: { sourceGameId, options } }),
+  closeLaunchSelection: () => set({ launchSelection: null }),
   setCollectionCounts: (collectionCounts) => set({ collectionCounts }),
 
   // Hidrata sem persistir (dados já vieram do SQLite)

@@ -1,0 +1,123 @@
+.game-version-modal {
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(680px, calc(100vh - 48px));
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(132, 148, 149, 0.35);
+  border-radius: 16px;
+  background: rgba(28, 27, 27, 0.96);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  color: var(--text-primary);
+}
+
+.game-version-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.game-version-modal-header h2 {
+  margin: 4px 0 0;
+}
+
+.game-version-modal-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.game-version-modal-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.3);
+  color: #fecaca;
+  font-size: 13px;
+}
+
+.game-version-modal-list {
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.game-version-option {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(132, 148, 149, 0.26);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  color: inherit;
+  transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
+}
+
+.game-version-option:hover:not(:disabled) {
+  border-color: rgba(0, 219, 231, 0.52);
+  background: rgba(0, 219, 231, 0.08);
+  transform: translateY(-1px);
+}
+
+.game-version-option:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.game-version-option-main {
+  display: grid;
+  gap: 4px;
+}
+
+.game-version-option-main strong {
+  font-size: 15px;
+}
+
+.game-version-option-main span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.game-version-option-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.game-version-option-meta span,
+.game-version-option-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-version-option-action {
+  justify-self: flex-end;
+  /* Reserva espaco para evitar salto visual ao trocar para "Abrindo...". */
+  min-width: 92px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .game-version-modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    padding: 18px;
+  }
+
+  .game-version-option-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-version-option-action {
+    justify-self: flex-start;
+  }
+}

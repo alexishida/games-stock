@@ -8,10 +8,11 @@
  * - Renderizar o layout principal: Sidebar, TopBar, área de conteúdo e modais globais.
  */
 import { type ReactNode, useEffect, useRef } from "react";
-import { Gamepad2, Layers3, Star, Trophy } from "lucide-react";
+import { BarChart3, Gamepad2, Layers3, Star, Trophy } from "lucide-react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
+import { GameVersionModal } from "./components/GameVersionModal/GameVersionModal";
 import { HardwareInventory } from "./components/HardwareInventory";
 import { LaunchBoxImporter } from "./components/LaunchBoxImporter/LaunchBoxImporter";
 import { ManualGameModal } from "./components/ManualGame/ManualGameModal";
@@ -39,6 +40,7 @@ type CollectionTab = { value: CollectionFilter; label: string; icon: ReactNode }
 /** Abas de filtro exibidas no cabeçalho da biblioteca. */
 const COLLECTION_TABS: CollectionTab[] = [
   { value: "all", label: "Todos os jogos", icon: <Layers3 aria-hidden="true" size={15} /> },
+  { value: "mostPlayed", label: "Mais Jogados", icon: <BarChart3 aria-hidden="true" size={15} /> },
   { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} /> },
   { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} /> },
   { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} /> }
@@ -77,6 +79,7 @@ function LibraryView() {
             <option value="title">A-Z</option>
             <option value="year">Ano</option>
             <option value="recent">Recentes</option>
+            <option value="mostPlayed">Mais jogados</option>
           </select>
         </div>
       </section>
@@ -311,6 +314,7 @@ export default function App() {
       <LaunchBoxImporter />
       <SettingsModal />
       <ManualGameModal />
+      <GameVersionModal />
       <NotificationCenter />
     </div>
   );

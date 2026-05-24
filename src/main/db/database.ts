@@ -99,6 +99,7 @@ function applySchema(database: Database.Database): void {
       play_status TEXT NOT NULL DEFAULT 'unplayed',
       notes TEXT,
       launchbox_id TEXT,
+      launch_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE RESTRICT
@@ -178,6 +179,7 @@ function applySchema(database: Database.Database): void {
   addColumnIfMissing(database, "games", "screenshot_path", "TEXT");
   addColumnIfMissing(database, "games", "rom_path", "TEXT");
   addColumnIfMissing(database, "games", "launchbox_id", "TEXT");
+  addColumnIfMissing(database, "games", "launch_count", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(database, "platforms", "is_default", "INTEGER NOT NULL DEFAULT 0");
 
   // Índices adicionais para campos de filtro comuns na listagem de jogos.
@@ -185,6 +187,7 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_favorite ON games(favorite);
     CREATE INDEX IF NOT EXISTS idx_games_play_status ON games(play_status);
     CREATE INDEX IF NOT EXISTS idx_games_rom_path ON games(rom_path);
+    CREATE INDEX IF NOT EXISTS idx_games_launch_count ON games(launch_count DESC);
   `);
 
   // ── Inventário de hardware físico ──────────────────────────────────────────
@@ -348,6 +351,7 @@ function dedupeGamesByLaunchBoxId(database: Database.Database): void {
       favorite = ?,
       play_status = ?,
       notes = ?,
+      launch_count = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `);
@@ -376,6 +380,7 @@ function dedupeGamesByLaunchBoxId(database: Database.Database): void {
         merged.favorite,
         merged.play_status,
         merged.notes,
+        merged.launch_count,
         survivor.id
       );
 
@@ -405,6 +410,7 @@ interface GameRecord {
   favorite: number; // 0 = false, 1 = true (SQLite não tem tipo booleano nativo)
   play_status: string;
   notes: string | null;
+  launch_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -430,7 +436,9 @@ function mergeGameRecord(preferred: GameRecord, candidate: GameRecord): GameReco
     favorite: preferred.favorite || candidate.favorite ? 1 : 0,
     // Preserva o status mais avançado: se o preferred já é "unplayed", tenta usar o candidate.
     play_status: preferred.play_status !== "unplayed" ? preferred.play_status : candidate.play_status,
-    notes: pickPreferredString(preferred.notes, candidate.notes)
+    notes: pickPreferredString(preferred.notes, candidate.notes),
+    // Mantém o maior histórico de partidas ao consolidar registros duplicados.
+    launch_count: Math.max(preferred.launch_count, candidate.launch_count)
   };
 }
 

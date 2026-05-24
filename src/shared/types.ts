@@ -22,7 +22,7 @@ export type PlayStatus = "unplayed" | "playing" | "completed";
  * Filtro de coleção disponível na barra lateral da biblioteca.
  * "all" exibe todos os jogos; os demais filtram por status ou marcação.
  */
-export type CollectionFilter = "all" | "favorites" | "playing" | "completed" | "unplayed";
+export type CollectionFilter = "all" | "favorites" | "playing" | "completed" | "unplayed" | "mostPlayed";
 
 // ---------------------------------------------------------------------------
 // Contagens e estatísticas da coleção
@@ -36,6 +36,16 @@ export interface CollectionCounts {
   playing: number;
   /** Total de jogos com status "completed" (concluído). */
   completed: number;
+  /** Total de jogos que já foram executados ao menos uma vez. */
+  mostPlayed: number;
+}
+
+/** Estatísticas agregadas do histórico de partidas da biblioteca. */
+export interface GameLaunchStats {
+  /** Soma total de partidas iniciadas em todos os jogos. */
+  totalLaunches: number;
+  /** Quantidade de jogos que possuem ao menos uma partida registrada. */
+  playedGames: number;
 }
 
 /** Estatísticas sobre a situação das capas de jogos na biblioteca. */
@@ -90,7 +100,7 @@ export interface CoverSyncResult extends CoverSyncStats {
 }
 
 /** Critério de ordenação da lista de jogos na biblioteca. */
-export type GameSortBy = "title" | "year" | "recent";
+export type GameSortBy = "title" | "year" | "recent" | "mostPlayed";
 
 /** Criterio de ordenacao da lista de itens do inventario de hardware. */
 export type HardwareInventorySortBy = "name" | "type" | "recent";
@@ -625,6 +635,8 @@ export interface Game {
   notes: string | null;
   /** ID do jogo no banco de dados LaunchBox, ou null se não vinculado. */
   launchbox_id: string | null;
+  /** Quantidade total de vezes que o usuário iniciou este jogo. */
+  launch_count: number;
   /** Data/hora ISO de criação do registro. */
   created_at: string;
   /** Data/hora ISO da última atualização do registro. */
@@ -664,6 +676,28 @@ export interface GameListResult {
   total: number;
   /** Total de jogos após aplicar todos os filtros ativos. */
   filtered: number;
+}
+
+/** Opção de versão disponível para iniciar um jogo antes do launch efetivo. */
+export interface GameVersionOption {
+  /** ID do jogo/variante no SQLite. */
+  id: number;
+  /** Título salvo na biblioteca para a variante. */
+  title: string;
+  /** Nome da plataforma para exibição contextual. */
+  platformName: string | null;
+  /** Quantidade de vezes que esta variante já foi iniciada. */
+  launchCount: number;
+  /** Nome completo do arquivo ROM para diferenciar variantes. */
+  romFileName: string;
+  /** Título-base usado para agrupar versões relacionadas. */
+  baseTitle: string;
+  /** Rótulo de região detectado automaticamente (JAP/USA/EUR etc.). */
+  regionLabel: string | null;
+  /** Rótulo de tipo detectado automaticamente (Hack/Translation/Revision etc.). */
+  typeLabel: string | null;
+  /** Resumo curto já pronto para a UI diferenciar a versão. */
+  variantLabel: string;
 }
 
 /** Item de mídia associado a um jogo (capa, screenshot, plano de fundo etc.). */

@@ -71,6 +71,22 @@ Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
 - Repositórios em `src/main/db/repositories` devem ser fachadas finas ou orquestração; não colocar SQL direto neles.
 - Código fora de `src/main/db` deve acessar o banco via repositórios/DAOs exportados, nunca via `better-sqlite3` direto.
 
+## Regra: retrocompatibilidade com dados existentes
+
+Toda funcionalidade nova, correção de bug, refatoração ou alteração de schema **deve preservar e reaproveitar os dados já populados** no SQLite local do usuário. O app é instalado e usado localmente; o banco do usuário é a fonte da verdade e não pode ser descartado, recriado do zero ou ignorado por conveniência de implementação.
+
+- **Nunca** assumir banco vazio. Toda lógica nova deve funcionar tanto em instalação limpa quanto em banco já populado por versões anteriores.
+- Mudanças de schema devem entrar como migration incremental em `src/main/db/database.ts`, preservando linhas existentes. Não usar `DROP TABLE` + `CREATE TABLE` como atalho para "resetar" estrutura.
+- Ao adicionar coluna nova, definir `DEFAULT` adequado ou backfill explícito na migration para que registros antigos continuem válidos.
+- Ao renomear/remover coluna ou tabela, fazer migration de dados (copiar para nova estrutura) antes de remover a antiga. Nunca exigir que o usuário reimporte ou reconfigure algo que já estava configurado.
+- Correções de bug que envolvem dados sujos ou inconsistentes gerados por versão anterior devem incluir migration de saneamento, não apenas corrigir o código daqui pra frente.
+- Funcionalidades que dependem de novo metadado (ex.: novo campo em jogo, plataforma ou ROM) devem ter fallback explícito quando o dado não existir no registro antigo, e idealmente backfill automático na primeira execução.
+- Importadores, sincronizadores e jobs devem ser idempotentes em relação ao que já existe: reprocessar um item já populado não pode duplicar, sobrescrever silenciosamente ou perder relacionamentos.
+- Chaves de matching para reaproveitamento devem seguir as mesmas estáveis já definidas em portabilidade (plataforma por `name` case-insensitive, jogo por `launchbox_id + platformName` com fallback `title + platformName`, emulador por `name`), nunca IDs autoincrementais.
+- Estado persistido de UI (entradas do importador de ROM, histórico de jobs, flags) deve ser lido com tolerância a campos ausentes — versão antiga do registro não pode quebrar a leitura.
+
+Em PR de feature ou bugfix, considerar explicitamente: "como esse código se comporta no banco de um usuário que já usa o app há meses?" Se a resposta exigir reimport, reset ou intervenção manual do usuário, a abordagem está errada.
+
 ## Arquitetura de portabilidade de dados
 
 - Fluxos de exportação e importação de dados devem rodar no `main process`, nunca no renderer.

@@ -9,9 +9,13 @@
  * está selecionado (painel de detalhes aberto), para não poluir o layout.
  */
 
+import { useEffect, useState } from "react";
 import { ArrowUpDown, Grid2X2, List, Search } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import "./TopBar.css";
+
+/** Atraso curto para evitar consulta ao banco a cada tecla digitada na busca. */
+const SEARCH_DEBOUNCE_MS = 180;
 
 /**
  * Barra de ferramentas superior da biblioteca.
@@ -20,7 +24,7 @@ import "./TopBar.css";
  */
 export function TopBar() {
   // Texto atual do campo de busca
-  const searchQuery = useGameStockStore((state) => state.searchQuery);
+  const storeSearchQuery = useGameStockStore((state) => state.searchQuery);
   // Total de jogos após aplicar filtros (busca + plataforma + coleção)
   const filtered = useGameStockStore((state) => state.filtered);
   // Total geral de jogos na biblioteca (sem filtros)
@@ -40,6 +44,23 @@ export function TopBar() {
 
   // Próximo critério de ordenação no ciclo: title → year → recent → title
   const nextSort = sortBy === "title" ? "year" : sortBy === "year" ? "recent" : "title";
+  // Rascunho local mantem digitacao fluida enquanto o store recebe update com debounce
+  const [draftSearchQuery, setDraftSearchQuery] = useState(storeSearchQuery);
+
+  /** Sincroniza o campo quando a busca muda por fora do TopBar. */
+  useEffect(() => {
+    setDraftSearchQuery(storeSearchQuery);
+  }, [storeSearchQuery]);
+
+  /**
+   * Envia a busca ao store apos pequena pausa na digitacao.
+   * Isso reduz re-render amplo e chamadas IPC durante busca na tela principal.
+   */
+  useEffect(() => {
+    if (draftSearchQuery === storeSearchQuery) return undefined;
+    const timer = window.setTimeout(() => setSearchQuery(draftSearchQuery), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [draftSearchQuery, setSearchQuery, storeSearchQuery]);
 
   return (
     <header className="topbar">
@@ -47,8 +68,8 @@ export function TopBar() {
       <div className="topbar-search">
         <Search aria-hidden="true" size={18} />
         <input
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
+          value={draftSearchQuery}
+          onChange={(event) => setDraftSearchQuery(event.target.value)}
           placeholder="Buscar biblioteca"
         />
       </div>

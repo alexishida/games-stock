@@ -10,7 +10,7 @@
 
 import { getDatabase } from "../database";
 import { GameDao } from "../dao/gameDao";
-import { CollectionCounts, CoverSyncStats, Game, GameCreateInput, GameFilters, GameListResult, GameUpdateInput } from "../../../shared/types";
+import { CollectionCounts, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption } from "../../../shared/types";
 
 /**
  * Cria uma instância do GameDao conectada ao banco de dados ativo.
@@ -127,6 +127,14 @@ export function getCollectionCounts(): CollectionCounts {
 }
 
 /**
+ * Retorna estatísticas agregadas do histórico de partidas jogadas.
+ * Usado na nova seção de Configurações dedicada ao contador de launches.
+ */
+export function getGameLaunchStats(): GameLaunchStats {
+  return gameDao().launchStats();
+}
+
+/**
  * Retorna estatísticas de sincronização de capas (total, com capa, sem capa).
  * Usado na tela de configurações e no job de sincronização de mídia.
  */
@@ -148,4 +156,32 @@ export function listGamesMissingCovers(): Game[] {
  */
 export function listLaunchBoxLinkedGames(): Game[] {
   return gameDao().listLaunchBoxLinked();
+}
+
+/**
+ * Incrementa o contador de partidas de um jogo após um launch bem-sucedido.
+ *
+ * @param id - ID do jogo lançado.
+ * @returns O jogo atualizado com `launch_count` já incrementado.
+ */
+export function incrementGameLaunchCount(id: number): Game {
+  return gameDao().incrementLaunchCount(id);
+}
+
+/**
+ * Zera todos os contadores de partidas registrados na biblioteca.
+ *
+ * @returns Quantidade de jogos afetados pela limpeza.
+ */
+export function resetGameLaunchStats(): { success: true; updated: number } {
+  return gameDao().resetLaunchCounts();
+}
+
+/**
+ * Lista variantes relacionadas e jogáveis de um jogo base.
+ *
+ * @param id - ID do jogo que originou a tentativa de launch.
+ */
+export function listGameVersions(id: number): GameVersionOption[] {
+  return gameDao().listVersions(id);
 }

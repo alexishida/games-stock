@@ -21,6 +21,8 @@ export const IPC_CHANNELS = {
     collectionCounts: "games:collectionCounts",
     /** Retorna estatísticas de capas (total, baixadas, faltando, sincronizáveis). */
     coverStats: "games:coverStats",
+    /** Retorna estatísticas agregadas do histórico de partidas. */
+    launchStats: "games:launchStats",
     /** Evento push do main para o renderer quando as estatísticas de capa são atualizadas. */
     coverStatsUpdated: "games:coverStatsUpdated",
     /** Inicia a sincronização de capas com o LaunchBox. */
@@ -31,6 +33,10 @@ export const IPC_CHANNELS = {
     update: "games:update",
     /** Remove um jogo da biblioteca. */
     delete: "games:delete",
+    /** Lista versões relacionadas e jogáveis de um mesmo jogo base. */
+    listVersions: "games:listVersions",
+    /** Zera manualmente todos os contadores de partidas da biblioteca. */
+    resetLaunchStats: "games:resetLaunchStats",
     /** Inicia o jogo com o emulador configurado para a plataforma. */
     launch: "games:launch"
   },
@@ -101,6 +107,8 @@ export const IPC_CHANNELS = {
   app: {
     /** Retorna a versão atual da aplicação, incluindo metadado de build quando disponível. */
     getVersion: "app:getVersion",
+    /** Retorna apenas o caminho do diretorio de dados, sem calcular estatisticas pesadas. */
+    getDataDirPath: "app:getDataDirPath",
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats: "app:getStorageStats"
   },

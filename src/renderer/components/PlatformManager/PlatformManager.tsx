@@ -15,6 +15,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { Platform, PlatformEmulator, PlatformMappingsInput } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
+import { loadDefaultPlatformEmulators } from "../../lib/defaultEmulators";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 
@@ -416,6 +417,8 @@ export function PlatformManager() {
   const reloadPlatforms = useGameStockStore((state) => state.reloadPlatforms);
   // Recarrega a lista de jogos (atualiza contagens)
   const reloadGames = useGameStockStore((state) => state.reloadGames);
+  // Token usado para invalidar cache quando vinculos plataforma/emulador mudam
+  const platformsReloadToken = useGameStockStore((state) => state.platformsReloadToken);
 
   // Controla qual modal de formulário está aberto (criação ou edição)
   const [modal, setModal] = useState<ModalMode | null>(null);
@@ -428,18 +431,24 @@ export function PlatformManager() {
 
   /**
    * Carrega o emulador padrão de cada plataforma ao montar ou quando a lista
-   * de plataformas mudar. Dispara chamadas IPC em paralelo via Promise.all.
+   * de plataformas mudar, reutilizando cache compartilhado com a grade.
    */
   useEffect(() => {
-    if (!platforms.length) return;
-    void Promise.all(
-      platforms.map((p) =>
-        window.gameStockAPI.emulators
-          .listByPlatform(p.id)
-          .then((list) => [p.id, list.find((pe) => pe.is_default === 1) ?? null] as const)
-      )
-    ).then((entries) => setDefaultEmulators(Object.fromEntries(entries)));
-  }, [platforms]);
+    let canceled = false;
+    if (!platforms.length) {
+      setDefaultEmulators({});
+      return undefined;
+    }
+
+    void loadDefaultPlatformEmulators(platforms.map((platform) => platform.id), platformsReloadToken)
+      .then((nextEmulators) => {
+        if (!canceled) setDefaultEmulators(nextEmulators);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [platforms, platformsReloadToken]);
 
   /**
    * Remove uma plataforma após confirmação do usuário.

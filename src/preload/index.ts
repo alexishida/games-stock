@@ -26,7 +26,9 @@ import {
   DataPortabilityImportRequest,
   GameCreateInput,
   GameFilters,
+  GameLaunchStats,
   GameUpdateInput,
+  GameVersionOption,
   HardwareItemCreateInput,
   HardwareItemFilters,
   HardwareItemUpdateInput,
@@ -57,6 +59,8 @@ const api = {
     listMedia: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.listMedia, id),
     /** Retorna contagens de favoritos, jogando e concluídos. */
     collectionCounts: () => ipcRenderer.invoke(IPC_CHANNELS.games.collectionCounts),
+    /** Retorna estatísticas agregadas do histórico de partidas. */
+    launchStats: () => ipcRenderer.invoke(IPC_CHANNELS.games.launchStats) as Promise<GameLaunchStats>,
     /** Retorna estatísticas sobre capas baixadas e disponíveis. */
     coverStats: () => ipcRenderer.invoke(IPC_CHANNELS.games.coverStats),
     /**
@@ -76,6 +80,10 @@ const api = {
     update: (id: number, data: GameUpdateInput) => ipcRenderer.invoke(IPC_CHANNELS.games.update, id, data),
     /** Remove um jogo da biblioteca. */
     delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.delete, id),
+    /** Lista versões relacionadas de um jogo antes do launch. */
+    listVersions: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.listVersions, id) as Promise<GameVersionOption[]>,
+    /** Zera manualmente todos os contadores de partidas. */
+    resetLaunchStats: () => ipcRenderer.invoke(IPC_CHANNELS.games.resetLaunchStats) as Promise<{ success: true; updated: number }>,
     /** Inicia o jogo com o emulador padrão configurado para a plataforma. */
     launch: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.launch, id)
   },
@@ -151,6 +159,8 @@ const api = {
   app: {
     /** Retorna a versão atual da aplicação. */
     getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.app.getVersion) as Promise<string>,
+    /** Retorna apenas o caminho da pasta de dados, sem calcular tamanho em disco. */
+    getDataDirPath: () => ipcRenderer.invoke(IPC_CHANNELS.app.getDataDirPath) as Promise<string>,
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>
   },

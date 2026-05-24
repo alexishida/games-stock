@@ -15,14 +15,15 @@
  * A seção ativa é controlada pelo store (settingsSection).
  */
 
-import { useEffect, useState } from "react";
-import { DatabaseBackup, ExternalLink, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, Settings, X } from "lucide-react";
-import logoSrc from "../../assets/logo.png";
+import { useEffect, useRef, useState } from "react";
+import { DatabaseBackup, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, RotateCcw, Settings, X } from "lucide-react";
+import logoSrc from "../../assets/logo-about.png";
 import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
 import { EmulatorsSettings } from "../EmulatorsSettings/EmulatorsSettings";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { SettingsSection, useGameStockStore } from "../../store";
+import { PlayHistorySettings } from "../PlayHistorySettings/PlayHistorySettings";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
 import type { UpdaterAppInfo, UpdaterStatus } from "../../../shared/updater";
@@ -38,6 +39,7 @@ const NAV_ITEMS: Array<{ id: SettingsSection; label: string; Icon: typeof Folder
   { id: "emuladores", label: "Emuladores", Icon: MonitorPlay, group: "library" },
   { id: "biblioteca", label: "Biblioteca", Icon: FolderOpen, group: "library" },
   { id: "covers", label: "Mídia da biblioteca", Icon: Images, group: "library" },
+  { id: "partidas", label: "Partidas jogadas", Icon: RotateCcw, group: "library" },
   { id: "backup", label: "Backup", Icon: DatabaseBackup, group: "app" },
   { id: "sobre", label: "Sobre", Icon: Info, group: "app" }
 ];
@@ -52,6 +54,7 @@ const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title?: string
   plataformas: { title: "Gerenciar plataformas" },
   emuladores: { title: "Gerenciar emuladores" },
   covers: { title: "Gerenciar mídia da biblioteca" },
+  partidas: { title: "Histórico de partidas" },
   sobre: {}
 };
 
@@ -60,6 +63,12 @@ const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title?: string
  * Enquanto uma delas estiver presente, o botão da UI fica bloqueado.
  */
 const RUNNING_UPDATER_PHASES = new Set<UpdaterStatus["phase"]>(["checking", "downloading", "applying"]);
+
+/** Cache curto no renderer para nao recalcular armazenamento a cada ida ao Sobre/Backup. */
+const STORAGE_STATS_CACHE_MS = 30_000;
+
+/** Secoes que exibem estatisticas de armazenamento local. */
+const STORAGE_STATS_SECTIONS = new Set<SettingsSection>(["backup", "sobre"]);
 
 /**
  * Retorna `true` quando a fase recebida ainda representa trabalho em andamento.
@@ -212,6 +221,8 @@ export function SettingsModal() {
   const [appVersion, setAppVersion] = useState("");
   // Estatísticas de armazenamento: total de jogos, tamanho e caminho da pasta de dados
   const [storageStats, setStorageStats] = useState<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string } | null>(null);
+  // Indica que as estatisticas de armazenamento estao sendo calculadas em background
+  const [storageStatsLoading, setStorageStatsLoading] = useState(false);
   // Versão semântica e build local usados no modal de atualização
   const [updaterAppInfo, setUpdaterAppInfo] = useState<UpdaterAppInfo | null>(null);
   // Último status recebido do updater manual disparado pela seção "Sobre"
@@ -223,9 +234,11 @@ export function SettingsModal() {
   const draggable = useDraggableDialog<HTMLDivElement>();
   // Hook específico do modal secundário de atualização
   const updateDialogDraggable = useDraggableDialog<HTMLDivElement>();
+  // Timestamp do cache local de storageStats; evita repetir varredura de disco ao alternar abas
+  const storageStatsLoadedAtRef = useRef(0);
 
   /**
-   * Busca versão e estatísticas de armazenamento via IPC sempre que o modal abre.
+   * Busca dados leves via IPC sempre que o modal abre.
    * Usa flag `mounted` para ignorar atualizações após desmontagem.
    */
   useEffect(() => {
@@ -235,9 +248,6 @@ export function SettingsModal() {
     void window.gameStockAPI.app.getVersion().then((version) => {
       if (mounted) setAppVersion(version);
     });
-    void window.gameStockAPI.app.getStorageStats().then((stats) => {
-      if (mounted) setStorageStats(stats);
-    });
     void window.gameStockAPI.updater.getAppInfo().then((info) => {
       if (mounted) setUpdaterAppInfo(info);
     });
@@ -246,6 +256,33 @@ export function SettingsModal() {
       mounted = false;
     };
   }, [open]);
+
+  /**
+   * Busca estatisticas de armazenamento somente quando a secao precisa delas.
+   * A varredura de disco pode ser pesada; carregar sob demanda evita travar a aba Sobre.
+   */
+  useEffect(() => {
+    if (!open || !STORAGE_STATS_SECTIONS.has(section)) return;
+    const cacheAge = Date.now() - storageStatsLoadedAtRef.current;
+    if (storageStats && cacheAge < STORAGE_STATS_CACHE_MS) return;
+
+    let mounted = true;
+    setStorageStatsLoading(true);
+    void window.gameStockAPI.app.getStorageStats()
+      .then((stats) => {
+        if (!mounted) return;
+        storageStatsLoadedAtRef.current = Date.now();
+        setStorageStats(stats);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (mounted) setStorageStatsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [open, section, storageStats]);
 
   /**
    * Escuta eventos de status do updater enviados pelo processo main.
@@ -279,6 +316,12 @@ export function SettingsModal() {
   const remoteUpdaterBuildLabel = formatUpdaterBuild(updaterStatus?.buildNumber);
   const remoteUpdaterReleaseDateLabel = formatUpdaterReleaseDate(updaterStatus?.releaseDate);
   const updateStatusLabel = updaterStatusLabel(updaterStatus);
+
+  /** Abre a pasta de dados por canal leve, sem depender das estatisticas de armazenamento. */
+  async function openDataDir(): Promise<void> {
+    const dataDirPath = storageStats?.dataDirPath ?? await window.gameStockAPI.app.getDataDirPath();
+    await window.gameStockAPI.shell.openPath(dataDirPath);
+  }
 
   return (
     <div className="modal-backdrop">
@@ -387,6 +430,11 @@ export function SettingsModal() {
               <CoversSettings />
             )}
 
+            {/* Seção: Partidas — contador local de launches e reset manual */} 
+            {section === "partidas" && (
+              <PlayHistorySettings />
+            )}
+
             {/* Seção: Sobre — informações do app, créditos e pasta de dados */}
             {section === "sobre" && (
               <div className="about-page">
@@ -403,17 +451,17 @@ export function SettingsModal() {
                 <div className="about-divider" />
 
                 {/* Metadados: jogos, armazenamento e autoria */}
-                <div className="about-meta">
+                <div className="about-meta" aria-busy={storageStatsLoading}>
                   <div className="about-meta-row">
                     <span className="about-meta-label">Jogos na biblioteca</span>
                     <span className="about-meta-value">
-                      {storageStats != null ? `${storageStats.totalGames} jogos` : "—"}
+                      {storageStats != null ? `${storageStats.totalGames} jogos` : storageStatsLoading ? "Carregando..." : "—"}
                     </span>
                   </div>
                   <div className="about-meta-row">
                     <span className="about-meta-label">Espaço em disco</span>
                     <span className="about-meta-value">
-                      {storageStats != null ? `${storageStats.dataDirSizeMb} MB` : "—"}
+                      {storageStats != null ? `${storageStats.dataDirSizeMb} MB` : storageStatsLoading ? "Carregando..." : "—"}
                     </span>
                   </div>
                   <div className="about-meta-row">
@@ -428,12 +476,12 @@ export function SettingsModal() {
                   <button
                     type="button"
                     className="about-open-folder-button"
-                    onClick={() => storageStats && void window.gameStockAPI.shell.openPath(storageStats.dataDirPath)}
-                    disabled={!storageStats}
+                    onClick={() => void openDataDir()}
+                    aria-label="Abrir pasta de dados"
+                    title="Abrir pasta de dados"
                   >
                     <FolderOpen aria-hidden="true" size={15} />
                     Abrir pasta de dados
-                    <ExternalLink aria-hidden="true" size={13} className="about-open-folder-external" />
                   </button>
 
                   <button

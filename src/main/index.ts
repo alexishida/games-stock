@@ -48,6 +48,22 @@ const romFolderJobs = new Map<string, RomFolderImportJob>();
 /** Mapa de jobs de portabilidade de dados (exportação/importação) desta sessão. */
 const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
 
+/** Estatisticas de armazenamento exibidas nas configuracoes do app. */
+interface AppStorageStats {
+  totalGames: number;
+  dataDirSizeMb: number;
+  dataDirPath: string;
+}
+
+/** Tempo curto de cache para evitar recalcular tamanho de imagens/cache a cada troca de aba. */
+const STORAGE_STATS_CACHE_MS = 30_000;
+
+/** Cache do resultado mais recente de armazenamento local. */
+let cachedStorageStats: { expiresAt: number; value: AppStorageStats } | null = null;
+
+/** Promessa compartilhada enquanto uma leitura pesada de armazenamento esta em andamento. */
+let pendingStorageStats: Promise<AppStorageStats> | null = null;
+
 /** Retorna o título da janela principal com a versão do app. */
 function getWindowTitle(): string {
   return `GameStock v${APP_VERSION_LABEL}`;
@@ -174,6 +190,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
   ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
   ipcMain.handle(IPC_CHANNELS.games.collectionCounts, () => games.getCollectionCounts());
+  ipcMain.handle(IPC_CHANNELS.games.launchStats, () => games.getGameLaunchStats());
   ipcMain.handle(IPC_CHANNELS.games.coverStats, () => ({
     ...games.getCoverStats(),
     metadataDownloadedAt: getLaunchBoxMetadataDownloadedAt()
@@ -185,6 +202,8 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));
   ipcMain.handle(IPC_CHANNELS.games.delete, (_event, id: number) => games.deleteGame(id));
+  ipcMain.handle(IPC_CHANNELS.games.listVersions, (_event, id: number) => games.listGameVersions(id));
+  ipcMain.handle(IPC_CHANNELS.games.resetLaunchStats, () => games.resetGameLaunchStats());
 
   // ── Plataformas ────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.platforms.list, () => platforms.listPlatforms());
@@ -234,6 +253,7 @@ function registerIpc(): void {
     }
 
     await spawnDetachedProcess(resolvedExecutable.resolvedPath, args);
+    games.incrementGameLaunchCount(gameId);
     return { success: true };
   });
 
@@ -314,12 +334,9 @@ function registerIpc(): void {
   // ── Shell / app ────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
   ipcMain.handle(IPC_CHANNELS.app.getVersion, () => APP_VERSION_LABEL);
-  ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => {
-    const dataDirPath = getUserDataDir();
-    const totalGames = games.getCoverStats().total;
-    const dataDirSizeMb = Math.round(getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
-    return { totalGames, dataDirSizeMb, dataDirPath };
-  });
+  // Canal leve usado por botoes que precisam abrir a pasta de dados sem aguardar estatisticas.
+  ipcMain.handle(IPC_CHANNELS.app.getDataDirPath, () => getUserDataDir());
+  ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => getStorageStats());
   ipcMain.handle(IPC_CHANNELS.updater.skip, () => {
     requestUpdaterSkip();
   });
@@ -951,16 +968,64 @@ function resolveRetroArchCorePath(
 }
 
 /**
- * Calcula o tamanho total em bytes de um diretório recursivamente.
- * Retorna 0 se o diretório não existir.
+ * Retorna estatisticas de armazenamento com cache curto.
+ * O calculo de tamanho pode varrer muitas imagens, entao chamadas simultaneas
+ * reutilizam a mesma Promise e chamadas proximas reutilizam cache.
  */
-function getDirSizeBytes(dirPath: string): number {
-  if (!fs.existsSync(dirPath)) return 0;
+function getStorageStats(): Promise<AppStorageStats> {
+  const now = Date.now();
+  if (cachedStorageStats && cachedStorageStats.expiresAt > now) {
+    return Promise.resolve(cachedStorageStats.value);
+  }
+  if (pendingStorageStats) return pendingStorageStats;
+
+  pendingStorageStats = buildStorageStats()
+    .then((value) => {
+      cachedStorageStats = { value, expiresAt: Date.now() + STORAGE_STATS_CACHE_MS };
+      return value;
+    })
+    .finally(() => {
+      pendingStorageStats = null;
+    });
+
+  return pendingStorageStats;
+}
+
+/**
+ * Monta estatisticas de armazenamento usadas em Backup/Sobre.
+ * Mantem SQL rapido separado da varredura de disco, que roda de forma assincrona.
+ */
+async function buildStorageStats(): Promise<AppStorageStats> {
+  const dataDirPath = getUserDataDir();
+  const totalGames = games.getCoverStats().total;
+  const dataDirSizeMb = Math.round(await getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
+  return { totalGames, dataDirSizeMb, dataDirPath };
+}
+
+/**
+ * Calcula o tamanho total em bytes de um diretorio recursivamente.
+ * Usa APIs async para nao bloquear o main process durante varredura grande.
+ */
+async function getDirSizeBytes(dirPath: string): Promise<number> {
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+
   let total = 0;
-  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+  for (const entry of entries) {
     const full = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) total += getDirSizeBytes(full);
-    else if (entry.isFile()) total += fs.statSync(full).size;
+    if (entry.isDirectory()) {
+      total += await getDirSizeBytes(full);
+    } else if (entry.isFile()) {
+      try {
+        total += (await fs.promises.stat(full)).size;
+      } catch {
+        // Arquivos de cache podem ser removidos durante a varredura; ignorar mantem a UI responsiva.
+      }
+    }
   }
   return total;
 }

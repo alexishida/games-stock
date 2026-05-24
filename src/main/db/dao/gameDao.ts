@@ -8,7 +8,7 @@
 
 import type Database from "better-sqlite3";
 import path from "node:path";
-import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameListResult, GameSortBy, GameUpdateInput } from "../../../shared/types";
+import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameSortBy, GameUpdateInput, GameVersionOption } from "../../../shared/types";
 
 /** Linha bruta do SQLite: `favorite` chega como 0|1 em vez de boolean. */
 type GameRow = Omit<Game, "favorite"> & { favorite: 0 | 1 };
@@ -31,7 +31,8 @@ const writeColumns = [
   "favorite",
   "play_status",
   "notes",
-  "launchbox_id"
+  "launchbox_id",
+  "launch_count"
 ] as const;
 
 export class GameDao {
@@ -58,7 +59,7 @@ export class GameDao {
 
     // Busca a página atual com filtros, ordenação e paginação
     const items = this.database
-      .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters.sortBy)} LIMIT ? OFFSET ?`)
+      .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters)} LIMIT ? OFFSET ?`)
       .all(...where.params, pageSize, offset)
       .map((row) => mapGame(row as GameRow));
 
@@ -101,6 +102,7 @@ export class GameDao {
       play_status: "unplayed",
       notes: null,
       launchbox_id: null,
+      launch_count: 0,
       ...data
     });
     const result = this.database
@@ -134,7 +136,7 @@ export class GameDao {
   }
 
   /**
-   * Retorna contadores agregados da coleção: favoritos, jogando e concluídos.
+   * Retorna contadores agregados da coleção: favoritos, jogando, concluídos e já executados.
    * Usado para exibir estatísticas no painel lateral da UI.
    */
   collectionCounts(): CollectionCounts {
@@ -142,10 +144,34 @@ export class GameDao {
       SELECT
         SUM(CASE WHEN favorite = 1 THEN 1 ELSE 0 END) as favorites,
         SUM(CASE WHEN play_status = 'playing' THEN 1 ELSE 0 END) as playing,
-        SUM(CASE WHEN play_status = 'completed' THEN 1 ELSE 0 END) as completed
+        SUM(CASE WHEN play_status = 'completed' THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN launch_count > 0 THEN 1 ELSE 0 END) as mostPlayed
       FROM games
-    `).get() as { favorites: number; playing: number; completed: number };
-    return { favorites: row.favorites ?? 0, playing: row.playing ?? 0, completed: row.completed ?? 0 };
+    `).get() as { favorites: number; playing: number; completed: number; mostPlayed: number };
+    return {
+      favorites: row.favorites ?? 0,
+      playing: row.playing ?? 0,
+      completed: row.completed ?? 0,
+      mostPlayed: row.mostPlayed ?? 0
+    };
+  }
+
+  /**
+   * Retorna estatísticas agregadas do histórico de partidas registradas.
+   * A UI usa esses dados na seção dedicada de Configurações.
+   */
+  launchStats(): GameLaunchStats {
+    const row = this.database.prepare(`
+      SELECT
+        SUM(launch_count) as totalLaunches,
+        SUM(CASE WHEN launch_count > 0 THEN 1 ELSE 0 END) as playedGames
+      FROM games
+    `).get() as { totalLaunches: number | null; playedGames: number | null };
+
+    return {
+      totalLaunches: row.totalLaunches ?? 0,
+      playedGames: row.playedGames ?? 0
+    };
   }
 
   /**
@@ -217,6 +243,38 @@ export class GameDao {
   delete(id: number): { success: true } {
     this.database.prepare("DELETE FROM games WHERE id = ?").run(id);
     return { success: true };
+  }
+
+  /**
+   * Incrementa o contador de partidas de um jogo após um launch bem-sucedido.
+   * Mantém a contagem no SQLite para sobreviver ao fechamento do app.
+   */
+  incrementLaunchCount(id: number): Game {
+    this.database.prepare(`
+      UPDATE games
+      SET launch_count = launch_count + 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+
+    const updated = this.get(id);
+    if (!updated) throw new Error("Jogo não encontrado");
+    return updated;
+  }
+
+  /**
+   * Zera o histórico de partidas de todos os jogos da biblioteca.
+   * Retorna quantos registros realmente precisaram ser atualizados.
+   */
+  resetLaunchCounts(): { success: true; updated: number } {
+    const result = this.database.prepare(`
+      UPDATE games
+      SET launch_count = 0,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE launch_count != 0
+    `).run();
+
+    return { success: true, updated: result.changes };
   }
 
   /**
@@ -336,6 +394,28 @@ export class GameDao {
       .prepare("SELECT id FROM games WHERE LOWER(title) = LOWER(?) AND platform_id = ?")
       .get(data.title, data.platform_id) as { id: number } | undefined;
   }
+
+  /**
+   * Lista variantes jogáveis relacionadas a um mesmo título-base dentro da plataforma.
+   * Quando nenhum par adicional é encontrado, devolve a própria variante atual.
+   */
+  listVersions(id: number): GameVersionOption[] {
+    const current = this.get(id);
+    if (!current) return [];
+
+    const currentBaseTitle = buildVersionBaseTitle(current);
+    const candidates = this.database
+      .prepare(`${baseSelect()} WHERE games.platform_id = ? AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''`)
+      .all(current.platform_id)
+      .map((row) => mapGame(row as GameRow));
+
+    const matches = candidates
+      .filter((candidate) => buildVersionBaseTitle(candidate) === currentBaseTitle)
+      .map(mapVersionOption)
+      .sort(compareVersionOptions);
+
+    return matches.length ? matches : [mapVersionOption(current)];
+  }
 }
 
 /** Converte uma linha do SQLite para o tipo `Game`, convertendo `favorite` de 0|1 para boolean. */
@@ -373,7 +453,7 @@ function buildWhere(filters: GameFilters = {}): { sql: string; params: unknown[]
     parts.push("LOWER(games.title) LIKE ?");
     params.push(`%${filters.search.trim().toLowerCase()}%`);
   }
-  // Filtro de coleção (favoritos, jogando, concluídos, não jogados)
+  // Filtro de coleção (favoritos, jogando, concluídos, não jogados, mais jogados)
   if (filters.collectionFilter) {
     const collection = buildCollectionFilter(filters.collectionFilter);
     if (collection) parts.push(collection);
@@ -399,6 +479,8 @@ function buildCollectionFilter(filter: CollectionFilter): string | null {
       return "games.play_status = 'completed'";
     case "unplayed":
       return "games.play_status = 'unplayed'";
+    case "mostPlayed":
+      return "games.launch_count > 0";
     case "all":
       return null;
   }
@@ -408,14 +490,22 @@ function buildCollectionFilter(filter: CollectionFilter): string | null {
  * Constrói a cláusula ORDER BY conforme o critério de ordenação solicitado.
  * - year: mais recentes primeiro, com nulos no final
  * - recent: por data de criação decrescente
+ * - mostPlayed: jogos com maior `launch_count` no topo
  * - title: alfabético case-insensitive (padrão)
  */
-function buildOrder(sortBy: GameSortBy = "title"): string {
+function buildOrder(filters: GameFilters = {}): string {
+  if (filters.collectionFilter === "mostPlayed") {
+    return "ORDER BY games.launch_count DESC, games.title COLLATE NOCASE";
+  }
+
+  const sortBy = filters.sortBy ?? "title";
   switch (sortBy) {
     case "year":
       return "ORDER BY games.year IS NULL, games.year DESC, games.title COLLATE NOCASE";
     case "recent":
       return "ORDER BY games.created_at DESC, games.id DESC";
+    case "mostPlayed":
+      return "ORDER BY games.launch_count DESC, games.title COLLATE NOCASE";
     case "title":
       return "ORDER BY games.title COLLATE NOCASE";
   }
@@ -442,7 +532,8 @@ function normalizeInput(data: Partial<GameCreateInput>): Record<string, unknown>
     favorite: has(data, "favorite") ? (data.favorite ? 1 : 0) : undefined, // boolean → 0|1
     play_status: has(data, "play_status") ? data.play_status ?? "unplayed" : undefined,
     notes: has(data, "notes") ? data.notes ?? null : undefined,
-    launchbox_id: has(data, "launchbox_id") ? data.launchbox_id ?? null : undefined
+    launchbox_id: has(data, "launchbox_id") ? data.launchbox_id ?? null : undefined,
+    launch_count: has(data, "launch_count") ? Math.max(0, data.launch_count ?? 0) : undefined
   };
 }
 
@@ -483,4 +574,97 @@ function normalizeFsPath(value: string): string {
  */
 function normalizeTitleForMatch(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Gera a chave de agrupamento de versões removendo tags comuns do título e da ROM.
+ * Isso aproxima variantes como regiões, revisões e traduções de um mesmo jogo-base.
+ */
+function buildVersionBaseTitle(game: Pick<Game, "title" | "rom_path">): string {
+  const romFileName = game.rom_path ? path.basename(game.rom_path, path.extname(game.rom_path)) : "";
+  const romBase = stripVersionTags(romFileName);
+  const titleBase = stripVersionTags(game.title);
+  const candidate = romBase.length >= Math.max(6, titleBase.length - 4) ? romBase : titleBase;
+  return normalizeTitleForMatch(candidate);
+}
+
+/**
+ * Remove tags entre delimitadores e marcadores frequentes de revisão/versão.
+ */
+function stripVersionTags(value: string): string {
+  return value
+    .replace(/\.[a-z0-9]{1,5}$/i, "")
+    .replace(/[_]+/g, " ")
+    .replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, " ")
+    .replace(/\b(?:rev(?:ision)?\.?\s*[a-z0-9.]+|v\d[\w.]*)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Converte um jogo salvo em opção de variante pronta para a UI de seleção.
+ */
+function mapVersionOption(game: Game): GameVersionOption {
+  const romFileName = game.rom_path ? path.basename(game.rom_path) : game.title;
+  const tags = extractRomTags(romFileName);
+  const regionLabel = detectRegionLabel(tags);
+  const typeLabel = detectTypeLabel(tags);
+  const variantParts = [regionLabel, typeLabel].filter(Boolean);
+
+  return {
+    id: game.id,
+    title: game.title,
+    platformName: game.platform_name ?? null,
+    launchCount: game.launch_count,
+    romFileName,
+    baseTitle: stripVersionTags(game.title) || game.title,
+    regionLabel,
+    typeLabel,
+    variantLabel: variantParts.join(" · ") || "Versão padrão"
+  };
+}
+
+/**
+ * Ordena variantes priorizando as mais jogadas e, em seguida, nome do arquivo.
+ */
+function compareVersionOptions(left: GameVersionOption, right: GameVersionOption): number {
+  if (right.launchCount !== left.launchCount) return right.launchCount - left.launchCount;
+  return left.romFileName.localeCompare(right.romFileName, undefined, { sensitivity: "base" });
+}
+
+/**
+ * Extrai tags textuais do nome do arquivo ROM para inferir região e tipo.
+ */
+function extractRomTags(romFileName: string): string[] {
+  return Array.from(romFileName.matchAll(/\(([^)]*)\)|\[([^\]]*)\]|\{([^}]*)\}/g))
+    .map((match) => match[1] ?? match[2] ?? match[3] ?? "")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Detecta rótulo curto de região a partir das tags conhecidas do arquivo.
+ */
+function detectRegionLabel(tags: string[]): string | null {
+  const normalizedTags = tags.map((tag) => tag.toLowerCase());
+  if (normalizedTags.some((tag) => /\b(japan|jpn|jap|ntsc-j)\b/.test(tag))) return "JAP";
+  if (normalizedTags.some((tag) => /\b(usa|north america|ntsc-u)\b/.test(tag))) return "USA";
+  if (normalizedTags.some((tag) => /\b(europe|eur|pal)\b/.test(tag))) return "EUR";
+  if (normalizedTags.some((tag) => /\b(brazil|br)\b/.test(tag))) return "BRA";
+  return null;
+}
+
+/**
+ * Detecta categoria especial de variante para exibição no modal.
+ */
+function detectTypeLabel(tags: string[]): string | null {
+  for (const tag of tags) {
+    if (/hack/i.test(tag)) return "Hack";
+    if (/translat/i.test(tag)) return "Tradução";
+    if (/prototype|proto/i.test(tag)) return "Prototype";
+    if (/beta/i.test(tag)) return "Beta";
+    if (/revision|rev\b/i.test(tag)) return "Revision";
+    if (/demo/i.test(tag)) return "Demo";
+  }
+  return null;
 }

@@ -10,7 +10,7 @@
  */
 
 import { type ReactNode, useEffect, useState } from "react";
-import { Cpu, Gamepad2, Library, Plus, Settings, Star, Trophy } from "lucide-react";
+import { BarChart3, Cpu, Gamepad2, Library, Plus, Settings, Star, Trophy } from "lucide-react";
 import logoSrc from "../../assets/logo.png";
 import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
@@ -22,6 +22,7 @@ type FilterDef = { value: CollectionFilter; label: string; icon: ReactNode; coun
 
 /** Filtros de coleção disponíveis no modo biblioteca. */
 const COLLECTION_FILTERS: FilterDef[] = [
+  { value: "mostPlayed", label: "Mais Jogados", icon: <BarChart3 aria-hidden="true" size={15} />, countKey: "mostPlayed" },
   { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} />, countKey: "favorites" },
   { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} />, countKey: "playing" },
   { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} />, countKey: "completed" }
