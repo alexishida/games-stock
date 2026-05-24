@@ -119,6 +119,14 @@ export function upsertLaunchBoxGame(data: Partial<GameCreateInput> & { title: st
 }
 
 /**
+ * Busca um jogo já vinculado a um `launchbox_id` em uma plataforma específica.
+ * Permite tratar importações de metadados repetidos como variantes locais.
+ */
+export function findGameByLaunchBoxId(launchboxId: string, platformId: number): Game | null {
+  return gameDao().findByLaunchBoxId(launchboxId, platformId);
+}
+
+/**
  * Retorna contadores agregados da coleção (total de jogos, por plataforma, por status, etc.).
  * Usado nos cards de resumo da tela inicial.
  */

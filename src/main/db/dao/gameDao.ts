@@ -370,7 +370,10 @@ export class GameDao {
 
   /**
    * Procura um jogo existente para o upsert do LaunchBox.
-   * Ordem de preferência: launchbox_id → rom_path → título (case-insensitive).
+   * Ordem de preferência: launchbox_id → rom_path → fallback seguro por título.
+   *
+   * O fallback por título só é usado quando não há risco de colapsar variantes
+   * diferentes do mesmo jogo dentro da mesma plataforma.
    */
   private findExisting(data: Partial<GameCreateInput> & { title: string; platform_id: number }): { id: number } | undefined {
     // Tentativa 1: matching pelo launchbox_id (mais preciso)
@@ -389,10 +392,58 @@ export class GameDao {
       if (byRomPath) return byRomPath;
     }
 
-    // Tentativa 3: fallback pelo título case-insensitive
-    return this.database
-      .prepare("SELECT id FROM games WHERE LOWER(title) = LOWER(?) AND platform_id = ?")
-      .get(data.title, data.platform_id) as { id: number } | undefined;
+    // Tentativa 3: fallback pelo título apenas quando houver um alvo inequívoco.
+    return this.findBySafeTitleFallback(data);
+  }
+
+  /**
+   * Faz fallback por título sem sobrescrever variantes com ROMs diferentes.
+   *
+   * Regras:
+   * - se a ROM de entrada já existir, ela teria sido encontrada antes;
+   * - se houver exatamente um placeholder sem `rom_path`, ele pode ser reaproveitado;
+   * - quando existir mais de uma variante plausível, não escolhe nenhuma.
+   */
+  private findBySafeTitleFallback(data: Partial<GameCreateInput> & { title: string; platform_id: number }): { id: number } | undefined {
+    const rows = this.database
+      .prepare(`
+        SELECT id, rom_path, launchbox_id
+        FROM games
+        WHERE LOWER(title) = LOWER(?) AND platform_id = ?
+        ORDER BY id
+      `)
+      .all(data.title, data.platform_id) as Array<{ id: number; rom_path: string | null; launchbox_id: string | null }>;
+
+    if (!rows.length) return undefined;
+
+    const rowsWithoutRom = rows.filter((row) => !row.rom_path?.trim());
+
+    // Quando a entrada já possui ROM, só reaproveitamos placeholder único.
+    if (data.rom_path?.trim()) {
+      if (rowsWithoutRom.length === 1) return { id: rowsWithoutRom[0].id };
+      return undefined;
+    }
+
+    // Sem ROM de entrada, só reaproveitamos título quando existe um único candidato.
+    if (rows.length === 1) return { id: rows[0].id };
+
+    // Se houver um único registro totalmente solto, ele ainda pode absorver metadados.
+    const unlinkedPlaceholders = rows.filter((row) => !row.rom_path?.trim() && !row.launchbox_id?.trim());
+    if (unlinkedPlaceholders.length === 1) return { id: unlinkedPlaceholders[0].id };
+
+    return undefined;
+  }
+
+  /**
+   * Busca um jogo já vinculado a um `launchbox_id` dentro da mesma plataforma.
+   * Usado para evitar violar o índice único quando outra variante local recebe
+   * os mesmos metadados do LaunchBox.
+   */
+  findByLaunchBoxId(launchboxId: string, platformId: number): Game | null {
+    const row = this.database
+      .prepare(`${baseSelect()} WHERE games.launchbox_id = ? AND games.platform_id = ? LIMIT 1`)
+      .get(launchboxId, platformId) as GameRow | undefined;
+    return row ? mapGame(row) : null;
   }
 
   /**

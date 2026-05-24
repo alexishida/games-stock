@@ -17,7 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getImagesDir } from "./db/database";
 import { ALL_SUPPORTED_ROM_EXTENSIONS } from "./db/platformCatalog";
-import { createGame, upsertLaunchBoxGame } from "./db/repositories/games";
+import { createGame, findGameByLaunchBoxId, upsertLaunchBoxGame } from "./db/repositories/games";
 import { getLaunchBoxAliasesForPlatformId, getPrimaryRomExtensionsForPlatform, listPlatforms, listPrimaryRomExtensionMappings } from "./db/repositories/platforms";
 import { buildIndex, ensureMetadata } from "./lib/launchbox/db";
 import { downloadImages } from "./lib/launchbox/scraper";
@@ -511,9 +511,21 @@ export function normalizeRomTitle(filename: string): string {
 
 /**
  * Cria ou atualiza um jogo no banco com dados do LaunchBox e arquivos de mídia baixados.
- * Usa upsert por `launchbox_id` para evitar duplicatas.
+ * Usa upsert por `launchbox_id`, `rom_path` e título.
+ * Quando o `launchbox_id` já pertence a outra ROM da mesma plataforma,
+ * trata o item atual como outra versão local e evita reutilizar o mesmo ID.
  */
 function upsertMatchedGame(game: LaunchBoxGame, candidate: RomFolderImportCandidate, files: string[]) {
+  // Se outra ROM da mesma plataforma já usa este LaunchBox ID, o item atual vira
+  // outra versão local. Assim preservamos o vínculo existente e evitamos sobrescrever
+  // o `rom_path` da variante já cadastrada.
+  const linkedGame = findGameByLaunchBoxId(game.id, candidate.platformId);
+  const duplicateBelongsToAnotherRom = Boolean(
+    linkedGame
+    && linkedGame.rom_path
+    && path.resolve(linkedGame.rom_path) !== path.resolve(candidate.romPath)
+  );
+
   const data: Partial<GameCreateInput> & { title: string; platform_id: number } = {
     title: game.name,
     platform_id: candidate.platformId,
@@ -525,7 +537,7 @@ function upsertMatchedGame(game: LaunchBoxGame, candidate: RomFolderImportCandid
     box_art_path: findDownloadedMedia(files, "box-front"),
     background_path: findDownloadedMedia(files, "fanart-background"),
     screenshot_path: findDownloadedMedia(files, "screenshot-gameplay"),
-    launchbox_id: game.id,
+    launchbox_id: duplicateBelongsToAnotherRom ? null : game.id,
     rom_path: candidate.romPath,
     favorite: false,
     play_status: "unplayed"

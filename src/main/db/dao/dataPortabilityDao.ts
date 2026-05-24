@@ -10,6 +10,7 @@
  */
 
 import type Database from "better-sqlite3";
+import path from "node:path";
 import { DataPortabilityConflictCounts, DataPortabilityRomFolderEntry, PlayStatus } from "../../../shared/types";
 
 /** Campo de mídia de um jogo que pode ser exportado/importado. */
@@ -31,6 +32,7 @@ export interface PortableGameMetadata {
   play_status: PlayStatus;
   notes: string | null;
   launchbox_id: string | null; // ID do LaunchBox — chave primária de matching preferencial
+  romFileName?: string | null;  // Nome do arquivo ROM para diferenciar variantes sem expor caminho absoluto
 }
 
 /**
@@ -41,6 +43,7 @@ export interface PortableMediaReference {
   title: string;
   platformName: string;
   launchbox_id: string | null;
+  romFileName?: string | null;
   field: PortableMediaField;  // Qual campo de mídia (box art, background ou screenshot)
   sourcePath: string;          // Caminho absoluto na máquina de origem
 }
@@ -101,6 +104,7 @@ export interface PortableRomLocation {
   title: string;
   platformName: string;
   launchbox_id: string | null;
+  romFileName?: string | null;
   rom_path: string; // Caminho absoluto da ROM na máquina de origem
 }
 
@@ -192,18 +196,32 @@ export class DataPortabilityDao {
           games.favorite,
           games.play_status,
           games.notes,
-          games.launchbox_id
+          games.launchbox_id,
+          games.rom_path
         FROM games
         JOIN platforms ON platforms.id = games.platform_id
         ORDER BY platforms.name COLLATE NOCASE, games.title COLLATE NOCASE
       `)
-      .all() as Array<Omit<PortableGameMetadata, "favorite" | "play_status"> & { favorite: number; play_status: string }>;
+      .all() as Array<Omit<PortableGameMetadata, "favorite" | "play_status" | "romFileName"> & {
+        favorite: number;
+        play_status: string;
+        rom_path: string | null;
+      }>;
 
     // Converte os campos do SQLite para os tipos TypeScript equivalentes
     return rows.map((row) => ({
-      ...row,
+      title: row.title,
+      platformName: row.platformName,
+      platformCategory: row.platformCategory,
+      publisher: row.publisher,
+      year: row.year,
+      genre: row.genre,
+      rating: row.rating,
       favorite: row.favorite === 1,
-      play_status: normalizePlayStatus(row.play_status)
+      play_status: normalizePlayStatus(row.play_status),
+      notes: row.notes,
+      launchbox_id: row.launchbox_id,
+      romFileName: extractRomFileName(row.rom_path)
     }));
   }
 
@@ -219,6 +237,7 @@ export class DataPortabilityDao {
           games.title,
           platforms.name as platformName,
           games.launchbox_id,
+          games.rom_path,
           games.box_art_path,
           games.background_path,
           games.screenshot_path
@@ -233,6 +252,7 @@ export class DataPortabilityDao {
         title: string;
         platformName: string;
         launchbox_id: string | null;
+        rom_path: string | null;
         box_art_path: string | null;
         background_path: string | null;
         screenshot_path: string | null;
@@ -248,6 +268,7 @@ export class DataPortabilityDao {
           title: row.title,
           platformName: row.platformName,
           launchbox_id: row.launchbox_id,
+          romFileName: extractRomFileName(row.rom_path),
           field,
           sourcePath
         });
@@ -316,8 +337,8 @@ export class DataPortabilityDao {
   }
 
   /**
-   * Lista os caminhos de ROM de todos os jogos que possuem `rom_path` preenchido.
-   * Usado na exportação da categoria `romLocations`.
+   * Lista caminhos de ROM já com o nome do arquivo destacado para casar variantes
+   * durante restore sem depender do path absoluto da máquina antiga.
    */
   listRomLocations(): PortableRomLocation[] {
     return this.database
@@ -332,7 +353,14 @@ export class DataPortabilityDao {
         WHERE games.rom_path IS NOT NULL AND games.rom_path != ''
         ORDER BY platforms.name COLLATE NOCASE, games.title COLLATE NOCASE
       `)
-      .all() as PortableRomLocation[];
+      .all()
+      .map((row) => {
+        const typedRow = row as Omit<PortableRomLocation, "romFileName"> & { rom_path: string };
+        return {
+          ...typedRow,
+          romFileName: extractRomFileName(typedRow.rom_path)
+        };
+      });
   }
 
   /**
@@ -478,9 +506,9 @@ export class DataPortabilityDao {
   /**
    * Importa metadados de jogos a partir de um array de registros portáveis.
    *
-   * Matching de identidade: prefere `launchbox_id + platform_id`; fallback por
-   * título (case-insensitive) + platform_id. Registros sem título ou plataforma
-   * são ignorados.
+   * Matching de identidade: prefere `launchbox_id + platform_id`, depois o nome
+   * do arquivo ROM da variante e por fim um fallback seguro por título.
+   * Registros sem título ou plataforma são ignorados.
    *
    * Retorna contadores de criações, atualizações e registros ignorados.
    */
@@ -548,7 +576,8 @@ export class DataPortabilityDao {
   /**
    * Atualiza o `rom_path` dos jogos a partir de registros portáveis de localização de ROM.
    *
-   * Matching idêntico ao de metadados: `launchbox_id` preferido, fallback por título.
+   * Matching idêntico ao de metadados: `launchbox_id` preferido, depois `romFileName`
+   * e por fim fallback seguro por título.
    * Registros sem jogo correspondente ou sem caminho são ignorados.
    */
   importRomLocations(records: PortableRomLocation[]): PortableRomLocationImportSummary {
@@ -571,7 +600,7 @@ export class DataPortabilityDao {
    * Encontra o ID SQLite de um jogo a partir de título e plataforma portáveis.
    * Retorna `null` se o jogo não for encontrado no banco local.
    */
-  findGameId(entry: { title: string; platformName: string; launchbox_id: string | null }): number | null {
+  findGameId(entry: { title: string; platformName: string; launchbox_id: string | null; romFileName?: string | null }): number | null {
     const platformId = this.getPlatformIdByName(entry.platformName);
     return platformId ? this.findGameIdByIdentity(entry, platformId) : null;
   }
@@ -832,12 +861,15 @@ export class DataPortabilityDao {
   }
 
   /**
-   * Localiza um jogo existente no banco pelo `launchbox_id` (preferencial) ou
-   * pelo título (case-insensitive) dentro de uma plataforma específica.
+   * Localiza um jogo existente no banco pelo `launchbox_id` (preferencial), pelo
+   * nome do arquivo ROM da variante ou por um fallback seguro de título.
    *
    * Retorna o ID SQLite do jogo ou `null` se não encontrado.
    */
-  private findGameIdByIdentity(entry: { title: string; platformName?: string; launchbox_id: string | null }, platformId: number): number | null {
+  private findGameIdByIdentity(
+    entry: { title: string; platformName?: string; launchbox_id: string | null; romFileName?: string | null },
+    platformId: number
+  ): number | null {
     // Tentativa 1: matching por launchbox_id + platform_id (mais confiável)
     const launchboxId = entry.launchbox_id?.trim();
     if (launchboxId) {
@@ -847,11 +879,77 @@ export class DataPortabilityDao {
       if (row) return row.id;
     }
 
-    // Tentativa 2: fallback por título case-insensitive + platform_id
-    const row = this.database
-      .prepare("SELECT id FROM games WHERE LOWER(title) = LOWER(?) AND platform_id = ? ORDER BY id LIMIT 1")
-      .get(entry.title.trim(), platformId) as { id: number } | undefined;
-    return row?.id ?? null;
+    const romFileName = normalizePortableRomFileName(entry.romFileName);
+    if (romFileName) {
+      const exactVariant = this.findGameIdByRomFileName(platformId, entry.title, romFileName);
+      if (exactVariant) return exactVariant;
+
+      // Durante restore em banco limpo, os metadados entram antes dos paths das ROMs.
+      // Nesse caso escolhemos o próximo placeholder sem `rom_path` para não colapsar variantes.
+      const unresolvedVariant = this.findUnresolvedTitleMatch(platformId, entry.title);
+      if (unresolvedVariant) return unresolvedVariant;
+
+      // Quando a entrada traz `romFileName`, não fazemos fallback cego por título.
+      return null;
+    }
+
+    return this.findSafeTitleOnlyMatch(platformId, entry.title);
+  }
+
+  /**
+   * Busca uma variante existente pelo nome do arquivo ROM dentro da plataforma.
+   */
+  private findGameIdByRomFileName(platformId: number, title: string, romFileName: string): number | null {
+    const rows = this.database
+      .prepare(`
+        SELECT id, title, rom_path
+        FROM games
+        WHERE platform_id = ? AND rom_path IS NOT NULL AND TRIM(rom_path) != ''
+        ORDER BY id
+      `)
+      .all(platformId) as Array<{ id: number; title: string; rom_path: string }>;
+
+    const matches = rows.filter((row) => {
+      const existingRomFile = normalizePortableRomFileName(extractRomFileName(row.rom_path));
+      return existingRomFile === romFileName && row.title.trim().toLowerCase() === title.trim().toLowerCase();
+    });
+
+    return matches.length === 1 ? matches[0].id : null;
+  }
+
+  /**
+   * Procura um placeholder sem `rom_path` para o mesmo título/plataforma.
+   * Usado quando o backup está restaurando variantes antes dos caminhos de ROM.
+   */
+  private findUnresolvedTitleMatch(platformId: number, title: string): number | null {
+    const rows = this.database
+      .prepare(`
+        SELECT id
+        FROM games
+        WHERE platform_id = ?
+          AND LOWER(title) = LOWER(?)
+          AND (rom_path IS NULL OR TRIM(rom_path) = '')
+        ORDER BY id
+      `)
+      .all(platformId, title.trim()) as Array<{ id: number }>;
+
+    return rows[0]?.id ?? null;
+  }
+
+  /**
+   * Faz fallback por título apenas quando há um único candidato inequívoco.
+   */
+  private findSafeTitleOnlyMatch(platformId: number, title: string): number | null {
+    const rows = this.database
+      .prepare(`
+        SELECT id
+        FROM games
+        WHERE platform_id = ? AND LOWER(title) = LOWER(?)
+        ORDER BY id
+      `)
+      .all(platformId, title.trim()) as Array<{ id: number }>;
+
+    return rows.length === 1 ? rows[0].id : null;
   }
 }
 
@@ -913,4 +1011,21 @@ function nullableText(value: string | null | undefined): string | null {
  */
 function nullableNumber(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Extrai apenas o nome do arquivo ROM para usar como identidade portátil da variante.
+ */
+function extractRomFileName(romPath: string | null | undefined): string | null {
+  const trimmed = romPath?.trim();
+  if (!trimmed) return null;
+  return path.basename(trimmed);
+}
+
+/**
+ * Normaliza o nome do arquivo ROM para comparação case-insensitive.
+ */
+function normalizePortableRomFileName(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.toLowerCase() : null;
 }

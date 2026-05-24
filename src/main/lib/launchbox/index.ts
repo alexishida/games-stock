@@ -10,7 +10,7 @@
  */
 
 import { getImagesDir } from "../../db/database";
-import { getCoverStats, getGame, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
+import { findGameByLaunchBoxId, getCoverStats, getGame, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
 import { findOrCreatePlatform, getLaunchBoxAliasesForPlatformName, listPlatforms, resolvePlatformByLaunchBoxName } from "../../db/repositories/platforms";
 import { CoverSyncFailureItem, CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxGame, LaunchBoxImage, LaunchBoxImageType, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { buildIndex, ensureMetadata, getMetadataDownloadedAt, metadataExists } from "./db";
@@ -96,9 +96,20 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
   };
 
   if (targetGame) {
-    // Atualiza jogo existente com dados do LaunchBox
-    const saved = updateGame(targetGame.id, importedData);
-    return { gameId: saved.id, created: false, boxArtPath };
+    // Quando outro jogo da mesma plataforma já usa este launchbox_id,
+    // aplica os metadados no alvo atual como outra versão local, sem duplicar o vínculo.
+    const linkedGame = findGameByLaunchBoxId(game.id, platformId);
+    const duplicateBelongsToAnotherGame = Boolean(linkedGame && linkedGame.id !== targetGame.id);
+    const saved = updateGame(targetGame.id, {
+      ...importedData,
+      launchbox_id: duplicateBelongsToAnotherGame ? null : importedData.launchbox_id
+    });
+    return {
+      gameId: saved.id,
+      created: false,
+      boxArtPath,
+      linkedAsVariant: duplicateBelongsToAnotherGame
+    };
   }
 
   // Cria ou atualiza registro via upsert por launchbox_id

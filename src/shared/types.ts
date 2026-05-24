@@ -833,6 +833,8 @@ export interface LaunchBoxImportResult {
   created: boolean;
   /** Caminho da capa baixada, ou null se não disponível. */
   boxArtPath: string | null;
+  /** Indica que os metadados foram aplicados como outra versão, sem reutilizar `launchbox_id` duplicado. */
+  linkedAsVariant?: boolean;
 }
 
 // ---------------------------------------------------------------------------

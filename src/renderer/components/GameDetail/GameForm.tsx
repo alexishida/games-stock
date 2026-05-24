@@ -168,6 +168,8 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
    * Aplica os metadados de uma sugestão LaunchBox ao jogo atual.
    * Importa capa frontal, fanart e screenshot automaticamente.
    * Atualiza o draft e o store após a importação.
+   * Quando o LaunchBox ID já pertence a outra variante local, mantém os
+   * metadados/imagens mas salva o jogo atual como outra versão sem duplicar o ID.
    */
   async function applyMetadataSuggestion(suggestion: LaunchBoxGame): Promise<void> {
     setImportingMetadataId(suggestion.id);
@@ -184,7 +186,7 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
       setDraft(updated);
       upsertGame(updated);
       reloadGames();
-      setMetadataImportStatus("Metadados importados");
+      setMetadataImportStatus(result.linkedAsVariant ? "Metadados importados como outra versão" : "Metadados importados");
       setMetadataPickerOpen(false);
     } catch (err) {
       setMetadataError(err instanceof Error ? err.message : "Falha ao importar metadados");

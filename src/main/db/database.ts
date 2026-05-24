@@ -355,6 +355,12 @@ function dedupeGamesByLaunchBoxId(database: Database.Database): void {
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `);
+  const unlinkLaunchBoxId = database.prepare(`
+    UPDATE games
+    SET launchbox_id = NULL,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
   const deleteGame = database.prepare("DELETE FROM games WHERE id = ?");
 
   database.transaction(() => {
@@ -364,8 +370,21 @@ function dedupeGamesByLaunchBoxId(database: Database.Database): void {
 
       // O primeiro registro (mais recente) é o sobrevivente.
       const survivor = duplicates[0];
-      // Mescla todos os candidatos sobre o sobrevivente, campo a campo.
-      const merged = duplicates.slice(1).reduce(mergeGameRecord, survivor);
+      const mergeCandidates: GameRecord[] = [survivor];
+      const variantRecords: GameRecord[] = [];
+
+      // Variantes com ROMs diferentes não devem mais ser apagadas. Elas perdem
+      // apenas o `launchbox_id`, porque esse vínculo precisa continuar único.
+      for (const duplicate of duplicates.slice(1)) {
+        if (areDistinctVariantRecords(survivor, duplicate)) {
+          variantRecords.push(duplicate);
+          continue;
+        }
+        mergeCandidates.push(duplicate);
+      }
+
+      // Mescla apenas duplicatas que representam o mesmo registro lógico.
+      const merged = mergeCandidates.slice(1).reduce(mergeGameRecord, survivor);
 
       updateMerged.run(
         merged.title,
@@ -384,9 +403,14 @@ function dedupeGamesByLaunchBoxId(database: Database.Database): void {
         survivor.id
       );
 
-      // Remove os registros duplicados que foram absorvidos pelo sobrevivente.
-      for (const duplicate of duplicates.slice(1)) {
+      // Remove apenas registros efetivamente absorvidos pelo sobrevivente.
+      for (const duplicate of mergeCandidates.slice(1)) {
         deleteGame.run(duplicate.id);
+      }
+
+      // Preserva variantes antigas, apenas soltando o vínculo LaunchBox duplicado.
+      for (const variant of variantRecords) {
+        unlinkLaunchBoxId.run(variant.id);
       }
     }
   })();
@@ -450,6 +474,25 @@ function pickPreferredString(primary: string | null, fallback: string | null): s
   if (primary && primary.trim()) return primary;
   if (fallback && fallback.trim()) return fallback;
   return null;
+}
+
+/**
+ * Detecta se dois registros com o mesmo `launchbox_id` representam variantes
+ * diferentes do mesmo jogo, e não uma duplicata real.
+ */
+function areDistinctVariantRecords(primary: GameRecord, candidate: GameRecord): boolean {
+  const primaryRom = normalizeOptionalRomPath(primary.rom_path);
+  const candidateRom = normalizeOptionalRomPath(candidate.rom_path);
+  return Boolean(primaryRom && candidateRom && primaryRom !== candidateRom);
+}
+
+/**
+ * Normaliza `rom_path` para comparação estável entre separadores e casing.
+ */
+function normalizeOptionalRomPath(value: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return path.resolve(trimmed).replace(/\\/g, "/").toLowerCase();
 }
 
 /**
