@@ -15,9 +15,24 @@ const rootDir = path.resolve(__dirname, "..");
 /** CLI do electron-builder instalada localmente no projeto. */
 const electronBuilderCliPath = require.resolve("electron-builder/out/cli/cli.js");
 
-/** Retorna o executável do npm de forma compatível com Windows e POSIX. */
-function getNpmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
+/**
+ * Retorna descritor de comando para executar scripts npm.
+ *
+ * No Windows, alguns ambientes/versoes de Node falham com `spawn EINVAL`
+ * ao iniciar `.cmd` diretamente. Encapsular em `cmd.exe /c` evita esse problema.
+ */
+function getNpmCommandDescriptor() {
+  if (process.platform === "win32") {
+    return {
+      command: process.env.ComSpec || "cmd.exe",
+      args: ["/d", "/s", "/c", "npm.cmd"]
+    };
+  }
+
+  return {
+    command: "npm",
+    args: []
+  };
 }
 
 /**
@@ -48,7 +63,8 @@ function runCommand(command, args) {
 
 /** Executa um script npm já definido no package.json. */
 async function runNpmScript(scriptName) {
-  await runCommand(getNpmCommand(), ["run", scriptName]);
+  const npmCommand = getNpmCommandDescriptor();
+  await runCommand(npmCommand.command, [...npmCommand.args, "run", scriptName]);
 }
 
 /** Executa o electron-builder com os argumentos de plataforma. */
