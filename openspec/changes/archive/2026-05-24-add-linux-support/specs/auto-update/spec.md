@@ -1,8 +1,5 @@
-# auto-update Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change auto-updater. Update Purpose after archive.
-## Requirements
 ### Requirement: Verificação de versão via JSON remoto
 
 O sistema SHALL buscar um arquivo JSON em uma URL configurada no build contendo os campos `version`, `buildNumber`, `releaseDate`, `downloadUrl` e `releaseNotes`. A verificação automática no startup SHALL ocorrer apenas em builds Windows empacotadas com suporte a update in-place. Em builds Linux empacotadas, o app SHALL pular download/aplicação automática e seguir para abertura normal da janela principal.
@@ -80,19 +77,7 @@ O sistema SHALL extrair o `.zip` para um diretório de staging (`_update_staging
 - **WHEN** o app inicia com `--apply-update` mas o diretório de staging não existe
 - **THEN** o sistema ignora a flag e inicializa normalmente
 
-### Requirement: Configuração da URL de update por build
-
-O sistema SHALL ler a URL do JSON de metadados de uma constante definida em tempo de build (`src/shared/update-config.ts`), substituível via `define` no `vite.config`. Nenhuma URL de servidor de update deverá estar hardcoded em múltiplos lugares.
-
-#### Scenario: URL configurada no build
-
-- **WHEN** o app é empacotado com `UPDATE_MANIFEST_URL` definida
-- **THEN** todas as verificações de update usam essa URL sem necessidade de recompilar outros módulos
-
-#### Scenario: URL ausente (desenvolvimento local)
-
-- **WHEN** `UPDATE_MANIFEST_URL` não está definida (ambiente de dev)
-- **THEN** o sistema pula a verificação de update e abre o app diretamente, sem exibir a splash
+## ADDED Requirements
 
 ### Requirement: Verificação manual em plataformas com update externo
 
@@ -102,4 +87,3 @@ O sistema SHALL permitir que o usuário acione uma checagem manual de atualizaç
 
 - **WHEN** o usuário clica em "Buscar atualização" em uma build Linux
 - **THEN** o app consulta o manifesto remoto, informa que a atualização é gerenciada externamente e não inicia download nem relaunch
-

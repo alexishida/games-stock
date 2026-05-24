@@ -37,20 +37,23 @@ function normalizeCoreName(coreName: string | null | undefined): string {
 }
 
 /**
- * Garante que o nome do core termine com ".dll".
- * Não adiciona extensão se já possuir.
+ * Retorna extensão nativa preferencial do core para a plataforma atual.
  */
-function toDllLabel(coreName: string): string {
-  return coreName.toLowerCase().endsWith(".dll") ? coreName : `${coreName}.dll`;
+function getPreferredRetroArchCoreExtension(): ".dll" | ".so" | ".dylib" {
+  if (navigator.platform.toLowerCase().includes("win")) return ".dll";
+  if (navigator.platform.toLowerCase().includes("mac")) return ".dylib";
+  return ".so";
 }
 
 /**
  * Retorna o rótulo de exibição do core:
  * - Se contiver separador de caminho (\ ou /), exibe o caminho completo.
- * - Caso contrário, adiciona ".dll" se necessário.
+ * - Caso contrário, adiciona extensão compatível com a plataforma atual.
  */
 function getCoreDisplayLabel(coreName: string): string {
-  return coreName.includes("\\") || coreName.includes("/") ? coreName : toDllLabel(coreName);
+  if (coreName.includes("\\") || coreName.includes("/")) return coreName;
+  if (/\.(dll|so|dylib)$/i.test(coreName)) return coreName;
+  return `${coreName}${getPreferredRetroArchCoreExtension()}`;
 }
 
 /**

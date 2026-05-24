@@ -2,21 +2,28 @@
   "name": "gamestock",
   "version": "1.0.0",
   "description": "Desktop game collection manager for ROM libraries and physical inventory.",
+  "author": {
+    "name": "Alex Ishida",
+    "email": "alexishida@gmail.com"
+  },
   "main": "dist/main/bootstrap.js",
   "type": "commonjs",
   "scripts": {
     "sync:build-meta": "node scripts/write-build-meta.cjs",
     "package:s3-release": "node scripts/package-s3-release.cjs",
+    "predev": "npm run sync:build-meta",
+    "dev": "concurrently -k --success first -n VITE,TSC,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"node scripts/dev-electron.cjs\"",
     "predev:windows": "npm run sync:build-meta",
-    "dev:windows": "concurrently -k --success first -n VITE,TSC,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"wait-on tcp:5173 file:dist/main/bootstrap.js file:dist/preload/index.js && set ELECTRON_RUN_AS_NODE=&& electron .\"",
+    "dev:windows": "concurrently -k --success first -n VITE,TSC,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"node scripts/dev-electron.cjs\"",
     "prebuild:renderer": "npm run sync:build-meta",
     "build:renderer": "vite build",
     "prebuild:main": "npm run sync:build-meta",
     "build:main": "tsc -p tsconfig.main.json",
-    "dist:windows": "npm run build:renderer && npm run build:main && electron-builder --win && npm run package:s3-release",
-    "test:rom-folder-import": "npm run build:main && set ELECTRON_RUN_AS_NODE=&& electron scripts/test-rom-folder-import.cjs",
-    "test:launchbox:e2e": "npm run build:renderer && npm run build:main && set ELECTRON_RUN_AS_NODE=&& electron scripts/e2e-launchbox.cjs",
-    "test:launchbox:e2e:packaged": "npm run dist:windows && set ELECTRON_RUN_AS_NODE=&& set GAMESTOCK_E2E_PACKAGED=1&& electron scripts/e2e-launchbox.cjs",
+    "dist:windows": "node scripts/build-distribution.cjs --win --package-s3",
+    "dist:linux": "node scripts/build-distribution.cjs --linux",
+    "test:rom-folder-import": "node scripts/run-electron.cjs scripts/test-rom-folder-import.cjs",
+    "test:launchbox:e2e": "node scripts/run-electron.cjs scripts/e2e-launchbox.cjs",
+    "test:launchbox:e2e:packaged": "node scripts/test-packaged-launchbox.cjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

@@ -80,6 +80,10 @@ function updaterSummary(status: UpdaterStatus | null): string {
     return "Sua instalação já corresponde à release publicada.";
   }
 
+  if (status.phase === "external-update") {
+    return "Há uma release mais nova, mas esta plataforma usa atualização externa ao app.";
+  }
+
   if (status.phase === "no-connection") {
     return "Não foi possível acessar o servidor de atualização.";
   }
@@ -117,6 +121,10 @@ function updaterDetail(status: UpdaterStatus | null, appInfo: UpdaterAppInfo | n
       : "Download em andamento. O app reinicia automaticamente ao terminar.";
   }
 
+  if (status.phase === "external-update") {
+    return `Disponível: ${formatUpdaterVersion(status.version)}, build ${formatUpdaterBuild(status.buildNumber)}. Atualize via pacote do sistema ou novo AppImage.`;
+  }
+
   if (status.phase === "up-to-date") {
     return `Disponível: ${formatUpdaterVersion(status.version)}, build ${formatUpdaterBuild(status.buildNumber)}.`;
   }
@@ -140,6 +148,7 @@ function updaterButtonLabel(status: UpdaterStatus | null): string {
   if (status.phase === "checking") return "Buscando...";
   if (status.phase === "downloading") return "Baixando...";
   if (status.phase === "applying") return "Aplicando...";
+  if (status.phase === "external-update") return "Buscar novamente";
   return "Buscar atualização";
 }
 
@@ -167,6 +176,7 @@ function updaterStatusLabel(status: UpdaterStatus | null): string {
   if (status.phase === "downloading") return "Baixando pacote";
   if (status.phase === "applying") return "Preparando reinício";
   if (status.phase === "up-to-date") return "Atualizado";
+  if (status.phase === "external-update") return "Atualização externa";
   if (status.phase === "no-connection") return "Sem conexão";
   return "Falha";
 }

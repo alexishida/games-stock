@@ -10,7 +10,22 @@ import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { getAppUserDataDir } from "./appPaths";
-import { applyStagedUpdateFromLaunchArgs } from "./updater";
+import { applyStagedUpdateFromLaunchArgs, supportsInPlaceAutoUpdate } from "./updater";
+
+/**
+ * Aplica workarounds de GPU antes do `app.whenReady()`.
+ *
+ * Em parte dos desktops Linux, o Chromium sobe com WebGL/GPU blocklisted e a
+ * janela pode abrir preta ou sem responder visualmente. O workaround fica
+ * disponível por variável de ambiente para não desabilitar GPU por padrão.
+ */
+function configureGraphicsWorkarounds(): void {
+  if (process.platform !== "linux") return;
+  if (process.env.GAMESTOCK_DISABLE_GPU !== "1") return;
+
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+}
 
 /**
  * Configura os diretorios de dados, sessao e cache do Electron antes de
@@ -45,11 +60,13 @@ function buildPostApplyRelaunchArgs(): string[] {
   return cleanArgs;
 }
 
+configureGraphicsWorkarounds();
+
 configureElectronStoragePaths();
 
-// Aplica staging pendente antes de carregar `index.ts`, que importa modulos
-// nativos e pode travar arquivos dentro de `app.asar.unpacked`.
-if (applyStagedUpdateFromLaunchArgs()) {
+// Aplica staging pendente apenas em plataformas com self-update suportado antes
+// de carregar `index.ts`, que importa módulos nativos e pode travar arquivos.
+if (supportsInPlaceAutoUpdate() && applyStagedUpdateFromLaunchArgs()) {
   app.relaunch({ args: buildPostApplyRelaunchArgs() });
   app.exit(0);
 } else {

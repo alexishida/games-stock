@@ -10,6 +10,7 @@ export type UpdaterPhase =
   | "downloading"
   | "applying"
   | "up-to-date"
+  | "external-update"
   | "error"
   | "no-connection";
 

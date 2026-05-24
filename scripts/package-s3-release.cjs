@@ -20,10 +20,10 @@ const AdmZip = require("adm-zip");
 /** Diretório raiz do repositório. */
 const rootDir = path.resolve(__dirname, "..");
 
-/** Diretório de saída padrão do electron-builder no Windows. */
+/** Diretório de saída padrão do electron-builder. */
 const releaseDir = path.join(rootDir, "release");
 
-/** Pasta com a build extraída usada como base do ZIP para update. */
+/** Pasta com a build Windows extraída usada como base do ZIP para update. */
 const unpackedDir = path.join(releaseDir, "win-unpacked");
 
 /** Pasta `resources` da build extraida, onde ficam app.asar e nativos. */
@@ -84,11 +84,11 @@ function formatPublishedAt(date = new Date()) {
 }
 
 /**
- * Garante que a build `win-unpacked` exista antes de tentar empacotar.
+ * Garante que a build Windows `win-unpacked` exista antes de tentar empacotar.
  */
 function ensureUnpackedBuildExists() {
   if (!fs.existsSync(unpackedDir)) {
-    throw new Error(`Pasta de build não encontrada: ${unpackedDir}`);
+    throw new Error(`Pasta de build Windows não encontrada: ${unpackedDir}`);
   }
 }
 

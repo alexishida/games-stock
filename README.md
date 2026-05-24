@@ -1,6 +1,6 @@
 # GameStock
 
-GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
+GameStock e um aplicativo desktop para Windows e Linux para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
 ## Capturas de tela
 
@@ -35,13 +35,14 @@ GameStock e um aplicativo desktop para Windows para organizar bibliotecas de jog
 - **Inventario fisico de hardware**: cadastre e gerencie consoles, perifericos e acessorios fisicos com estado de conservacao, fotos e notas. Visualizacao em cards ou lista com filtro por tipo.
 - **Portabilidade de dados**: exporte e importe backup comprimido (`.gamestock-backup`) com metadados, imagens e configuracoes de plataformas e pastas de ROMs. Disponivel em Configuracoes.
 - **Verificacao manual de update**: botao em Configuracoes para buscar atualizacoes sem reiniciar o app.
-- **Dados locais**: banco, imagens, cache e estado de janela ficam no disco local em `%APPDATA%/gamestock/`.
+- **Dados locais**: banco, imagens, cache e estado de janela ficam no diretorio de dados do usuario do sistema operacional atual.
 
 ## Requisitos
 
-- Windows 11
+- Windows 11 ou desktop Linux `x86_64`
 - Node.js 18 ou superior
 - npm
+- Para build Linux: toolchain nativa capaz de compilar modulos como `better-sqlite3` e `sharp`
 
 ## Instalacao
 
@@ -54,17 +55,19 @@ O `postinstall` executa `electron-builder install-app-deps` para recompilar modu
 ## Desenvolvimento
 
 ```bash
-npm run dev:windows
+npm run dev
 ```
 
 Esse comando inicia o Vite em `127.0.0.1:5173`, compila `main` e `preload` em modo watch, espera os artefatos em `dist/` e abre o Electron.
 
 Em desenvolvimento, a splash e o updater sao pulados automaticamente. O app abre direto na janela principal.
 
-Se `ELECTRON_RUN_AS_NODE` estiver definido no shell, limpe antes de iniciar o Electron manualmente:
+Alias legado mantido: `npm run dev:windows`.
 
-```powershell
-$env:ELECTRON_RUN_AS_NODE = $null
+Se a janela nao abrir corretamente em alguns desktops Linux por problema de GPU/WebGL, rode o app com fallback por software apenas nessa sessao:
+
+```bash
+GAMESTOCK_DISABLE_GPU=1 npm run dev
 ```
 
 ## Build
@@ -87,6 +90,12 @@ Gerar instalador NSIS e build portatil do Windows em `release/`, e empacotar `re
 npm run dist:windows
 ```
 
+Gerar build Linux (`.deb` + `AppImage`) em `release/`:
+
+```bash
+npm run dist:linux
+```
+
 ## Versao do App
 
 A versao base do aplicativo fica em `package.json`, no campo `version`.
@@ -99,7 +108,7 @@ Exemplo:
 
 O numero do build e gerado automaticamente a partir do commit atual com `git rev-parse --short=7 HEAD`.
 
-Antes de `npm run dev:windows`, `npm run build:renderer`, `npm run build:main` e `npm run dist:windows`, o projeto executa `npm run sync:build-meta`, que atualiza o arquivo gerado `src/shared/build-meta.ts`.
+Antes de `npm run dev`, `npm run build:renderer`, `npm run build:main`, `npm run dist:windows` e `npm run dist:linux`, o projeto executa `npm run sync:build-meta`, que atualiza o arquivo gerado `src/shared/build-meta.ts`.
 
 Formato exibido no app:
 
@@ -123,10 +132,11 @@ git push origin v1.0.0
 
 ## Auto Update
 
-O GameStock verifica atualizacoes na splash antes de abrir a janela principal. O comportamento varia por ambiente:
+O GameStock verifica atualizacoes automaticamente apenas em builds Windows empacotadas. O comportamento varia por ambiente:
 
-- **Desenvolvimento** (`npm run dev:windows`): splash e updater sao pulados; janela principal abre direto.
-- **App empacotado** (`dist:windows`): usa o endpoint padrao `https://s3.alexishida.com/gamestock/meta-dados.json`.
+- **Desenvolvimento** (`npm run dev`): splash e updater sao pulados; janela principal abre direto.
+- **App empacotado no Windows** (`dist:windows`): usa o endpoint padrao `https://s3.alexishida.com/gamestock/meta-dados.json`.
+- **App empacotado no Linux** (`dist:linux`): nao faz self-update; a verificacao manual apenas informa que a atualizacao deve ser feita fora do app.
 - **CI/build customizado**: sobrescreva o endpoint injetando a variavel de build `UPDATE_MANIFEST_URL`.
 
 Alem do fluxo automatico na abertura, o usuario pode acionar **Buscar atualizacao** manualmente em Configuracoes a qualquer momento.
@@ -150,12 +160,15 @@ Regras usadas pelo updater:
 
 - `versao` e comparada com `app.getVersion()` usando semver simples (`x.y.z`); se a versao for igual mas o `build` for diferente, o update tambem e aplicado.
 - `path` deve apontar para um `.zip` contendo `resources/app.asar` ou uma pasta raiz `app/`.
-- Erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash.
+- Erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash em plataformas com self-update suportado.
 - Erro de servidor, JSON invalido ou download corrompido nao bloqueia o app: a splash fecha e o GameStock abre normalmente.
+- O fluxo `download -> staging -> relaunch` existe apenas no Windows empacotado.
 
 ### Publicacao de release
 
 Passo a passo recomendado:
+
+### Publicacao Windows
 
 1. Atualize o campo `version` do `package.json`.
 2. Execute `npm run dist:windows` — gera instalador, portatil, `release/s3/update.zip`, `release/s3/latest.zip` e `release/s3/meta-dados.json`.
@@ -163,7 +176,15 @@ Passo a passo recomendado:
 4. Publique `release/s3/latest.zip` como pacote completo da build.
 5. Publique `release/s3/meta-dados.json` no endpoint do manifesto.
 
-Fluxo em runtime:
+### Publicacao Linux
+
+1. Atualize o campo `version` do `package.json`.
+2. Execute `npm run dist:linux`.
+3. Distribua o `.deb` para Ubuntu/Linux Mint/Pop!_OS e afins.
+4. Distribua o `AppImage` como alternativa generica para outras distros desktop.
+5. Nao publique `update.zip` Linux para self-update; a atualizacao e externa ao app.
+
+Fluxo em runtime no Windows:
 
 - splash abre antes da janela principal
 - app verifica o manifesto com timeout de 5s
@@ -171,6 +192,13 @@ Fluxo em runtime:
 - ZIP e extraido para staging unico `_update_staging_<id>`
 - app relanca com `--apply-update <stagingPath>` e copia staging para `resources/app.asar` ou `resourcesPath/app`
 - boot seguinte repete a verificacao normalmente
+
+Fluxo em runtime no Linux:
+
+- app abre direto na janela principal
+- botao **Buscar atualizacao** consulta o manifesto remoto
+- se houver release mais nova, a UI informa que a troca deve ser feita via `.deb`, `AppImage` ou gerenciador da distribuicao
+- nenhum ZIP e baixado, nenhum staging e aplicado, nenhum relaunch automatico acontece
 
 ## Testes
 
@@ -194,18 +222,26 @@ npm run test:launchbox:e2e:packaged
 
 O E2E compila o app, baixa/cacheia metadados publicos, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade.
 
+Observacoes para Linux:
+
+- `npm run dist:linux` e o smoke principal de empacotamento Linux.
+- Modulos nativos como `better-sqlite3` e `sharp` dependem de toolchain e libs do sistema corretamente instaladas.
+- `AppImage` pode exigir `libfuse2` ou compatibilidade equivalente dependendo da distribuicao.
+
 ## Dados Locais
 
 O GameStock armazena dados de runtime fora do repositorio:
 
 | Caminho | Conteudo |
 |---------|----------|
-| `%APPDATA%/gamestock/gamestock.db` | Banco SQLite |
-| `%APPDATA%/gamestock/images/` | Capas, backgrounds, screenshots e outras midias baixadas |
-| `%APPDATA%/gamestock/launchbox_cache/` | `Metadata.xml`, `index.json` e cache de metadados |
-| `%APPDATA%/gamestock/window-bounds.json` | Posicao e tamanho da janela |
+| Windows: `%APPDATA%/gamestock/gamestock.db` | Banco SQLite |
+| Windows: `%APPDATA%/gamestock/images/` | Capas, backgrounds, screenshots e outras midias baixadas |
+| Linux: `$XDG_DATA_HOME/gamestock/` ou `~/.local/share/gamestock/` | Banco, imagens, cache LaunchBox e estado de janela |
+| `<data-dir>/window-bounds.json` | Posicao e tamanho da janela |
 
 Entradas de pastas de ROMs configuradas, historico de jobs e estado persistido da UI ficam no SQLite local, na tabela `app_state`.
+
+Quando `GAMESTOCK_USER_DATA_DIR` estiver definida, ela sobrescreve o diretorio padrao em qualquer plataforma.
 
 ## Importador de Metadados
 

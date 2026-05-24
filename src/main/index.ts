@@ -28,12 +28,13 @@ import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { createSplashWindow } from "./splash-window";
-import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, updaterAppInfo } from "./updater";
+import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, supportsInPlaceAutoUpdate, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { UPDATE_MANIFEST_URL } from "../shared/update-config";
+import { resolveConfiguredExecutable } from "./executableResolver";
 
 /** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
@@ -112,6 +113,19 @@ async function createWindow(): Promise<void> {
   // Exibe a janela somente quando o renderer terminar de carregar
   mainWindow.once("ready-to-show", () => mainWindow?.show());
 
+  // Fallback: em alguns desktops Linux o `ready-to-show` pode atrasar ou nunca
+  // chegar quando o renderer/GPU entra em estado degradado. Evitamos janela
+  // invisível mostrando assim mesmo após pequeno timeout.
+  const forceShowTimeout = setTimeout(() => {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isVisible()) return;
+    mainWindow.show();
+  }, 2_000);
+
+  // Loga falhas de carregamento para facilitar diagnóstico em dev.
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+    console.error("[main] Falha ao carregar renderer:", errorCode, errorDescription);
+  });
+
   // Persiste bounds ao fechar a janela
   mainWindow.on("close", () => {
     if (!mainWindow) return;
@@ -120,6 +134,7 @@ async function createWindow(): Promise<void> {
   });
 
   mainWindow.on("closed", () => {
+    clearTimeout(forceShowTimeout);
     mainWindow = null;
     // No Windows/Linux, fechar a última janela encerra o app (exceto durante quit explícito)
     if (process.platform !== "darwin" && !isQuitting) {
@@ -204,12 +219,12 @@ function registerIpc(): void {
 
     const emulator = pe.emulator!;
     if (!emulator.executable?.trim()) throw new Error("Executável do emulador não configurado");
-    if (!fs.existsSync(emulator.executable)) throw new Error(`Executável do emulador não encontrado: ${emulator.executable}`);
+    const resolvedExecutable = resolveConfiguredExecutable(emulator.executable);
 
     let args: string[];
     if (emulator.is_retroarch) {
       // RetroArch requer o core via flag -L antes do caminho da ROM
-      const corePath = resolveRetroArchCorePath(pe.core_path, emulator.executable, game.platform_name ?? "");
+      const corePath = resolveRetroArchCorePath(pe.core_path, resolvedExecutable.resolvedPath, game.platform_name ?? "");
       if (!corePath) throw new Error("Core do RetroArch não configurado para esta plataforma");
       args = ["-L", corePath, game.rom_path];
     } else {
@@ -218,7 +233,7 @@ function registerIpc(): void {
       args = [...parsedArgs, game.rom_path];
     }
 
-    await spawnDetachedProcess(emulator.executable, args);
+    await spawnDetachedProcess(resolvedExecutable.resolvedPath, args);
     return { success: true };
   });
 
@@ -226,8 +241,9 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.dialogs.openExecutableFile, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ["openFile"],
+      // Em Linux mantemos "Todos os arquivos" para permitir binários sem extensão.
       filters: [
-        { name: "Executáveis", extensions: ["exe", "bat", "cmd", "sh", "AppImage"] },
+        { name: "Executáveis", extensions: executableDialogExtensionsForCurrentPlatform() },
         { name: "Todos os arquivos", extensions: ["*"] }
       ]
     });
@@ -718,7 +734,7 @@ async function bootstrapApplication(): Promise<void> {
   registerMediaProtocol();
   registerIpc();
 
-  if (!UPDATE_MANIFEST_URL) {
+  if (!UPDATE_MANIFEST_URL || !supportsInPlaceAutoUpdate()) {
     await createWindow();
     return;
   }
@@ -883,6 +899,23 @@ function spawnDetachedProcess(command: string, args: string[]): Promise<void> {
   });
 }
 
+/**
+ * Retorna extensões de conveniência exibidas no seletor nativo de executável.
+ *
+ * A entrada manual continua suportando binários sem extensão em Linux/macOS.
+ */
+function executableDialogExtensionsForCurrentPlatform(): string[] {
+  if (process.platform === "win32") {
+    return ["exe", "bat", "cmd", "com"];
+  }
+
+  if (process.platform === "darwin") {
+    return ["app", "command", "sh"];
+  }
+
+  return ["AppImage", "sh", "bin", "run"];
+}
+
 // ── RetroArch ──────────────────────────────────────────────────────────────
 
 /**
@@ -998,7 +1031,8 @@ function listRetroArchCores(emulatorId: number): RetroArchCoreInventory {
     };
   }
 
-  const coresDir = path.join(path.dirname(executable), "cores");
+  const resolvedExecutable = resolveConfiguredExecutable(executable);
+  const coresDir = path.join(path.dirname(resolvedExecutable.resolvedPath), "cores");
   if (!fs.existsSync(coresDir)) {
     return {
       coresDir,

@@ -11,7 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-/** Nome do subdiretório de dados do app dentro do diretório de configuração do SO. */
+/** Nome do subdiretório de dados do app dentro do diretório persistente do SO. */
 export const USER_DATA_DIR_NAME = "gamestock";
 
 /**
@@ -32,7 +32,7 @@ export function getAppUserDataDir(): string {
  * Retorna o diretório base de dados de aplicativos conforme a plataforma:
  * - Windows: %APPDATA% (ex.: C:\Users\User\AppData\Roaming)
  * - macOS:   ~/Library/Application Support
- * - Linux:   $XDG_CONFIG_HOME ou ~/.config
+ * - Linux:   $XDG_DATA_HOME ou ~/.local/share
  */
 function getBaseAppDataDir(): string {
   if (process.platform === "win32") {
@@ -41,7 +41,7 @@ function getBaseAppDataDir(): string {
   if (process.platform === "darwin") {
     return path.join(os.homedir(), "Library", "Application Support");
   }
-  return process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+  return process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
 }
 
 /**

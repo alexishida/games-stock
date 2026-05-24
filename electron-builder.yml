@@ -11,6 +11,16 @@ win:
   target:
     - nsis
     - portable
+linux:
+  category: Game
+  icon: build
+  target:
+    - target: deb
+      arch:
+        - x64
+    - target: AppImage
+      arch:
+        - x64
 nsis:
   oneClick: false
   perMachine: false

@@ -1,22 +1,4 @@
-# emulator-management - Especificação
-
-## Purpose
-Gerenciamento de emuladores e associação com plataformas, incluindo suporte nativo ao RetroArch sem configuração de core por plataforma.
-## Requirements
-### Requirement: Modelo de dados de emulador
-O sistema SHALL persistir emuladores com `id`, `name` (UNIQUE), `executable` (caminho do executável), `args` (argumentos padrão, pode ser vazio), `is_retroarch` (flag booleano) e `created_at`. A tabela `platform_emulators` SHALL associar emuladores a plataformas com flag `is_default`; o campo legado opcional `core_path`, quando existir, SHALL poder ficar nulo. O banco SHALL conter um registro padrão de RetroArch com `is_retroarch = 1` e `executable` vazio.
-
-#### Scenario: Criar emulador com nome duplicado
-- **WHEN** o usuário tenta criar um emulador com nome já existente
-- **THEN** o sistema retorna erro "Emulador já existe"
-
-#### Scenario: Associar emulador como padrão
-- **WHEN** um emulador é marcado como padrão para uma plataforma
-- **THEN** qualquer outro emulador anteriormente padrão nessa plataforma perde o flag `is_default`
-
-#### Scenario: Seed RetroArch presente no banco novo
-- **WHEN** o banco é criado pela primeira vez
-- **THEN** existe um registro em `emulators` com `name = 'RetroArch'` e `is_retroarch = 1`
+## MODIFIED Requirements
 
 ### Requirement: CRUD de emuladores via IPC
 
@@ -41,21 +23,6 @@ O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `list()`, 
 
 - **WHEN** `emulators.delete(id)` é chamado em emulador com `is_retroarch = 1`
 - **THEN** o sistema retorna erro "RetroArch não pode ser removido"
-
-### Requirement: Gerenciamento de associações plataforma-emulador via IPC
-O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `linkPlatform(emulatorId, platformId, isDefault, corePath?)`, `unlinkPlatform(emulatorId, platformId)` e `listByPlatform(platformId)`. O parâmetro `corePath` é opcional e não SHALL ser exigido para RetroArch.
-
-#### Scenario: Vincular emulador standalone a plataforma
-- **WHEN** `emulators.linkPlatform(emulatorId, platformId, true)` é chamado para emulador com `is_retroarch = 0`
-- **THEN** a associação é criada sem `core_path` e o emulador se torna padrão da plataforma
-
-#### Scenario: Vincular RetroArch a plataforma sem core
-- **WHEN** `emulators.linkPlatform(retroarchId, platformId, true)` é chamado
-- **THEN** a associação é criada com `core_path` nulo e RetroArch se torna padrão da plataforma
-
-#### Scenario: Listar emuladores de uma plataforma
-- **WHEN** `emulators.listByPlatform(platformId)` é chamado
-- **THEN** retorna emuladores associados à plataforma com `is_default` e dados do emulador de cada um
 
 ### Requirement: UI de gerenciamento de emuladores no SettingsModal
 
@@ -105,4 +72,3 @@ O sistema SHALL fornecer dentro do SettingsModal uma seção "Emuladores" com li
 
 - **WHEN** o inventário de cores do RetroArch contém `snes9x_libretro.so` em Linux
 - **THEN** a interface exibe o core com extensão compatível com Linux ou o caminho configurado pelo usuário, sem trocar o rótulo para `.dll`
-

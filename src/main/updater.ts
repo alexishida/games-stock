@@ -72,6 +72,16 @@ let pendingStartupUpdaterFailure: UpdaterStatus | null = null;
 let activeManualUpdateFlow: Promise<void> | null = null;
 
 /**
+ * Indica se a instalação atual suporta update local por staging + relaunch.
+ *
+ * Mantemos esse fluxo apenas para Windows empacotado. No Linux a atualização é
+ * externa ao app (`.deb`, `AppImage`, gerenciador da distribuição).
+ */
+export function supportsInPlaceAutoUpdate(): boolean {
+  return app.isPackaged && process.platform === "win32";
+}
+
+/**
  * Permite que o handler IPC marque que o usuário escolheu seguir offline.
  *
  * O resolver pendente é disparado imediatamente quando existir; caso contrário,
@@ -178,6 +188,10 @@ export async function downloadUpdate(
  * acontece no próximo boot via flag `--apply-update`.
  */
 export async function applyUpdate(zipPath: string): Promise<string> {
+  if (!supportsInPlaceAutoUpdate()) {
+    throw new Error("Atualização automática local não é suportada nesta plataforma.");
+  }
+
   const stagingRoot = createUpdateStagingRoot();
 
   try {
@@ -202,6 +216,8 @@ export async function applyUpdate(zipPath: string): Promise<string> {
  * visual ou carregamento do bundle antigo.
  */
 export function applyStagedUpdateFromLaunchArgs(argv: string[] = process.argv): boolean {
+  if (!supportsInPlaceAutoUpdate()) return false;
+
   const stagingRoot = readApplyUpdateFlag(argv);
   if (!stagingRoot) return false;
 
@@ -266,6 +282,11 @@ export function applyStagedUpdateFromLaunchArgs(argv: string[] = process.argv): 
  * abrir a janela principal na sessão atual.
  */
 export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-main" | "relaunching"> {
+  if (!supportsInPlaceAutoUpdate()) {
+    emitOpenMain(splashWindow);
+    return "open-main";
+  }
+
   continueRequested = false;
   continueResolver = null;
 
@@ -447,6 +468,15 @@ export async function runManualUpdateFlow(targetContents: WebContents): Promise<
         emitStatus(targetContents, {
           phase: "up-to-date",
           message: "GameStock já está atualizado.",
+          ...buildManifestStatusDetails(result.manifest)
+        });
+        return;
+      }
+
+      if (!supportsInPlaceAutoUpdate()) {
+        emitStatus(targetContents, {
+          phase: "external-update",
+          message: "Atualização disponível. No Linux, a instalação é atualizada fora do app.",
           ...buildManifestStatusDetails(result.manifest)
         });
         return;
