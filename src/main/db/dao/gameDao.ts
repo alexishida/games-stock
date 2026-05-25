@@ -50,21 +50,24 @@ export class GameDao {
     const pageSize = filters.pageSize ?? 50;
     const offset = (page - 1) * pageSize;
 
-    // Contagem de jogos que passam pelos filtros ativos
-    const filtered = (
-      this.database
-        .prepare(`SELECT COUNT(*) as count FROM games JOIN platforms ON platforms.id = games.platform_id ${where.sql}`)
-        .get(...where.params) as { count: number }
-    ).count;
+    // Carrega candidatos filtrados antes da contagem para agrupar variantes.
+    // O agrupamento preserva as ROMs no banco e muda apenas a representacao da biblioteca.
+    const filteredGroups = groupGamesForLibrary(this.database
+      .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters)}`)
+      .all(...where.params)
+      .map((row) => mapGame(row as GameRow)));
+    const filtered = filteredGroups.length;
 
-    // Busca a página atual com filtros, ordenação e paginação
-    const items = this.database
-      .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters)} LIMIT ? OFFSET ?`)
-      .all(...where.params, pageSize, offset)
-      .map((row) => mapGame(row as GameRow));
+    // Monta a pagina atual a partir da lista ja agrupada.
+    // A pagina precisa ser cortada depois do agrupamento para nao vazar duplicata entre paginas.
+    const items = filteredGroups.slice(offset, offset + pageSize);
 
-    // Contagem total sem filtros (usada para exibir estatísticas globais)
-    const total = (this.database.prepare("SELECT COUNT(*) as count FROM games").get() as { count: number }).count;
+    // Calcula o total sem filtros com o mesmo agrupamento visual.
+    // O total tambem usa jogos-base para o contador bater com os cards visiveis.
+    const total = groupGamesForLibrary(this.database
+      .prepare(`${baseSelect()} ${buildOrder({ sortBy: "title" })}`)
+      .all()
+      .map((row) => mapGame(row as GameRow))).length;
 
     return { items, total, filtered };
   }
@@ -484,6 +487,34 @@ function baseSelect(): string {
     FROM games
     JOIN platforms ON platforms.id = games.platform_id
   `;
+}
+
+/**
+ * Agrupa variantes locais com ROM para a biblioteca exibir um unico card por jogo-base.
+ * A primeira linha de cada grupo e mantida para respeitar a ordenacao aplicada antes.
+ */
+function groupGamesForLibrary(games: Game[]): Game[] {
+  const seen = new Set<string>();
+  const grouped: Game[] = [];
+
+  for (const game of games) {
+    const key = buildLibraryGroupKey(game);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    grouped.push(game);
+  }
+
+  return grouped;
+}
+
+/**
+ * Cria a chave usada so na listagem da biblioteca, combinando plataforma e titulo-base.
+ * Isso une arquivos como `Air Diver (Japan).bin` e `Air Diver (USA).bin`.
+ */
+function buildLibraryGroupKey(game: Pick<Game, "id" | "platform_id" | "title" | "rom_path">): string {
+  // Jogos manuais sem ROM ficam independentes para evitar esconder cadastros soltos.
+  if (!game.rom_path?.trim()) return `manual:${game.id}`;
+  return `${game.platform_id}:${buildVersionBaseTitle(game)}`;
 }
 
 /**
