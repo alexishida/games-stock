@@ -6,9 +6,10 @@
  */
 
 import { useState } from "react";
-import { Globe2, Play, RotateCcw, ScrollText, Sparkles, X } from "lucide-react";
+import { Globe2, Image, Play, RotateCcw, ScrollText, Sparkles, X } from "lucide-react";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
+import { localMediaUrl } from "../../utils/media";
 import "./GameVersionModal.css";
 
 /** Formata o texto de histórico de partidas de uma variante. */
@@ -79,30 +80,46 @@ export function GameVersionModal() {
         )}
 
         <div className="game-version-modal-list">
-          {launchSelection.options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className="game-version-option"
-              onClick={() => void handleLaunch(option.id)}
-              disabled={launchingId !== null}
-            >
-              <div className="game-version-option-main">
-                <strong>{option.title}</strong>
-                <span>{option.variantLabel}</span>
-              </div>
-              <div className="game-version-option-meta">
-                <span><Globe2 aria-hidden="true" size={14} />{option.regionLabel ?? "Região não detectada"}</span>
-                <span><Sparkles aria-hidden="true" size={14} />{option.typeLabel ?? "Sem marcador especial"}</span>
-                <span><ScrollText aria-hidden="true" size={14} />{option.romFileName}</span>
-                <span><RotateCcw aria-hidden="true" size={14} />{formatLaunchCount(option.launchCount)}</span>
-              </div>
-              <span className="game-version-option-action">
-                <Play aria-hidden="true" size={15} />
-                {launchingId === option.id ? "Abrindo..." : "Jogar"}
-              </span>
-            </button>
-          ))}
+          {launchSelection.options.map((option) => {
+            // Prioriza capa; se ausente, tenta screenshot e depois background.
+            const previewUrl = localMediaUrl(option.boxArtPath ?? option.screenshotPath ?? option.backgroundPath);
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                className="game-version-option"
+                onClick={() => void handleLaunch(option.id)}
+                disabled={launchingId !== null}
+              >
+                <div className="game-version-option-layout">
+                  <div className="game-version-option-preview" aria-hidden="true">
+                    {previewUrl
+                      ? <img src={previewUrl} alt="" />
+                      : <Image size={22} />}
+                  </div>
+
+                  <div className="game-version-option-body">
+                    <div className="game-version-option-main">
+                      <strong>{option.title}</strong>
+                      <span>{option.variantLabel}</span>
+                    </div>
+                    <div className="game-version-option-meta">
+                      <span><Globe2 aria-hidden="true" size={14} />{option.regionLabel ?? "Região não detectada"}</span>
+                      <span><Sparkles aria-hidden="true" size={14} />{option.typeLabel ?? "Sem marcador especial"}</span>
+                      <span><ScrollText aria-hidden="true" size={14} />{option.romFileName}</span>
+                      <span><RotateCcw aria-hidden="true" size={14} />{formatLaunchCount(option.launchCount)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <span className="game-version-option-action">
+                  <Play aria-hidden="true" size={15} />
+                  {launchingId === option.id ? "Abrindo..." : "Jogar"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
     </div>

@@ -700,6 +700,12 @@ export interface GameVersionOption {
   typeLabel: string | null;
   /** Resumo curto já pronto para a UI diferenciar a versão. */
   variantLabel: string;
+  /** Caminho local da capa principal desta variante, quando existir. */
+  boxArtPath: string | null;
+  /** Caminho local do background desta variante, quando existir. */
+  backgroundPath: string | null;
+  /** Caminho local da screenshot principal desta variante, quando existir. */
+  screenshotPath: string | null;
 }
 
 /** Item de mídia associado a um jogo (capa, screenshot, plano de fundo etc.). */

@@ -505,14 +505,16 @@ export class GameDao {
     const current = this.get(id);
     if (!current) return [];
 
-    const currentBaseTitle = buildVersionBaseTitle(current);
+    // Usa mesma chave visual da biblioteca para que o modal de launch
+    // reflita exatamente o agrupamento visto pelo usuario.
+    const currentBaseTitle = buildVersionGroupKey(current);
     const candidates = this.database
       .prepare(`${baseSelect()} WHERE games.platform_id = ? AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''`)
       .all(current.platform_id)
       .map((row) => mapGame(row as GameRow));
 
     const matches = candidates
-      .filter((candidate) => buildVersionBaseTitle(candidate) === currentBaseTitle)
+      .filter((candidate) => buildVersionGroupKey(candidate) === currentBaseTitle)
       .map(mapVersionOption)
       .sort(compareVersionOptions);
 
@@ -562,7 +564,7 @@ function groupGamesForLibrary(games: Game[]): Game[] {
 function buildLibraryGroupKey(game: Pick<Game, "id" | "platform_id" | "title" | "rom_path">): string {
   // Jogos manuais sem ROM ficam independentes para evitar esconder cadastros soltos.
   if (!game.rom_path?.trim()) return `manual:${game.id}`;
-  return `${game.platform_id}:${buildVersionBaseTitle(game)}`;
+  return `${game.platform_id}:${buildVersionGroupKey(game)}`;
 }
 
 /**
@@ -751,6 +753,22 @@ function buildVersionBaseTitle(game: Pick<Game, "title" | "rom_path">): string {
 }
 
 /**
+ * Define chave de grupo priorizando o titulo salvo na biblioteca.
+ * Quando varias ROMs compartilham o mesmo titulo exibido, elas ficam em um
+ * unico card e a escolha real acontece apenas na hora do launch.
+ */
+function buildVersionGroupKey(game: Pick<Game, "title" | "rom_path">): string {
+  // Quando a ROM carrega um subtitulo real ausente no titulo salvo
+  // (ex.: "GP-1 RS - Rapid Stream"), agrupamos pela ROM para nao
+  // colapsar continuacoes ou edicoes substantivas no mesmo card.
+  if (game.rom_path && detectVariantDescriptor(path.basename(game.rom_path), game.title)) {
+    return buildVersionBaseTitle(game);
+  }
+  const normalizedTitleBase = normalizeTitleForMatch(stripVersionTags(game.title));
+  return normalizedTitleBase || buildVersionBaseTitle(game);
+}
+
+/**
  * Remove tags entre delimitadores e marcadores frequentes de revisão/versão.
  */
 function stripVersionTags(value: string): string {
@@ -770,8 +788,9 @@ function mapVersionOption(game: Game): GameVersionOption {
   const romFileName = game.rom_path ? path.basename(game.rom_path) : game.title;
   const tags = extractRomTags(romFileName);
   const regionLabel = detectRegionLabel(tags);
+  const variantDescriptor = detectVariantDescriptor(romFileName, game.title);
   const typeLabel = detectTypeLabel(tags);
-  const variantParts = [regionLabel, typeLabel].filter(Boolean);
+  const variantParts = [regionLabel, variantDescriptor, typeLabel].filter(Boolean);
 
   return {
     id: game.id,
@@ -782,7 +801,10 @@ function mapVersionOption(game: Game): GameVersionOption {
     baseTitle: stripVersionTags(game.title) || game.title,
     regionLabel,
     typeLabel,
-    variantLabel: variantParts.join(" · ") || "Versão padrão"
+    variantLabel: variantParts.join(" · ") || "Versão padrão",
+    boxArtPath: game.box_art_path ?? null,
+    backgroundPath: game.background_path ?? null,
+    screenshotPath: game.screenshot_path ?? null
   };
 }
 
@@ -802,6 +824,22 @@ function extractRomTags(romFileName: string): string[] {
     .map((match) => match[1] ?? match[2] ?? match[3] ?? "")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+/**
+ * Extrai um subtitulo util da ROM quando o arquivo traz detalhe adicional
+ * alem do titulo-base salvo na biblioteca, como "RS - Rapid Stream".
+ */
+function detectVariantDescriptor(romFileName: string, title: string): string | null {
+  const romStem = stripVersionTags(path.basename(romFileName, path.extname(romFileName)));
+  const titleStem = stripVersionTags(title);
+
+  if (!romStem || !titleStem) return null;
+  if (normalizeTitleForMatch(romStem) === normalizeTitleForMatch(titleStem)) return null;
+
+  const prefixPattern = new RegExp(`^${escapeRegExp(titleStem)}(?:\\s*[-:]+\\s*|\\s+)`, "i");
+  const descriptor = romStem.replace(prefixPattern, "").trim();
+  return descriptor && normalizeTitleForMatch(descriptor) !== normalizeTitleForMatch(romStem) ? descriptor : null;
 }
 
 /**
@@ -829,4 +867,11 @@ function detectTypeLabel(tags: string[]): string | null {
     if (/demo/i.test(tag)) return "Demo";
   }
   return null;
+}
+
+/**
+ * Escapa texto dinamico antes de montar RegExp com prefixo baseado no titulo.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -726,12 +726,26 @@ function scoreEntry(query: string, entry: MatchEntry): number {
 function scoreMatch(query: string, title: string): number {
   if (!query || !title) return 0;
   if (title === query) return 1;
-  if (title.includes(query) || query.includes(title)) return 0.86;
+  if ((title.includes(query) || query.includes(title)) && canUseSubstringBoost(query, title)) return 0.86;
 
   const queryTokens = new Set(query.split(" "));
   const titleTokens = new Set(title.split(" "));
   const overlap = [...queryTokens].filter((token) => titleTokens.has(token)).length;
   return overlap / Math.max(queryTokens.size, titleTokens.size);
+}
+
+/**
+ * Libera o boost de substring apenas quando a diferenca entre os titulos
+ * e pequena. Isso evita match falso como "GP-1" capturando
+ * "GP-1 RS Rapid Stream" so por conter o prefixo base.
+ */
+function canUseSubstringBoost(query: string, title: string): boolean {
+  const queryTokens = query.split(" ").filter(Boolean);
+  const titleTokens = title.split(" ").filter(Boolean);
+  const tokenGap = Math.abs(queryTokens.length - titleTokens.length);
+  const shorterLength = Math.min(query.length, title.length);
+  const longerLength = Math.max(query.length, title.length);
+  return tokenGap <= 1 || shorterLength / longerLength >= 0.75;
 }
 
 /** Retorna a plataforma pelo ID ou lança erro se não encontrada. */

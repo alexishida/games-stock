@@ -7,6 +7,7 @@
  * - Realizar seeds de plataformas, aliases LaunchBox, extensões de ROM e emuladores padrão.
  * - Deduplicar jogos com o mesmo launchbox_id por plataforma.
  * - Preencher (backfill) caminhos de capa ausentes para jogos já cadastrados.
+ * - Reparar títulos genéricos de variantes importadas a partir do nome real da ROM.
  */
 
 import Database from "better-sqlite3";
@@ -65,6 +66,7 @@ export function getDatabase(): Database.Database {
   seedPlatformMappings(db);
   seedEmulators(db);
   seedHardwareInventoryDefaults(db);
+  backfillRomVariantTitles(db);
   backfillCachedCoverPaths(db);
   return db;
 }
@@ -622,6 +624,39 @@ function backfillCachedCoverPaths(database: Database.Database): void {
 }
 
 /**
+ * Backfill: corrige títulos genéricos de variantes locais sem `launchbox_id`
+ * usando o nome da própria ROM quando ela traz um subtítulo real.
+ *
+ * Exemplo: um registro salvo como "GP-1" com ROM
+ * `GP-1 RS - Rapid Stream (Japan).sfc` passa a exibir
+ * `GP-1 RS - Rapid Stream` na biblioteca, evitando cards ambíguos.
+ */
+function backfillRomVariantTitles(database: Database.Database): void {
+  const rows = database
+    .prepare(`
+      SELECT id, title, rom_path
+      FROM games
+      WHERE launchbox_id IS NULL
+        AND rom_path IS NOT NULL
+        AND TRIM(rom_path) != ''
+    `)
+    .all() as Array<{ id: number; title: string; rom_path: string }>;
+
+  if (!rows.length) return;
+
+  const update = database.prepare("UPDATE games SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+  const repair = database.transaction((items: Array<{ id: number; title: string; rom_path: string }>) => {
+    for (const item of items) {
+      const repairedTitle = deriveVariantTitleFromRom(item.rom_path, item.title);
+      if (!repairedTitle || repairedTitle === item.title) continue;
+      update.run(repairedTitle, item.id);
+    }
+  });
+
+  repair(rows);
+}
+
+/**
  * Normaliza uma string para uso como segmento de caminho de arquivo de mídia.
  * Remove caracteres especiais, converte para minúsculas, substitui espaços por hífens
  * e limita a 120 caracteres para evitar caminhos excessivamente longos.
@@ -633,6 +668,83 @@ function sanitizeMediaPath(value: string): string {
     .trim()
     .replace(/\s+/g, "-")
     .slice(0, 120);
+}
+
+/**
+ * Deriva um título mais específico a partir do nome da ROM quando o registro
+ * atual ficou genérico demais para diferenciar variantes reais.
+ */
+function deriveVariantTitleFromRom(romPath: string, currentTitle: string): string | null {
+  const romTitle = normalizeRomTitleForDisplay(path.basename(romPath));
+  if (!romTitle) return null;
+
+  const normalizedCurrentTitle = normalizeTitleForVariantRepair(stripVariantTags(currentTitle));
+  const normalizedRomTitle = normalizeTitleForVariantRepair(stripVariantTags(romTitle));
+  if (!normalizedCurrentTitle || normalizedCurrentTitle === normalizedRomTitle) return null;
+
+  const descriptor = extractVariantDescriptorFromTitle(romTitle, currentTitle);
+  return descriptor ? romTitle : null;
+}
+
+/**
+ * Normaliza o nome visível da ROM, removendo extensão e tags técnicas.
+ */
+function normalizeRomTitleForDisplay(filename: string): string {
+  return filename
+    .replace(/\.[^.]+$/i, "")
+    .replace(/[_+.]+/g, " ")
+    .replace(/\[[^\]]*]/g, " ")
+    .replace(/\([^)]*(?:USA|Europe|Japan|World|En|Fr|De|Es|It|Rev|Beta|Proto|Demo|Hack|Unl|v\d|[0-9]{4})[^)]*\)/gi, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(?:rev|version|v)\s*\d+\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Remove marcadores técnicos e regionais sem apagar subtítulos reais da ROM.
+ */
+function stripVariantTags(value: string): string {
+  return value
+    .replace(/\.[a-z0-9]{1,5}$/i, "")
+    .replace(/[_]+/g, " ")
+    .replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, " ")
+    .replace(/\b(?:rev(?:ision)?\.?\s*[a-z0-9.]+|v\d[\w.]*)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Gera chave de comparação simples para detectar se o título salvo já cobre
+ * o mesmo conteúdo principal exibido pelo nome da ROM.
+ */
+function normalizeTitleForVariantRepair(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+/**
+ * Extrai subtítulo útil quando a ROM carrega mais informação do que o título atual.
+ */
+function extractVariantDescriptorFromTitle(romTitle: string, currentTitle: string): string | null {
+  const romStem = stripVariantTags(romTitle);
+  const currentStem = stripVariantTags(currentTitle);
+
+  if (!romStem || !currentStem) return null;
+  if (normalizeTitleForVariantRepair(romStem) === normalizeTitleForVariantRepair(currentStem)) return null;
+
+  const prefixPattern = new RegExp(`^${escapeRegExpForVariantRepair(currentStem)}(?:\\s*[-:]+\\s*|\\s+)`, "i");
+  const descriptor = romStem.replace(prefixPattern, "").trim();
+  return descriptor && normalizeTitleForVariantRepair(descriptor) !== normalizeTitleForVariantRepair(romStem) ? descriptor : null;
+}
+
+/**
+ * Escapa texto antes de montar RegExp dinâmica baseada no título atual.
+ */
+function escapeRegExpForVariantRepair(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**

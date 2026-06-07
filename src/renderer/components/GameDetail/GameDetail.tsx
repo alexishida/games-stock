@@ -74,6 +74,8 @@ export function GameDetail() {
   const [mediaItems, setMediaItems] = useState<GameMediaItem[]>([]);
   // Variantes relacionadas ao jogo atual, usadas para exibir todos os arquivos encontrados.
   const [relatedVersions, setRelatedVersions] = useState<GameVersionOption[]>([]);
+  // Mídias extras carregadas das variantes relacionadas quando o card está agrupado.
+  const [relatedVersionMediaItems, setRelatedVersionMediaItems] = useState<GameMediaItem[]>([]);
 
   // Emulador padrão associado à plataforma do jogo
   const [defaultEmulator, setDefaultEmulator] = useState<PlatformEmulator | null>(null);
@@ -213,6 +215,38 @@ export function GameDetail() {
   }, [reloadToken, selectedGameId]);
 
   /**
+   * Carrega mídias extras de todas as variantes relacionadas para que a galeria
+   * do agrupamento mostre imagens de todas as ROMs do mesmo jogo-base.
+   */
+  useEffect(() => {
+    let canceled = false;
+    setRelatedVersionMediaItems([]);
+    if (!relatedVersions.length) return undefined;
+
+    Promise
+      .all(relatedVersions.map(async (version) => {
+        try {
+          const items = await window.gameStockAPI.games.listMedia(version.id);
+          return items.map((item) => ({
+            path: item.path,
+            kind: item.kind,
+            label: buildRelatedMediaLabel(item.label, version)
+          }));
+        } catch {
+          return [];
+        }
+      }))
+      .then((groups) => {
+        if (canceled) return;
+        setRelatedVersionMediaItems(dedupeMediaItems(groups.flat()));
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [relatedVersions]);
+
+  /**
    * Busca o emulador padrão da plataforma do jogo via IPC.
    * Roda ao trocar de jogo ou quando as plataformas são recarregadas.
    */
@@ -292,12 +326,20 @@ export function GameDetail() {
    * Itens de fallback para a galeria quando a API de mídia não retorna itens.
    * Usa o background do jogo se disponível.
    */
-  const fallbackMediaItems = [
-    backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null
-  ].filter(Boolean) as GameMediaItem[];
+  const fallbackMediaItems = dedupeMediaItems([
+    game.box_art_path ? { path: game.box_art_path, label: "Cover", kind: "cover" as const } : null,
+    backgroundUrl ? { path: game.background_path!, label: "Background", kind: "background" as const } : null,
+    screenshotUrl ? { path: game.screenshot_path!, label: "Screenshot", kind: "screenshot" as const } : null
+  ].filter(Boolean) as GameMediaItem[]);
 
-  // Exclui screenshots da galeria (screenshot é exibido separadamente acima da galeria)
-  const galleryItems = (mediaItems.length ? mediaItems : fallbackMediaItems).filter((item) => item.kind !== "screenshot");
+  // Mescla mídia do jogo atual com mídias principais e extras das variantes relacionadas.
+  const groupedPrimaryMediaItems = dedupeMediaItems(buildRelatedPrimaryMediaItems(relatedVersions));
+  const galleryItems = dedupeMediaItems([
+    ...mediaItems,
+    ...groupedPrimaryMediaItems,
+    ...relatedVersionMediaItems
+  ]);
+  const effectiveGalleryItems = galleryItems.length ? galleryItems : fallbackMediaItems;
 
   // Prefixo de nome de arquivo para download de imagens (plataforma - título)
   const saveNamePrefix = `${sanitizeFileNamePart(game.platform_name ?? "Sem plataforma")} - ${sanitizeFileNamePart(game.title)}`;
@@ -306,13 +348,10 @@ export function GameDetail() {
    * Lista de imagens disponíveis no lightbox:
    * screenshot primeiro (se disponível), seguido dos itens da galeria.
    */
-  const lightboxImages = [
-    screenshotUrl && game.screenshot_path ? { url: screenshotUrl, path: game.screenshot_path, label: "Screenshot", fileName: buildSaveFileName(saveNamePrefix, getFileName(game.screenshot_path, "screenshot")) } : null,
-    ...galleryItems.map((item) => {
+  const lightboxImages = effectiveGalleryItems.map((item) => {
       const url = localMediaUrl(item.path);
       return url ? { url, path: item.path, label: item.label, fileName: buildSaveFileName(saveNamePrefix, getFileName(item.path, item.label)) } : null;
-    })
-  ].filter(Boolean) as Array<{ url: string; path: string; label: string; fileName: string }>;
+    }).filter(Boolean) as Array<{ url: string; path: string; label: string; fileName: string }>;
 
   // Imagem atualmente aberta no lightbox (null se fechado)
   const lightboxItem = lightboxIndex === null ? null : lightboxImages[lightboxIndex] ?? null;
@@ -552,6 +591,12 @@ export function GameDetail() {
                 </dd>
               </div>
             )}
+            {relatedVersions.length > 1 && (
+              <div className="detail-info-row-wrap">
+                <dt>Imagens agrupadas</dt>
+                <dd>{effectiveGalleryItems.length}</dd>
+              </div>
+            )}
             <div>
               <dt>Box Art</dt>
               <dd>{game.box_art_path ? "Associada" : "Não associada"}</dd>
@@ -572,7 +617,7 @@ export function GameDetail() {
         <section className="detail-panel detail-gallery-panel">
           <h2>Galeria</h2>
           <div className="detail-gallery">
-            {galleryItems.length ? galleryItems.map((item) => {
+            {effectiveGalleryItems.length ? effectiveGalleryItems.map((item) => {
               const itemUrl = localMediaUrl(item.path);
               return (
                 <button
@@ -678,6 +723,53 @@ function buildSaveFileName(prefix: string, fileName: string): string {
  */
 function sanitizeFileNamePart(value: string): string {
   return value.replace(/[<>:"/\\|?*]/g, "-").replace(/\s+/g, " ").trim() || "imagem";
+}
+
+/**
+ * Gera itens primários (capa, background, screenshot) a partir das variantes
+ * relacionadas, preservando contexto no rótulo para distinguir cada versão.
+ */
+function buildRelatedPrimaryMediaItems(versions: GameVersionOption[]): GameMediaItem[] {
+  return versions.flatMap((version) => {
+    const items: GameMediaItem[] = [];
+    if (version.boxArtPath) {
+      items.push({ path: version.boxArtPath, label: buildRelatedMediaLabel("Cover", version), kind: "cover" });
+    }
+    if (version.backgroundPath) {
+      items.push({ path: version.backgroundPath, label: buildRelatedMediaLabel("Background", version), kind: "background" });
+    }
+    if (version.screenshotPath) {
+      items.push({ path: version.screenshotPath, label: buildRelatedMediaLabel("Screenshot", version), kind: "screenshot" });
+    }
+    return items;
+  });
+}
+
+/**
+ * Prefixa o rótulo da mídia com o contexto da variante quando o agrupamento
+ * tem múltiplas ROMs para o mesmo jogo-base.
+ */
+function buildRelatedMediaLabel(label: string, version: GameVersionOption): string {
+  const context = version.variantLabel !== "Versão padrão"
+    ? version.variantLabel
+    : version.title;
+  return `${label} · ${context}`;
+}
+
+/**
+ * Remove caminhos duplicados preservando a primeira ocorrência e seu rótulo.
+ */
+function dedupeMediaItems(items: GameMediaItem[]): GameMediaItem[] {
+  const seen = new Set<string>();
+  const unique: GameMediaItem[] = [];
+
+  for (const item of items) {
+    if (!item.path || seen.has(item.path)) continue;
+    seen.add(item.path);
+    unique.push(item);
+  }
+
+  return unique;
 }
 
 /**
