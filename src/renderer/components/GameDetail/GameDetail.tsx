@@ -757,15 +757,22 @@ function buildRelatedMediaLabel(label: string, version: GameVersionOption): stri
 }
 
 /**
- * Remove caminhos duplicados preservando a primeira ocorrência e seu rótulo.
+ * Remove mídias repetidas preservando a primeira ocorrência e seu rótulo.
+ *
+ * Em agrupamentos, variantes diferentes podem apontar para cópias físicas da
+ * mesma imagem em pastas distintas. Por isso a chave usa `kind` + nome do
+ * arquivo, e não apenas o caminho absoluto.
  */
 function dedupeMediaItems(items: GameMediaItem[]): GameMediaItem[] {
   const seen = new Set<string>();
   const unique: GameMediaItem[] = [];
 
   for (const item of items) {
-    if (!item.path || seen.has(item.path)) continue;
-    seen.add(item.path);
+    if (!item.path) continue;
+    const fileName = item.path.split(/[\\/]/).pop()?.toLowerCase() ?? item.path.toLowerCase();
+    const dedupeKey = `${item.kind}:${fileName}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
     unique.push(item);
   }
 
