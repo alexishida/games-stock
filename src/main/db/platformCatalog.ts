@@ -288,7 +288,16 @@ export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
   {
     name: "Super Nintendo",
     category: "Consoles",
-    launchboxAliases: ["Super Nintendo", "Super Nintendo Entertainment System", "SNES"],
+    // Inclui aliases japoneses para que buscas por títulos de SNES também
+    // encontrem registros marcados como Super Famicom no LaunchBox.
+    launchboxAliases: [
+      "Super Nintendo",
+      "Super Nintendo Entertainment System",
+      "SNES",
+      "Super Famicom",
+      "Nintendo Super Famicom",
+      "Super Famicom"
+    ],
     romExtensions: [
       { extension: ".sfc", kind: "Cartucho ROM", isPrimary: true },
       { extension: ".smc", kind: "Super Magic Card format", isPrimary: true },

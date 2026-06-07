@@ -11,7 +11,7 @@
 
 import { getImagesDir } from "../../db/database";
 import { findGameByLaunchBoxId, getCoverStats, getGame, listLaunchBoxLinkedGames, updateGame, upsertLaunchBoxGame } from "../../db/repositories/games";
-import { findOrCreatePlatform, getLaunchBoxAliasesForPlatformName, listPlatforms, resolvePlatformByLaunchBoxName } from "../../db/repositories/platforms";
+import { findOrCreatePlatform, getLaunchBoxAliasesForPlatformId, getLaunchBoxAliasesForPlatformName, listPlatforms, resolvePlatformByLaunchBoxName } from "../../db/repositories/platforms";
 import { CoverSyncFailureItem, CoverSyncResult, LaunchBoxDownloadParams, LaunchBoxGame, LaunchBoxImage, LaunchBoxImageType, LaunchBoxImportParams, LaunchBoxImportResult, LaunchBoxProgress, LaunchBoxSearchParams } from "../../../shared/types";
 import { buildIndex, ensureMetadata, getMetadataDownloadedAt, metadataExists } from "./db";
 import { downloadImages, searchGames as searchIndex } from "./scraper";
@@ -31,14 +31,18 @@ export function getLaunchBoxMetadataDownloadedAt(): string | null {
  * Busca jogos no índice LaunchBox.
  *
  * Constrói o índice se ainda não estiver em memória.
- * Filtra por plataforma usando aliases registrados no banco quando `platformName` for informado.
+ * Filtra por plataforma usando aliases registrados no banco quando `platformId`
+ * ou `platformName` forem informados.
  */
 export async function searchGames(params: LaunchBoxSearchParams) {
   const index = await buildIndex();
-  // Obtém aliases da plataforma para ampliar o filtro de correspondência
-  const allowedPlatformNames = params.platformName
-    ? getLaunchBoxAliasesForPlatformName(params.platformName)
-    : null;
+  // Prioriza o ID da plataforma atual para evitar buscas em consoles errados
+  // quando o nome visível do jogo não representa bem os aliases salvos.
+  const allowedPlatformNames = params.platformId
+    ? getLaunchBoxAliasesForPlatformId(params.platformId)
+    : params.platformName
+      ? getLaunchBoxAliasesForPlatformName(params.platformName)
+      : null;
   return searchIndex(index, params.query, allowedPlatformNames);
 }
 

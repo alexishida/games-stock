@@ -777,6 +777,8 @@ export interface LaunchBoxGame {
 export interface LaunchBoxSearchParams {
   /** Texto de busca (título ou parte do título). */
   query: string;
+  /** ID da plataforma local para restringir a busca com base nos aliases cadastrados. */
+  platformId?: number | null;
   /** Nome da plataforma para restringir a busca (null = todas as plataformas). */
   platformName?: string | null;
 }

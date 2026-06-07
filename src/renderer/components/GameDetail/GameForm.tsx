@@ -136,7 +136,7 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
   /**
    * Busca títulos na base de metadados LaunchBox pelo nome do jogo.
    * Garante que o Metadata.zip existe antes de pesquisar.
-   * Exibe até 8 resultados no MetadataPickerModal.
+   * Exibe todos os resultados retornados pelo backend no MetadataPickerModal.
    */
   async function searchMetadata(): Promise<void> {
     const query = metadataQuery.trim() || draft.title.trim();
@@ -153,9 +153,12 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
       if (!metadataExists) await window.gameStockAPI.launchbox.ensureMetadata();
       const results = await window.gameStockAPI.launchbox.searchGames({
         query,
+        platformId: draft.platform_id,
         platformName: draft.platform_name ?? null
       });
-      setMetadataSuggestions(results.slice(0, 8));
+      // Mantém lista completa retornada pelo backend para o usuário poder
+      // navegar por mais opções do mesmo título dentro do console filtrado.
+      setMetadataSuggestions(results);
       if (!results.length) setMetadataError("Nenhum título encontrado na base de metadados");
     } catch (err) {
       setMetadataError(err instanceof Error ? err.message : "Falha ao buscar metadados");
