@@ -10,10 +10,15 @@
  *   - Remover emuladores não-RetroArch
  */
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { Emulator, Platform, PlatformEmulator, RetroArchCoreInventory } from "../../../shared/types";
-import { getRetroArchCoreCandidatesForPlatform, getRetroArchCoreForPlatform, RETROARCH_CORE_NAMES } from "../../../shared/retroarch";
+import {
+  getRetroArchCompatibleInstalledCoresForPlatform,
+  getRetroArchCoreCandidatesForPlatform,
+  getRetroArchCoreForPlatform
+} from "../../../shared/retroarch";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
@@ -58,7 +63,7 @@ function getCoreDisplayLabel(coreName: string): string {
 
 /**
  * Monta as opções de core para o picker de uma plataforma, separando em
- * "recomendados" (cores sugeridos para a plataforma) e "instalados" (demais DLLs presentes).
+ * "recomendados" (cores sugeridos para a plataforma) e "instalados" (demais variantes compativeis presentes).
  *
  * @param platformName    Nome da plataforma para buscar sugestões.
  * @param installedCores  Lista de cores instalados no RetroArch.
@@ -75,8 +80,11 @@ function buildCoreOptions(
     installed: installedCores.some((installedCore) => normalizeCoreName(installedCore) === normalizeCoreName(coreName))
   }));
 
-  // Cores instalados que não aparecem entre os recomendados
-  const installed = installedCores.filter((coreName) =>
+  // Filtra apenas cores instalados que parecem compativeis com a plataforma selecionada
+  const compatibleInstalledCores = getRetroArchCompatibleInstalledCoresForPlatform(platformName, installedCores);
+
+  // Cores instalados que nao aparecem entre os recomendados
+  const installed = compatibleInstalledCores.filter((coreName) =>
     !recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(coreName))
   );
 
@@ -214,8 +222,8 @@ function EmulatorFormModal({
 
 /**
  * Modal arrastável para vincular um emulador a uma plataforma.
- * Para emuladores RetroArch, exibe campo adicional de seleção de core
- * com autocomplete baseado nos cores instalados e recomendados.
+ * Para emuladores RetroArch, exibe picker adicional de core
+ * com recomendados e variantes compativeis encontradas no inventario instalado.
  *
  * @param emulator  Emulador a ser vinculado.
  * @param platforms Lista de plataformas disponíveis para vincular.
@@ -239,6 +247,9 @@ function LinkPlatformModal({
   const [corePath, setCorePath] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [coreInventory, setCoreInventory] = useState<RetroArchCoreInventory | null>(null);
+  const [corePickerOpen, setCorePickerOpen] = useState(false);
+  const [corePickerMenuStyle, setCorePickerMenuStyle] = useState<CSSProperties>({});
 
   /** Indica se o emulador é uma instância do RetroArch */
   const isRetroArch = emulator.is_retroarch === 1;
@@ -248,16 +259,91 @@ function LinkPlatformModal({
    * permitindo substituir o valor apenas se o usuário não editou manualmente.
    */
   const autoCoreRef = useRef("");
+  const corePickerTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const selectedPlatform = platformId ? platforms.find((p) => p.id === Number(platformId)) : null;
 
   /** Core padrão sugerido para a plataforma selecionada (pode ser null) */
   const defaultRetroArchCore = selectedPlatform ? getRetroArchCoreForPlatform(selectedPlatform.name) : null;
 
-  /** ID da datalist de sugestões de cores, único por emulador para evitar colisões de DOM */
-  const coreListId = `retroarch-core-options-${emulator.id}`;
-
   const draggable = useDraggableDialog();
+
+  /**
+   * Opcoes reais do picker, derivadas do inventario instalado e da plataforma atual.
+   * Mantem recomendados separados das demais variantes compativeis detectadas.
+   */
+  const coreOptions = useMemo(
+    () => buildCoreOptions(selectedPlatform?.name ?? "", coreInventory?.installedCores ?? [], corePath),
+    [coreInventory?.installedCores, corePath, selectedPlatform?.name]
+  );
+
+  /**
+   * Carrega inventario de cores uma vez por abertura do modal para mostrar variantes instaladas.
+   */
+  useEffect(() => {
+    if (!isRetroArch) return;
+    let active = true;
+    window.gameStockAPI.emulators.listRetroArchCores(emulator.id)
+      .then((inventory) => {
+        if (active) setCoreInventory(inventory);
+      })
+      .catch(() => {
+        if (active) setCoreInventory(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [emulator.id, isRetroArch]);
+
+  /**
+   * Fecha menu de selecao quando usuario clica fora do picker.
+   */
+  useEffect(() => {
+    if (!corePickerOpen) return;
+
+    function handlePointerDown(event: PointerEvent): void {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".retroarch-core-picker")) return;
+      setCorePickerOpen(false);
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [corePickerOpen]);
+
+  /**
+   * Posiciona menu flutuante do picker no viewport.
+   * Usa `position: fixed` via portal para escapar do clipping do modal pai.
+   */
+  useEffect(() => {
+    if (!corePickerOpen) return;
+
+    function updateCorePickerMenuPosition(): void {
+      const trigger = corePickerTriggerRef.current;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const viewportPadding = 16;
+      const desiredWidth = rect.width;
+      const clampedLeft = Math.min(rect.left, window.innerWidth - desiredWidth - viewportPadding);
+      const availableHeight = Math.max(120, window.innerHeight - rect.bottom - viewportPadding);
+
+      setCorePickerMenuStyle({
+        top: rect.bottom + 6,
+        left: Math.max(viewportPadding, clampedLeft),
+        width: desiredWidth,
+        maxHeight: Math.min(260, availableHeight)
+      });
+    }
+
+    updateCorePickerMenuPosition();
+    window.addEventListener("resize", updateCorePickerMenuPosition);
+    window.addEventListener("scroll", updateCorePickerMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateCorePickerMenuPosition);
+      window.removeEventListener("scroll", updateCorePickerMenuPosition, true);
+    };
+  }, [corePickerOpen]);
 
   /**
    * Preenche automaticamente o campo de core quando a plataforma muda,
@@ -276,7 +362,10 @@ function LinkPlatformModal({
   /** Abre diálogo nativo para localizar o arquivo .dll do core manualmente. */
   async function browseCorePath(): Promise<void> {
     const result = await window.gameStockAPI.dialogs.openAnyFile();
-    if (result) setCorePath(result);
+    if (result) {
+      setCorePath(result);
+      setCorePickerOpen(false);
+    }
   }
 
   /**
@@ -285,6 +374,7 @@ function LinkPlatformModal({
    */
   function selectPlatform(nextPlatformId: number): void {
     setPlatformId(nextPlatformId);
+    setCorePickerOpen(false);
     if (!isRetroArch) return;
     const platform = platforms.find((p) => p.id === nextPlatformId);
     const suggestedCore = platform ? getRetroArchCoreForPlatform(platform.name) : null;
@@ -350,27 +440,94 @@ function LinkPlatformModal({
           {isRetroArch && (
             <label>
               Core
-              <div className="emulator-exe-row">
-                <input
-                  list={coreListId}
-                  value={corePath}
-                  onChange={(e) => setCorePath(e.target.value)}
-                  placeholder={defaultRetroArchCore ? `Padrão: ${defaultRetroArchCore}` : "Nome ou caminho do core libretro"}
-                />
-                {/* Datalist com todos os nomes de cores conhecidos para autocomplete */}
-                <datalist id={coreListId}>
-                  {RETROARCH_CORE_NAMES.map((coreName) => (
-                    <option key={coreName} value={coreName} />
-                  ))}
-                </datalist>
+              <div className="emulator-exe-row emulator-core-picker-row">
+                <div className={`retroarch-core-picker ${corePickerOpen ? "open" : ""}`}>
+                  <button
+                    ref={corePickerTriggerRef}
+                    type="button"
+                    className="retroarch-core-picker-trigger"
+                    onClick={() => setCorePickerOpen((current) => !current)}
+                  >
+                    <span>
+                      {corePath
+                        ? getCoreDisplayLabel(corePath)
+                        : defaultRetroArchCore
+                          ? `Padrao: ${getCoreDisplayLabel(defaultRetroArchCore)}`
+                          : "Selecione um core"}
+                    </span>
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {corePickerOpen && createPortal(
+                    <div
+                      className="retroarch-core-picker-menu retroarch-core-picker-menu-floating"
+                      style={corePickerMenuStyle}
+                    >
+                      {coreOptions.recommended.length > 0 && (
+                        <div className="retroarch-core-group">
+                          <strong>Recomendados</strong>
+                          {coreOptions.recommended.map((entry) => (
+                            <button
+                              key={`link-recommended-${entry.value}`}
+                              type="button"
+                              className={`retroarch-core-option ${normalizeCoreName(corePath) === normalizeCoreName(entry.value) ? "selected" : ""}`}
+                              onClick={() => {
+                                setCorePath(entry.value);
+                                setCorePickerOpen(false);
+                              }}
+                            >
+                              {getCoreDisplayLabel(entry.value)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {coreOptions.installed.length > 0 && (
+                        <div className="retroarch-core-group">
+                          <strong>Compativeis instalados</strong>
+                          {coreOptions.installed.map((installedCore) => (
+                            <button
+                              key={`link-installed-${installedCore}`}
+                              type="button"
+                              className={`retroarch-core-option ${normalizeCoreName(corePath) === normalizeCoreName(installedCore) ? "selected" : ""}`}
+                              onClick={() => {
+                                setCorePath(installedCore);
+                                setCorePickerOpen(false);
+                              }}
+                            >
+                              {getCoreDisplayLabel(installedCore)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {coreOptions.recommended.length === 0 && coreOptions.installed.length === 0 && (
+                        <p className="retroarch-core-picker-empty">Nenhum core compativel encontrado para esta plataforma.</p>
+                      )}
+                    </div>,
+                    document.body
+                  )}
+                </div>
                 <button type="button" className="icon-button" title="Selecionar core" onClick={browseCorePath}>
                   <FolderOpen size={15} aria-hidden="true" />
                 </button>
               </div>
-              {/* Dica informando o core padrão da plataforma */}
+              {/* Dica informando core padrao e o uso do inventario instalado como filtro */}
               {defaultRetroArchCore && (
                 <span className="emulator-core-hint">
-                  Core padrão desta plataforma. Pode trocar antes de vincular.
+                  Core padrao desta plataforma. Lista inclui variantes compativeis instaladas.
+                </span>
+              )}
+              {!defaultRetroArchCore && (
+                <span className="emulator-core-hint">
+                  Lista mostra somente cores compativeis com plataforma atual.
+                </span>
+              )}
+              {coreInventory && !coreInventory.executableConfigured && (
+                <span className="emulator-core-hint emulator-core-warning-text">
+                  Configure executavel do RetroArch para carregar inventario de cores instalados.
+                </span>
+              )}
+              {coreInventory?.executableConfigured && !coreInventory.coresDirExists && (
+                <span className="emulator-core-hint emulator-core-warning-text">
+                  Pasta `cores` nao encontrada ao lado do RetroArch configurado.
                 </span>
               )}
             </label>
@@ -620,7 +777,11 @@ function RetroArchPlatformCores({
     return configs.filter((config) => {
       const suggestedCore = getRetroArchCoreCandidatesForPlatform(config.platform.name).join(" ");
       const currentCore = config.retroArchLink?.core_path ?? "";
-      const installedCoreNames = coreInventory?.installedCores.join(" ") ?? "";
+      // Busca usa apenas cores compativeis com plataforma atual para evitar ruido de outras DLLs.
+      const installedCoreNames = getRetroArchCompatibleInstalledCoresForPlatform(
+        config.platform.name,
+        coreInventory?.installedCores ?? []
+      ).join(" ");
       return [config.platform.name, suggestedCore, currentCore, installedCoreNames].some((value) =>
         value.toLowerCase().includes(query)
       );

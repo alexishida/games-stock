@@ -4,14 +4,14 @@
  * Este arquivo é atualizado por `npm run sync:build-meta`.
  * Não editar manualmente, porque mudanças serão sobrescritas no próximo build.
  *
- * Gerado em: 2026-06-07T04:20:26.093Z
+ * Gerado em: 2026-06-07T04:51:52.780Z
  */
 
 /** Versão semântica base lida do package.json. */
 export const APP_SEMVER = "1.0.0";
 
 /** Hash curto do commit usado nesta build, ou string vazia quando indisponível. */
-export const APP_BUILD_COMMIT = "f468be9";
+export const APP_BUILD_COMMIT = "80be682";
 
 /** Versão completa exibida na UI, incluindo metadado de build quando existir. */
-export const APP_VERSION_LABEL = "1.0.0 (build f468be9)";
+export const APP_VERSION_LABEL = "1.0.0 (build 80be682)";

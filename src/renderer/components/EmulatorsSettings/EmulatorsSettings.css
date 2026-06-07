@@ -27,6 +27,11 @@
   min-width: 0;
 }
 
+.emulator-core-picker-row .retroarch-core-picker {
+  flex: 1;
+  min-width: 0;
+}
+
 .emulator-label-hint {
   font-size: 10px;
   font-weight: 400;
@@ -79,6 +84,10 @@
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
+}
+
+.emulator-core-warning-text {
+  color: #ff7b7b;
 }
 
 .emulator-associations {
@@ -414,6 +423,20 @@
   background: var(--bg-panel);
   box-shadow: var(--shadow-modal);
   padding: 8px;
+}
+
+.retroarch-core-picker-menu-floating {
+  position: fixed;
+  inset: auto auto auto auto;
+  right: auto;
+  z-index: 1200;
+}
+
+.retroarch-core-picker-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .retroarch-core-group {
