@@ -649,6 +649,8 @@ export interface GameFilters {
   platformId?: number | null;
   /** Texto de busca livre (aplicado no título). */
   search?: string;
+  /** Categoria/gênero selecionado no filtro da biblioteca (string vazia = todas). */
+  genre?: string;
   /** Filtro de coleção (favoritos, status de jogo etc.). */
   collectionFilter?: CollectionFilter;
   /** Critério de ordenação. */

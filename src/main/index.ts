@@ -190,6 +190,7 @@ async function createWindow(): Promise<void> {
 function registerIpc(): void {
   // ── Jogos ──────────────────────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.games.list, (_event, filters) => games.listGames(filters));
+  ipcMain.handle(IPC_CHANNELS.games.listGenres, () => games.listGameGenres());
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
   ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
   ipcMain.handle(IPC_CHANNELS.games.collectionCounts, () => games.getCollectionCounts());

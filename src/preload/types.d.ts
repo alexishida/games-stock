@@ -75,6 +75,8 @@ export interface GameStockAPI {
   games: {
     /** Lista jogos com filtros opcionais (plataforma, busca, status, paginação). */
     list(filters?: GameFilters): Promise<GameListResult>;
+    /** Lista categorias/gêneros únicos para o filtro da biblioteca. */
+    listGenres(): Promise<string[]>;
     /** Retorna um jogo pelo ID, ou null se não encontrado. */
     get(id: number): Promise<Game | null>;
     /** Lista os arquivos de mídia associados a um jogo. */

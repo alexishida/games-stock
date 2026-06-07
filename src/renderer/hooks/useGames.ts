@@ -28,6 +28,7 @@ const pageCache = new Map<string, GameListResult>();
 function buildFilters(params: {
   selectedPlatformId: number | null;
   searchQuery: string;
+  selectedCategory: string;
   collectionFilter: GameFilters["collectionFilter"];
   sortBy: GameFilters["sortBy"];
   currentPage: number;
@@ -35,6 +36,7 @@ function buildFilters(params: {
   return {
     platformId: params.selectedPlatformId,
     search: params.searchQuery,
+    genre: params.selectedCategory,
     collectionFilter: params.collectionFilter,
     sortBy: params.sortBy,
     page: params.currentPage,
@@ -74,6 +76,7 @@ function prefetchPage(filters: GameFilters, reloadToken: number): void {
 export function useGames(): void {
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   const searchQuery = useGameStockStore((state) => state.searchQuery);
+  const selectedCategory = useGameStockStore((state) => state.selectedCategory);
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const sortBy = useGameStockStore((state) => state.sortBy);
   const currentPage = useGameStockStore((state) => state.currentPage);
@@ -83,7 +86,8 @@ export function useGames(): void {
 
   useEffect(() => {
     let cancelled = false;
-    const filters = buildFilters({ selectedPlatformId, searchQuery, collectionFilter, sortBy, currentPage });
+    // Inclui categoria/gênero na chave para cachear cada combinação de filtros corretamente.
+    const filters = buildFilters({ selectedPlatformId, searchQuery, selectedCategory, collectionFilter, sortBy, currentPage });
     const key = cacheKey(filters, reloadToken);
     const cached = pageCache.get(key);
 
@@ -122,5 +126,5 @@ export function useGames(): void {
       // Cancela o efeito se os filtros mudarem antes da resposta chegar
       cancelled = true;
     };
-  }, [selectedPlatformId, searchQuery, collectionFilter, sortBy, currentPage, reloadToken, setGames, setLoading]);
+  }, [selectedPlatformId, searchQuery, selectedCategory, collectionFilter, sortBy, currentPage, reloadToken, setGames, setLoading]);
 }

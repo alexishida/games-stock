@@ -30,6 +30,14 @@ export function listGames(filters: GameFilters = {}): GameListResult {
 }
 
 /**
+ * Retorna categorias/gêneros únicos já cadastrados na biblioteca.
+ * Usado pelo select de filtro da tela principal.
+ */
+export function listGameGenres(): string[] {
+  return gameDao().listGenres();
+}
+
+/**
  * Retorna um jogo pelo ID, ou `null` se não encontrado.
  *
  * @param id - ID do jogo no banco.

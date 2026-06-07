@@ -96,7 +96,7 @@ interface GameStockState {
   selectedPlatformId: number | null;
   /** Texto da busca atual na biblioteca. */
   searchQuery: string;
-  /** Categoria selecionada (não utilizada ativamente, reservada). */
+  /** Categoria/gênero selecionado no filtro da biblioteca. */
   selectedCategory: string;
   /** Modo de exibição da biblioteca: grade ou lista. */
   viewMode: ViewMode;
@@ -304,6 +304,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null, selectedGame: null }),
   // Ao buscar, retorna à primeira página
   setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
+  // Ao trocar categoria/gênero, reinicia a paginação para evitar página vazia.
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
   // Ao trocar filtro de coleção, limpa plataforma selecionada e volta à página 1

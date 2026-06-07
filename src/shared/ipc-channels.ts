@@ -13,6 +13,8 @@ export const IPC_CHANNELS = {
   games: {
     /** Lista jogos com filtros opcionais (paginação, plataforma, busca). */
     list: "games:list",
+    /** Lista categorias/gêneros únicos disponíveis na biblioteca. */
+    listGenres: "games:listGenres",
     /** Retorna um jogo pelo ID. */
     get: "games:get",
     /** Lista os arquivos de mídia associados a um jogo (capas, screenshots etc.). */

@@ -52,10 +52,37 @@ const COLLECTION_TABS: CollectionTab[] = [
  */
 function LibraryView() {
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
+  const selectedCategory = useGameStockStore((state) => state.selectedCategory);
   const sortBy = useGameStockStore((state) => state.sortBy);
   const viewMode = useGameStockStore((state) => state.viewMode);
+  const reloadToken = useGameStockStore((state) => state.reloadToken);
   const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
+  const setSelectedCategory = useGameStockStore((state) => state.setSelectedCategory);
   const setSortBy = useGameStockStore((state) => state.setSortBy);
+  const [genres, setGenres] = useState<string[]>([]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    // Recarrega gêneros quando a biblioteca muda para manter o filtro coerente.
+    void window.gameStockAPI.games.listGenres()
+      .then((nextGenres) => {
+        if (canceled) return;
+        setGenres(nextGenres);
+
+        // Limpa seleção inválida quando a categoria deixa de existir após edição/importação.
+        if (selectedCategory && !nextGenres.includes(selectedCategory)) {
+          setSelectedCategory("");
+        }
+      })
+      .catch(() => {
+        if (!canceled) setGenres([]);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [reloadToken, selectedCategory, setSelectedCategory]);
 
   return (
     <div className="home-content">
@@ -73,14 +100,29 @@ function LibraryView() {
             </button>
           ))}
         </div>
-        <div className="sort-control">
-          <span>Ordenar por:</span>
-          <select aria-label="Ordenar biblioteca" value={sortBy} onChange={(event) => setSortBy(event.target.value as GameSortBy)}>
-            <option value="title">A-Z</option>
-            <option value="year">Ano</option>
-            <option value="recent">Recentes</option>
-            <option value="mostPlayed">Mais jogados</option>
-          </select>
+        <div className="library-actions">
+          <div className="category-control">
+            <span>Categoria:</span>
+            <select
+              aria-label="Filtrar biblioteca por categoria"
+              value={selectedCategory}
+              onChange={(event) => setSelectedCategory(event.target.value)}
+            >
+              <option value="">Todas</option>
+              {genres.map((genre) => (
+                <option key={genre} value={genre}>{genre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="sort-control">
+            <span>Ordenar por:</span>
+            <select aria-label="Ordenar biblioteca" value={sortBy} onChange={(event) => setSortBy(event.target.value as GameSortBy)}>
+              <option value="title">A-Z</option>
+              <option value="year">Ano</option>
+              <option value="recent">Recentes</option>
+              <option value="mostPlayed">Mais jogados</option>
+            </select>
+          </div>
         </div>
       </section>
       <section className="library-pane">

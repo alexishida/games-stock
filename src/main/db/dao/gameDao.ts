@@ -52,10 +52,13 @@ export class GameDao {
 
     // Carrega candidatos filtrados antes da contagem para agrupar variantes.
     // O agrupamento preserva as ROMs no banco e muda apenas a representacao da biblioteca.
-    const filteredGroups = groupGamesForLibrary(this.database
+    const filteredCandidates = this.database
       .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters)}`)
       .all(...where.params)
-      .map((row) => mapGame(row as GameRow)));
+      .map((row) => mapGame(row as GameRow));
+    // O filtro por gênero roda em memória porque um mesmo campo `genre`
+    // pode trazer múltiplas categorias separadas por delimitadores diferentes.
+    const filteredGroups = groupGamesForLibrary(filterGamesByGenre(filteredCandidates, filters.genre));
     const filtered = filteredGroups.length;
 
     // Monta a pagina atual a partir da lista ja agrupada.
@@ -70,6 +73,29 @@ export class GameDao {
       .map((row) => mapGame(row as GameRow))).length;
 
     return { items, total, filtered };
+  }
+
+  /**
+   * Lista categorias/gêneros únicos já presentes na biblioteca.
+   * Divide campos compostos ("Ação; Plataforma") em opções separadas para o filtro.
+   */
+  listGenres(): string[] {
+    const rows = this.database
+      .prepare("SELECT genre FROM games WHERE genre IS NOT NULL AND TRIM(genre) != ''")
+      .all() as Array<{ genre: string }>;
+
+    const genreMap = new Map<string, string>();
+    for (const row of rows) {
+      for (const genre of splitGenres(row.genre)) {
+        const normalizedGenre = normalizeGenre(genre);
+        if (!normalizedGenre) continue;
+        if (!genreMap.has(normalizedGenre)) genreMap.set(normalizedGenre, genre);
+      }
+    }
+
+    return Array.from(genreMap.values()).sort((left, right) =>
+      left.localeCompare(right, "pt-BR", { sensitivity: "base" })
+    );
   }
 
   /**
@@ -613,6 +639,38 @@ function buildOrder(filters: GameFilters = {}): string {
     case "title":
       return "ORDER BY games.title COLLATE NOCASE";
   }
+}
+
+/**
+ * Filtra jogos por categoria/gênero já normalizado a partir do conteúdo textual salvo.
+ * Um jogo entra quando qualquer gênero individual bate exatamente com a opção escolhida.
+ */
+function filterGamesByGenre(games: Game[], selectedGenre: string | undefined): Game[] {
+  const normalizedSelectedGenre = normalizeGenre(selectedGenre);
+  if (!normalizedSelectedGenre) return games;
+
+  return games.filter((game) =>
+    splitGenres(game.genre).some((genre) => normalizeGenre(genre) === normalizedSelectedGenre)
+  );
+}
+
+/**
+ * Divide um campo de gênero em tokens individuais.
+ * Aceita separadores comuns vindos de importações diferentes.
+ */
+function splitGenres(value: string | null | undefined): string[] {
+  if (!value?.trim()) return [];
+  return value
+    .split(/[;,/|]+/g)
+    .map((genre) => genre.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Normaliza gênero para comparação case-insensitive sem alterar rótulo exibido na UI.
+ */
+function normalizeGenre(value: string | null | undefined): string {
+  return value?.trim().toLocaleLowerCase("pt-BR") ?? "";
 }
 
 /**

@@ -54,6 +54,8 @@ const api = {
   games: {
     /** Lista jogos com filtros opcionais (plataforma, busca, status, paginação). */
     list: (filters?: GameFilters) => ipcRenderer.invoke(IPC_CHANNELS.games.list, filters),
+    /** Lista categorias/gêneros únicos para o filtro da biblioteca. */
+    listGenres: () => ipcRenderer.invoke(IPC_CHANNELS.games.listGenres) as Promise<string[]>,
     /** Busca um jogo pelo ID. */
     get: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.get, id),
     /** Lista os arquivos de mídia associados a um jogo. */
