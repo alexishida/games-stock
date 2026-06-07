@@ -18,6 +18,7 @@ import {
   DataPortabilityExportRequest,
   DataPortabilityJob,
   DataPortabilityProgress,
+  DataPortabilityRomFolderEntry,
   DataPortabilityStartResult,
   DataPortabilityImportPreview,
   DataPortabilityImportRequest,
@@ -271,6 +272,8 @@ export interface GameStockAPI {
     scan(params: RomFolderScanRequest): Promise<RomFolderScanResult>;
     /** Inicia o job de importação de ROMs das pastas informadas. */
     import(params: RomFolderImportRequest): Promise<RomFolderImportJob>;
+    /** Faz sync incremental das pastas configuradas, importando apenas ROMs novas. */
+    syncConfiguredFolders(entries: DataPortabilityRomFolderEntry[]): Promise<void>;
     /** Retorna jobs de importação de pastas persistidos. */
     jobs(): Promise<RomFolderImportJob[]>;
     /** Conta registros de ROM importados de pastas/plataformas específicas. */

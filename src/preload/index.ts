@@ -19,6 +19,7 @@ import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
 import {
   CoverSyncStats,
   DataPortabilityExportRequest,
+  DataPortabilityRomFolderEntry,
   DataPortabilityJob,
   DataPortabilityProgress,
   DataPortabilityStartResult,
@@ -272,6 +273,9 @@ const api = {
     scan: (params: RomFolderScanRequest) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.scan, params),
     /** Inicia o job de importação de ROMs das pastas informadas. */
     import: (params: RomFolderImportRequest) => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.import, params),
+    /** Faz sync incremental das pastas configuradas, importando apenas ROMs novas. */
+    syncConfiguredFolders: (entries: DataPortabilityRomFolderEntry[]) =>
+      ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.syncConfiguredFolders, entries) as Promise<void>,
     /** Retorna os jobs de importação de pastas persistidos. */
     jobs: () => ipcRenderer.invoke(IPC_CHANNELS.romFolderImport.jobs),
     /** Conta registros de ROM importados de pastas/plataformas específicas. */

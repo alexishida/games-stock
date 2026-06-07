@@ -329,6 +329,28 @@ export class GameDao {
   }
 
   /**
+   * Lista os `rom_path` já cadastrados dentro de uma pasta específica.
+   * Opcionalmente restringe o resultado a uma plataforma.
+   *
+   * Usado pelo sync incremental para importar apenas arquivos novos,
+   * sem reprocessar ROMs que já entraram na biblioteca antes.
+   */
+  listRomPathsByFolder(folderPath: string, platformId?: number): string[] {
+    const normalizedFolder = normalizeFsPath(folderPath);
+    const rows = platformId
+      ? this.database
+        .prepare("SELECT rom_path FROM games WHERE platform_id = ? AND rom_path IS NOT NULL AND rom_path != ''")
+        .all(platformId) as Array<{ rom_path: string }>
+      : this.database
+        .prepare("SELECT rom_path FROM games WHERE rom_path IS NOT NULL AND rom_path != ''")
+        .all() as Array<{ rom_path: string }>;
+
+    return rows
+      .filter((row) => isPathInsideFolder(row.rom_path, normalizedFolder))
+      .map((row) => row.rom_path);
+  }
+
+  /**
    * Remove jogos sem `rom_path` de uma plataforma específica cujos títulos
    * correspondam à lista fornecida (case-insensitive, normalizado).
    *

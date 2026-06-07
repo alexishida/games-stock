@@ -7,7 +7,7 @@
  * - Baixar a base de dados LaunchBox (Metadata.zip) caso ainda não exista.
  * - Renderizar o layout principal: Sidebar, TopBar, área de conteúdo e modais globais.
  */
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { BarChart3, Gamepad2, Layers3, Star, Trophy } from "lucide-react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
@@ -106,6 +106,7 @@ export default function App() {
   // Leitura de estado do store para controle de UI e ações
   const selectedGameId = useGameStockStore((state) => state.selectedGameId);
   const sidebarMode = useGameStockStore((state) => state.sidebarMode);
+  const romFolderEntries = useGameStockStore((state) => state.romFolderEntries);
   const setViewMode = useGameStockStore((state) => state.setViewMode);
   const setImporterOpen = useGameStockStore((state) => state.setImporterOpen);
   const openSettings = useGameStockStore((state) => state.openSettings);
@@ -139,6 +140,10 @@ export default function App() {
 
   // Ref para garantir que o download de metadados seja iniciado apenas uma vez, mesmo em StrictMode
   const metadataStarted = useRef(false);
+  // Ref para evitar disparar o sync incremental mais de uma vez em StrictMode.
+  const configuredFolderSyncStarted = useRef(false);
+  // Libera o sync automático só depois do bootstrap de metadados decidir se precisa baixar ou não.
+  const [metadataBootstrapSettled, setMetadataBootstrapSettled] = useState(false);
 
   // Atualiza o título da janela com a versão do app
   useEffect(() => {
@@ -210,9 +215,24 @@ export default function App() {
         if (jobStarted) failMediaSyncJob(jobId, err instanceof Error ? err.message : "Falha ao baixar base de dados");
       } finally {
         if (jobStarted) setMetadataStartupRunning(false);
+        setMetadataBootstrapSettled(true);
       }
     })();
   }, [failMediaSyncJob, finishMediaSyncJob, setCoverStats, setMetadataStartupRunning, startMediaSyncJob]);
+
+  /**
+   * Faz sync incremental das pastas configuradas quando o app abre.
+   * Importa só ROMs novas encontradas no disco, sem reprocessar a pasta inteira.
+   */
+  useEffect(() => {
+    if (!metadataBootstrapSettled) return;
+    if (configuredFolderSyncStarted.current) return;
+    if (!romFolderEntries.length) return;
+
+    configuredFolderSyncStarted.current = true;
+
+    void window.gameStockAPI.romFolderImport.syncConfiguredFolders(romFolderEntries).catch(() => undefined);
+  }, [metadataBootstrapSettled, romFolderEntries]);
 
   // Atualiza estatísticas de capas quando o main process emite evento de atualização
   useEffect(() => window.gameStockAPI.games.onCoverStatsUpdated(setCoverStats), [setCoverStats]);

@@ -94,6 +94,17 @@ export function countGamesByRomFolder(folderPath: string, platformId?: number): 
 }
 
 /**
+ * Lista os caminhos de ROM já cadastrados dentro de uma pasta específica.
+ * Opcionalmente filtra por plataforma.
+ *
+ * Usado pelo sync incremental das pastas configuradas para detectar apenas
+ * arquivos novos desde a última importação.
+ */
+export function listRomPathsByFolder(folderPath: string, platformId?: number): string[] {
+  return gameDao().listRomPathsByFolder(folderPath, platformId);
+}
+
+/**
  * Remove jogos sem `rom_path` de uma plataforma específica cujos títulos estejam na lista.
  * Usado para limpar entradas de metadados sem ROM associada durante re-importações.
  *

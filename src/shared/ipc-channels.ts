@@ -190,6 +190,8 @@ export const IPC_CHANNELS = {
     scan: "romFolderImport:scan",
     /** Inicia o job de importação de ROMs das pastas escaneadas. */
     import: "romFolderImport:import",
+    /** Faz sync incremental das pastas configuradas, importando apenas ROMs novas. */
+    syncConfiguredFolders: "romFolderImport:syncConfiguredFolders",
     /** Lista jobs de importação de pastas persistidos. */
     jobs: "romFolderImport:jobs",
     /** Conta quantos registros de ROM foram importados de uma pasta/plataforma. */

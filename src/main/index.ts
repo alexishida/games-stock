@@ -30,7 +30,7 @@ import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romF
 import { createSplashWindow } from "./splash-window";
 import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, supportsInPlaceAutoUpdate, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
+import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { UPDATE_MANIFEST_URL } from "../shared/update-config";
@@ -44,6 +44,9 @@ let isQuitting = false;
 
 /** Mapa de jobs de importação de ROM em andamento ou concluídos nesta sessão. */
 const romFolderJobs = new Map<string, RomFolderImportJob>();
+
+/** Promessas de conclusão dos jobs de importação de ROM iniciados nesta sessão. */
+const romFolderJobCompletions = new Map<string, Promise<void>>();
 
 /** Mapa de jobs de portabilidade de dados (exportação/importação) desta sessão. */
 const dataPortabilityJobs = new Map<string, DataPortabilityJob>();
@@ -396,6 +399,9 @@ function registerIpc(): void {
   // ── Importação de pastas de ROM ────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.syncConfiguredFolders, async (_event, entries: DataPortabilityRomFolderEntry[]) => {
+    await syncConfiguredRomFolders(entries);
+  });
   ipcMain.handle(IPC_CHANNELS.romFolderImport.jobs, () => Array.from(romFolderJobs.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt)));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.countFolderRecords, (_event, params: RomFolderRecordCountRequest[]) =>
     params.map((entry) => ({
@@ -689,7 +695,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
   sendRomFolderImportProgress(initialProgress);
 
   // Importação assíncrona: não bloqueia o retorno do IPC handler
-  void importRomFolder(params, (progress) => {
+  const completion = importRomFolder(params, (progress) => {
     const nextProgress = { ...progress, jobId };
     job.progress = nextProgress;
     sendRomFolderImportProgress(nextProgress);
@@ -715,9 +721,116 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
       job.error = error instanceof Error ? error.message : String(error);
       job.progress = { ...job.progress, jobId, stage: "error", message: job.error };
       sendRomFolderImportProgress(job.progress);
+    })
+    .finally(() => {
+      romFolderJobCompletions.delete(jobId);
     });
 
+  romFolderJobCompletions.set(jobId, completion);
+
   return job;
+}
+
+/**
+ * Faz sync incremental das pastas configuradas no app.
+ *
+ * Estratégia:
+ * - escaneia cada pasta configurada;
+ * - compara os candidatos encontrados com os `rom_path` já salvos no SQLite;
+ * - inicia import apenas para arquivos novos;
+ * - executa um job por grupo, em sequência, para evitar downloads concorrentes do LaunchBox.
+ *
+ * Não remove registros ausentes no disco, porque isso seria arriscado em aberturas
+ * com HD externo desconectado ou pasta temporariamente indisponível.
+ */
+async function syncConfiguredRomFolders(entries: DataPortabilityRomFolderEntry[]): Promise<void> {
+  if (!entries.length) return;
+  if (Array.from(romFolderJobs.values()).some((job) => job.status === "running")) return;
+
+  const folderGroups = groupConfiguredRomFolders(entries);
+
+  for (const group of folderGroups) {
+    try {
+      const manualPlatformId = group.mode === "manual" ? group.platformId ?? undefined : undefined;
+      if (group.mode === "manual" && !manualPlatformId) continue;
+      const scanRequest: RomFolderScanRequest = group.mode === "automatic"
+        ? {
+          folderPaths: [group.folderPath],
+          detectionMode: "automatic",
+          includeSubfolders: group.includeSubfolders
+        }
+        : {
+          folderPaths: [group.folderPath],
+          platformId: manualPlatformId,
+          detectionMode: "manual",
+          includeSubfolders: group.includeSubfolders
+        };
+      const scan = scanRomFolder(scanRequest);
+      const knownRomPaths = new Set(
+        games
+          .listRomPathsByFolder(group.folderPath, manualPlatformId)
+          .map(normalizeRomPathForSync)
+      );
+      const newRomFilePaths = scan.candidates
+        .filter((candidate) => !knownRomPaths.has(normalizeRomPathForSync(candidate.romPath)))
+        .map((candidate) => candidate.romPath);
+
+      if (!newRomFilePaths.length) continue;
+
+      const job = startRomFolderImportJob({
+        folderPaths: [],
+        romFilePaths: newRomFilePaths,
+        platformId: manualPlatformId ?? null,
+        detectionMode: group.mode,
+        includeSubfolders: group.includeSubfolders
+      });
+      await romFolderJobCompletions.get(job.jobId);
+    } catch (error) {
+      // Pasta ausente ou inacessível não deve poluir a UI a cada abertura.
+      console.warn("[romFolderImport] Falha ao sincronizar pasta configurada:", group.folderPath, error);
+    }
+  }
+}
+
+/** Grupo interno usado para decidir se o sync será manual ou automático por pasta. */
+interface ConfiguredRomFolderGroup {
+  folderPath: string;
+  includeSubfolders: boolean;
+  mode: "manual" | "automatic";
+  platformId: number | null;
+}
+
+/**
+ * Agrupa entradas persistidas por pasta e infere o modo de sync.
+ *
+ * Quando a mesma pasta aparece em múltiplas plataformas, tratamos como origem
+ * automática para preservar o comportamento de detecção por extensão.
+ */
+function groupConfiguredRomFolders(entries: DataPortabilityRomFolderEntry[]): ConfiguredRomFolderGroup[] {
+  const grouped = new Map<string, DataPortabilityRomFolderEntry[]>();
+
+  for (const entry of entries) {
+    const current = grouped.get(entry.folderPath) ?? [];
+    current.push(entry);
+    grouped.set(entry.folderPath, current);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([folderPath, folderEntries]) => {
+      const multiplePlatforms = new Set(folderEntries.map((entry) => entry.platformId)).size > 1;
+      return {
+        folderPath,
+        includeSubfolders: folderEntries.some((entry) => Boolean(entry.includeSubfolders)),
+        mode: multiplePlatforms ? "automatic" : "manual",
+        platformId: multiplePlatforms ? null : folderEntries[0]?.platformId ?? null
+      } satisfies ConfiguredRomFolderGroup;
+    })
+    .sort((a, b) => a.folderPath.localeCompare(b.folderPath, undefined, { sensitivity: "base" }));
+}
+
+/** Normaliza `rom_path` para comparação estável durante o sync incremental. */
+function normalizeRomPathForSync(filePath: string): string {
+  return path.resolve(filePath).replace(/\\/g, "/").toLowerCase();
 }
 
 // ── Ciclo de vida do Electron ──────────────────────────────────────────────
