@@ -199,8 +199,9 @@ function registerIpc(): void {
     ...games.getCoverStats(),
     metadataDownloadedAt: getLaunchBoxMetadataDownloadedAt()
   }));
-  ipcMain.handle(IPC_CHANNELS.games.syncCovers, () => syncMissingCovers((progress) => {
-    sendLaunchBoxProgress(progress);
+  ipcMain.handle(IPC_CHANNELS.games.syncCovers, (_event, options?: { jobId?: string }) => syncMissingCovers((progress) => {
+    // Propaga o jobId do renderer para cada tick, evitando sobrescrever outro card ativo.
+    sendLaunchBoxProgress(attachLaunchBoxJobId(progress, options?.jobId));
     sendCoverStats(); // Atualiza stats de capa no renderer após cada jogo processado
   }));
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
@@ -387,8 +388,8 @@ function registerIpc(): void {
   );
 
   // ── LaunchBox ──────────────────────────────────────────────────────────────
-  ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean }) =>
-    ensureLaunchBoxMetadata(Boolean(options?.force), sendLaunchBoxProgress)
+  ipcMain.handle(IPC_CHANNELS.launchbox.ensureMetadata, (_event, options?: { force?: boolean; jobId?: string }) =>
+    ensureLaunchBoxMetadata(Boolean(options?.force), (progress) => sendLaunchBoxProgress(attachLaunchBoxJobId(progress, options?.jobId)))
   );
   ipcMain.handle(IPC_CHANNELS.launchbox.metadataExists, () => metadataExists());
   ipcMain.handle(IPC_CHANNELS.launchbox.searchGames, (_event, params) => searchGames(params));
@@ -520,6 +521,15 @@ function registerIpc(): void {
 /** Envia progresso de operação LaunchBox para o renderer via IPC push. */
 function sendLaunchBoxProgress(progress: LaunchBoxProgress): void {
   mainWindow?.webContents.send(IPC_CHANNELS.launchbox.progress, progress);
+}
+
+/**
+ * Anexa o `jobId` do renderer ao payload de progresso do LaunchBox.
+ * Isso permite que o store atualize o card correto quando houver mais de um job ativo.
+ */
+function attachLaunchBoxJobId(progress: LaunchBoxProgress, jobId?: string): LaunchBoxProgress {
+  if (!jobId) return progress;
+  return { ...progress, jobId };
 }
 
 /** Envia estatísticas atualizadas de capas para o renderer via IPC push. */

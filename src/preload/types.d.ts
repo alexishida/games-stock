@@ -93,7 +93,7 @@ export interface GameStockAPI {
      */
     onCoverStatsUpdated(callback: (stats: CoverSyncStats) => void): () => void;
     /** Inicia sincronização de capas e retorna o resultado completo. */
-    syncCovers(): Promise<CoverSyncResult>;
+    syncCovers(options?: { jobId?: string }): Promise<CoverSyncResult>;
     /** Cria um novo jogo na biblioteca. */
     create(data: Partial<GameCreateInput>): Promise<Game>;
     /** Atualiza dados de um jogo existente. */
@@ -246,7 +246,7 @@ export interface GameStockAPI {
      * Garante que os metadados LaunchBox estão disponíveis, baixando se necessário.
      * @returns Status indicando se os dados vieram do cache ou foram baixados agora.
      */
-    ensureMetadata(options?: { force?: boolean }): Promise<{ status: "cached" | "downloaded" }>;
+    ensureMetadata(options?: { force?: boolean; jobId?: string }): Promise<{ status: "cached" | "downloaded" }>;
     /** Verifica se os metadados LaunchBox já foram baixados. */
     metadataExists(): Promise<boolean>;
     /** Busca jogos no índice LaunchBox por título e plataforma. */

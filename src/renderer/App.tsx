@@ -246,7 +246,8 @@ export default function App() {
           detail: "Baixando Metadata.zip",
           progressLabel: "Iniciando"
         });
-        await window.gameStockAPI.launchbox.ensureMetadata({ force: false });
+        // Repassa o jobId para que os ticks de bootstrap atualizem o job de startup correto.
+        await window.gameStockAPI.launchbox.ensureMetadata({ force: false, jobId });
         setCoverStats(await window.gameStockAPI.games.coverStats());
         finishMediaSyncJob(jobId, {
           title: "Base de dados pronta",

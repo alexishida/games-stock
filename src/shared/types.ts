@@ -807,6 +807,8 @@ export interface LaunchBoxDownloadResult {
 
 /** Progresso em tempo real de uma operação LaunchBox (download ou indexação). */
 export interface LaunchBoxProgress {
+  /** ID do job dono deste progresso, quando a operação precisa atualizar um card específico. */
+  jobId?: string;
   /** Item atual sendo processado. */
   current: number;
   /** Total de itens a processar. */

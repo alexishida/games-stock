@@ -416,8 +416,8 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   updateMediaSyncProgress: (progress) => set((state) => {
     const running = state.mediaSyncJobs.filter((j) => j.status === "running");
     if (!running.length) return {};
-    // Roteia o evento para o job correto quando há múltiplos jobs em execução
-    const target = running.length === 1 ? running[0] : routeProgressToJob(progress, running);
+    // Usa jobId quando existir; fallback preserva compatibilidade com eventos legados sem identificação.
+    const target = routeProgressToJob(progress, running);
     if (!target) return {};
     const updated = state.mediaSyncJobs.map((j) =>
       j.jobId === target.jobId ? buildMediaJobFromProgress(j, progress) : j
@@ -698,6 +698,10 @@ function normalizeDataPortabilityJob(job: DataPortabilityJob): DataPortabilityJo
  * baseando-se no prefixo do jobId (metadata- ou media-sync-).
  */
 function routeProgressToJob(progress: LaunchBoxProgress, running: MediaSyncJob[]): MediaSyncJob | null {
+  // Eventos novos carregam jobId explícito; evita que um job de mídia sobrescreva outro.
+  if (progress.jobId) {
+    return running.find((job) => job.jobId === progress.jobId) ?? null;
+  }
   const isMetadata = progress.status === "extracting" || progress.status === "indexing" || isMetadataProgress(progress);
   return running.find((j) => isMetadata ? j.jobId.startsWith("metadata-") : j.jobId.startsWith("media-sync-")) ?? running[0];
 }

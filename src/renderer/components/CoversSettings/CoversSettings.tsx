@@ -122,7 +122,8 @@ export function CoversSettings() {
       progressLabel: "Sincronizando"
     });
     try {
-      const result = await window.gameStockAPI.games.syncCovers();
+      // Envia o jobId ao main para cada tick de progresso voltar vinculado ao card correto.
+      const result = await window.gameStockAPI.games.syncCovers({ jobId });
       setCoverStats(result);
       reloadGames();
       finishMediaSyncJob(jobId, {
@@ -153,7 +154,8 @@ export function CoversSettings() {
       progressLabel: "Iniciando"
     });
     try {
-      await window.gameStockAPI.launchbox.ensureMetadata({ force: true });
+      // Mantém o progresso do Metadata.zip preso ao card desta execução.
+      await window.gameStockAPI.launchbox.ensureMetadata({ force: true, jobId });
       await loadStats();
       finishMediaSyncJob(jobId, {
         title: "Base de dados atualizada",

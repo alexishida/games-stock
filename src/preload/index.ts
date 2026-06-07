@@ -76,7 +76,7 @@ const api = {
       return () => ipcRenderer.removeListener(IPC_CHANNELS.games.coverStatsUpdated, listener);
     },
     /** Inicia a sincronização de capas com o LaunchBox. */
-    syncCovers: () => ipcRenderer.invoke(IPC_CHANNELS.games.syncCovers),
+    syncCovers: (options?: { jobId?: string }) => ipcRenderer.invoke(IPC_CHANNELS.games.syncCovers, options),
     /** Cria um novo jogo na biblioteca. */
     create: (data: Partial<GameCreateInput>) => ipcRenderer.invoke(IPC_CHANNELS.games.create, data),
     /** Atualiza dados de um jogo existente. */
@@ -241,7 +241,7 @@ const api = {
   /** Integração com o banco de metadados LaunchBox. */
   launchbox: {
     /** Garante que os metadados LaunchBox estão disponíveis, baixando se necessário. */
-    ensureMetadata: (options?: { force?: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.ensureMetadata, options),
+    ensureMetadata: (options?: { force?: boolean; jobId?: string }) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.ensureMetadata, options),
     /** Verifica se os metadados LaunchBox já foram baixados. */
     metadataExists: () => ipcRenderer.invoke(IPC_CHANNELS.launchbox.metadataExists) as Promise<boolean>,
     /** Busca jogos no índice LaunchBox por título e plataforma. */
