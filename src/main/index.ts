@@ -35,7 +35,7 @@ import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { UPDATE_MANIFEST_URL } from "../shared/update-config";
 import { resolveConfiguredExecutable } from "./executableResolver";
-import { prepareRomPathForLaunch } from "./romLaunchExtraction";
+import { clearExtractedRomCache, prepareRomPathForLaunch } from "./romLaunchExtraction";
 
 /** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
@@ -347,6 +347,8 @@ function registerIpc(): void {
   // Canal leve usado por botoes que precisam abrir a pasta de dados sem aguardar estatisticas.
   ipcMain.handle(IPC_CHANNELS.app.getDataDirPath, () => getUserDataDir());
   ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => getStorageStats());
+  // Limpa apenas a pasta temporaria de ROMs extraidas; ROMs originais permanecem intactas.
+  ipcMain.handle(IPC_CHANNELS.app.clearExtractedRomCache, () => clearExtractedRomCache());
   ipcMain.handle(IPC_CHANNELS.updater.skip, () => {
     requestUpdaterSkip();
   });

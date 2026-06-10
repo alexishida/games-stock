@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { DatabaseBackup, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, RotateCcw, Settings, X } from "lucide-react";
+import { DatabaseBackup, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, RotateCcw, Settings, Trash2, X } from "lucide-react";
 import logoSrc from "../../assets/logo-about.png";
 import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
@@ -69,6 +69,14 @@ const STORAGE_STATS_CACHE_MS = 30_000;
 
 /** Secoes que exibem estatisticas de armazenamento local. */
 const STORAGE_STATS_SECTIONS = new Set<SettingsSection>(["backup", "sobre"]);
+
+/** Estado visual do feedback de limpeza manual do cache temporário de ROMs. */
+type RomCacheFeedback = {
+  /** Variante visual da mensagem de feedback. */
+  tone: "success" | "error";
+  /** Texto curto exibido abaixo das ações da seção Sobre. */
+  message: string;
+};
 
 /**
  * Retorna `true` quando a fase recebida ainda representa trabalho em andamento.
@@ -223,6 +231,10 @@ export function SettingsModal() {
   const [storageStats, setStorageStats] = useState<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string } | null>(null);
   // Indica que as estatisticas de armazenamento estao sendo calculadas em background
   const [storageStatsLoading, setStorageStatsLoading] = useState(false);
+  // Indica que o botão de limpeza do cache temporário está executando no main process
+  const [romCacheClearing, setRomCacheClearing] = useState(false);
+  // Feedback curto da última tentativa de limpeza manual do cache temporário
+  const [romCacheFeedback, setRomCacheFeedback] = useState<RomCacheFeedback | null>(null);
   // Versão semântica e build local usados no modal de atualização
   const [updaterAppInfo, setUpdaterAppInfo] = useState<UpdaterAppInfo | null>(null);
   // Último status recebido do updater manual disparado pela seção "Sobre"
@@ -321,6 +333,32 @@ export function SettingsModal() {
   async function openDataDir(): Promise<void> {
     const dataDirPath = storageStats?.dataDirPath ?? await window.gameStockAPI.app.getDataDirPath();
     await window.gameStockAPI.shell.openPath(dataDirPath);
+  }
+
+  /**
+   * Apaga manualmente as extrações temporárias já reaproveitadas pelo launch.
+   * O botão existe para destravar cenários de cache corrompido sem tocar nas ROMs originais.
+   */
+  async function handleClearExtractedRomCache(): Promise<void> {
+    setRomCacheClearing(true);
+    setRomCacheFeedback(null);
+
+    try {
+      const result = await window.gameStockAPI.app.clearExtractedRomCache();
+      setRomCacheFeedback({
+        tone: "success",
+        message: result.removedEntries > 0
+          ? `Cache limpo. ${result.removedEntries} pasta(s) temporária(s) removida(s).`
+          : "Cache já estava vazio."
+      });
+    } catch (error) {
+      setRomCacheFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Não foi possível limpar o cache temporário."
+      });
+    } finally {
+      setRomCacheClearing(false);
+    }
   }
 
   return (
@@ -448,6 +486,10 @@ export function SettingsModal() {
                   Organizador de biblioteca para jogos com cadastro manual,
                   importação de ROMs, gerenciamento de mídia e integração com emuladores.
                 </p>
+                <p className="about-cache-note">
+                  O launch de arquivos `.zip` e `.7z` reaproveita extrações temporárias no cache. Limpar esse cache
+                  remove só arquivos temporários, sem apagar suas ROMs originais.
+                </p>
                 <div className="about-divider" />
 
                 {/* Metadados: jogos, armazenamento e autoria */}
@@ -492,7 +534,23 @@ export function SettingsModal() {
                     <RefreshCw aria-hidden="true" size={15} className={updaterBusy ? "about-update-spin" : ""} />
                     Buscar atualização
                   </button>
+
+                  <button
+                    type="button"
+                    className="about-open-folder-button"
+                    onClick={() => void handleClearExtractedRomCache()}
+                    disabled={romCacheClearing}
+                  >
+                    <Trash2 aria-hidden="true" size={15} />
+                    {romCacheClearing ? "Limpando cache..." : "Limpar cache de ROMs extraídas"}
+                  </button>
                 </div>
+
+                {romCacheFeedback && (
+                  <p className={`about-cache-feedback about-cache-feedback-${romCacheFeedback.tone}`}>
+                    {romCacheFeedback.message}
+                  </p>
+                )}
 
                 {/* Modal secundário arrastável com status detalhado de atualização. */}
                 {updateDialogOpen && (

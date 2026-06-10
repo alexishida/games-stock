@@ -181,6 +181,8 @@ export interface GameStockAPI {
     getDataDirPath(): Promise<string>;
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
+    /** Remove o cache temporário de ROMs extraídas do launch. */
+    clearExtractedRomCache(): Promise<{ rootDir: string; removedEntries: number }>;
   };
 
   /** Fluxo do updater usado pela splash screen. */

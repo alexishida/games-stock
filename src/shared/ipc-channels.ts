@@ -112,7 +112,9 @@ export const IPC_CHANNELS = {
     /** Retorna apenas o caminho do diretorio de dados, sem calcular estatisticas pesadas. */
     getDataDirPath: "app:getDataDirPath",
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
-    getStorageStats: "app:getStorageStats"
+    getStorageStats: "app:getStorageStats",
+    /** Remove o cache temporário de ROMs extraídas antes do launch. */
+    clearExtractedRomCache: "app:clearExtractedRomCache"
   },
 
   /** Comunicação dedicada do fluxo de atualização automática com a splash screen. */

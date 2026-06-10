@@ -137,6 +137,14 @@
   line-height: 1.55;
 }
 
+.about-cache-note {
+  max-width: 460px;
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .about-divider {
   width: 100%;
   max-width: 360px;
@@ -198,6 +206,21 @@
   gap: 12px;
   width: 100%;
   margin-top: 16px;
+}
+
+.about-cache-feedback {
+  max-width: 460px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.about-cache-feedback-success {
+  color: #7ee787;
+}
+
+.about-cache-feedback-error {
+  color: #ff8e8e;
 }
 
 /* Overlay do modal secundário de atualização aberto sobre Configurações. */

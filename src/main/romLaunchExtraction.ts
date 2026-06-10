@@ -56,6 +56,14 @@ interface ExtractedFile {
   size: number;
 }
 
+/** Resultado da limpeza manual do cache temporário de ROMs extraídas. */
+export interface ClearExtractedRomCacheResult {
+  /** Caminho raiz do cache temporário controlado por este módulo. */
+  rootDir: string;
+  /** Quantas subpastas de extração existiam antes da limpeza. */
+  removedEntries: number;
+}
+
 /**
  * Resolve o caminho de ROM que deve ser passado ao emulador.
  *
@@ -78,6 +86,29 @@ export async function prepareRomPathForLaunch(romPath: string): Promise<string> 
     // Limpeza oportunista de extrações antigas; nunca bloqueia nem falha o launch.
     void pruneStaleExtractions().catch(() => {});
   }
+}
+
+/**
+ * Remove manualmente todo o cache temporário de ROMs extraídas.
+ *
+ * A limpeza remove apenas a pasta dedicada `Temp/gamestock/extracted-roms`,
+ * sem tocar nas ROMs originais do usuário. Ao final recria a raiz vazia para
+ * manter o caminho pronto para próximos launches.
+ */
+export async function clearExtractedRomCache(): Promise<ClearExtractedRomCacheResult> {
+  const rootDir = getExtractionRootDir();
+
+  let removedEntries = 0;
+  try {
+    const entries = await fs.promises.readdir(rootDir, { withFileTypes: true });
+    removedEntries = entries.length;
+  } catch {
+    removedEntries = 0;
+  }
+
+  await fs.promises.rm(rootDir, { recursive: true, force: true });
+  await fs.promises.mkdir(rootDir, { recursive: true });
+  return { rootDir, removedEntries };
 }
 
 /**

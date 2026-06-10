@@ -165,7 +165,10 @@ const api = {
     /** Retorna apenas o caminho da pasta de dados, sem calcular tamanho em disco. */
     getDataDirPath: () => ipcRenderer.invoke(IPC_CHANNELS.app.getDataDirPath) as Promise<string>,
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
-    getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>
+    getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>,
+    /** Remove o cache temporário de ROMs extraídas para forçar nova extração no próximo launch. */
+    clearExtractedRomCache: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.app.clearExtractedRomCache) as Promise<{ rootDir: string; removedEntries: number }>
   },
 
   /** Fluxo dedicado do updater consumido pela splash screen. */
