@@ -75,6 +75,11 @@
   gap: var(--modal-title-gap);
 }
 
+/* Reduz espaco vertical na aba Sobre, que nao usa titulo grande no header. */
+.settings-content-about {
+  gap: 14px;
+}
+
 .settings-header {
   display: flex;
   align-items: flex-start;
@@ -98,78 +103,99 @@
   padding-right: 2px;
 }
 
+/* Aba Sobre: coluna única empilhada. Evita grid de 2 colunas com células de
+   alturas diferentes, que deixava logo/descrição e stats/ações desalinhados. */
 .about-page {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 620px;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0 2px 16px;
+  gap: 14px;
+  text-align: left;
+}
+
+.about-page .section-intro p {
+  margin-bottom: 0;
+}
+
+/* Card hero: logo + versão à esquerda, descrição à direita, dentro do mesmo card. */
+.about-hero {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 100%;
-  padding: 14px 24px 12px;
-  text-align: center;
-  gap: 0;
+  gap: 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(132, 148, 149, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.about-hero-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
 .about-app-logo {
-  width: 200px;
+  width: 132px;
   height: auto;
-  margin-bottom: 4px;
+  margin: 0;
   filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
 }
 
 .about-version-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   padding: 4px 10px;
   border: 1px solid rgba(0, 242, 255, 0.25);
-  border-radius: 99px;
+  border-radius: 999px;
   background: rgba(0, 242, 255, 0.08);
   color: var(--accent);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  margin-bottom: 14px;
+  white-space: nowrap;
 }
 
 .about-description {
-  max-width: 400px;
-  margin: 0 0 18px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.55;
 }
 
+/* Nota do cache: texto discreto, sem caixa, para não competir com os cards. */
 .about-cache-note {
-  max-width: 460px;
-  margin: 0 0 18px;
+  margin: 0;
+  padding: 0 2px;
   color: var(--text-muted);
   font-size: 12px;
-  line-height: 1.6;
-}
-
-.about-divider {
-  width: 100%;
-  max-width: 360px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-  margin-bottom: 16px;
+  line-height: 1.5;
 }
 
 .about-meta {
   width: 100%;
-  max-width: 360px;
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 1px solid rgba(132, 148, 149, 0.15);
-  border-radius: 12px;
+  border: 1px solid rgba(132, 148, 149, 0.16);
+  border-radius: 8px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .about-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px 16px;
+  padding: 11px 14px;
   gap: 12px;
 }
 
@@ -178,18 +204,21 @@
 }
 
 .about-meta-label {
+  min-width: 0;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
+  line-height: 1.2;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .about-meta-value {
+  flex: 0 0 auto;
   color: var(--text-primary);
   font-size: 13px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .about-meta-author {
@@ -197,22 +226,25 @@
   color: var(--accent);
 }
 
-/* Linha de ações da seção Sobre. */
+/* Linha de ações da seção Sobre: três botões lado a lado com mesma largura. */
 .about-actions {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 10px;
   width: 100%;
-  margin-top: 16px;
+  margin: 0;
 }
 
 .about-cache-feedback {
-  max-width: 460px;
-  margin: 10px 0 0;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(132, 148, 149, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
+  text-align: left;
 }
 
 .about-cache-feedback-success {
@@ -307,7 +339,11 @@
 .about-open-folder-button {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
   padding: 9px 16px;
   border: 1px solid rgba(132, 148, 149, 0.3);
   border-radius: 8px;
@@ -315,6 +351,10 @@
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
@@ -335,11 +375,49 @@
   opacity: 0.6;
 }
 
-@media (max-width: 780px) {
-  .about-open-folder-button {
-    width: 100%;
-    max-width: 360px;
-    justify-content: center;
+/* Janela estreita: hero empilha logo sobre a descrição e botões viram coluna. */
+@media (max-width: 560px) {
+  .about-hero {
+    flex-direction: column;
+    text-align: center;
   }
 
+  .about-description {
+    text-align: center;
+  }
+
+  .about-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Janela baixa: reduz respiros para a aba Sobre caber sem rolagem. */
+@media (max-height: 620px) {
+  .settings-content-about {
+    gap: 10px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .about-page {
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+
+  .about-hero {
+    padding: 12px 16px;
+  }
+
+  .about-app-logo {
+    width: 110px;
+  }
+
+  .about-meta-row {
+    padding: 9px 12px;
+  }
+
+  .about-open-folder-button {
+    min-height: 34px;
+    padding: 7px 10px;
+  }
 }

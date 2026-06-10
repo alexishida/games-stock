@@ -170,6 +170,14 @@ export function getCoverStats(): CoverSyncStats {
 }
 
 /**
+ * Retorna o total de jogos-base apos agrupar variantes, igual ao contador "Todos" da biblioteca.
+ * Usado na aba Sobre para exibir um numero consistente com a TopBar.
+ */
+export function getLibraryGameCount(): number {
+  return gameDao().libraryGameCount();
+}
+
+/**
  * Lista todos os jogos sem capa associada (`box_art_path` nulo ou vazio).
  * Usado pelo job de sincronização de mídia para priorizar downloads.
  */

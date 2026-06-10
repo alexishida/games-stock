@@ -26,6 +26,7 @@ import { SettingsSection, useGameStockStore } from "../../store";
 import { PlayHistorySettings } from "../PlayHistorySettings/PlayHistorySettings";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
+import { SectionIntro } from "../SectionIntro/SectionIntro";
 import type { UpdaterAppInfo, UpdaterStatus } from "../../../shared/updater";
 import "./SettingsModal.css";
 
@@ -427,7 +428,7 @@ export function SettingsModal() {
         </nav>
 
         {/* Área de conteúdo da seção ativa */}
-        <div className="settings-content">
+        <div className={`settings-content ${section === "sobre" ? "settings-content-about" : ""}`}>
           {/* Header com eyebrow, título da seção e botão de fechar */}
           <header className="settings-header">
             <div>
@@ -476,21 +477,28 @@ export function SettingsModal() {
             {/* Seção: Sobre — informações do app, créditos e pasta de dados */}
             {section === "sobre" && (
               <div className="about-page">
-                {/* Logo do app */}
-                <img src={logoSrc} alt="GameStock" className="about-app-logo" />
-                {/* Badge de versão exibido apenas quando carregado */}
-                {appVersion && (
-                  <span className="about-version-badge">v{appVersion}</span>
-                )}
-                <p className="about-description">
-                  Organizador de biblioteca para jogos com cadastro manual,
-                  importação de ROMs, gerenciamento de mídia e integração com emuladores.
-                </p>
-                <p className="about-cache-note">
-                  O launch de arquivos `.zip` e `.7z` reaproveita extrações temporárias no cache. Limpar esse cache
-                  remove só arquivos temporários, sem apagar suas ROMs originais.
-                </p>
-                <div className="about-divider" />
+                {/* Cabecalho textual padrao da secao, mantido curto para nao aumentar a altura. */}
+                <SectionIntro
+                  title="Sobre o GameStock"
+                  description="Versão instalada, dados locais e manutenção rápida do aplicativo."
+                />
+
+                {/* Card hero: logo, versão e descrição juntos num único card para evitar
+                    colunas de grid com alturas desencontradas. */}
+                <div className="about-hero">
+                  <div className="about-hero-brand">
+                    {/* Logo do app */}
+                    <img src={logoSrc} alt="GameStock" className="about-app-logo" />
+                    {/* Badge de versão exibido apenas quando carregado */}
+                    {appVersion && (
+                      <span className="about-version-badge">v{appVersion}</span>
+                    )}
+                  </div>
+                  <p className="about-description">
+                    Organizador de biblioteca para jogos com cadastro manual,
+                    importação de ROMs, gerenciamento de mídia e integração com emuladores.
+                  </p>
+                </div>
 
                 {/* Metadados: jogos, armazenamento e autoria */}
                 <div className="about-meta" aria-busy={storageStatsLoading}>
@@ -546,8 +554,14 @@ export function SettingsModal() {
                   </button>
                 </div>
 
+                {/* Nota explicativa do cache, exibida como texto discreto logo abaixo das ações. */}
+                <p className="about-cache-note">
+                  O launch de arquivos `.zip` e `.7z` reaproveita extrações temporárias no cache. Limpar esse cache
+                  remove só arquivos temporários, sem apagar suas ROMs originais.
+                </p>
+
                 {romCacheFeedback && (
-                  <p className={`about-cache-feedback about-cache-feedback-${romCacheFeedback.tone}`}>
+                  <p className={`about-cache-feedback about-cache-feedback-${romCacheFeedback.tone}`} role="status">
                     {romCacheFeedback.message}
                   </p>
                 )}

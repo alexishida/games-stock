@@ -1128,7 +1128,7 @@ function getStorageStats(): Promise<AppStorageStats> {
  */
 async function buildStorageStats(): Promise<AppStorageStats> {
   const dataDirPath = getUserDataDir();
-  const totalGames = games.getCoverStats().total;
+  const totalGames = games.getLibraryGameCount();
   const dataDirSizeMb = Math.round(await getDirSizeBytes(dataDirPath) / (1024 * 1024) * 10) / 10;
   return { totalGames, dataDirSizeMb, dataDirPath };
 }

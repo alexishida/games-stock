@@ -233,6 +233,17 @@ export class GameDao {
   }
 
   /**
+   * Conta jogos-base apos agrupar variantes, igual ao total exibido na biblioteca ("Todos").
+   * Usado na aba Sobre para o contador de "Jogos na biblioteca" bater com a contagem da TopBar.
+   */
+  libraryGameCount(): number {
+    return groupGamesForLibrary(this.database
+      .prepare(`${baseSelect()} ${buildOrder({ sortBy: "title" })}`)
+      .all()
+      .map((row) => mapGame(row as GameRow))).length;
+  }
+
+  /**
    * Lista jogos sem box art que possuem `launchbox_id` (candidatos à sincronização de capa).
    * Ordenados pelo título para facilitar revisão.
    */
