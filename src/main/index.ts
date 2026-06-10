@@ -35,6 +35,7 @@ import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { UPDATE_MANIFEST_URL } from "../shared/update-config";
 import { resolveConfiguredExecutable } from "./executableResolver";
+import { prepareRomPathForLaunch } from "./romLaunchExtraction";
 
 /** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
@@ -245,16 +246,20 @@ function registerIpc(): void {
     if (!emulator.executable?.trim()) throw new Error("Executável do emulador não configurado");
     const resolvedExecutable = resolveConfiguredExecutable(emulator.executable);
 
+    // ROM compactada (.zip/.7z) é extraída para a pasta temporária do GameStock
+    // e o emulador recebe o arquivo extraído; demais formatos passam direto.
+    const launchRomPath = await prepareRomPathForLaunch(game.rom_path);
+
     let args: string[];
     if (emulator.is_retroarch) {
       // RetroArch requer o core via flag -L antes do caminho da ROM
       const corePath = resolveRetroArchCorePath(pe.core_path, resolvedExecutable.resolvedPath, game.platform_name ?? "");
       if (!corePath) throw new Error("Core do RetroArch não configurado para esta plataforma");
-      args = ["-L", corePath, game.rom_path];
+      args = ["-L", corePath, launchRomPath];
     } else {
       // Emuladores genéricos: args configurados pelo usuário + caminho da ROM
       const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
-      args = [...parsedArgs, game.rom_path];
+      args = [...parsedArgs, launchRomPath];
     }
 
     await spawnDetachedProcess(resolvedExecutable.resolvedPath, args);

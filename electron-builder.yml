@@ -6,14 +6,25 @@ files:
   - dist/**
   - node_modules/**
   - package.json
+# Binário 7za precisa ficar fora do .asar para poder ser executado (extração de ROM .7z)
+asarUnpack:
+  - node_modules/7zip-bin/**
 win:
   icon: build/icon-win.png
+  files:
+    # Exclui binários 7za de outras plataformas do pacote Windows
+    - "!node_modules/7zip-bin/mac/**"
+    - "!node_modules/7zip-bin/linux/**"
   target:
     - nsis
     - portable
 linux:
   category: Game
   icon: build
+  files:
+    # Exclui binários 7za de outras plataformas do pacote Linux
+    - "!node_modules/7zip-bin/mac/**"
+    - "!node_modules/7zip-bin/win/**"
   target:
     - target: deb
       arch:

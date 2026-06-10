@@ -27,6 +27,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "7zip-bin": "^5.2.0",
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.4.1",
     "lucide-react": "^1.14.0",
