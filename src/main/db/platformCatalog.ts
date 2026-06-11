@@ -329,7 +329,13 @@ export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
  */
 export const LEGACY_PLATFORM_ALIASES: Array<[string, string]> = [
   ["Sega Genesis", "Sega Mega Drive"],
-  ["NES", "Nintendo Entertainment System"]
+  ["NES", "Nintendo NES"],
+  ["Nintendo Entertainment System", "Nintendo NES"],
+  ["PlayStation", "Sony PlayStation"],
+  ["Sony Playstation", "Sony PlayStation"],
+  ["PlayStation 2", "Sony PlayStation 2"],
+  ["Sony Playstation 2", "Sony PlayStation 2"],
+  ["Super Nintendo Entertainment System", "Super Nintendo"]
 ];
 
 /**

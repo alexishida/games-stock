@@ -522,8 +522,9 @@ function migratePlatformAliases(database: Database.Database): void {
       if (!old) continue;
       const canonical = database.prepare("SELECT id FROM platforms WHERE name = ?").get(canonicalName) as { id: number } | undefined;
       if (canonical) {
-        // Plataforma canônica já existe: migra jogos e apaga a entrada legada.
-        database.prepare("UPDATE games SET platform_id = ? WHERE platform_id = ?").run(canonical.id, old.id);
+        // Plataforma canônica já existe: consolida todos os vínculos na canônica
+        // para corrigir contagens e preservar dados configurados pelo usuário.
+        mergePlatformRecords(database, old.id, canonical.id);
         database.prepare("DELETE FROM platforms WHERE id = ?").run(old.id);
       } else {
         // Plataforma canônica não existe: apenas renomeia e marca como padrão.
@@ -532,6 +533,66 @@ function migratePlatformAliases(database: Database.Database): void {
     }
   });
   transaction();
+}
+
+/**
+ * Move todos os relacionamentos de uma plataforma legada para a canônica.
+ *
+ * Preserva jogos, itens de hardware, aliases, extensões e vínculos com emuladores
+ * antes da remoção da plataforma antiga, evitando perder configuração existente.
+ */
+function mergePlatformRecords(database: Database.Database, oldPlatformId: number, canonicalPlatformId: number): void {
+  // Jogos e itens físicos precisam apontar para a plataforma canônica para que
+  // contagens, filtros e telas de inventário passem a refletir o mesmo registro.
+  database.prepare("UPDATE games SET platform_id = ? WHERE platform_id = ?").run(canonicalPlatformId, oldPlatformId);
+  database.prepare("UPDATE hardware_items SET platform_id = ? WHERE platform_id = ?").run(canonicalPlatformId, oldPlatformId);
+
+  // Reaproveita aliases personalizados cadastrados pelo usuário sem sobrescrever
+  // aliases já existentes na plataforma canônica.
+  database.prepare(`
+    INSERT OR IGNORE INTO platform_launchbox_aliases (platform_id, alias)
+    SELECT ?, alias
+    FROM platform_launchbox_aliases
+    WHERE platform_id = ?
+  `).run(canonicalPlatformId, oldPlatformId);
+
+  // Mantém extensões extras importadas/manualmente configuradas na plataforma antiga.
+  database.prepare(`
+    INSERT OR IGNORE INTO platform_rom_extensions (platform_id, extension, kind, is_primary)
+    SELECT ?, extension, kind, is_primary
+    FROM platform_rom_extensions
+    WHERE platform_id = ?
+  `).run(canonicalPlatformId, oldPlatformId);
+
+  // Transfere vínculos de emulador sem duplicar pares já existentes.
+  // Se a plataforma canônica ainda não tiver emulador padrão, preserva o default antigo.
+  database.prepare(`
+    INSERT INTO platform_emulators (platform_id, emulator_id, is_default, core_path)
+    SELECT
+      ?,
+      emulator_id,
+      CASE
+        WHEN is_default = 1
+         AND NOT EXISTS (
+           SELECT 1
+           FROM platform_emulators target
+           WHERE target.platform_id = ?
+             AND target.is_default = 1
+         )
+        THEN 1
+        ELSE 0
+      END,
+      core_path
+    FROM platform_emulators
+    WHERE platform_id = ?
+    ON CONFLICT(platform_id, emulator_id) DO UPDATE SET
+      core_path = COALESCE(platform_emulators.core_path, excluded.core_path),
+      is_default = CASE
+        WHEN platform_emulators.is_default = 1 THEN 1
+        WHEN excluded.is_default = 1 THEN 1
+        ELSE platform_emulators.is_default
+      END
+  `).run(canonicalPlatformId, canonicalPlatformId, oldPlatformId);
 }
 
 /**
