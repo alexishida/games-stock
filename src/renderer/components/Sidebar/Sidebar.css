@@ -13,6 +13,23 @@
   box-shadow: var(--shadow-elevated);
 }
 
+.sidebar-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
 .brand-lockup {
   display: flex;
   flex-direction: column;
@@ -154,7 +171,8 @@
 .platform-tree {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tree-category,

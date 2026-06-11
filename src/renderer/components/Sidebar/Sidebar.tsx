@@ -117,111 +117,117 @@ export function Sidebar() {
 
       <div className="sidebar-separator" />
 
-      {/* Conteúdo contextual dependente do modo */}
-      {sidebarMode === "library"
-        ? (
-            <>
-              {/* Filtros de coleção */}
-              <nav className="sidebar-nav" aria-label="Filtros de coleção">
-                {COLLECTION_FILTERS.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    className={collectionFilter === item.value ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
-                    onClick={() => setCollectionFilter(item.value)}
-                  >
-                    {item.icon}
-                    {item.label}
-                    <span className="nav-item-count">{collectionCounts[item.countKey]}</span>
-                  </button>
-                ))}
-              </nav>
-              <div className="sidebar-separator" />
-              {/* Árvore de plataformas */}
-              <PlatformTree />
-            </>
-          )
-        : (
-            /* Filtros do inventário de hardware */
-            <div className="hw-sidebar-filters">
-              {/* Filtro por tipo */}
-              {itemTypes.length > 0 && (
-                <section>
-                  <div className="sidebar-label">Tipo</div>
-                  {/* Opcao "Todos" limpa apenas o filtro de tipo e preserva os demais filtros do inventario. */}
-                  <button
-                    type="button"
-                    className={inventoryFilters.itemTypeId === null ? "tree-item selected" : "tree-item"}
-                    onClick={() => setInventoryFilters({ itemTypeId: null })}
-                  >
-                    Todos
-                    <span className="nav-item-count">{totalItems}</span>
-                  </button>
-                  {itemTypes.map((t) => (
+      {/* Área central rolável: cresce até ocupar o espaço livre sem empurrar ações do rodapé. */}
+      <div className="sidebar-content">
+        {/* Conteúdo contextual dependente do modo */}
+        {sidebarMode === "library"
+          ? (
+              <>
+                {/* Filtros de coleção */}
+                <nav className="sidebar-nav" aria-label="Filtros de coleção">
+                  {COLLECTION_FILTERS.map((item) => (
                     <button
-                      key={t.id}
+                      key={item.value}
                       type="button"
-                      className={inventoryFilters.itemTypeId === t.id ? "tree-item selected" : "tree-item"}
-                      onClick={() => setInventoryFilters({ itemTypeId: inventoryFilters.itemTypeId === t.id ? null : t.id })}
+                      className={collectionFilter === item.value ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
+                      onClick={() => setCollectionFilter(item.value)}
                     >
-                      {t.name}
-                      <span className="nav-item-count">{t.count}</span>
+                      {item.icon}
+                      {item.label}
+                      <span className="nav-item-count">{collectionCounts[item.countKey]}</span>
                     </button>
                   ))}
-                </section>
-              )}
-
-              {/* Filtro por condição */}
-              {conservationStates.length > 0 && (
-                <section>
-                  <div className="sidebar-label">Condição</div>
-                  {/* Opção "Todas" mostra total geral */}
-                  <button
-                    type="button"
-                    className={inventoryFilters.conservationStateId === null ? "tree-item selected" : "tree-item"}
-                    onClick={() => setInventoryFilters({ conservationStateId: null })}
-                  >
-                    Todas
-                    <span className="nav-item-count">{totalItems}</span>
-                  </button>
-                  {conservationStates.map((s) => (
+                </nav>
+                <div className="sidebar-separator" />
+                {/* Árvore de plataformas */}
+                <PlatformTree />
+              </>
+            )
+          : (
+              /* Filtros do inventário de hardware */
+              <div className="hw-sidebar-filters">
+                {/* Filtro por tipo */}
+                {itemTypes.length > 0 && (
+                  <section>
+                    <div className="sidebar-label">Tipo</div>
+                    {/* Opcao "Todos" limpa apenas o filtro de tipo e preserva os demais filtros do inventario. */}
                     <button
-                      key={s.id}
                       type="button"
-                      className={inventoryFilters.conservationStateId === s.id ? "tree-item selected" : "tree-item"}
-                      onClick={() => setInventoryFilters({ conservationStateId: s.id })}
+                      className={inventoryFilters.itemTypeId === null ? "tree-item selected" : "tree-item"}
+                      onClick={() => setInventoryFilters({ itemTypeId: null })}
                     >
-                      {s.name}
-                      <span className="nav-item-count">{s.count}</span>
+                      Todos
+                      <span className="nav-item-count">{totalItems}</span>
                     </button>
-                  ))}
-                </section>
-              )}
+                    {itemTypes.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={inventoryFilters.itemTypeId === t.id ? "tree-item selected" : "tree-item"}
+                        onClick={() => setInventoryFilters({ itemTypeId: inventoryFilters.itemTypeId === t.id ? null : t.id })}
+                      >
+                        {t.name}
+                        <span className="nav-item-count">{t.count}</span>
+                      </button>
+                    ))}
+                  </section>
+                )}
 
-              {itemTypes.length === 0 && (
-                <p className="hw-sidebar-empty">Nenhum item no inventário ainda.</p>
-              )}
-            </div>
-          )
-      }
+                {/* Filtro por condição */}
+                {conservationStates.length > 0 && (
+                  <section>
+                    <div className="sidebar-label">Condição</div>
+                    {/* Opção "Todas" mostra total geral */}
+                    <button
+                      type="button"
+                      className={inventoryFilters.conservationStateId === null ? "tree-item selected" : "tree-item"}
+                      onClick={() => setInventoryFilters({ conservationStateId: null })}
+                    >
+                      Todas
+                      <span className="nav-item-count">{totalItems}</span>
+                    </button>
+                    {conservationStates.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className={inventoryFilters.conservationStateId === s.id ? "tree-item selected" : "tree-item"}
+                        onClick={() => setInventoryFilters({ conservationStateId: s.id })}
+                      >
+                        {s.name}
+                        <span className="nav-item-count">{s.count}</span>
+                      </button>
+                    ))}
+                  </section>
+                )}
 
-      {/* Botão "Novo item" — visível só no modo inventário, acima de Configurações */}
-      {sidebarMode === "inventory" && (
-        <button
-          type="button"
-          className="scan-button"
-          onClick={() => setInventoryCreateOpen(true)}
-        >
-          <Plus aria-hidden="true" size={18} />
-          Novo item
+                {itemTypes.length === 0 && (
+                  <p className="hw-sidebar-empty">Nenhum item no inventário ainda.</p>
+                )}
+              </div>
+            )
+        }
+      </div>
+
+      {/* Rodapé fixo da sidebar: ações nunca saem da área visível. */}
+      <div className="sidebar-actions">
+        {/* Botão "Novo item" — visível só no modo inventário, acima de Configurações */}
+        {sidebarMode === "inventory" && (
+          <button
+            type="button"
+            className="scan-button"
+            onClick={() => setInventoryCreateOpen(true)}
+          >
+            <Plus aria-hidden="true" size={18} />
+            Novo item
+          </button>
+        )}
+
+        {/* Botão de configurações — sempre visível em ambos os modos */}
+        <button type="button" className="scan-button" onClick={() => openSettings("biblioteca")}>
+          <Settings aria-hidden="true" size={18} />
+          Configurações
         </button>
-      )}
-
-      {/* Botão de configurações — sempre visível em ambos os modos */}
-      <button type="button" className="scan-button" onClick={() => openSettings("biblioteca")}>
-        <Settings aria-hidden="true" size={18} />
-        Configurações
-      </button>
+      </div>
     </aside>
   );
 }
