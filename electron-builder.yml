@@ -2,6 +2,11 @@ appId: com.gamestock.app
 productName: GameStock
 directories:
   output: release
+publish:
+  provider: github
+  owner: alexishida
+  repo: games-stock
+  releaseType: release
 files:
   - dist/**
   - node_modules/**
@@ -33,6 +38,11 @@ linux:
       arch:
         - x64
 nsis:
+  # Nome seguro coincide com caminho registrado em `latest.yml` para upload manual.
+  artifactName: "${productName}-${version}-Setup.${ext}"
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+portable:
+  # Distingue executavel portatil do instalador NSIS no mesmo diretorio release.
+  artifactName: "${productName}-${version}-Portable.${ext}"

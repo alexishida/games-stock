@@ -33,7 +33,6 @@ import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest, RomFolderScanResult } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
-import { UPDATE_MANIFEST_URL } from "../shared/update-config";
 import { resolveConfiguredExecutable } from "./executableResolver";
 import { clearExtractedRomCache, prepareRomPathForLaunch } from "./romLaunchExtraction";
 import { clearAppLogs, installConsoleLogCapture, listAppLogs, writeAppLog } from "./logger";
@@ -965,7 +964,7 @@ app.on("before-quit", () => {
 /**
  * Inicializa a aplicação com splash + updater quando configurado.
  *
- * Em ambiente local sem `UPDATE_MANIFEST_URL`, o boot segue direto para a
+ * Em desenvolvimento ou em plataforma sem updater NSIS, o boot segue direto para a
  * janela principal para não atrapalhar o fluxo de desenvolvimento.
  */
 async function bootstrapApplication(): Promise<void> {
@@ -975,7 +974,7 @@ async function bootstrapApplication(): Promise<void> {
   installTrustedIpcHandlerGuard();
   registerIpc();
 
-  if (!UPDATE_MANIFEST_URL || !supportsInPlaceAutoUpdate()) {
+  if (!supportsInPlaceAutoUpdate()) {
     await createWindow();
     return;
   }

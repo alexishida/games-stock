@@ -7,10 +7,14 @@
  */
 
 const { spawn } = require("node:child_process");
+const fs = require("node:fs");
 const path = require("node:path");
 
 /** Diretório raiz do repositório. */
 const rootDir = path.resolve(__dirname, "..");
+
+/** Diretorio descartavel que recebe somente artefatos da build atual. */
+const releaseDir = path.join(rootDir, "release");
 
 /** CLI do electron-builder instalada localmente no projeto. */
 const electronBuilderCliPath = require.resolve("electron-builder/out/cli/cli.js");
@@ -67,7 +71,12 @@ async function runNpmScript(scriptName) {
   await runCommand(npmCommand.command, [...npmCommand.args, "run", scriptName]);
 }
 
-/** Executa o electron-builder com os argumentos de plataforma. */
+/**
+ * Executa electron-builder com configuracao GitHub para tambem gerar `latest.yml`.
+ *
+ * Sem token de publicacao em ambiente local, electron-builder apenas escreve os
+ * artefatos em `release/`; upload continua responsabilidade do mantenedor.
+ */
 async function runElectronBuilder(builderArgs) {
   await runCommand(process.execPath, [electronBuilderCliPath, ...builderArgs]);
 }
@@ -76,27 +85,38 @@ async function runElectronBuilder(builderArgs) {
 function parseCliArgs(argv) {
   const wantsWindows = argv.includes("--win");
   const wantsLinux = argv.includes("--linux");
-  const packageS3 = argv.includes("--package-s3");
 
   if (!wantsWindows && !wantsLinux) {
     throw new Error("Informe --win ou --linux para escolher a plataforma de distribuição.");
   }
 
-  return { wantsWindows, wantsLinux, packageS3 };
+  return { wantsWindows, wantsLinux };
+}
+
+/**
+ * Remove artefatos anteriores para `latest.yml` nunca apontar para upload antigo.
+ *
+ * O alvo e validado contra raiz do projeto antes da remocao recursiva, pois
+ * `release/` e saida gerada e nao armazena arquivos-fonte do aplicativo.
+ */
+function cleanReleaseOutput() {
+  if (path.resolve(releaseDir) === rootDir) {
+    throw new Error("Diretorio de release invalido: nao pode ser raiz do projeto.");
+  }
+
+  fs.rmSync(releaseDir, { recursive: true, force: true });
 }
 
 /** Executa build completa para a plataforma solicitada. */
 async function main() {
   const options = parseCliArgs(process.argv.slice(2));
 
+  cleanReleaseOutput();
   await runNpmScript("build:renderer");
   await runNpmScript("build:main");
 
   if (options.wantsWindows) {
     await runElectronBuilder(["--win"]);
-    if (options.packageS3) {
-      await runNpmScript("package:s3-release");
-    }
   }
 
   if (options.wantsLinux) {

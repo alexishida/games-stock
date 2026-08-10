@@ -10,7 +10,7 @@ O sistema SHALL criar uma janela principal Electron com `minWidth = 1024`, `minH
 
 #### Scenario: Boot direto sem splash
 
-- **WHEN** o app inicia em desenvolvimento, sem `UPDATE_MANIFEST_URL`, ou em plataforma sem self-update in-place
+- **WHEN** o app inicia em desenvolvimento ou em plataforma sem self-update in-place
 - **THEN** a janela principal abre diretamente sem passar pela splash
 
 #### Scenario: Boot com splash antes da principal

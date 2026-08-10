@@ -14,19 +14,8 @@ export type UpdaterPhase =
   | "error"
   | "no-connection";
 
-/** Identificador de build aceito tanto localmente quanto no manifesto remoto. */
+/** Identificador de build aceito nas informacoes locais e remotas do updater. */
 export type UpdaterBuildNumber = number | string;
-
-/** Estrutura esperada do JSON de release publicado no servidor. */
-export interface UpdateManifest {
-  version: string;
-  buildNumber: UpdaterBuildNumber;
-  releaseDate: string;
-  downloadUrl: string;
-  /** SHA-256 hexadecimal do ZIP publicado; valida integridade antes de aplicar. */
-  sha256: string;
-  releaseNotes: string;
-}
 
 /** Payload enviado do main para o renderer da splash com estado do fluxo. */
 export interface UpdaterStatus {

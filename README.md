@@ -84,7 +84,7 @@ Compilar o processo main e o preload:
 npm run build:main
 ```
 
-Gerar instalador NSIS e build portatil do Windows em `release/`, e empacotar `release/s3/update.zip`, `release/s3/latest.zip` e `release/s3/meta-dados.json` para publicacao:
+Gerar instalador NSIS, build portatil e metadados padrao do `electron-builder` em `release/`:
 
 ```bash
 npm run dist:windows
@@ -135,33 +135,26 @@ git push origin v1.0.0
 O GameStock verifica atualizacoes automaticamente apenas em builds Windows empacotadas. O comportamento varia por ambiente:
 
 - **Desenvolvimento** (`npm run dev`): splash e updater sao pulados; janela principal abre direto.
-- **App empacotado no Windows** (`dist:windows`): usa o endpoint padrao `https://s3.alexishida.com/gamestock/meta-dados.json`.
+- **App empacotado no Windows** (`dist:windows`): consulta a ultima release publica de `alexishida/games-stock` pela API do GitHub.
 - **App empacotado no Linux** (`dist:linux`): nao faz self-update; a verificacao manual apenas informa que a atualizacao deve ser feita fora do app.
-- **CI/build customizado**: sobrescreva o endpoint injetando a variavel de build `UPDATE_MANIFEST_URL`.
 
 Alem do fluxo automatico na abertura, o usuario pode acionar **Buscar atualizacao** manualmente em Configuracoes a qualquer momento.
 
-### Formato do manifesto
+### Assets padrao da GitHub Release
 
-O endpoint remoto precisa responder HTTP `200` com um JSON neste formato:
+O `electron-updater` consulta a GitHub Release configurada no `app-update.yml` da build. Anexe todos os arquivos Windows gerados por `npm run dist:windows`; os obrigatorios para auto update NSIS sao:
 
-```json
-{
-  "versao": "1.0.0",
-  "build": "11e2fc4",
-  "data": "2026-05-21 23:46:58",
-  "path": "https://s3.alexishida.com/gamestock/update.zip",
-  "sha256": "hash-sha-256-hexadecimal-do-update.zip"
-}
 ```
-
-Aliases aceitos: `version` para `versao`, `releaseDate` para `data`, `downloadUrl` para `path`, `buildNumber` para `build`.
+GameStock-<versao>-Setup.exe
+GameStock-<versao>-Setup.exe.blockmap
+latest.yml
+```
 
 Regras usadas pelo updater:
 
-- `versao` e comparada com `app.getVersion()` usando semver simples (`x.y.z`); se a versao for igual mas o `build` for diferente, o update tambem e aplicado.
-- `path` deve apontar por HTTPS para um `.zip` contendo `resources/app.asar` ou uma pasta raiz `app/`.
-- `sha256` é obrigatório e deve ser hash SHA-256 hexadecimal do `update.zip`; app recusa pacote divergente.
+- `latest.yml` e gerado pelo `electron-builder` e aponta para instalador NSIS da mesma build.
+- Arquivo `.blockmap` deve acompanhar instalador para atualizacao diferencial e validacao SHA-512.
+- Nao renomeie nem gere manualmente `latest.yml`, instalador ou `.blockmap`.
 - Erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash em plataformas com self-update suportado.
 - Erro de servidor, JSON invalido ou download corrompido nao bloqueia o app: a splash fecha e o GameStock abre normalmente.
 - O fluxo `download -> staging -> relaunch` existe apenas no Windows empacotado.
@@ -173,10 +166,10 @@ Passo a passo recomendado:
 ### Publicacao Windows
 
 1. Atualize o campo `version` do `package.json`.
-2. Execute `npm run dist:windows` — gera instalador, portatil, `release/s3/update.zip`, `release/s3/latest.zip` e `release/s3/meta-dados.json`.
-3. Publique `release/s3/update.zip` na URL configurada no manifesto.
-4. Publique `release/s3/latest.zip` como pacote completo da build.
-5. Publique `release/s3/meta-dados.json` no endpoint do manifesto.
+2. Execute `npm run dist:windows`.
+3. Crie uma GitHub Release publica com tag `vX.Y.Z` no repositorio `alexishida/games-stock`.
+4. Envie todos arquivos Windows gerados em `release/`, sem renomear.
+5. Confirme que `latest.yml`, instalador NSIS e respectivo `.blockmap` pertencem a mesma build. O portatil e distribuicao manual.
 
 ### Publicacao Linux
 
@@ -189,16 +182,15 @@ Passo a passo recomendado:
 Fluxo em runtime no Windows:
 
 - splash abre antes da janela principal
-- app verifica o manifesto com timeout de 5s
-- se houver versao remota mais nova, baixa `update.zip` para pasta temporaria
-- ZIP e extraido para staging unico `_update_staging_<id>`
-- app relanca com `--apply-update <stagingPath>` e copia staging para `resources/app.asar` ou `resourcesPath/app`
-- boot seguinte repete a verificacao normalmente
+- app consulta metadados `latest.yml` da ultima GitHub Release
+- se houver versao remota mais nova, baixa instalador NSIS padrao
+- `electron-updater` valida download e executa instalador ao reiniciar
+- build portatil nao faz auto update; baixe novo executavel da release
 
 Fluxo em runtime no Linux:
 
 - app abre direto na janela principal
-- botao **Buscar atualizacao** consulta o manifesto remoto
+- botao **Buscar atualizacao** consulta metadados gerados pelo electron-builder
 - se houver release mais nova, a UI informa que a troca deve ser feita via `.deb`, `AppImage` ou gerenciador da distribuicao
 - nenhum ZIP e baixado, nenhum staging e aplicado, nenhum relaunch automatico acontece
 

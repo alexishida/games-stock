@@ -1,6 +1,6 @@
 {
   "name": "gamestock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Desktop game collection manager for ROM libraries and physical inventory.",
   "author": {
     "name": "Alex Ishida",
@@ -10,7 +10,6 @@
   "type": "commonjs",
   "scripts": {
     "sync:build-meta": "node scripts/write-build-meta.cjs",
-    "package:s3-release": "node scripts/package-s3-release.cjs",
     "predev": "npm run sync:build-meta",
     "dev": "concurrently -k --success first -n VITE,TSC,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"node scripts/dev-electron.cjs\"",
     "predev:windows": "npm run sync:build-meta",
@@ -21,7 +20,7 @@
     "build:main": "tsc -p tsconfig.main.json",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "test": "npm run typecheck",
-    "dist:windows": "node scripts/build-distribution.cjs --win --package-s3",
+    "dist:windows": "node scripts/build-distribution.cjs --win",
     "dist:linux": "node scripts/build-distribution.cjs --linux",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -29,6 +28,7 @@
     "7zip-bin": "^5.2.0",
     "adm-zip": "^0.6.0",
     "better-sqlite3": "^13.0.3",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^1.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
