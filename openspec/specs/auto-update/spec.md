@@ -1,105 +1,94 @@
 # auto-update Specification
 
 ## Purpose
-TBD - created by archiving change auto-updater. Update Purpose after archive.
+Orquestrar verificacao remota de release e self-update in-place apenas para builds Windows empacotadas, mantendo consulta manual e atualizacao externa nas demais plataformas.
+
 ## Requirements
-### Requirement: Verificação de versão via JSON remoto
+### Requirement: Verificacao remota por manifesto JSON
 
-O sistema SHALL buscar um arquivo JSON em uma URL configurada no build contendo os campos `version`, `buildNumber`, `releaseDate`, `downloadUrl` e `releaseNotes`. A verificação automática no startup SHALL ocorrer apenas em builds Windows empacotadas com suporte a update in-place. Em builds Linux empacotadas, o app SHALL pular download/aplicação automática e seguir para abertura normal da janela principal.
+O sistema SHALL consultar um manifesto remoto configurado em build por `UPDATE_MANIFEST_URL`, com timeout de 5 segundos. O parser SHALL aceitar tanto os campos atuais `version`, `buildNumber`, `releaseDate`, `downloadUrl` e `releaseNotes` quanto os aliases legados `versao`, `build`, `data` e `path`.
 
-#### Scenario: Versão remota mais nova disponível no Windows
+#### Scenario: Release remota mais nova
 
-- **WHEN** o app empacotado no Windows inicia e o campo `version` do JSON remoto é maior (semver) que `app.getVersion()` local
-- **THEN** o sistema inicia o download do pacote indicado em `downloadUrl`
+- **WHEN** o manifesto remoto traz versao semver maior que a local, ou mesma versao com build diferente
+- **THEN** o updater considera que existe release aplicavel
 
-#### Scenario: App já está na versão mais recente no Windows
+#### Scenario: Manifesto invalido
 
-- **WHEN** o app empacotado no Windows inicia e o campo `version` do JSON remoto é igual ou menor que a versão local
-- **THEN** o sistema não baixa nada e sinaliza à splash que o app está atualizado
+- **WHEN** o JSON remoto nao contem os campos obrigatorios aceitos
+- **THEN** o updater trata a verificacao como erro e nao inicia download
 
-#### Scenario: Build Linux empacotada
+#### Scenario: Sem conexao
 
-- **WHEN** o app empacotado no Linux inicia
-- **THEN** o sistema não baixa nem aplica update automaticamente e abre o app normalmente com a versão instalada
+- **WHEN** a consulta falha com erro de rede ou timeout
+- **THEN** o updater emite `phase: "no-connection"` com erro detalhado e registra log local
 
-#### Scenario: Servidor inacessível por falta de conexão
+### Requirement: Fluxo automatico restrito a Windows empacotado
 
-- **WHEN** a requisição ao JSON falha por erro de rede ou timeout (sem conectividade) durante uma verificação automática suportada
-- **THEN** o sistema registra o erro em log e emite evento `updater:status` com `{ phase: 'no-connection', error: <mensagem> }` para que a splash exiba o modal de erro com opção offline
+O sistema SHALL executar o fluxo automatico de check, download e staging apenas quando `app.isPackaged` for verdadeiro e a plataforma atual suportar self-update in-place.
 
-#### Scenario: Servidor inacessível por erro de resposta
+#### Scenario: Windows empacotado suportado
 
-- **WHEN** a requisição retorna status HTTP diferente de 200 durante uma verificação automática suportada
-- **THEN** o sistema registra o erro em log e emite `updater:status` com `{ phase: 'error' }`, sem abrir modal — a splash fecha automaticamente
+- **WHEN** o app inicia em build Windows empacotada
+- **THEN** o bootstrap pode abrir a splash e executar o fluxo automatico do updater
 
-#### Scenario: JSON inválido ou campos ausentes
+#### Scenario: Linux ou ambiente sem suporte
 
-- **WHEN** a resposta não contém os campos obrigatórios ou não é JSON válido durante uma verificação automática suportada
-- **THEN** o sistema trata como erro de verificação e abre o app normalmente
+- **WHEN** o app inicia fora desse contexto suportado
+- **THEN** o bootstrap pula o fluxo automatico e abre a janela principal normalmente
 
-### Requirement: Download do pacote de atualização
+### Requirement: Download validado do pacote
 
-O sistema SHALL baixar o arquivo `.zip` indicado em `downloadUrl` para um diretório temporário do sistema somente quando a plataforma atual suportar update in-place. O progresso do download (bytes recebidos / total) SHALL ser reportado à splash screen via IPC em intervalos regulares.
+O sistema SHALL baixar o ZIP remoto para um diretorio temporario local, anexando um `timestamp` na URL para evitar cache intermediario. O progresso SHALL ser emitido via `updater:status` e o arquivo baixado SHALL ser validado contra `Content-Length` quando esse cabecalho existir.
 
-#### Scenario: Download concluído com sucesso
+#### Scenario: Download concluido
 
-- **WHEN** um app Windows suportado baixa completamente o arquivo `.zip`
-- **THEN** o sistema verifica que o tamanho do arquivo corresponde ao `Content-Length` da resposta e prossegue para a extração
+- **WHEN** o arquivo remoto e baixado integralmente
+- **THEN** o updater avanca para a etapa de staging e emite progresso ate 100%
 
-#### Scenario: Download com falha ou arquivo corrompido
+#### Scenario: Download incompleto
 
-- **WHEN** o download é interrompido ou o tamanho final não bate com `Content-Length`
-- **THEN** o arquivo temporário é removido, o erro é logado, e o app abre normalmente sem aplicar update
+- **WHEN** o tamanho final diverge de `Content-Length` ou o fluxo falha no meio
+- **THEN** o ZIP temporario e removido e o updater retorna erro sem sobrescrever a instalacao atual
 
-#### Scenario: Progresso reportado
+### Requirement: Staging, relaunch e aplicacao antecipada
 
-- **WHEN** bytes são recebidos durante o download em uma plataforma suportada
-- **THEN** o main envia ao renderer da splash o evento `updater:status` com `{ phase: 'downloading', percent: <0-100> }`
+O sistema SHALL extrair o ZIP para um diretorio de staging unico `_update_staging_<suffix>` ao lado de `process.resourcesPath`, relancar o app com `--apply-update <stagingRoot>` e aplicar os arquivos antes de carregar o bundle principal na proxima inicializacao.
 
-### Requirement: Aplicação do update via staging e relaunch
+#### Scenario: Staging preparado
 
-O sistema SHALL extrair o `.zip` para um diretório de staging (`_update_staging`) ao lado de `process.resourcesPath` apenas em plataformas com update in-place suportado. Ao concluir a extração, o app SHALL relançar com a flag `--apply-update <stagingPath>`. No próximo boot, ao detectar essa flag, o processo main SHALL copiar os arquivos do staging sobre `resourcesPath/app` antes de inicializar normalmente.
+- **WHEN** a extracao do ZIP conclui com payload valido
+- **THEN** o app chama `app.relaunch()` com `--apply-update` e encerra a sessao atual
 
-#### Scenario: Staging criado e app relançado
+#### Scenario: Aplicacao no boot seguinte
 
-- **WHEN** a extração do ZIP conclui sem erro em uma build Windows suportada
-- **THEN** o sistema chama `app.relaunch({ args: ['--apply-update', stagingPath] })` seguido de `app.exit(0)`
+- **WHEN** o processo inicia com `--apply-update <stagingRoot>`
+- **THEN** o bootstrap copia `app/` ou `resources/app.asar` do staging para a instalacao real antes de carregar `index.ts`
 
-#### Scenario: Aplicação do update no relaunch
+#### Scenario: Falha ao aplicar staging
 
-- **WHEN** o app inicia com a flag `--apply-update <stagingPath>` em uma plataforma com update in-place suportado
-- **THEN** o processo main copia recursivamente os arquivos de `stagingPath` para `resourcesPath/app`, remove o diretório de staging e continua a inicialização normalmente (com splash de verificação)
+- **WHEN** a copia do staging falha
+- **THEN** o updater registra erro, limpa o staging e preserva a versao anterior instalada
 
-#### Scenario: Falha na cópia por permissão
+### Requirement: Timeout global do fluxo automatico
 
-- **WHEN** a cópia dos arquivos de staging falha por erro de permissão ou arquivo em uso
-- **THEN** o sistema remove o staging, loga o erro e abre o app com a versão anterior instalada
+O sistema SHALL limitar o fluxo da splash/update a 30 segundos no boot automatico.
 
-#### Scenario: Staging ausente no relaunch
+#### Scenario: Timeout atingido
 
-- **WHEN** o app inicia com `--apply-update` mas o diretório de staging não existe
-- **THEN** o sistema ignora a flag e inicializa normalmente
+- **WHEN** o fluxo nao conclui dentro de 30 segundos
+- **THEN** o updater aborta o trabalho em andamento, libera a abertura do app e nao bloqueia o boot
 
-### Requirement: Configuração da URL de update por build
+### Requirement: Verificacao manual na janela principal
 
-O sistema SHALL ler a URL do JSON de metadados de uma constante definida em tempo de build (`src/shared/update-config.ts`), substituível via `define` no `vite.config`. Nenhuma URL de servidor de update deverá estar hardcoded em múltiplos lugares.
+O sistema SHALL permitir que a tela Sobre dispare uma verificacao manual reutilizando o mesmo backend do updater.
 
-#### Scenario: URL configurada no build
+#### Scenario: Release nova em Linux
 
-- **WHEN** o app é empacotado com `UPDATE_MANIFEST_URL` definida
-- **THEN** todas as verificações de update usam essa URL sem necessidade de recompilar outros módulos
+- **WHEN** o usuario executa "Buscar atualizacao" em Linux ou outra plataforma sem self-update in-place
+- **THEN** o app consulta o manifesto e responde com `phase: "external-update"` sem baixar ZIP nem relancar
 
-#### Scenario: URL ausente (desenvolvimento local)
+#### Scenario: Release nova em Windows
 
-- **WHEN** `UPDATE_MANIFEST_URL` não está definida (ambiente de dev)
-- **THEN** o sistema pula a verificação de update e abre o app diretamente, sem exibir a splash
-
-### Requirement: Verificação manual em plataformas com update externo
-
-O sistema SHALL permitir que o usuário acione uma checagem manual de atualização em builds Linux para consultar os metadados remotos, mas SHALL apenas informar que a atualização precisa ser feita por pacote externo, sem baixar ZIP nem sobrescrever a instalação local.
-
-#### Scenario: Checagem manual em Linux
-
-- **WHEN** o usuário clica em "Buscar atualização" em uma build Linux
-- **THEN** o app consulta o manifesto remoto, informa que a atualização é gerenciada externamente e não inicia download nem relaunch
-
+- **WHEN** o usuario executa a verificacao manual em Windows suportado
+- **THEN** o app baixa o pacote, prepara staging e reinicia automaticamente ao concluir

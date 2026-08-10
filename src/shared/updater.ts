@@ -23,6 +23,8 @@ export interface UpdateManifest {
   buildNumber: UpdaterBuildNumber;
   releaseDate: string;
   downloadUrl: string;
+  /** SHA-256 hexadecimal do ZIP publicado; valida integridade antes de aplicar. */
+  sha256: string;
   releaseNotes: string;
 }
 

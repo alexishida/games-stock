@@ -51,6 +51,12 @@ const SCHEMA_VERSION = 1;
 /** Extensão canônica do arquivo de backup. */
 const BACKUP_EXTENSION = ".gamestock-backup";
 
+/** Limites de leitura para rejeitar backups ZIP malformados ou maliciosos cedo. */
+const MAX_BACKUP_ENTRIES = 50_000;
+const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
+const MAX_ZIP_ENTRY_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_BACKUP_UNCOMPRESSED_BYTES = 32 * 1024 * 1024 * 1024;
+
 /** Callback de progresso sem os campos `jobId` e `kind` (adicionados pelo caller). */
 type ProgressCallback = (progress: Omit<DataPortabilityProgress, "jobId" | "kind">) => void;
 
@@ -1153,11 +1159,18 @@ function readZipArchive(filePath: string): PortableZipArchive {
   if (!stats.isFile()) throw new Error("Pacote invalido");
 
   const endRecord = readEndOfCentralDirectory(filePath, stats.size);
+  if (endRecord.entryCount > MAX_BACKUP_ENTRIES || endRecord.centralDirectorySize > MAX_CENTRAL_DIRECTORY_BYTES) {
+    throw new Error("Pacote ZIP excede limites seguros de leitura");
+  }
   const centralDirectory = readFileSlice(filePath, endRecord.centralDirectoryOffset, endRecord.centralDirectorySize);
   const entries: FileBackedZipEntry[] = [];
   let cursor = 0;
+  let totalUncompressedBytes = 0;
 
   for (let index = 0; index < endRecord.entryCount; index += 1) {
+    if (cursor + CENTRAL_DIRECTORY_FIXED_SIZE > centralDirectory.length) {
+      throw new Error("Diretório central ZIP truncado");
+    }
     if (centralDirectory.readUInt32LE(cursor) !== CENTRAL_DIRECTORY_HEADER_SIGNATURE) {
       throw new Error("Diretorio central ZIP invalido");
     }
@@ -1181,6 +1194,21 @@ function readZipArchive(filePath: string): PortableZipArchive {
     // Aplica valores ZIP64 do campo extra se os campos de 32 bits estiverem saturados
     ({ size, compressedSize, localHeaderOffset } = readZip64Extra(extra, { size, compressedSize, localHeaderOffset }));
 
+    if (
+      !Number.isSafeInteger(size)
+      || !Number.isSafeInteger(compressedSize)
+      || size < 0
+      || compressedSize < 0
+      || size > MAX_ZIP_ENTRY_BYTES
+      || compressedSize > MAX_ZIP_ENTRY_BYTES
+    ) {
+      throw new Error("Entrada ZIP excede limite seguro");
+    }
+    totalUncompressedBytes += size;
+    if (totalUncompressedBytes > MAX_BACKUP_UNCOMPRESSED_BYTES) {
+      throw new Error("Pacote ZIP excede tamanho total seguro");
+    }
+
     const entryName = nameBuffer.toString((flags & UTF8_FLAG) === UTF8_FLAG ? "utf8" : "utf8");
     entries.push(new FileBackedZipEntry(filePath, {
       entryName,
@@ -1193,6 +1221,7 @@ function readZipArchive(filePath: string): PortableZipArchive {
     }));
 
     cursor = commentStart + commentLength;
+    if (cursor > centralDirectory.length) throw new Error("Diretório central ZIP inválido");
   }
 
   return new FileBackedZipArchive(entries);

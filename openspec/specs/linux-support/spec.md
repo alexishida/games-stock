@@ -1,33 +1,41 @@
 # linux-support Specification
 
 ## Purpose
-TBD - created by archiving change add-linux-support. Update Purpose after archive.
+Definir o suporte oficial do GameStock em Linux, incluindo build distribuivel, execucao desktop e limitacoes conhecidas de atualizacao.
+
 ## Requirements
-### Requirement: Artefatos oficiais de distribuição Linux
+### Requirement: Artefatos oficiais Linux
 
-O sistema SHALL gerar artefatos Linux `x86_64` em `release/` nos formatos `.deb` e `AppImage`, usando a mesma versão do aplicativo definida em `package.json`.
+O sistema SHALL gerar artefatos Linux `x64` em `release/` nos formatos `.deb` e `AppImage`.
 
-#### Scenario: Build Linux concluída
+#### Scenario: Build Linux concluida
 
-- **WHEN** o mantenedor executa o pipeline de distribuição Linux
-- **THEN** o diretório `release/` contém um pacote `.deb` para distribuições Debian/Ubuntu-based e um `AppImage` para desktop Linux genérico, ambos com a mesma versão do app
+- **WHEN** o pipeline de distribuicao Linux e executado
+- **THEN** `release/` contem pelo menos um `.deb` e um `AppImage` da mesma versao do app
 
-#### Scenario: Instalação em distro Ubuntu-based
+### Requirement: Execucao funcional em Linux
 
-- **WHEN** o usuário instala o pacote `.deb` em uma distribuição Ubuntu-based suportada
-- **THEN** o GameStock inicia sem depender de variáveis de ambiente, comandos ou artefatos exclusivos de Windows
+O app SHALL inicializar em Linux sem depender de componentes exclusivos de Windows para a operacao normal.
 
-### Requirement: Documentação operacional Linux
+#### Scenario: Rodar build Linux
 
-O sistema SHALL documentar no README os pré-requisitos, comandos de desenvolvimento/build, formatos distribuídos e limitações de atualização para Linux.
+- **WHEN** o usuario abre o build Linux instalado
+- **THEN** a janela principal funciona normalmente, mesmo sem suporte a self-update in-place
 
-#### Scenario: Consulta de instalação Linux
+### Requirement: Atualizacao externa em Linux
 
-- **WHEN** o usuário abre a seção de instalação do README
-- **THEN** encontra instruções para executar o app em Linux, incluindo formatos disponíveis, dependências esperadas e orientação para atualizar builds Linux fora do app
+Builds Linux SHALL usar atualizacao externa ao app.
 
-#### Scenario: Consulta de desenvolvimento Linux
+#### Scenario: Buscar atualizacao manual
 
-- **WHEN** um colaborador abre a seção de desenvolvimento do README
-- **THEN** encontra comandos compatíveis com Linux para instalar dependências, iniciar ambiente de desenvolvimento e gerar build local
+- **WHEN** o usuario consulta updates pela tela Sobre
+- **THEN** o app informa a release disponivel, mas nao baixa nem aplica pacote automaticamente
 
+### Requirement: Documentacao operacional
+
+O README SHALL documentar instalacao, build, limitacoes de update e o workaround opcional de GPU para Linux.
+
+#### Scenario: Consulta de Linux no README
+
+- **WHEN** um usuario ou colaborador abre a documentacao
+- **THEN** encontra os formatos distribuidos, comandos relevantes e a orientacao sobre `GAMESTOCK_DISABLE_GPU` quando necessario

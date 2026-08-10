@@ -16,6 +16,11 @@ type UpdateExtractWorkerData = {
   stagingRoot: string;
 };
 
+/** Update contém poucos arquivos; limites evitam exaustão por pacote corrompido. */
+const MAX_ARCHIVE_ENTRIES = 10_000;
+const MAX_ENTRY_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024;
+
 /** Executa a extração e responde ao processo principal com sucesso/erro. */
 function main(): void {
   const { zipPath, stagingRoot } = workerData as UpdateExtractWorkerData;
@@ -60,14 +65,24 @@ function withAsarFilesystemDisabled<T>(operation: () => T): T {
 function extractArchiveToDirectory(zipPath: string, stagingRoot: string): void {
   const archive = new AdmZip(zipPath);
   const resolvedStagingRoot = path.resolve(stagingRoot);
+  const entries = archive.getEntries();
+  if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("Update contém entradas demais.");
+  let totalBytes = 0;
 
-  for (const entry of archive.getEntries()) {
+  for (const entry of entries) {
     const targetPath = resolveEntryTarget(resolvedStagingRoot, entry.entryName);
 
     if (entry.isDirectory) {
       fs.mkdirSync(targetPath, { recursive: true });
       continue;
     }
+
+    const declaredSize = Number(entry.header.size);
+    if (!Number.isSafeInteger(declaredSize) || declaredSize < 0 || declaredSize > MAX_ENTRY_BYTES) {
+      throw new Error(`Entrada de update excede limite seguro: ${entry.entryName}`);
+    }
+    totalBytes += declaredSize;
+    if (totalBytes > MAX_TOTAL_BYTES) throw new Error("Update excede limite total de extração segura.");
 
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     writeEntryFile(targetPath, entry.getData());

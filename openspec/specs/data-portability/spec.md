@@ -4,121 +4,132 @@
 Exportar e importar dados do GameStock em pacote local versionado, com selecao por categorias e restauracao segura no ambiente atual.
 
 ## Requirements
-### Requirement: Exportacao seletiva de pacote
-O sistema SHALL permitir exportar um pacote local versionado com selecao independente das categorias `metadata`, `images`, `platforms` e `romLocations`.
+### Requirement: Exportacao seletiva por categoria
 
-#### Scenario: Exportar categorias selecionadas
-- **WHEN** o usuario inicia exportacao com `metadata`, `images` e `romLocations` selecionados
-- **THEN** o pacote gerado contem apenas metadados de jogos, arquivos/mapas de imagem e localizacoes de ROMs
+O sistema SHALL permitir exportar as categorias `metadata`, `images`, `platforms`, `romLocations` e `inventoryImages` de forma independente.
 
-#### Scenario: Bloquear exportacao sem categorias
-- **WHEN** o usuario tenta exportar sem nenhuma categoria selecionada
-- **THEN** o sistema bloqueia a acao e informa que ao menos uma categoria deve ser selecionada
+#### Scenario: Exportar subconjunto de categorias
 
-### Requirement: Formato de pacote versionado
-O sistema SHALL gerar pacote `.gamestock-backup` contendo `manifest.json`, arquivos JSON em `data/` e arquivos de midia em `media/` quando a categoria `images` estiver selecionada.
+- **WHEN** o usuario inicia exportacao com apenas algumas categorias marcadas
+- **THEN** o pacote gerado contem somente os dados correspondentes
 
-#### Scenario: Manifesto de exportacao
-- **WHEN** uma exportacao e concluida
-- **THEN** `manifest.json` inclui `schemaVersion`, `appVersion`, `createdAt`, categorias incluidas e contagens de itens exportados
+#### Scenario: Bloquear exportacao vazia
 
-#### Scenario: Pacote sem imagens
-- **WHEN** a categoria `images` nao esta selecionada
-- **THEN** o pacote nao contem arquivos em `media/` e nao copia imagens da pasta de dados do app
+- **WHEN** nenhuma categoria e selecionada
+- **THEN** a UI impede a exportacao e informa que ao menos uma categoria deve ser marcada
 
-### Requirement: Metadados de jogos
-O sistema SHALL exportar e importar metadados de jogos incluindo titulo, plataforma, publisher, ano, genero, rating, favorito, status de jogo, notas e `launchbox_id`, sem incluir caminhos de imagem ou `rom_path` nessa categoria.
+### Requirement: Formato do pacote versionado
 
-#### Scenario: Exportar metadados sem caminhos
-- **WHEN** o usuario exporta apenas `metadata`
-- **THEN** os registros de jogos no pacote nao contem `box_art_path`, `background_path`, `screenshot_path` ou `rom_path`
+O sistema SHALL gerar um arquivo `.gamestock-backup` com `manifest.json`, payloads estruturados em `data/`, arquivos de biblioteca em `media/` e arquivos do inventario em `inventory-media/` quando aplicavel.
 
-#### Scenario: Importar metadados de jogos
-- **WHEN** o usuario importa `metadata`
-- **THEN** o sistema cria ou atualiza jogos usando `launchbox_id + platformName` como chave primaria de correspondencia e `title + platformName` como fallback
+#### Scenario: Manifesto preenchido
 
-### Requirement: Imagens da biblioteca
-O sistema SHALL exportar toda a pasta `%APPDATA%/gamestock/images` preservando hierarquia e nomes originais e, ao importar, restaurar essa mesma arvore na pasta de dados atual antes de atualizar os caminhos dos jogos referenciados.
+- **WHEN** a exportacao conclui
+- **THEN** o manifesto registra `schemaVersion`, `appVersion`, `createdAt`, categorias incluidas e contagens por entidade
 
-#### Scenario: Exportar arvore completa de imagens
-- **WHEN** a categoria `images` esta selecionada e existem arquivos em `%APPDATA%/gamestock/images`
-- **THEN** o pacote inclui copias desses arquivos em `media/` preservando hierarquia e nomes originais, alem de um mapa das imagens referenciadas pelos jogos
+### Requirement: Categoria metadata
 
-#### Scenario: Imagem referenciada ausente durante exportacao
-- **WHEN** um jogo referencia uma imagem que nao existe no disco
-- **THEN** a exportacao continua, ainda copia os demais arquivos existentes da pasta `images` e o resumo lista a imagem ausente como aviso
+A categoria `metadata` SHALL transportar apenas metadados de jogos, incluindo `launchbox_id`, favorito, status, notas e `launch_count`, sem copiar arquivos de imagem nem `rom_path`.
 
-#### Scenario: Importar imagens
+#### Scenario: Exportar apenas metadata
+
+- **WHEN** o usuario exporta somente `metadata`
+- **THEN** os jogos no pacote nao incluem `box_art_path`, `background_path`, `screenshot_path` nem `rom_path`
+
+#### Scenario: Importar metadata
+
+- **WHEN** a categoria `metadata` e importada
+- **THEN** os jogos sao criados ou atualizados por `launchbox_id + platformName`, com fallback em `title + platformName`
+
+### Requirement: Categoria images
+
+A categoria `images` SHALL copiar a arvore `images/` do app preservando hierarquia, nomes e referencias dos jogos.
+
+#### Scenario: Imagem referenciada ausente
+
+- **WHEN** um jogo aponta para imagem inexistente no disco durante a exportacao
+- **THEN** o pacote segue com os demais arquivos e adiciona aviso no resumo
+
+#### Scenario: Importar imagens da biblioteca
+
 - **WHEN** o usuario importa `images`
-- **THEN** o sistema restaura os arquivos de midia em `%APPDATA%/gamestock/images` preservando hierarquia e nomes originais e atualiza os campos de imagem dos jogos correspondentes
+- **THEN** os arquivos sao restaurados no diretorio local de imagens e os caminhos dos jogos correspondentes sao atualizados
 
-### Requirement: Informacoes de plataformas
-O sistema SHALL exportar e importar plataformas, aliases LaunchBox, extensoes de ROM, emuladores e vinculos entre plataformas e emuladores quando a categoria `platforms` estiver selecionada.
+### Requirement: Categoria platforms
 
-#### Scenario: Exportar plataformas completas
-- **WHEN** o usuario exporta `platforms`
-- **THEN** o pacote inclui plataformas, aliases, extensoes, emuladores e associacoes de emulador padrao por plataforma
+A categoria `platforms` SHALL incluir plataformas, aliases LaunchBox, extensoes de ROM, emuladores e vinculos plataforma-emulador, incluindo `core_path` quando configurado.
 
-#### Scenario: Importar plataformas por nome
+#### Scenario: Importar plataformas e emuladores
+
 - **WHEN** o usuario importa `platforms`
-- **THEN** o sistema cria plataformas ausentes e atualiza plataformas existentes usando o nome como chave case-insensitive
+- **THEN** plataformas ausentes sao criadas por nome case-insensitive e os mapeamentos/emuladores sao reconciliados no banco local
 
-### Requirement: Localizacoes de ROMs
-O sistema SHALL exportar e importar `rom_path` dos jogos e entradas configuradas do importador de pastas de ROMs quando a categoria `romLocations` estiver selecionada.
+### Requirement: Categoria romLocations
+
+A categoria `romLocations` SHALL incluir `rom_path` dos jogos e as entradas persistidas do importador de pastas, incluindo `includeSubfolders`.
 
 #### Scenario: Exportar localizacoes sem copiar ROMs
+
 - **WHEN** o usuario exporta `romLocations`
-- **THEN** o pacote contem caminhos de ROM e entradas de pastas configuradas, incluindo a preferencia `includeSubfolders`, mas nao contem arquivos ROM
+- **THEN** o pacote salva somente caminhos e configuracoes de pastas, sem embutir os arquivos ROM
 
-#### Scenario: Importar localizacoes de ROMs
+#### Scenario: Importar localizacoes
+
 - **WHEN** o usuario importa `romLocations`
-- **THEN** o sistema restaura `rom_path` nos jogos correspondentes e retorna as entradas de pastas para o renderer gravar no estado persistido do app
+- **THEN** os `rom_path` sao restaurados nos jogos correspondentes e as entradas de pastas retornam ao renderer para persistencia de estado
 
-#### Scenario: Preservar busca em subpastas na portabilidade
-- **WHEN** uma entrada exportada do importador de pastas tem `includeSubfolders = true`
-- **THEN** essa preferencia e preservada no pacote e reaplicada ao importar
+### Requirement: Categoria inventoryImages
 
-#### Scenario: Caminhos inexistentes no computador atual
-- **WHEN** uma localizacao importada aponta para caminho inexistente no disco atual
-- **THEN** o sistema preserva o caminho e mostra aviso no preview ou resumo de importacao
+A categoria `inventoryImages` SHALL cobrir os metadados do inventario de hardware e as fotos fisicas armazenadas em `inventario/images/`.
+
+#### Scenario: Exportar inventario
+
+- **WHEN** o usuario seleciona `inventoryImages`
+- **THEN** o pacote inclui itens, tipos, estados, fotos cadastradas e arquivos em `inventory-media/`
+
+#### Scenario: Importar inventario
+
+- **WHEN** o usuario importa `inventoryImages`
+- **THEN** os itens sao reconciliados por chave estavel baseada em nome e plataforma, e as fotos sao regravadas no diretorio local do inventario
 
 ### Requirement: Preview e validacao de importacao
-O sistema SHALL validar o pacote e exibir preview com categorias disponiveis, contagens, avisos e conflitos antes de permitir aplicar a importacao.
 
-#### Scenario: Previsualizar pacote valido
+O sistema SHALL validar o pacote antes de importar e retornar preview com categorias disponiveis, contagens, avisos, erros e conflitos esperados.
+
+#### Scenario: Pacote valido
+
 - **WHEN** o usuario seleciona um pacote compativel
-- **THEN** o sistema retorna categorias disponiveis, contagens de jogos/plataformas/imagens/localizacoes e avisos encontrados
+- **THEN** a API retorna preview detalhado antes da confirmacao final
 
-#### Scenario: Recusar pacote incompativel
-- **WHEN** o pacote nao tem `manifest.json` valido ou usa `schemaVersion` nao suportado
-- **THEN** o sistema bloqueia a importacao e mostra erro claro sem alterar dados locais
+#### Scenario: Pacote invalido
 
-### Requirement: Importacao transacional
-O sistema SHALL aplicar escritas no SQLite dentro de uma transacao e retornar resumo com criados, atualizados, ignorados, avisos e falhas.
+- **WHEN** o pacote nao tem manifesto valido ou usa `schemaVersion` nao suportado
+- **THEN** a importacao e bloqueada sem alterar dados locais
+
+### Requirement: Importacao transacional e segura
+
+O sistema SHALL aplicar as escritas do SQLite em transacao e tambem limpar arquivos copiados durante a importacao caso ocorra falha no meio do processo.
 
 #### Scenario: Importacao bem-sucedida
+
 - **WHEN** o usuario confirma uma importacao valida
-- **THEN** o sistema aplica as categorias selecionadas e retorna resumo de itens criados, atualizados e ignorados
+- **THEN** o sistema retorna resumo com criados, atualizados, ignorados e avisos
 
 #### Scenario: Falha durante importacao
-- **WHEN** ocorre erro ao gravar dados no SQLite
-- **THEN** a transacao e revertida e a biblioteca local permanece no estado anterior
+
+- **WHEN** ocorre erro ao gravar dados ou restaurar arquivos
+- **THEN** a transacao e revertida, os arquivos copiados nesta tentativa sao limpos e a base local permanece consistente
 
 ### Requirement: Jobs em background com progresso
-O sistema SHALL executar exportacao e importacao em worker thread do processo main, emitindo progresso e conclusao por IPC para o renderer. O renderer SHALL persistir o estado do job apenas em transicoes terminais (inicio com `status: "running"`, conclusao, falha e dismiss) — eventos de progresso intermediarios NAO devem gerar escrita no SQLite.
 
-#### Scenario: Exportacao em background
-- **WHEN** o usuario inicia uma exportacao valida
-- **THEN** o sistema retorna um job de exportacao imediatamente, executa o pacote em worker thread e emite eventos `dataPortability:progress` ate a conclusao
+O sistema SHALL executar exportacao e importacao em background, emitindo eventos de progresso e conclusao por IPC para o renderer.
 
-#### Scenario: Importacao em background
-- **WHEN** o usuario confirma uma importacao valida
-- **THEN** o sistema retorna um job de importacao imediatamente, executa a restauracao em worker thread e emite eventos `dataPortability:progress` e `dataPortability:completed`
+#### Scenario: Job de portabilidade em andamento
 
-#### Scenario: Notificacao de portabilidade
-- **WHEN** um job de exportacao ou importacao esta rodando
-- **THEN** o NotificationCenter exibe card com barra de progresso, etapa atual e status final do job
+- **WHEN** uma exportacao ou importacao esta rodando
+- **THEN** o NotificationCenter exibe card com etapa atual, barra de progresso e status final
 
-#### Scenario: Deteccao de job interrompido
-- **WHEN** o app e iniciado e existe um job com `status: "running"` no estado persistido
-- **THEN** o sistema converte o status para `"interrupted"` sem necessidade de ticks intermediarios terem sido persistidos
+#### Scenario: Job interrompido entre sessoes
+
+- **WHEN** o app reinicia e encontra job persistido com `status: "running"`
+- **THEN** esse job e reclassificado como `interrupted`

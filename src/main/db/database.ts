@@ -49,26 +49,47 @@ export function getDatabase(): Database.Database {
   fs.mkdirSync(dataDir, { recursive: true });
   fs.mkdirSync(getImagesDir(), { recursive: true });
 
-  db = new Database(path.join(dataDir, "gamestock.db"));
+  const database = new Database(path.join(dataDir, "gamestock.db"));
+  db = database;
   // Ativa integridade referencial (foreign keys) — desabilitada por padrão no SQLite.
-  db.pragma("foreign_keys = ON");
+  database.pragma("foreign_keys = ON");
 
   // Garante que o diretório de fotos do inventário existe.
   fs.mkdirSync(getInventarioImagesDir(), { recursive: true });
 
   // Sequência de inicialização: schema → migrations → deduplicação → seed.
-  applySchema(db);
-  migratePlatformAliases(db);
-  dedupeGamesByLaunchBoxId(db);
-  ensureGamesLaunchBoxUniqueIndex(db);
-  migrateLegacyHardwareConservationStates(db);
-  seedPlatforms(db);
-  seedPlatformMappings(db);
-  seedEmulators(db);
-  seedHardwareInventoryDefaults(db);
-  backfillRomVariantTitles(db);
-  backfillCachedCoverPaths(db);
-  return db;
+  applySchema(database);
+  runOnceMigration(database, "platform-aliases-v1", () => migratePlatformAliases(database));
+  runOnceMigration(database, "dedupe-launchbox-games-v1", () => dedupeGamesByLaunchBoxId(database));
+  ensureGamesLaunchBoxUniqueIndex(database);
+  runOnceMigration(database, "hardware-conservation-states-v1", () => migrateLegacyHardwareConservationStates(database));
+  seedPlatforms(database);
+  seedPlatformMappings(database);
+  seedEmulators(database);
+  seedHardwareInventoryDefaults(database);
+  runOnceMigration(database, "rom-variant-titles-v1", () => backfillRomVariantTitles(database));
+  runOnceMigration(database, "cached-cover-paths-v1", () => backfillCachedCoverPaths(database));
+  return database;
+}
+
+/**
+ * Executa migration de dados uma única vez e registra sucesso na mesma transação.
+ * Evita varrer biblioteca inteira a cada boot sem perder compatibilidade de banco antigo.
+ */
+function runOnceMigration(database: Database.Database, name: string, migration: () => void): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      name TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  const alreadyApplied = database.prepare("SELECT 1 FROM schema_migrations WHERE name = ?").get(name);
+  if (alreadyApplied) return;
+
+  database.transaction(() => {
+    migration();
+    database.prepare("INSERT INTO schema_migrations (name) VALUES (?)").run(name);
+  })();
 }
 
 /**
@@ -109,6 +130,7 @@ function applySchema(database: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
     CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform_id);
+    CREATE INDEX IF NOT EXISTS idx_games_platform_title ON games(platform_id, title COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_games_launchbox ON games(launchbox_id);
 
     -- Tabela de aliases LaunchBox por plataforma, usada na importação de metadados.

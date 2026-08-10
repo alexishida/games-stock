@@ -8,7 +8,7 @@
 
 import type Database from "better-sqlite3";
 import path from "node:path";
-import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameSortBy, GameUpdateInput, GameVersionOption } from "../../../shared/types";
+import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption } from "../../../shared/types";
 
 /** Linha bruta do SQLite: `favorite` chega como 0|1 em vez de boolean. */
 type GameRow = Omit<Game, "favorite"> & { favorite: 0 | 1 };
@@ -520,8 +520,8 @@ export class GameDao {
     // reflita exatamente o agrupamento visto pelo usuario.
     const currentBaseTitle = buildVersionGroupKey(current);
     const candidates = this.database
-      .prepare(`${baseSelect()} WHERE games.platform_id = ? AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''`)
-      .all(current.platform_id)
+      .prepare(`${baseSelect()} WHERE games.platform_id = ? AND LOWER(games.title) = LOWER(?) AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''`)
+      .all(current.platform_id, current.title)
       .map((row) => mapGame(row as GameRow));
 
     const matches = candidates

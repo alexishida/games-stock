@@ -40,9 +40,16 @@ export async function createSplashWindow(): Promise<SplashWindow> {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, "../preload/index.js")
     }
+  });
+
+  // Splash só carrega bundle local; bloqueia pop-ups e navegação para conteúdo externo.
+  splashWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  splashWindow.webContents.on("will-navigate", (event, targetUrl) => {
+    if (targetUrl !== splashWindow.webContents.getURL()) event.preventDefault();
   });
 
   // Espera o renderer estar pronto para evitar flash de tela branca.

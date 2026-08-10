@@ -9,6 +9,7 @@
  *  - Biblioteca: pastas de ROMs (RomFolderImporter)
  *  - Mídia: download de capas (CoversSettings)
  *  - Backup: portabilidade de dados (DataPortabilitySettings)
+ *  - Logs: histórico local de eventos e erros (LogsSettings)
  *  - Sobre: informações do app e acesso à pasta de dados
  *
  * O modal é arrastável via hook useDraggableDialog.
@@ -16,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { DatabaseBackup, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, RotateCcw, Settings, Trash2, X } from "lucide-react";
+import { DatabaseBackup, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, RotateCcw, ScrollText, Settings, Trash2, X } from "lucide-react";
 import logoSrc from "../../assets/logo-about.png";
 import { CoversSettings } from "../CoversSettings/CoversSettings";
 import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
@@ -26,6 +27,7 @@ import { SettingsSection, useGameStockStore } from "../../store";
 import { PlayHistorySettings } from "../PlayHistorySettings/PlayHistorySettings";
 import { PlatformManager } from "../PlatformManager/PlatformManager";
 import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
+import { LogsSettings } from "../LogsSettings/LogsSettings";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import type { UpdaterAppInfo, UpdaterStatus } from "../../../shared/updater";
 import "./SettingsModal.css";
@@ -42,6 +44,7 @@ const NAV_ITEMS: Array<{ id: SettingsSection; label: string; Icon: typeof Folder
   { id: "covers", label: "Mídia da biblioteca", Icon: Images, group: "library" },
   { id: "partidas", label: "Partidas jogadas", Icon: RotateCcw, group: "library" },
   { id: "backup", label: "Backup", Icon: DatabaseBackup, group: "app" },
+  { id: "logs", label: "Logs", Icon: ScrollText, group: "app" },
   { id: "sobre", label: "Sobre", Icon: Info, group: "app" }
 ];
 
@@ -56,6 +59,7 @@ const SECTION_TITLES: Record<SettingsSection, { eyebrow?: string; title?: string
   emuladores: { title: "Gerenciar emuladores" },
   covers: { title: "Gerenciar mídia da biblioteca" },
   partidas: { title: "Histórico de partidas" },
+  logs: { eyebrow: "Aplicativo", title: "Logs" },
   sobre: {}
 };
 
@@ -472,6 +476,11 @@ export function SettingsModal() {
             {/* Seção: Partidas — contador local de launches e reset manual */} 
             {section === "partidas" && (
               <PlayHistorySettings />
+            )}
+
+            {/* Seção: Logs — consulta e manutenção do histórico de diagnóstico local. */}
+            {section === "logs" && (
+              <LogsSettings />
             )}
 
             {/* Seção: Sobre — informações do app, créditos e pasta de dados */}

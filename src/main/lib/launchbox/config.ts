@@ -13,7 +13,7 @@ import { getAppUserDataDir } from "../../appPaths";
 export const METADATA_URL_ORG = "https://gamesdb.launchbox-app.com/Metadata.zip";
 
 /** URL espelhada usada para download do Metadata.zip (menor latência/custo). */
-export const METADATA_URL = "http://s3.alexishida.com/gamestock/Metadata.zip";
+export const METADATA_URL = "https://s3.alexishida.com/gamestock/Metadata.zip";
 
 /** URL base das imagens hospedadas pelo LaunchBox. */
 export const IMAGES_BASE = "https://images.launchbox-app.com/";

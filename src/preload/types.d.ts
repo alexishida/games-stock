@@ -9,6 +9,7 @@
  */
 
 import type { AppStateEntry } from "../shared/appState";
+import type { AppLogListResult } from "../shared/logs";
 import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
 import {
   CollectionCounts,
@@ -183,6 +184,10 @@ export interface GameStockAPI {
     getStorageStats(): Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>;
     /** Remove o cache temporário de ROMs extraídas do launch. */
     clearExtractedRomCache(): Promise<{ rootDir: string; removedEntries: number }>;
+    /** Lista entradas recentes do histórico local de logs. */
+    listLogs(): Promise<AppLogListResult>;
+    /** Remove o histórico local de logs. */
+    clearLogs(): Promise<void>;
   };
 
   /** Fluxo do updater usado pela splash screen. */

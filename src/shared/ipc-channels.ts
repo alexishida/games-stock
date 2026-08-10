@@ -114,7 +114,11 @@ export const IPC_CHANNELS = {
     /** Retorna estatísticas de armazenamento: total de jogos, tamanho e caminho do diretório de dados. */
     getStorageStats: "app:getStorageStats",
     /** Remove o cache temporário de ROMs extraídas antes do launch. */
-    clearExtractedRomCache: "app:clearExtractedRomCache"
+    clearExtractedRomCache: "app:clearExtractedRomCache",
+    /** Lista entradas recentes do histórico local de logs. */
+    listLogs: "app:listLogs",
+    /** Remove o histórico local de logs. */
+    clearLogs: "app:clearLogs"
   },
 
   /** Comunicação dedicada do fluxo de atualização automática com a splash screen. */

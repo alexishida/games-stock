@@ -22,7 +22,7 @@
   --modal-title-gap: 28px;
   --form-control-font-size: 13px;
   --form-label-font-size: 11px;
-  font-family: Inter, Segoe UI, Arial, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
 }
 
 * {

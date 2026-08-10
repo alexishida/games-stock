@@ -1,0 +1,107 @@
+/* Painel de logs: leitura densa e legível, mantendo estética escura do app. */
+.logs-settings {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.logs-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.logs-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.logs-action-button:hover:not(:disabled) {
+  border-color: rgba(0, 242, 255, 0.48);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.logs-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.logs-action-danger:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.62);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+}
+
+.logs-refreshing {
+  animation: logs-refresh 1s linear infinite;
+}
+
+@keyframes logs-refresh {
+  to { transform: rotate(360deg); }
+}
+
+.logs-feedback {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.logs-feedback-error { color: #ffb4ab; }
+
+.logs-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.log-entry {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 9px 11px;
+}
+
+.log-entry-warn { border-left-color: #facc15; }
+.log-entry-error { border-left-color: #f87171; }
+
+.log-entry-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.log-entry-meta strong { color: inherit; }
+.log-entry-error .log-entry-meta strong { color: #ffb4ab; }
+.log-entry-warn .log-entry-meta strong { color: #fde68a; }
+
+.log-entry pre {
+  margin: 7px 0 0;
+  color: var(--text-primary);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

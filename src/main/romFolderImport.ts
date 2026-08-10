@@ -217,8 +217,13 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
  * @param request - Parâmetros do scan e importação.
  * @param onProgress - Callback de progresso chamado por candidato processado.
  */
-export async function importRomFolder(request: RomFolderImportRequest, onProgress?: ProgressCallback): Promise<RomFolderImportResult> {
-  const scan = scanRomFolder(request);
+export async function importRomFolder(
+  request: RomFolderImportRequest,
+  onProgress?: ProgressCallback,
+  precomputedScan?: RomFolderScanResult
+): Promise<RomFolderImportResult> {
+  // O main pode fornecer scan vindo do worker e evitar segunda varredura síncrona.
+  const scan = precomputedScan ?? scanRomFolder(request);
   const total = scan.candidates.length;
   const items: RomFolderImportResult["items"] = [];
   const summary: RomFolderImportResult["summary"] = { created: 0, updated: 0, skipped: scan.ignored, unmatched: 0, failedDownloads: 0, processed: 0 };

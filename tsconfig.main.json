@@ -6,6 +6,8 @@
     "moduleResolution": "Node",
     "outDir": "dist",
     "rootDir": "src",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["node", "electron"]
   },
   "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "src/shared/**/*.ts"]

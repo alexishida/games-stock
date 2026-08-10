@@ -9,7 +9,7 @@
  * - Iniciar e monitorar jobs de importação de ROMs e portabilidade de dados.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent, Menu, net, protocol, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -26,16 +26,20 @@ import * as emulators from "./db/repositories/emulators";
 import * as appState from "./db/repositories/appState";
 import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
-import { importRomFolder, scanRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
+import { importRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { createSplashWindow } from "./splash-window";
 import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, supportsInPlaceAutoUpdate, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest } from "../shared/types";
+import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest, RomFolderScanResult } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { UPDATE_MANIFEST_URL } from "../shared/update-config";
 import { resolveConfiguredExecutable } from "./executableResolver";
 import { clearExtractedRomCache, prepareRomPathForLaunch } from "./romLaunchExtraction";
+import { clearAppLogs, installConsoleLogCapture, listAppLogs, writeAppLog } from "./logger";
+
+// Captura logs do processo principal antes de inicializar fluxos e handlers do aplicativo.
+installConsoleLogCapture();
 
 /** Referência à janela principal; `null` quando fechada. */
 let mainWindow: BrowserWindow | null = null;
@@ -125,13 +129,21 @@ async function createWindow(): Promise<void> {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, "../preload/index.js")
     }
   });
+  protectWindowNavigation(mainWindow);
 
   // Exibe a janela somente quando o renderer terminar de carregar
   mainWindow.once("ready-to-show", () => mainWindow?.show());
+
+  // Consoles do renderer também entram no mesmo histórico, com arquivo e linha para diagnóstico.
+  mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    const logLevel = level >= 3 ? "error" : level === 2 ? "warn" : "info";
+    writeAppLog(logLevel, "renderer", `${message} (${sourceId}:${line})`);
+  });
 
   // Fallback: em alguns desktops Linux o `ready-to-show` pode atrasar ou nunca
   // chegar quando o renderer/GPU entra em estado degradado. Evitamos janela
@@ -171,6 +183,45 @@ async function createWindow(): Promise<void> {
     // Produção: carrega o bundle compilado
     await mainWindow.loadFile(path.join(__dirname, "../renderer/src/renderer/index.html"));
   }
+}
+
+/**
+ * Bloqueia navegações e pop-ups fora do conteúdo local controlado pelo app.
+ * O renderer não precisa abrir URLs externas: links externos devem usar o shell
+ * explicitamente em um handler dedicado e validado.
+ */
+function protectWindowNavigation(window: BrowserWindow): void {
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, targetUrl) => {
+    const currentUrl = window.webContents.getURL();
+    if (targetUrl !== currentUrl) event.preventDefault();
+  });
+}
+
+/**
+ * Confere se chamada IPC veio de renderer controlado pelo GameStock.
+ * Mesmo com contextIsolation, renderer deve ser tratado como não confiável.
+ */
+function assertTrustedIpcSender(event: IpcMainInvokeEvent): void {
+  const senderUrl = event.senderFrame?.url ?? "";
+  const isProductionRenderer = app.isPackaged && senderUrl.startsWith("file://");
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173";
+  const isDevelopmentRenderer = !app.isPackaged && senderUrl.startsWith(new URL(devServerUrl).origin);
+  if (!isProductionRenderer && !isDevelopmentRenderer) {
+    throw new Error("Origem IPC não autorizada.");
+  }
+}
+
+/**
+ * Instala guarda única para todos handlers IPC registrados pelo aplicativo.
+ * Preserva listeners existentes do Electron e evita esquecer validação por canal.
+ */
+function installTrustedIpcHandlerGuard(): void {
+  const originalHandle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = ((channel, listener) => originalHandle(channel, (event, ...args) => {
+    assertTrustedIpcSender(event);
+    return listener(event, ...args);
+  })) as typeof ipcMain.handle;
 }
 
 /**
@@ -332,6 +383,9 @@ function registerIpc(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.dialogs.saveImageFile, async (_event, sourcePath: string, suggestedName: string) => {
+    if (typeof sourcePath !== "string" || !isPathAllowed(sourcePath)) {
+      throw new Error("Imagem de origem não autorizada.");
+    }
     const result = await dialog.showSaveDialog(mainWindow!, {
       defaultPath: suggestedName,
       filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp"] }]
@@ -342,13 +396,21 @@ function registerIpc(): void {
   });
 
   // ── Shell / app ────────────────────────────────────────────────────────────
-  ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => shell.openPath(targetPath));
+  ipcMain.handle(IPC_CHANNELS.shell.openPath, (_event, targetPath: string) => {
+    if (typeof targetPath !== "string" || !isPathAllowed(targetPath)) {
+      throw new Error("Caminho não autorizado para abertura.");
+    }
+    return shell.openPath(targetPath);
+  });
   ipcMain.handle(IPC_CHANNELS.app.getVersion, () => APP_VERSION_LABEL);
   // Canal leve usado por botoes que precisam abrir a pasta de dados sem aguardar estatisticas.
   ipcMain.handle(IPC_CHANNELS.app.getDataDirPath, () => getUserDataDir());
   ipcMain.handle(IPC_CHANNELS.app.getStorageStats, () => getStorageStats());
   // Limpa apenas a pasta temporaria de ROMs extraidas; ROMs originais permanecem intactas.
   ipcMain.handle(IPC_CHANNELS.app.clearExtractedRomCache, () => clearExtractedRomCache());
+  // Histórico de diagnóstico persistido localmente e consultado pela aba Configurações > Logs.
+  ipcMain.handle(IPC_CHANNELS.app.listLogs, () => listAppLogs());
+  ipcMain.handle(IPC_CHANNELS.app.clearLogs, () => clearAppLogs());
   ipcMain.handle(IPC_CHANNELS.updater.skip, () => {
     requestUpdaterSkip();
   });
@@ -406,7 +468,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.launchbox.importGame, (_event, params: LaunchBoxImportParams) => importGame(params, sendLaunchBoxProgress));
 
   // ── Importação de pastas de ROM ────────────────────────────────────────────
-  ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolder(params));
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolderInWorker(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.import, (_event, params: RomFolderImportRequest) => startRomFolderImportJob(params));
   ipcMain.handle(IPC_CHANNELS.romFolderImport.syncConfiguredFolders, async (_event, entries: DataPortabilityRomFolderEntry[]) => {
     await syncConfiguredRomFolders(entries);
@@ -418,7 +480,7 @@ function registerIpc(): void {
       count: games.countGamesByRomFolder(entry.folderPath, entry.platformId)
     }))
   );
-  ipcMain.handle(IPC_CHANNELS.romFolderImport.deleteFolderRecords, (_event, params: string | { folderPath: string; platformId?: number }) => {
+  ipcMain.handle(IPC_CHANNELS.romFolderImport.deleteFolderRecords, async (_event, params: string | { folderPath: string; platformId?: number }) => {
     // Remove only GameStock database records. Original ROM files and downloaded images stay on disk as cache.
     const folderPath = typeof params === "string" ? params : params.folderPath;
     const platformId = typeof params === "string" ? undefined : params.platformId;
@@ -426,7 +488,7 @@ function registerIpc(): void {
     if (!platformId) return byRomPath;
 
     // Remove também registros legados sem rom_path que correspondam aos títulos da pasta
-    const scan = scanRomFolder({ folderPaths: [folderPath], platformId, includeSubfolders: true });
+    const scan = await scanRomFolderInWorker({ folderPaths: [folderPath], platformId, includeSubfolders: true });
     const byLegacyTitles = games.deleteGamesWithoutRomPathByPlatformAndTitles(
       platformId,
       scan.candidates.map((candidate) => candidate.titleCandidate)
@@ -678,6 +740,36 @@ function failDataPortabilityJob(job: DataPortabilityJob, message: string): void 
 }
 
 /**
+ * Executa varredura de ROM em worker para não bloquear processo principal.
+ * Worker abre conexão SQLite própria, apontada ao mesmo diretório de dados local.
+ */
+function scanRomFolderInWorker(request: RomFolderScanRequest): Promise<RomFolderScanResult> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, "romFolderScanWorker.js"), {
+      workerData: { request, userDataDir: getUserDataDir() }
+    });
+    let settled = false;
+    const finish = (callback: () => void): void => {
+      if (settled) return;
+      settled = true;
+      callback();
+    };
+
+    worker.once("message", (message: { ok: boolean; result?: RomFolderScanResult; error?: string }) => {
+      if (message.ok && message.result) {
+        finish(() => resolve(message.result!));
+        return;
+      }
+      finish(() => reject(new Error(message.error ?? "Falha ao escanear pastas de ROM.")));
+    });
+    worker.once("error", (error) => finish(() => reject(error)));
+    worker.once("exit", (code) => {
+      if (code !== 0) finish(() => reject(new Error(`Worker de scan encerrou com código ${code}.`)));
+    });
+  });
+}
+
+/**
  * Inicia um job de importação de pasta de ROM em background (async, sem worker thread).
  *
  * O scan é síncrono e imediato; a importação em si (matching + download de imagens)
@@ -686,8 +778,8 @@ function failDataPortabilityJob(job: DataPortabilityJob, message: string): void 
  * @param params - Parâmetros da importação (pastas, plataforma, opções).
  * @returns O objeto do job recém-criado com status inicial "running".
  */
-function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImportJob {
-  const scan = scanRomFolder(params);
+async function startRomFolderImportJob(params: RomFolderImportRequest): Promise<RomFolderImportJob> {
+  const scan = await scanRomFolderInWorker(params);
   const jobId = `rom-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const initialProgress: RomFolderImportProgress = {
     jobId,
@@ -721,7 +813,7 @@ function startRomFolderImportJob(params: RomFolderImportRequest): RomFolderImpor
     if (progress.stage === "done" || progress.stage === "skipped") {
       sendCoverStats();
     }
-  })
+  }, scan)
     .then((result) => {
       job.status = "completed";
       job.result = { ...result, jobId };
@@ -783,7 +875,7 @@ async function syncConfiguredRomFolders(entries: DataPortabilityRomFolderEntry[]
           detectionMode: "manual",
           includeSubfolders: group.includeSubfolders
         };
-      const scan = scanRomFolder(scanRequest);
+      const scan = await scanRomFolderInWorker(scanRequest);
       const knownRomPaths = new Set(
         games
           .listRomPathsByFolder(group.folderPath, manualPlatformId)
@@ -795,7 +887,7 @@ async function syncConfiguredRomFolders(entries: DataPortabilityRomFolderEntry[]
 
       if (!newRomFilePaths.length) continue;
 
-      const job = startRomFolderImportJob({
+      const job = await startRomFolderImportJob({
         folderPaths: [],
         romFilePaths: newRomFilePaths,
         platformId: manualPlatformId ?? null,
@@ -880,6 +972,7 @@ async function bootstrapApplication(): Promise<void> {
   await app.whenReady();
   Menu.setApplicationMenu(null); // Remove menu nativo padrão do Electron
   registerMediaProtocol();
+  installTrustedIpcHandlerGuard();
   registerIpc();
 
   if (!UPDATE_MANIFEST_URL || !supportsInPlaceAutoUpdate()) {

@@ -13,8 +13,8 @@ import { app, BrowserWindow, WebContents } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import http from "node:http";
 import https from "node:https";
+import crypto from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { Worker } from "node:worker_threads";
 import { getAppUserDataDir } from "./appPaths";
@@ -28,6 +28,7 @@ type LegacyPtBrManifest = {
   versao?: string;
   build?: string | number;
   path?: string;
+  sha256?: string;
 };
 
 /** Tempo máximo para buscar o manifesto remoto sem travar o boot do app. */
@@ -164,6 +165,7 @@ export function compareSemver(left: string, right: string): number {
  */
 export async function downloadUpdate(
   url: string,
+  expectedSha256: string,
   onProgress: DownloadProgressCallback,
   signal?: AbortSignal
 ): Promise<string> {
@@ -174,6 +176,10 @@ export async function downloadUpdate(
 
   try {
     await downloadFile(downloadUrl, filePath, onProgress, signal);
+    const receivedSha256 = await hashFile(filePath);
+    if (receivedSha256 !== expectedSha256.toLowerCase()) {
+      throw new Error("Integridade do update inválida: SHA-256 não confere.");
+    }
     return filePath;
   } catch (error) {
     await fs.promises.rm(filePath, { force: true }).catch(() => undefined);
@@ -363,7 +369,7 @@ export async function runUpdateFlow(splashWindow: BrowserWindow): Promise<"open-
       ...buildManifestStatusDetails(result.manifest)
     });
 
-    const zipPath = await downloadUpdate(result.manifest.downloadUrl, (progress) => {
+    const zipPath = await downloadUpdate(result.manifest.downloadUrl, result.manifest.sha256, (progress) => {
       emitStatus(splashWindow, {
         phase: "downloading",
         message: `Baixando atualização ${formatRemoteUpdateLabel(result.manifest)}...`,
@@ -489,7 +495,7 @@ export async function runManualUpdateFlow(targetContents: WebContents): Promise<
         ...buildManifestStatusDetails(result.manifest)
       });
 
-      const zipPath = await downloadUpdate(result.manifest.downloadUrl, (progress) => {
+      const zipPath = await downloadUpdate(result.manifest.downloadUrl, result.manifest.sha256, (progress) => {
         emitStatus(targetContents, {
           phase: "downloading",
           message: `Baixando atualização ${formatRemoteUpdateLabel(result.manifest)}...`,
@@ -589,8 +595,11 @@ function waitForContinueRequest(): Promise<void> {
 function requestText(url: string, timeoutMs: number, redirectCount = 0): Promise<string> {
   return new Promise((resolve, reject) => {
     const requestUrl = new URL(url);
-    const requestModule = requestUrl.protocol === "https:" ? https : http;
-    const request = requestModule.get(requestUrl, (response) => {
+    if (requestUrl.protocol !== "https:") {
+      reject(createUpdaterError("Updater aceita somente URLs HTTPS."));
+      return;
+    }
+    const request = https.get(requestUrl, (response) => {
       const statusCode = response.statusCode ?? 0;
       const location = response.headers.location;
 
@@ -601,7 +610,12 @@ function requestText(url: string, timeoutMs: number, redirectCount = 0): Promise
           reject(createUpdaterError("Redirecionamentos em excesso ao consultar update."));
           return;
         }
-        void requestText(new URL(location, requestUrl).toString(), timeoutMs, redirectCount + 1).then(resolve, reject);
+        const redirectUrl = new URL(location, requestUrl);
+        if (redirectUrl.protocol !== "https:") {
+          reject(createUpdaterError("Redirect de update para URL não HTTPS."));
+          return;
+        }
+        void requestText(redirectUrl.toString(), timeoutMs, redirectCount + 1).then(resolve, reject);
         return;
       }
 
@@ -640,9 +654,12 @@ async function downloadFile(
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const requestUrl = new URL(url);
-    const requestModule = requestUrl.protocol === "https:" ? https : http;
+    if (requestUrl.protocol !== "https:") {
+      reject(createUpdaterError("Updater aceita somente URLs HTTPS."));
+      return;
+    }
     const fileStream = fs.createWriteStream(filePath);
-    const request = requestModule.get(requestUrl, (response) => {
+    const request = https.get(requestUrl, (response) => {
       const statusCode = response.statusCode ?? 0;
       const location = response.headers.location;
 
@@ -653,7 +670,12 @@ async function downloadFile(
           reject(createUpdaterError("Redirecionamentos em excesso durante download do update."));
           return;
         }
-        void downloadFile(new URL(location, requestUrl).toString(), filePath, onProgress, signal, redirectCount + 1).then(resolve, reject);
+        const redirectUrl = new URL(location, requestUrl);
+        if (redirectUrl.protocol !== "https:") {
+          reject(createUpdaterError("Redirect de update para URL não HTTPS."));
+          return;
+        }
+        void downloadFile(redirectUrl.toString(), filePath, onProgress, signal, redirectCount + 1).then(resolve, reject);
         return;
       }
 
@@ -728,6 +750,7 @@ function parseManifest(rawValue: unknown): UpdateManifest {
   const releaseDate = pickFirstString(manifest.releaseDate, manifest.data);
   const downloadUrl = pickFirstString(manifest.downloadUrl, manifest.path);
   const releaseNotes = pickFirstString(manifest.releaseNotes, "Release publicada sem notas.");
+  const sha256 = manifest.sha256;
   const buildNumber = manifest.buildNumber ?? manifest.build;
 
   if (
@@ -735,18 +758,33 @@ function parseManifest(rawValue: unknown): UpdateManifest {
     || typeof releaseDate !== "string"
     || typeof downloadUrl !== "string"
     || typeof releaseNotes !== "string"
+    || typeof sha256 !== "string"
     || (typeof buildNumber !== "number" && typeof buildNumber !== "string")
   ) {
     throw new Error("Manifesto de update inválido: campos obrigatórios ausentes.");
+  }
+
+  const normalizedDownloadUrl = downloadUrl.trim();
+  if (new URL(normalizedDownloadUrl).protocol !== "https:" || !/^[a-f0-9]{64}$/i.test(sha256)) {
+    throw new Error("Manifesto de update inválido: URL HTTPS ou SHA-256 ausente/inválido.");
   }
 
   return {
     version: version.trim(),
     buildNumber,
     releaseDate: releaseDate.trim(),
-    downloadUrl: downloadUrl.trim(),
+    downloadUrl: normalizedDownloadUrl,
+    sha256: sha256.toLowerCase(),
     releaseNotes: releaseNotes.trim()
   };
+}
+
+/** Calcula SHA-256 por stream para não carregar ZIP inteiro em memória. */
+async function hashFile(filePath: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  const source = fs.createReadStream(filePath);
+  for await (const chunk of source) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 /**

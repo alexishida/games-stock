@@ -15,6 +15,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const AdmZip = require("adm-zip");
 
 /** Diretório raiz do repositório. */
@@ -45,7 +46,7 @@ const updateZipFileName = "update.zip";
 const latestZipFileName = "latest.zip";
 
 /** URL pública fixa consumida pelo updater para sempre apontar ao update atual. */
-const updateZipPublicUrl = "http://s3.alexishida.com/gamestock/update.zip";
+const updateZipPublicUrl = "https://s3.alexishida.com/gamestock/update.zip";
 
 /** Prefixos transitórios que não devem ser distribuídos no ZIP de update. */
 const excludedTopLevelPrefixes = ["_update_staging"];
@@ -188,12 +189,13 @@ function createLatestZip(zipFilePath) {
 /**
  * Escreve manifesto `meta-dados.json` consumido pelo updater.
  */
-function writeMetadataFile(version, buildCommit) {
+function writeMetadataFile(version, buildCommit, updateZipPath) {
   const metadata = {
     data: formatPublishedAt(),
     versao: version,
     build: buildCommit,
-    path: updateZipPublicUrl
+    path: updateZipPublicUrl,
+    sha256: crypto.createHash("sha256").update(fs.readFileSync(updateZipPath)).digest("hex")
   };
 
   fs.writeFileSync(
@@ -217,7 +219,7 @@ function main() {
 
   createUpdateZip(updateZipPath);
   createLatestZip(latestZipPath);
-  writeMetadataFile(version, buildCommit);
+  writeMetadataFile(version, buildCommit, updateZipPath);
 
   console.log(`Artefatos S3 gerados em: ${s3Dir}`);
   console.log(`Update ZIP: ${updateZipFileName}`);

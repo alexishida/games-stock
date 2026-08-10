@@ -1,81 +1,72 @@
-# game-launch - Especificação
+# game-launch Specification
 
 ## Purpose
-Lançamento de jogos da biblioteca diretamente no emulador configurado para a plataforma, com suporte a emuladores standalone e RetroArch.
+Lancar jogos da biblioteca diretamente no emulador configurado para a plataforma, com suporte a variantes, RetroArch e ROMs compactadas.
+
 ## Requirements
-### Requirement: Lançamento de jogo via IPC
+### Requirement: Launch via IPC
 
-O sistema SHALL expor via `window.gameStockAPI.games` o método `launch(gameId)` que resolve o emulador padrão da plataforma do jogo e spawna o processo. O executável do emulador SHALL aceitar caminho absoluto, caminho relativo ou nome de comando resolvível via `PATH`. Em plataformas POSIX, quando o executável resolvido apontar para arquivo local, o sistema SHALL validar permissão de execução antes do `spawn`. O comando varia por tipo de emulador:
+O metodo `window.gameStockAPI.games.launch(gameId)` SHALL resolver o emulador padrao da plataforma, preparar o caminho real da ROM e iniciar o processo do emulador.
 
-- **Standalone** (`is_retroarch = 0`): `spawn(resolvedExecutable, [...parsedArgs, romPath])`
-- **RetroArch** (`is_retroarch = 1`): `spawn(resolvedExecutable, ["-L", corePath, romPath])`
+#### Scenario: Launch com emulador standalone
 
-#### Scenario: Lançar jogo com emulador standalone
+- **WHEN** o emulador padrao da plataforma nao e RetroArch
+- **THEN** o sistema executa o binario com `args` configurados pelo usuario seguidos do caminho da ROM
 
-- **WHEN** `games.launch(gameId)` é chamado e o emulador padrão da plataforma tem `is_retroarch = 0`
-- **THEN** o processo é iniciado com `resolvedExecutable [...args, rom_path]` e retorna `{ success: true }`
+#### Scenario: Launch com RetroArch
 
-#### Scenario: Lançar jogo via RetroArch
+- **WHEN** o emulador padrao e RetroArch
+- **THEN** o sistema executa o binario com `-L <corePath> <romPath>`
 
-- **WHEN** `games.launch(gameId)` é chamado e o emulador padrão da plataforma tem `is_retroarch = 1`
-- **THEN** o processo é iniciado com `resolvedExecutable -L <corePath> <rom_path>` e retorna `{ success: true }`
+#### Scenario: ROM compactada
 
-#### Scenario: Lançar jogo com comando resolvido via PATH
+- **WHEN** o jogo aponta para arquivo `.zip` ou `.7z`
+- **THEN** o launch extrai a ROM para o cache temporario do app e passa o arquivo extraido ao emulador
 
-- **WHEN** `games.launch(gameId)` é chamado para um emulador com `executable = "retroarch"` e o comando existe no `PATH`
-- **THEN** o sistema resolve o binário no ambiente atual e inicia o processo normalmente
+#### Scenario: Launch invalido
 
-#### Scenario: Lançar jogo sem ROM path
+- **WHEN** o jogo nao possui `rom_path`, nao possui emulador padrao ou nao consegue resolver o executavel/core
+- **THEN** o sistema retorna erro e nao inicia processo filho
 
-- **WHEN** `games.launch(gameId)` é chamado para um jogo sem `rom_path`
-- **THEN** o sistema retorna erro "Jogo não possui caminho de ROM configurado"
+#### Scenario: Launch bem-sucedido
 
-#### Scenario: Lançar jogo sem emulador padrão na plataforma
+- **WHEN** o emulador e iniciado sem erro
+- **THEN** `launch_count` do jogo e incrementado
 
-- **WHEN** `games.launch(gameId)` é chamado e a plataforma do jogo não tem emulador padrão
-- **THEN** o sistema retorna erro "Nenhum emulador padrão configurado para esta plataforma"
+### Requirement: Selecao de versao antes do launch
 
-#### Scenario: Executável do emulador não encontrado
+O fluxo de UI SHALL consultar `games.listVersions(gameId)` antes do launch efetivo.
 
-- **WHEN** `games.launch(gameId)` é chamado e o caminho informado não existe no sistema de arquivos nem pode ser resolvido pelo `PATH`
-- **THEN** o sistema retorna erro "Executável do emulador não encontrado: <path>"
+#### Scenario: Apenas uma versao jogavel
 
-#### Scenario: Executável do emulador sem permissão no Linux
+- **WHEN** `listVersions()` retorna zero ou uma variante jogavel
+- **THEN** a UI dispara `games.launch()` diretamente para essa variante
 
-- **WHEN** `games.launch(gameId)` é chamado em Linux e o executável resolvido existe, mas não possui permissão de execução
-- **THEN** o sistema retorna erro "Executável do emulador sem permissão de execução: <path>"
+#### Scenario: Multiplas variantes jogaveis
 
-### Requirement: Botão de lançamento na UI da biblioteca
-O sistema SHALL exibir um botão "Jogar" na grade e na lista de jogos para cada jogo. O botão SHALL estar desabilitado quando o jogo não possuir `rom_path` ou quando a plataforma do jogo não possuir emulador padrão configurado. O botão é visível ao passar o mouse sobre o card/linha.
+- **WHEN** `listVersions()` retorna mais de uma variante relacionada
+- **THEN** a UI abre `GameVersionModal` para o usuario escolher qual ROM iniciar
 
-#### Scenario: Botão habilitado para jogo lançável
-- **WHEN** um jogo tem `rom_path`, sua plataforma tem emulador padrão configurado e o usuário passa o mouse sobre o card
-- **THEN** o botão "Jogar" fica visível e ao clicar inicia o emulador
+### Requirement: Controles de launch na biblioteca
 
-#### Scenario: Botão desabilitado sem ROM
-- **WHEN** um jogo não tem `rom_path`
-- **THEN** o botão "Jogar" está desabilitado com tooltip "ROM não configurada"
+Grade, lista e detalhe SHALL expor a acao `Jogar`, mas com heuristicas de habilitacao coerentes com cada tela.
 
-#### Scenario: Botão desabilitado sem emulador padrão
-- **WHEN** um jogo tem `rom_path`, mas sua plataforma não tem emulador padrão configurado
-- **THEN** o botão "Jogar" está desabilitado com tooltip explicando que é necessário escolher um emulador padrão para a plataforma
+#### Scenario: Card da grade
 
-#### Scenario: Erro de lançamento exibido inline
-- **WHEN** `games.launch(gameId)` retorna erro
-- **THEN** a mensagem de erro é exibida temporariamente sobre o card por 4 segundos
+- **WHEN** o jogo tem ROM e a plataforma tem emulador padrao carregado
+- **THEN** o botao do card fica habilitado
 
-### Requirement: Botão de lançamento no detalhe do jogo
-O sistema SHALL exibir no GameDetail uma ação "Jogar" que usa `window.gameStockAPI.games.launch(gameId)` para abrir o emulador padrão da plataforma junto com a ROM do jogo. A ação SHALL estar desabilitada quando o jogo não possuir `rom_path` ou quando a plataforma do jogo não possuir emulador padrão configurado.
+#### Scenario: Linha da lista
 
-#### Scenario: Lançar pelo detalhe do jogo
-- **WHEN** o usuário clica em "Jogar" no GameDetail de um jogo com `rom_path` e emulador padrão configurado
-- **THEN** o sistema chama `games.launch(gameId)` e inicia o emulador com o jogo
+- **WHEN** o jogo possui `rom_path`
+- **THEN** a linha permite tentar launch, mesmo que a falta de emulador padrao so seja descoberta ao chamar a API
 
-#### Scenario: Detail desabilitado sem emulador padrão
-- **WHEN** o GameDetail exibe um jogo com `rom_path`, mas sua plataforma não tem emulador padrão configurado
-- **THEN** a ação "Jogar" fica desabilitada
+#### Scenario: Painel de detalhe
 
-#### Scenario: Erro de lançamento exibido no detalhe
-- **WHEN** `games.launch(gameId)` retorna erro após clique no GameDetail
-- **THEN** a mensagem de erro é exibida temporariamente próxima à ação "Jogar"
+- **WHEN** o jogo possui ROM e emulador padrao resolvido
+- **THEN** o botao `Jogar` do detalhe fica habilitado
 
+#### Scenario: Erro de launch na UI
+
+- **WHEN** o launch falha em grade, lista ou detalhe
+- **THEN** a tela correspondente mostra a mensagem de erro de forma temporaria

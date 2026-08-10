@@ -22,6 +22,12 @@ export const PAGE_SIZE = 50;
  */
 const pageCache = new Map<string, GameListResult>();
 
+/** Requisições em curso por chave; evita duplicar IPC entre tela e prefetch. */
+const pendingPages = new Map<string, Promise<GameListResult>>();
+
+/** Limite do cache para impedir crescimento indefinido após muitas buscas. */
+const MAX_CACHED_PAGES = 40;
+
 /**
  * Monta o objeto de filtros a partir dos parâmetros do store.
  */
@@ -52,6 +58,42 @@ function cacheKey(filters: GameFilters, reloadToken: number): string {
   return JSON.stringify({ ...filters, reloadToken });
 }
 
+/** Guarda página no cache LRU simples, descartando entrada menos recente. */
+function cachePage(key: string, result: GameListResult): void {
+  pageCache.delete(key);
+  pageCache.set(key, result);
+  while (pageCache.size > MAX_CACHED_PAGES) {
+    const oldestKey = pageCache.keys().next().value;
+    if (!oldestKey) return;
+    pageCache.delete(oldestKey);
+  }
+}
+
+/** Retorna página cacheada ou compartilha uma única consulta IPC em andamento. */
+function fetchPage(filters: GameFilters, reloadToken: number): Promise<GameListResult> {
+  const key = cacheKey(filters, reloadToken);
+  const cached = pageCache.get(key);
+  if (cached) {
+    // Renova posição LRU sem consultar SQLite novamente.
+    cachePage(key, cached);
+    return Promise.resolve(cached);
+  }
+
+  const pending = pendingPages.get(key);
+  if (pending) return pending;
+
+  const request = window.gameStockAPI.games.list(filters)
+    .then((result) => {
+      cachePage(key, result);
+      return result;
+    })
+    .finally(() => {
+      pendingPages.delete(key);
+    });
+  pendingPages.set(key, request);
+  return request;
+}
+
 /**
  * Pré-carrega uma página em background após um pequeno atraso,
  * armazenando o resultado no cache sem atualizar o store.
@@ -59,13 +101,11 @@ function cacheKey(filters: GameFilters, reloadToken: number): string {
  */
 function prefetchPage(filters: GameFilters, reloadToken: number): void {
   const key = cacheKey(filters, reloadToken);
-  if (pageCache.has(key)) return;
+  if (pageCache.has(key) || pendingPages.has(key)) return;
 
   // Pequeno atraso para não disputar banda com a requisição principal
   window.setTimeout(() => {
-    window.gameStockAPI.games.list(filters).then((result) => {
-      pageCache.set(key, result);
-    });
+    void fetchPage(filters, reloadToken).catch(() => undefined);
   }, 250);
 }
 
@@ -100,10 +140,8 @@ export function useGames(): void {
       setLoading(true);
     }
 
-    window.gameStockAPI.games
-      .list(filters)
+    fetchPage(filters, reloadToken)
       .then((result) => {
-        pageCache.set(key, result);
         if (!cancelled) {
           setGames(result);
 

@@ -19,6 +19,11 @@ type RomExtractWorkerData = {
   targetDir: string;
 };
 
+/** Limites defensivos contra ZIP bombs em ROMs selecionadas pelo usuário. */
+const MAX_ARCHIVE_ENTRIES = 10_000;
+const MAX_ENTRY_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024;
+
 /** Executa a extração e responde ao processo principal com sucesso/erro. */
 function main(): void {
   const { zipPath, targetDir } = workerData as RomExtractWorkerData;
@@ -47,14 +52,24 @@ function main(): void {
 function extractArchiveToDirectory(zipPath: string, targetDir: string): void {
   const archive = new AdmZip(zipPath);
   const resolvedTargetDir = path.resolve(targetDir);
+  const entries = archive.getEntries();
+  if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("ZIP contém entradas demais para extração segura.");
+  let totalBytes = 0;
 
-  for (const entry of archive.getEntries()) {
+  for (const entry of entries) {
     const entryTarget = resolveEntryTarget(resolvedTargetDir, entry.entryName);
 
     if (entry.isDirectory) {
       fs.mkdirSync(entryTarget, { recursive: true });
       continue;
     }
+
+    const declaredSize = Number(entry.header.size);
+    if (!Number.isSafeInteger(declaredSize) || declaredSize < 0 || declaredSize > MAX_ENTRY_BYTES) {
+      throw new Error(`Entrada ZIP excede limite seguro: ${entry.entryName}`);
+    }
+    totalBytes += declaredSize;
+    if (totalBytes > MAX_TOTAL_BYTES) throw new Error("ZIP excede limite total de extração segura.");
 
     fs.mkdirSync(path.dirname(entryTarget), { recursive: true });
     fs.writeFileSync(entryTarget, entry.getData());

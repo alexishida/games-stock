@@ -168,7 +168,11 @@ const api = {
     getStorageStats: () => ipcRenderer.invoke(IPC_CHANNELS.app.getStorageStats) as Promise<{ totalGames: number; dataDirSizeMb: number; dataDirPath: string }>,
     /** Remove o cache temporário de ROMs extraídas para forçar nova extração no próximo launch. */
     clearExtractedRomCache: () =>
-      ipcRenderer.invoke(IPC_CHANNELS.app.clearExtractedRomCache) as Promise<{ rootDir: string; removedEntries: number }>
+      ipcRenderer.invoke(IPC_CHANNELS.app.clearExtractedRomCache) as Promise<{ rootDir: string; removedEntries: number }>,
+    /** Lista o histórico persistido de eventos e erros do aplicativo. */
+    listLogs: () => ipcRenderer.invoke(IPC_CHANNELS.app.listLogs) as Promise<import("../shared/logs").AppLogListResult>,
+    /** Remove o histórico persistido de logs. */
+    clearLogs: () => ipcRenderer.invoke(IPC_CHANNELS.app.clearLogs) as Promise<void>
   },
 
   /** Fluxo dedicado do updater consumido pela splash screen. */

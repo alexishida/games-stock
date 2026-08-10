@@ -1,108 +1,85 @@
-# emulator-management - Especificação
+# emulator-management Specification
 
 ## Purpose
-Gerenciamento de emuladores e associação com plataformas, incluindo suporte nativo ao RetroArch sem configuração de core por plataforma.
+Gerenciar emuladores e associacoes por plataforma, incluindo RetroArch com configuracao de core por plataforma.
+
 ## Requirements
 ### Requirement: Modelo de dados de emulador
-O sistema SHALL persistir emuladores com `id`, `name` (UNIQUE), `executable` (caminho do executável), `args` (argumentos padrão, pode ser vazio), `is_retroarch` (flag booleano) e `created_at`. A tabela `platform_emulators` SHALL associar emuladores a plataformas com flag `is_default`; o campo legado opcional `core_path`, quando existir, SHALL poder ficar nulo. O banco SHALL conter um registro padrão de RetroArch com `is_retroarch = 1` e `executable` vazio.
 
-#### Scenario: Criar emulador com nome duplicado
-- **WHEN** o usuário tenta criar um emulador com nome já existente
-- **THEN** o sistema retorna erro "Emulador já existe"
+O sistema SHALL persistir emuladores com `id`, `name`, `executable`, `args`, `is_retroarch` e `created_at`. A tabela `platform_emulators` SHALL guardar `is_default` e `core_path` por plataforma.
 
-#### Scenario: Associar emulador como padrão
-- **WHEN** um emulador é marcado como padrão para uma plataforma
-- **THEN** qualquer outro emulador anteriormente padrão nessa plataforma perde o flag `is_default`
+#### Scenario: Seed do RetroArch
 
-#### Scenario: Seed RetroArch presente no banco novo
-- **WHEN** o banco é criado pela primeira vez
-- **THEN** existe um registro em `emulators` com `name = 'RetroArch'` e `is_retroarch = 1`
+- **WHEN** o banco e criado pela primeira vez
+- **THEN** o sistema garante um registro default `RetroArch` com `is_retroarch = 1`
+
+#### Scenario: Default unico por plataforma
+
+- **WHEN** um vinculo e salvo com `is_default = 1`
+- **THEN** qualquer outro vinculo default da mesma plataforma perde essa flag
 
 ### Requirement: CRUD de emuladores via IPC
 
-O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `list()`, `create(data)`, `update(id, data)` e `delete(id)`. O método `list()` SHALL retornar todos os emuladores. O campo `executable` SHALL aceitar caminho absoluto, caminho relativo ou nome de comando resolvível via `PATH`, preservando o valor informado pelo usuário. Emuladores com `is_retroarch = 1` SHALL ser protegidos contra exclusão.
+O sistema SHALL expor `list()`, `create()`, `update()` e `delete()` em `window.gameStockAPI.emulators`. O campo `executable` SHALL aceitar caminho absoluto, relativo ou nome resolvivel via `PATH`.
 
-#### Scenario: Listar emuladores
+#### Scenario: Criar emulador com nome duplicado
 
-- **WHEN** `emulators.list()` é chamado
-- **THEN** retorna todos os emuladores ordenados por nome, cada um com seus campos completos
+- **WHEN** o usuario tenta salvar um nome ja existente
+- **THEN** o sistema retorna erro de duplicidade
 
-#### Scenario: Salvar emulador com comando do PATH
+#### Scenario: Excluir RetroArch
 
-- **WHEN** `emulators.create({ name, executable: "retroarch", ... })` é chamado
-- **THEN** o sistema persiste o valor `retroarch` sem exigir separador de caminho no campo `executable`
+- **WHEN** o usuario tenta remover um emulador com `is_retroarch = 1`
+- **THEN** o sistema bloqueia a exclusao
 
-#### Scenario: Deletar emulador com associações
+### Requirement: Vinculos plataforma-emulador
 
-- **WHEN** `emulators.delete(id)` é chamado em emulador associado a plataformas
-- **THEN** as associações são removidas em cascata e o emulador é excluído
+O sistema SHALL expor `linkPlatform(emulatorId, platformId, isDefault, corePath?)`, `unlinkPlatform(emulatorId, platformId)`, `listByPlatform(platformId)` e `listRetroArchCores(emulatorId)`.
 
-#### Scenario: Tentar deletar RetroArch via IPC
+#### Scenario: Vincular emulador standalone
 
-- **WHEN** `emulators.delete(id)` é chamado em emulador com `is_retroarch = 1`
-- **THEN** o sistema retorna erro "RetroArch não pode ser removido"
+- **WHEN** um emulador comum e associado a uma plataforma
+- **THEN** o vinculo pode ser salvo sem `core_path`
 
-### Requirement: Gerenciamento de associações plataforma-emulador via IPC
-O sistema SHALL expor via `window.gameStockAPI.emulators` os métodos `linkPlatform(emulatorId, platformId, isDefault, corePath?)`, `unlinkPlatform(emulatorId, platformId)` e `listByPlatform(platformId)`. O parâmetro `corePath` é opcional e não SHALL ser exigido para RetroArch.
+#### Scenario: Vincular RetroArch com core dedicado
 
-#### Scenario: Vincular emulador standalone a plataforma
-- **WHEN** `emulators.linkPlatform(emulatorId, platformId, true)` é chamado para emulador com `is_retroarch = 0`
-- **THEN** a associação é criada sem `core_path` e o emulador se torna padrão da plataforma
+- **WHEN** o usuario associa RetroArch a uma plataforma com um core selecionado
+- **THEN** o vinculo persiste `core_path` para aquele par plataforma-emulador
 
-#### Scenario: Vincular RetroArch a plataforma sem core
-- **WHEN** `emulators.linkPlatform(retroarchId, platformId, true)` é chamado
-- **THEN** a associação é criada com `core_path` nulo e RetroArch se torna padrão da plataforma
+#### Scenario: Inventario de cores instalados
 
-#### Scenario: Listar emuladores de uma plataforma
-- **WHEN** `emulators.listByPlatform(platformId)` é chamado
-- **THEN** retorna emuladores associados à plataforma com `is_default` e dados do emulador de cada um
+- **WHEN** `listRetroArchCores(emulatorId)` e chamado
+- **THEN** a API retorna se o executavel esta configurado, se `cores/` existe e os nomes de cores instalados
 
-### Requirement: UI de gerenciamento de emuladores no SettingsModal
+### Requirement: Fallback de resolucao de core no launch
 
-O sistema SHALL fornecer dentro do SettingsModal uma seção "Emuladores" com lista de emuladores, botão "Novo emulador" e ações inline de editar/excluir. Criar e editar SHALL abrir em modal flutuante arrastável conforme padrão do projeto. O seletor de executável SHALL sempre oferecer opção "Todos os arquivos" e filtros compatíveis com o sistema operacional atual. A UI de cores do RetroArch SHALL exibir labels compatíveis com a plataforma atual, sem assumir extensão `.dll`.
+O sistema SHALL permitir que o launch tente resolver o core do RetroArch por `core_path` configurado e, na ausencia dele, por candidatos derivados do nome da plataforma.
 
-#### Scenario: Criar emulador pela UI
+#### Scenario: Core configurado manualmente
 
-- **WHEN** o usuário preenche nome, caminho do executável e (opcionalmente) argumentos e salva
-- **THEN** o emulador aparece na lista de emuladores
+- **WHEN** o vinculo possui `core_path`
+- **THEN** esse caminho tem prioridade no launch
 
-#### Scenario: Editar emulador pela UI
+#### Scenario: Core nao configurado manualmente
 
-- **WHEN** o usuário clica em editar, altera campos e salva
-- **THEN** o emulador é atualizado na lista
+- **WHEN** o vinculo do RetroArch nao possui `core_path`
+- **THEN** o launch ainda tenta localizar um core compativel na pasta `cores/` com base na plataforma
 
-#### Scenario: Excluir emulador pela UI
+### Requirement: UI de gerenciamento no SettingsModal
 
-- **WHEN** o usuário clica em excluir e confirma
-- **THEN** o emulador é removido da lista e desassociado de todas as plataformas
+A secao `Emuladores` do SettingsModal SHALL listar emuladores, permitir criar/editar/excluir e manter uma area de associacoes por plataforma com suporte a cores do RetroArch.
 
-#### Scenario: Botão excluir ausente para RetroArch
+#### Scenario: Dialogo de executavel
 
-- **WHEN** a lista de emuladores é exibida e um emulador tem `is_retroarch = 1`
-- **THEN** o botão de excluir não é renderizado para esse emulador
+- **WHEN** o usuario abre o seletor de executavel
+- **THEN** a UI oferece filtros compativeis com o sistema atual e sempre inclui `Todos os arquivos`
 
-#### Scenario: Selecionar executável do emulador no Linux
+#### Scenario: Botao de excluir oculto para RetroArch
 
-- **WHEN** o usuário clica no botão de pasta no campo "Executável" em Linux
-- **THEN** abre diálogo de arquivo com opção "Todos os arquivos" e filtros de conveniência compatíveis com Linux, incluindo `.sh` e `.AppImage`, sem impedir que binários sem extensão sejam informados manualmente
+- **WHEN** a linha do RetroArch e renderizada
+- **THEN** a acao de exclusao nao aparece
 
-#### Scenario: Associar emulador standalone a plataforma pela UI
+#### Scenario: Configurar core por plataforma
 
-- **WHEN** o usuário seleciona uma plataforma e vincula um emulador standalone como padrão
-- **THEN** o emulador aparece como padrão da plataforma na seção de associações
-
-#### Scenario: Associar RetroArch a plataforma sem campo de core
-
-- **WHEN** o usuário seleciona RetroArch como emulador de uma plataforma
-- **THEN** o formulário de associação exibe somente plataforma e opção de emulador padrão
-
-#### Scenario: Salvar associação RetroArch
-
-- **WHEN** o usuário salva a associação do RetroArch com uma plataforma
-- **THEN** o sistema salva a associação sem exigir core
-
-#### Scenario: Exibir core RetroArch em Linux
-
-- **WHEN** o inventário de cores do RetroArch contém `snes9x_libretro.so` em Linux
-- **THEN** a interface exibe o core com extensão compatível com Linux ou o caminho configurado pelo usuário, sem trocar o rótulo para `.dll`
-
+- **WHEN** o usuario gerencia os vinculos do RetroArch
+- **THEN** a UI mostra cores recomendados e instalados, permitindo salvar um core especifico por plataforma

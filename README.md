@@ -150,7 +150,8 @@ O endpoint remoto precisa responder HTTP `200` com um JSON neste formato:
   "versao": "1.0.0",
   "build": "11e2fc4",
   "data": "2026-05-21 23:46:58",
-  "path": "https://s3.alexishida.com/gamestock/update.zip"
+  "path": "https://s3.alexishida.com/gamestock/update.zip",
+  "sha256": "hash-sha-256-hexadecimal-do-update.zip"
 }
 ```
 
@@ -159,7 +160,8 @@ Aliases aceitos: `version` para `versao`, `releaseDate` para `data`, `downloadUr
 Regras usadas pelo updater:
 
 - `versao` e comparada com `app.getVersion()` usando semver simples (`x.y.z`); se a versao for igual mas o `build` for diferente, o update tambem e aplicado.
-- `path` deve apontar para um `.zip` contendo `resources/app.asar` ou uma pasta raiz `app/`.
+- `path` deve apontar por HTTPS para um `.zip` contendo `resources/app.asar` ou uma pasta raiz `app/`.
+- `sha256` é obrigatório e deve ser hash SHA-256 hexadecimal do `update.zip`; app recusa pacote divergente.
 - Erro de rede (`ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`) abre modal offline na splash em plataformas com self-update suportado.
 - Erro de servidor, JSON invalido ou download corrompido nao bloqueia o app: a splash fecha e o GameStock abre normalmente.
 - O fluxo `download -> staging -> relaunch` existe apenas no Windows empacotado.
@@ -202,25 +204,13 @@ Fluxo em runtime no Linux:
 
 ## Testes
 
-Smoke test da importacao por pasta de ROMs:
+Validação estática completa de main, preload e renderer:
 
 ```bash
-npm run test:rom-folder-import
+npm test
 ```
 
-E2E do importador de metadados contra o app compilado:
-
-```bash
-npm run test:launchbox:e2e
-```
-
-E2E do importador de metadados contra o app empacotado em `release/win-unpacked/`:
-
-```bash
-npm run test:launchbox:e2e:packaged
-```
-
-O E2E compila o app, baixa/cacheia metadados publicos, pesquisa por "Sonic", importa imagens "Box - Front" e verifica se o jogo aparece com capa na grade.
+O comando executa TypeScript estrito com detecção de variáveis e parâmetros não usados. Testes E2E de Electron devem ser adicionados novamente junto com cenários reproduzíveis e seus fixtures, antes de voltar a expor scripts públicos de E2E.
 
 Observacoes para Linux:
 
@@ -282,7 +272,6 @@ Na importacao, imagens sao regravadas para o diretorio de dados atual; caminhos 
 | Midia | `sharp` |
 | Metadados | `adm-zip` + `xml2js` |
 | UI icons | `lucide-react` |
-| Listas virtualizadas | `react-window` |
 | Build | `electron-builder` |
 
 ## Arquitetura

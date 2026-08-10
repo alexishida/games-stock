@@ -1,83 +1,65 @@
-# library-management-workflows - Especificação
+# library-management-workflows Specification
 
 ## Purpose
-Define fluxos de uso para manter a biblioteca no dia a dia: criar jogos manualmente, editar e excluir jogos, marcar status de coleção, associar ROMs e importar muitos jogos por pasta de ROMs.
+Definir os fluxos de uso para manter a biblioteca no dia a dia: criar jogos, editar, excluir, marcar status, abrir detalhes e importar jogos por pasta de ROMs.
 
 ## Requirements
-### Requirement: Fluxo de criação manual de jogos
-O sistema SHALL permitir criar um jogo manualmente via ManualGameModal sem usar a importação LaunchBox. O formulário SHALL exigir título e plataforma e permitir campos opcionais como publisher, ano, gênero, rating, notas, favorito e status de play.
+### Requirement: Criacao manual de jogos
 
-#### Scenario: Criar jogo com campos obrigatórios
-- **WHEN** o usuário abre o ManualGameModal, informa título, seleciona plataforma e salva
-- **THEN** o jogo é persistido, o modal fecha, o jogo recém-criado é selecionado e o GameDetail é aberto
+O sistema SHALL permitir criar jogos manualmente via `ManualGameModal`.
 
-#### Scenario: Campos obrigatórios ausentes
-- **WHEN** o usuário tenta salvar um jogo sem título ou sem plataforma selecionada
-- **THEN** o formulário exibe erro de validação e nenhum jogo é criado
+#### Scenario: Criar jogo com campos obrigatorios
 
-#### Scenario: Abrir ManualGameModal
-- **WHEN** o canal IPC `library:openCreateGame` é recebido pelo renderer
-- **THEN** o ManualGameModal é aberto
+- **WHEN** o usuario informa titulo e plataforma e salva
+- **THEN** o jogo e persistido, selecionado e o detalhe pode ser aberto em seguida
 
-### Requirement: Fluxo de edição de jogo
-O sistema SHALL permitir editar campos de um jogo selecionado pelo GameForm dentro do GameDetail. O formulário SHALL exibir os valores atuais e salvar apenas os campos alterados.
+#### Scenario: Abrir modal por IPC
 
-#### Scenario: Editar campos de metadados
-- **WHEN** o usuário altera título, publisher, ano, gênero, rating ou notas no GameForm e clica em "Salvar"
-- **THEN** o jogo é atualizado no banco e o GameDetail exibe os novos valores
+- **WHEN** o renderer recebe `library:openCreateGame`
+- **THEN** o `ManualGameModal` e aberto
 
-#### Scenario: Editar status de coleção
-- **WHEN** o usuário altera o favorito (checkbox) ou o play_status (select) e salva
-- **THEN** os novos valores são persistidos e os filtros de coleção passam a refletir a mudança
+### Requirement: Edicao e status de colecao
 
-### Requirement: Fluxo de exclusão de jogo
-O sistema SHALL permitir excluir um jogo selecionado a partir do GameDetail após confirmação da ação destrutiva.
+O GameDetail SHALL permitir editar metadados, favorito e `play_status`.
 
-#### Scenario: Confirmar exclusão de jogo
-- **WHEN** o usuário clica em "Excluir" no GameDetail e confirma
-- **THEN** o jogo é removido do banco, o GameDetail fecha (deseleciona o jogo) e a biblioteca é atualizada
+#### Scenario: Atualizar favorito ou status
 
-#### Scenario: Cancelar exclusão de jogo
-- **WHEN** o usuário clica em "Excluir" mas cancela a confirmação
-- **THEN** o jogo permanece inalterado e selecionado
+- **WHEN** o usuario altera favorito, `playing` ou `completed`
+- **THEN** os filtros da biblioteca passam a refletir a mudanca apos recarga
 
-### Requirement: Fluxo de status da coleção
-O sistema SHALL permitir marcar um jogo como favorito e definir `play_status` como `"unplayed"`, `"playing"` ou `"completed"`. Esses valores SHALL ser persistidos e disponíveis como filtros da biblioteca.
+### Requirement: Exclusao de jogo
 
-#### Scenario: Marcar jogo como favorito
-- **WHEN** o usuário ativa o checkbox favorito no GameForm e salva
-- **THEN** o jogo aparece no filtro de favoritos e persiste entre sessões
+O sistema SHALL permitir excluir um jogo a partir do detalhe com confirmacao explicita.
 
-#### Scenario: Definir status concluído
-- **WHEN** o usuário seleciona `play_status = "completed"` no GameForm e salva
-- **THEN** o jogo aparece quando o filtro de concluídos está ativo
+#### Scenario: Exclusao confirmada
 
-### Requirement: Acesso ao GameDetail
-O sistema SHALL exibir o GameDetail quando o usuário seleciona um jogo na grade ou na lista. A TopBar SHALL ser ocultada durante a exibição do detalhe e restaurada ao voltar.
+- **WHEN** o usuario confirma a exclusao
+- **THEN** o jogo e removido, o detalhe fecha e a biblioteca e recarregada
 
-#### Scenario: Abrir GameDetail
-- **WHEN** o usuário clica em um card na grade ou em uma linha na lista
-- **THEN** a TopBar desaparece e o GameDetail ocupa a área principal com imagem hero, metadados e formulário de edição
+### Requirement: Navegacao para o detalhe
 
-#### Scenario: Voltar para biblioteca
-- **WHEN** o usuário clica em "Voltar para biblioteca" no GameDetail
-- **THEN** o jogo é deselecionado, a TopBar reaparece e a grade/lista é restaurada
+Selecionar um jogo na grade ou lista SHALL abrir o `GameDetail`, com navegacao entre jogos da pagina atual e das paginas vizinhas.
 
-### Requirement: Fluxo de importação por pasta de ROMs
-O sistema SHALL oferecer o RomFolderImporter dentro do SettingsModal para importar muitos jogos de pastas de ROMs como alternativa ao cadastro manual.
+#### Scenario: Abrir e voltar
 
-#### Scenario: Acessar RomFolderImporter
-- **WHEN** o usuário abre "Gerenciar biblioteca" na Sidebar ou aciona o canal `romFolderImport:openImporter`
-- **THEN** o SettingsModal abre na seção "biblioteca" exibindo o RomFolderImporter sem perder filtros ou seleção da biblioteca
+- **WHEN** o usuario seleciona um jogo e depois volta para `Biblioteca`
+- **THEN** a selecao e limpa e a listagem principal volta a ser exibida
 
-#### Scenario: Revisar antes de importar
-- **WHEN** ROMs foram descobertas e a plataforma foi selecionada
-- **THEN** o assistente exibe quantidade de ROMs encontradas, arquivos ignorados e lista de candidatos antes de iniciar
+### Requirement: Importacao por pasta de ROMs
 
-#### Scenario: Atualizar biblioteca após importação
-- **WHEN** o job de importação em background conclui
-- **THEN** a biblioteca é recarregada e os jogos criados/atualizados aparecem conforme os filtros ativos
+O `RomFolderImporter` SHALL ficar dentro da secao `biblioteca` do SettingsModal como principal fluxo de importacao em massa.
 
-#### Scenario: Reportar ROMs sem match
-- **WHEN** uma ou mais ROMs não têm correspondência LaunchBox com score suficiente
-- **THEN** o resumo final reporta essas ROMs como "sem match" em vez de descartá-las silenciosamente
+#### Scenario: Acessar o importador
+
+- **WHEN** o usuario clica em `Configuracoes` e entra em `Biblioteca`, ou o canal `romFolderImport:openImporter` e recebido
+- **THEN** o SettingsModal mostra o `RomFolderImporter`
+
+#### Scenario: Revisar candidatos antes de importar
+
+- **WHEN** o scan encontra ROMs e resolve uma plataforma
+- **THEN** a UI mostra quantidade de ROMs encontradas, itens ignorados e candidatos antes do job final
+
+#### Scenario: Biblioteca recarregada apos job
+
+- **WHEN** o job de importacao conclui
+- **THEN** jogos e plataformas sao recarregados e os resultados aparecem sob os filtros atuais
