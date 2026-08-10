@@ -95,13 +95,13 @@ function getBoundsFile(): string {
 
 /**
  * Carrega os bounds (tamanho e posição) salvos da janela principal.
- * Retorna dimensões padrão se o arquivo não existir ou estiver corrompido.
+ * Retorna dimensões padrão de 1122×957 se o arquivo não existir ou estiver corrompido.
  */
 function loadBounds(): Electron.Rectangle {
   try {
     return JSON.parse(fs.readFileSync(getBoundsFile(), "utf8")) as Electron.Rectangle;
   } catch {
-    return { width: 1225, height: 818, x: undefined as never, y: undefined as never };
+    return { width: 1122, height: 957, x: undefined as never, y: undefined as never };
   }
 }
 

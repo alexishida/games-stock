@@ -1,0 +1,20 @@
+/**
+ * Configuração de checagem estática do preload do Electron.
+ *
+ * Em runtime o preload é gerado por esbuild como bundle único, pois o sandbox
+ * não permite carregar os módulos compartilhados por `require` relativo.
+ */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "src",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": ["node", "electron"],
+    "noEmit": true
+  },
+  "include": ["src/preload/**/*.ts", "src/shared/**/*.ts"]
+}
