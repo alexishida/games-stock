@@ -53,10 +53,13 @@ const SCHEMA_VERSION = 1;
 const BACKUP_EXTENSION = ".gamestock-backup";
 
 /** Limites de leitura para rejeitar backups ZIP malformados ou maliciosos cedo. */
-const MAX_BACKUP_ENTRIES = 50_000;
+const MAX_BACKUP_ENTRIES = 250_000;
 const MAX_CENTRAL_DIRECTORY_BYTES = 64 * 1024 * 1024;
 const MAX_ZIP_ENTRY_BYTES = 2 * 1024 * 1024 * 1024;
-const MAX_BACKUP_UNCOMPRESSED_BYTES = 32 * 1024 * 1024 * 1024;
+const MIN_MAX_BACKUP_UNCOMPRESSED_BYTES = 32 * 1024 * 1024 * 1024;
+const MAX_BACKUP_UNCOMPRESSED_BYTES = 1024 * 1024 * 1024 * 1024;
+const MAX_BACKUP_EXPANSION_RATIO = 4;
+const BACKUP_FREE_SPACE_RESERVE_BYTES = 64 * 1024 * 1024;
 
 /** Callback de progresso sem os campos `jobId` e `kind` (adicionados pelo caller). */
 type ProgressCallback = (progress: Omit<DataPortabilityProgress, "jobId" | "kind">) => void;
@@ -147,10 +150,13 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   const counts: DataPortabilityManifest["counts"] = {};
   const mediaRefs = categories.includes("images") ? dao.listMediaReferences() : [];
   const imageFiles = categories.includes("images") ? backupMedia.listImageFilesForBackup(getImagesDir()) : [];
+  const inventoryFiles = categories.includes("inventoryImages")
+    ? backupMedia.listImageFilesForBackup(getInventarioImagesDir())
+    : [];
 
-  // Total de etapas: categorias não-imagem + arquivos de imagem + 2 (gravar + validar)
+  // Total de etapas: categorias não-imagem + arquivos copiados + 2 (iniciar gravação + validar).
   const reportedCategoryCount = categories.filter((category) => category !== "images").length;
-  const total = Math.max(1, reportedCategoryCount + imageFiles.length + 2);
+  const total = Math.max(1, reportedCategoryCount + imageFiles.length + inventoryFiles.length + 2);
   let current = 0;
 
   /** Avança o progresso em uma etapa e notifica o caller. */
@@ -185,7 +191,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
 
   if (categories.includes("images")) {
     // Adiciona arquivos de imagem ao ZIP e constrói mapa de referências
-    const mediaMap = exportMedia(archiveEntries, imageFiles, mediaRefs, warnings, (message) => report("images", message));
+    const mediaMap = exportMedia(archiveEntries, imageFiles, mediaRefs, warnings);
     counts.images = imageFiles.length;
     archiveEntries.push(createJsonEntry("data/mediaMap.json", mediaMap));
   }
@@ -201,8 +207,6 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
 
   if (categories.includes("inventoryImages")) {
     const inventoryBundle = dao.listInventoryData();
-    const inventarioImagesDir = getInventarioImagesDir();
-    const inventoryFiles = backupMedia.listImageFilesForBackup(inventarioImagesDir);
 
     counts.inventoryItems = inventoryBundle.items.length;
     counts.inventoryPhotos = inventoryBundle.photos.length;
@@ -235,11 +239,23 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
 
   const filePath = ensureBackupExtension(request.targetPath);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  writeZipArchive(filePath, archiveEntries);
+  assertBackupTargetCapacity(filePath, archiveEntries);
 
-  // Valida o arquivo recém-gravado lendo-o de volta
-  report("validating", "Validando pacote");
-  loadBackup(filePath);
+  // Grava em arquivo temporário para nunca deixar um destino truncado se o job falhar.
+  const partialPath = createPartialBackupPath(filePath);
+  try {
+    writeZipArchive(partialPath, archiveEntries, (entry) => {
+      report("writing", `Gravando arquivo: ${entry.entryName}`);
+    });
+
+    // Valida o arquivo recém-gravado antes de torná-lo o backup final.
+    report("validating", "Validando pacote");
+    loadBackup(partialPath);
+    replaceBackupFile(partialPath, filePath);
+  } catch (error) {
+    removeFileIfPresent(partialPath);
+    throw error;
+  }
   onProgress?.({ current: total, total, stage: "done", message: "Exportacao concluida" });
 
   return {
@@ -370,8 +386,7 @@ function exportMedia(
   archiveEntries: ZipArchiveEntry[],
   files: ExportedMediaFile[],
   refs: ReturnType<DataPortabilityDao["listMediaReferences"]>,
-  warnings: DataPortabilityWarning[],
-  onItem?: (message: string) => void
+  warnings: DataPortabilityWarning[]
 ): PortableMediaEntry[] {
   // Mapa por caminho normalizado para lookup eficiente ao cruzar refs com arquivos
   const exportedBySource = new Map<string, ExportedMediaFile>();
@@ -384,7 +399,6 @@ function exportMedia(
       size: file.size
     });
     exportedBySource.set(backupMedia.normalizePathForLookup(file.sourcePath), file);
-    onItem?.(`Imagem adicionada: ${file.relativePath}`);
   });
 
   const mediaMap: PortableMediaEntry[] = [];
@@ -800,6 +814,74 @@ function ensureBackupExtension(filePath: string): string {
   return trimmed.toLowerCase().endsWith(BACKUP_EXTENSION) ? trimmed : `${trimmed}${BACKUP_EXTENSION}`;
 }
 
+/**
+ * Rejeita o backup antes da cópia quando o volume de destino não tem espaço livre.
+ * A estimativa inclui dados e folga para cabeçalhos ZIP, diretório central e manifesto.
+ */
+function assertBackupTargetCapacity(targetPath: string, entries: ZipArchiveEntry[]): void {
+  const payloadBytes = entries.reduce(
+    (total, entry) => total + (entry.kind === "buffer" ? entry.buffer.length : entry.size),
+    0
+  );
+  const estimatedBytes = payloadBytes + (entries.length * 512) + BACKUP_FREE_SPACE_RESERVE_BYTES;
+  let availableBytes: number;
+
+  try {
+    const stats = fs.statfsSync(path.dirname(targetPath));
+    availableBytes = stats.bavail * stats.bsize;
+  } catch {
+    // Alguns volumes de rede não expõem statfs; a escrita ainda poderá reportar o erro real.
+    return;
+  }
+
+  if (availableBytes < estimatedBytes) {
+    throw new Error(
+      `Espaco insuficiente para o backup: necessario ${formatByteSize(estimatedBytes)}, disponivel ${formatByteSize(availableBytes)}`
+    );
+  }
+}
+
+/** Cria nome temporário único no mesmo volume para permitir troca atômica ao final. */
+function createPartialBackupPath(targetPath: string): string {
+  return `${targetPath}.${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.partial`;
+}
+
+/**
+ * Substitui o destino somente após validação, preservando o arquivo anterior caso
+ * a renomeação do novo pacote falhe no Windows ou em volume de rede.
+ */
+function replaceBackupFile(partialPath: string, targetPath: string): void {
+  const previousPath = `${targetPath}.${process.pid}-${Date.now()}.previous`;
+  const hadPrevious = fs.existsSync(targetPath);
+
+  try {
+    if (hadPrevious) fs.renameSync(targetPath, previousPath);
+    fs.renameSync(partialPath, targetPath);
+  } catch (error) {
+    if (hadPrevious && fs.existsSync(previousPath) && !fs.existsSync(targetPath)) {
+      fs.renameSync(previousPath, targetPath);
+    }
+    throw error;
+  }
+
+  removeFileIfPresent(previousPath);
+}
+
+/** Remove arquivo auxiliar sem mascarar o erro original do fluxo de backup. */
+function removeFileIfPresent(filePath: string): void {
+  try {
+    fs.rmSync(filePath, { force: true });
+  } catch {
+    // Limpeza best effort: antivírus ou volume de rede podem manter handle temporário.
+  }
+}
+
+/** Formata quantidade de bytes para mensagem curta de capacidade. */
+function formatByteSize(bytes: number): string {
+  if (bytes < 1024 * 1024 * 1024) return `${Math.ceil(bytes / (1024 * 1024))} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 /** Cria um objeto de aviso não-bloqueante para inclusão no resultado. */
 function createWarning(code: string, message: string, detail?: string): DataPortabilityWarning {
   return { severity: "warning", code, message, detail };
@@ -874,9 +956,10 @@ function normalizeZipRelativePath(relativePath: string): string | null {
  * para arquivos maiores que 4 GB ou com mais de 65535 entradas.
  *
  * Todas as entradas são armazenadas sem compressão (STORED) para máxima
- * velocidade de escrita — imagens já estão comprimidas.
+ * velocidade de escrita — imagens já estão comprimidas. O callback informa
+ * cada arquivo de disco concluído para manter progresso fiel na UI.
  */
-function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
+function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[], onFileWritten?: (entry: ZipFileEntry) => void): void {
   const fd = fs.openSync(targetPath, "w");
   let offset = 0;
   const centralDirectory: Buffer[] = [];
@@ -927,6 +1010,7 @@ function writeZipArchive(targetPath: string, entries: ZipArchiveEntry[]): void {
         offset += streamed.written;
         // Retroativamente atualiza o CRC no cabeçalho local (offset fixo)
         writeUInt32At(fd, crc, localHeaderOffset + ZIP_LOCAL_HEADER_CRC_OFFSET);
+        onFileWritten?.(entry);
       }
 
       // Monta o registro no diretório central (Central Directory Header)
@@ -1079,6 +1163,11 @@ function writeUInt32At(fd: number, value: number, position: number): void {
 function readZipArchive(filePath: string): PortableZipArchive {
   const stats = fs.statSync(filePath);
   if (!stats.isFile()) throw new Error("Pacote invalido");
+  // Backups grandes compostos por imagens STORED podem passar de 32 GiB sem serem zip bombs.
+  const maxUncompressedBytes = Math.min(
+    MAX_BACKUP_UNCOMPRESSED_BYTES,
+    Math.max(MIN_MAX_BACKUP_UNCOMPRESSED_BYTES, stats.size * MAX_BACKUP_EXPANSION_RATIO)
+  );
 
   const endRecord = readEndOfCentralDirectory(filePath, stats.size);
   if (endRecord.entryCount > MAX_BACKUP_ENTRIES || endRecord.centralDirectorySize > MAX_CENTRAL_DIRECTORY_BYTES) {
@@ -1127,7 +1216,7 @@ function readZipArchive(filePath: string): PortableZipArchive {
       throw new Error("Entrada ZIP excede limite seguro");
     }
     totalUncompressedBytes += size;
-    if (totalUncompressedBytes > MAX_BACKUP_UNCOMPRESSED_BYTES) {
+    if (totalUncompressedBytes > maxUncompressedBytes) {
       throw new Error("Pacote ZIP excede tamanho total seguro");
     }
 
@@ -1361,10 +1450,7 @@ function createZip64Extra(values: bigint[]): Buffer {
   return extra;
 }
 
-// ─── Tabela e constantes ZIP ─────────────────────────────────────────────────
-
-/** Tabela de lookup pré-computada para cálculo de CRC32 (polinômio IEEE 802.3). */
-const CRC32_TABLE = createCrc32Table();
+// ─── Constantes ZIP ───────────────────────────────────────────────────────────
 
 // Assinaturas de registros ZIP (little-endian, 4 bytes)
 const CENTRAL_DIRECTORY_HEADER_SIGNATURE = 0x02014b50;
@@ -1450,34 +1536,12 @@ function readUInt64LEAsNumber(buffer: Buffer, offset: number): number {
 }
 
 /**
- * Calcula o CRC32 de um buffer usando a tabela pré-computada.
- * Suporta cálculo incremental via parâmetro `seed` (para streaming).
+ * Calcula CRC32 com implementação nativa do Node, evitando varrer dezenas de
+ * gigabytes byte a byte em JavaScript. Suporta cálculo incremental por chunk.
  *
  * @param buffer - Dados a calcular.
  * @param seed - CRC acumulado de chunks anteriores (padrão 0).
  */
 function crc32(buffer: Buffer, seed = 0): number {
-  let crc = seed ^ 0xffffffff;
-  for (let index = 0; index < buffer.length; index += 1) {
-    crc = CRC32_TABLE[(crc ^ buffer[index]) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-/**
- * Cria a tabela de lookup CRC32 com o polinômio IEEE 802.3 (0xEDB88320 refletido).
- * Computada uma única vez na inicialização do módulo.
- */
-function createCrc32Table(): Uint32Array {
-  const table = new Uint32Array(256);
-
-  for (let index = 0; index < 256; index += 1) {
-    let value = index;
-    for (let bit = 0; bit < 8; bit += 1) {
-      value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
-    }
-    table[index] = value >>> 0;
-  }
-
-  return table;
+  return zlib.crc32(buffer, seed) >>> 0;
 }

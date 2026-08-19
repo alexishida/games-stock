@@ -7,6 +7,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
+/** Extensões de imagem aceitas no pacote; impede incluir archives e caches auxiliares gigantes. */
+const BACKUP_IMAGE_EXTENSIONS = new Set([
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".tif",
+  ".tiff",
+  ".webp"
+]);
+
 /** Entrada ZIP mínima consumida por rotinas de mídia. */
 export interface BackupMediaZipEntry {
   entryName: string;
@@ -27,7 +44,11 @@ export interface ExportedMediaFile {
   size: number;
 }
 
-/** Lista arquivos recursivamente com ordem estável para backups reproduzíveis. */
+/**
+ * Lista apenas imagens recursivamente, com ordem estável para backups reproduzíveis.
+ * Arquivos como `.7z` e `metadata.json` não pertencem à categoria de imagens e
+ * podem multiplicar tamanho e duração do pacote sem participar da restauração.
+ */
 export function listImageFilesForBackup(imagesDir: string): ExportedMediaFile[] {
   if (!fs.existsSync(imagesDir)) return [];
   const files: ExportedMediaFile[] = [];
@@ -35,7 +56,7 @@ export function listImageFilesForBackup(imagesDir: string): ExportedMediaFile[] 
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const sourcePath = path.join(directory, entry.name);
       if (entry.isDirectory()) walk(sourcePath);
-      else if (entry.isFile()) {
+      else if (entry.isFile() && BACKUP_IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
         const relativePath = normalizeRelativePath(path.relative(imagesDir, sourcePath));
         if (relativePath) files.push({ packagePath: `media/${relativePath}`, relativePath, sourcePath, size: fs.statSync(sourcePath).size });
       }
