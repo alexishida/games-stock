@@ -9,11 +9,8 @@ import path from "node:path";
 import { LaunchBoxImageType } from "../../../shared/types";
 import { getAppUserDataDir } from "../../appPaths";
 
-/** URL original do banco de metadados do LaunchBox (fallback/referência). */
-export const METADATA_URL_ORG = "https://gamesdb.launchbox-app.com/Metadata.zip";
-
-/** URL espelhada usada para download do Metadata.zip (menor latência/custo). */
-export const METADATA_URL = "https://s3.alexishida.com/gamestock/Metadata.zip";
+/** URL oficial usada para download do banco de metadados do LaunchBox. */
+export const METADATA_URL = "https://gamesdb.launchbox-app.com/Metadata.zip";
 
 /** URL base das imagens hospedadas pelo LaunchBox. */
 export const IMAGES_BASE = "https://images.launchbox-app.com/";
