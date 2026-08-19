@@ -158,6 +158,18 @@ export interface PlatformEmulator {
   emulator?: Emulator;
 }
 
+/** Alteração serializável de um vínculo plataforma-emulador usada em salvamentos em lote. */
+export interface PlatformEmulatorLinkInput {
+  /** ID da plataforma destino. */
+  platformId: number;
+  /** ID do emulador vinculado. */
+  emulatorId: number;
+  /** Define se este emulador é o padrão da plataforma. */
+  isDefault: boolean;
+  /** Core RetroArch opcional associado ao vínculo. */
+  corePath?: string | null;
+}
+
 /** Registro de plataforma (console/sistema) cadastrada na biblioteca. */
 export interface Platform {
   /** ID interno no SQLite. */

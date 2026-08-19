@@ -11,7 +11,7 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { BarChart3, Cpu, Gamepad2, Library, Plus, Settings, Star, Trophy } from "lucide-react";
-import logoSrc from "../../assets/logo.png";
+import logoSrc from "../../assets/logo.webp";
 import { CollectionCounts, CollectionFilter } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { PlatformTree } from "./PlatformTree";

@@ -49,6 +49,7 @@ import {
   LaunchBoxSearchParams,
   Platform,
   PlatformEmulator,
+  PlatformEmulatorLinkInput,
   PlatformMappings,
   PlatformMappingsInput,
   RetroArchCoreInventory,
@@ -121,12 +122,16 @@ export interface GameStockAPI {
     delete(id: number): Promise<{ success: true }>;
     /** Lista emuladores vinculados a uma plataforma específica. */
     listByPlatform(platformId: number): Promise<PlatformEmulator[]>;
+    /** Lista vínculos de várias plataformas em uma única chamada IPC. */
+    listByPlatforms(platformIds: number[]): Promise<Record<number, PlatformEmulator[]>>;
     /** Lista os cores RetroArch instalados para o emulador informado. */
     listRetroArchCores(emulatorId: number): Promise<RetroArchCoreInventory>;
     /** Vincula um emulador a uma plataforma, definindo se é padrão e o core a usar. */
     linkPlatform(emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null): Promise<PlatformEmulator>;
     /** Remove o vínculo entre um emulador e uma plataforma. */
     unlinkPlatform(emulatorId: number, platformId: number): Promise<{ success: true }>;
+    /** Salva vários vínculos plataforma-emulador atomicamente. */
+    savePlatformLinks(changes: PlatformEmulatorLinkInput[]): Promise<{ success: true }>;
   };
 
   /** Operações sobre plataformas cadastradas. */

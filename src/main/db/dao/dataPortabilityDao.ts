@@ -12,6 +12,7 @@
 import type Database from "better-sqlite3";
 import path from "node:path";
 import { DataPortabilityConflictCounts, DataPortabilityRomFolderEntry, PlayStatus } from "../../../shared/types";
+import { buildStoredLibraryGroupKey } from "../libraryGrouping";
 
 /** Campo de mídia de um jogo que pode ser exportado/importado. */
 export type PortableMediaField = "box_art_path" | "background_path" | "screenshot_path";
@@ -517,9 +518,9 @@ export class DataPortabilityDao {
     const insert = this.database.prepare(`
       INSERT INTO games (
         title, platform_id, publisher, year, genre, rating,
-        favorite, play_status, notes, launchbox_id
+        favorite, play_status, notes, launchbox_id, library_group_key
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const update = this.database.prepare(`
       UPDATE games SET
@@ -533,9 +534,11 @@ export class DataPortabilityDao {
         play_status = ?,
         notes = ?,
         launchbox_id = ?,
+        library_group_key = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
+    const selectGameGrouping = this.database.prepare("SELECT title, rom_path FROM games WHERE id = ?");
 
     for (const record of records) {
       const title = record.title?.trim();
@@ -562,10 +565,14 @@ export class DataPortabilityDao {
       // Verifica se o jogo já existe pelo launchbox_id ou pelo título
       const existingId = this.findGameIdByIdentity(record, platform.id);
       if (existingId) {
-        update.run(...values, existingId);
+        const current = selectGameGrouping.get(existingId) as { title: string; rom_path: string | null } | undefined;
+        // Metadados podem alterar título de ROM já associada; recalcula chave no mesmo UPDATE.
+        const libraryGroupKey = buildStoredLibraryGroupKey({ title, rom_path: current?.rom_path ?? null });
+        update.run(...values, libraryGroupKey, existingId);
         summary.updated += 1;
       } else {
-        insert.run(...values);
+        // Metadados ainda não têm caminho de ROM; registro manual fica sem chave persistida.
+        insert.run(...values, null);
         summary.created += 1;
       }
     }
@@ -582,7 +589,8 @@ export class DataPortabilityDao {
    */
   importRomLocations(records: PortableRomLocation[]): PortableRomLocationImportSummary {
     const summary: PortableRomLocationImportSummary = { updated: 0, skipped: 0, romFolderEntries: 0 };
-    const update = this.database.prepare("UPDATE games SET rom_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    const update = this.database.prepare("UPDATE games SET rom_path = ?, library_group_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    const selectGameTitle = this.database.prepare("SELECT title FROM games WHERE id = ?");
     for (const record of records) {
       const platformId = this.getPlatformIdByName(record.platformName);
       const gameId = platformId ? this.findGameIdByIdentity(record, platformId) : null;
@@ -590,7 +598,13 @@ export class DataPortabilityDao {
         summary.skipped += 1;
         continue;
       }
-      update.run(record.rom_path, gameId);
+      const current = selectGameTitle.get(gameId) as { title: string } | undefined;
+      if (!current) {
+        summary.skipped += 1;
+        continue;
+      }
+      // Caminho de ROM define agrupamento visual; mantém os dois campos consistentes.
+      update.run(record.rom_path, buildStoredLibraryGroupKey({ title: current.title, rom_path: record.rom_path }), gameId);
       summary.updated += 1;
     }
     return summary;

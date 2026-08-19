@@ -38,14 +38,10 @@ export function getDefaultPlatformEmulator(platformId: number, reloadToken: numb
   const pending = pendingDefaultEmulatorRequests.get(platformId);
   if (pending?.reloadToken === reloadToken) return pending.promise;
 
-  const promise = window.gameStockAPI.emulators
-    .listByPlatform(platformId)
-    .then((items) => items.find((item) => item.is_default === 1) ?? null)
+  const promise = loadDefaultPlatformEmulators([platformId], reloadToken)
+    .then((items) => items[platformId] ?? null)
+    // Falha de IPC não bloqueia card/detalhe: mantém comportamento anterior sem emulador.
     .catch(() => null)
-    .then((value) => {
-      defaultEmulatorCache.set(platformId, { reloadToken, value });
-      return value;
-    })
     .finally(() => {
       const current = pendingDefaultEmulatorRequests.get(platformId);
       if (current?.promise === promise) pendingDefaultEmulatorRequests.delete(platformId);
@@ -67,14 +63,28 @@ export async function loadDefaultPlatformEmulators(
   reloadToken: number
 ): Promise<Record<number, PlatformEmulator | null>> {
   const uniquePlatformIds = Array.from(new Set(platformIds.filter(isValidPlatformId)));
-  const entries = await Promise.all(
-    uniquePlatformIds.map(async (platformId) => [
-      platformId,
-      await getDefaultPlatformEmulator(platformId, reloadToken)
-    ] as const)
-  );
+  const result = Object.fromEntries(uniquePlatformIds.map((id) => [id, null])) as Record<number, PlatformEmulator | null>;
+  const missingIds: number[] = [];
 
-  return Object.fromEntries(entries) as Record<number, PlatformEmulator | null>;
+  for (const platformId of uniquePlatformIds) {
+    const cached = defaultEmulatorCache.get(platformId);
+    if (cached?.reloadToken === reloadToken) {
+      result[platformId] = cached.value;
+    } else {
+      missingIds.push(platformId);
+    }
+  }
+
+  if (!missingIds.length) return result;
+
+  // Uma consulta atende todos os cards visíveis; evita uma ida IPC por plataforma.
+  const linksByPlatform = await window.gameStockAPI.emulators.listByPlatforms(missingIds);
+  for (const platformId of missingIds) {
+    const value = linksByPlatform[platformId]?.find((item) => item.is_default === 1) ?? null;
+    defaultEmulatorCache.set(platformId, { reloadToken, value });
+    result[platformId] = value;
+  }
+  return result;
 }
 
 /** Verifica se o valor pode ser usado como ID de plataforma. */

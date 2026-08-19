@@ -59,6 +59,10 @@ export const IPC_CHANNELS = {
     unlinkPlatform: "emulators:unlinkPlatform",
     /** Lista emuladores vinculados a uma plataforma específica. */
     listByPlatform: "emulators:listByPlatform",
+    /** Lista vínculos para várias plataformas em uma única chamada. */
+    listByPlatforms: "emulators:listByPlatforms",
+    /** Salva vários vínculos plataforma-emulador em uma transação. */
+    savePlatformLinks: "emulators:savePlatformLinks",
     /** Lista os cores RetroArch instalados no diretório configurado do emulador. */
     listRetroArchCores: "emulators:listRetroArchCores"
   },

@@ -17,9 +17,16 @@ asarUnpack:
 win:
   icon: build/icon-win.png
   files:
+    # Whitelist repetida evita que exclusões isoladas reativem o glob padrão `**/*`.
+    - dist/**
+    - node_modules/**
+    - package.json
     # Exclui binários 7za de outras plataformas do pacote Windows
     - "!node_modules/7zip-bin/mac/**"
     - "!node_modules/7zip-bin/linux/**"
+    # Distribuição Windows atual é x64; binários de outras arquiteturas não são usados.
+    - "!node_modules/7zip-bin/win/arm64/**"
+    - "!node_modules/7zip-bin/win/ia32/**"
   target:
     - nsis
     - portable
@@ -27,9 +34,19 @@ linux:
   category: Game
   icon: build
   files:
+    # Whitelist repetida evita que exclusões isoladas reativem o glob padrão `**/*`.
+    - dist/**
+    - node_modules/**
+    - package.json
     # Exclui binários 7za de outras plataformas do pacote Linux
     - "!node_modules/7zip-bin/mac/**"
     - "!node_modules/7zip-bin/win/**"
+    # Targets Linux atuais são x64; remove binários e scripts de build não distribuídos.
+    - "!node_modules/7zip-bin/linux/arm/**"
+    - "!node_modules/7zip-bin/linux/arm64/**"
+    - "!node_modules/7zip-bin/linux/ia32/**"
+    - "!node_modules/7zip-bin/linux/x64/build.sh"
+    - "!node_modules/7zip-bin/linux/x64/do-build.sh"
   target:
     - target: deb
       arch:

@@ -15,6 +15,13 @@ export function useCollectionCounts(): void {
 
   useEffect(() => {
     // Busca contagens atualizadas via IPC e atualiza o store
-    window.gameStockAPI.games.collectionCounts().then(setCollectionCounts);
+    let cancelled = false;
+    void window.gameStockAPI.games.collectionCounts()
+      .then((counts) => { if (!cancelled) setCollectionCounts(counts); })
+      .catch((cause: unknown) => {
+        // Preserva contagens anteriores se SQLite/IPC falhar temporariamente.
+        console.error("Falha ao carregar contagens da coleção", cause);
+      });
+    return () => { cancelled = true; };
   }, [reloadToken, setCollectionCounts]);
 }

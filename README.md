@@ -2,6 +2,8 @@
 
 GameStock e um aplicativo desktop para Windows e Linux para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
+Versao atual: **1.1.1**.
+
 ## Capturas de tela
 
 ![Biblioteca principal](screenshot/principal.jpg)
@@ -17,7 +19,7 @@ GameStock e um aplicativo desktop para Windows e Linux para organizar biblioteca
 ## Funcionalidades
 
 - **Biblioteca de jogos**: crie, edite, exclua e consulte jogos com titulo, plataforma, publisher, ano, genero, classificacao, notas, favorito e status de jogo.
-- **Grade e lista**: navegue por cards com capas ou por uma lista compacta, com paginacao, ordenacao e navegacao por teclado.
+- **Grade e lista**: navegue por cards com capas ou por uma lista compacta, com paginacao SQL, ordenacao e navegacao por teclado.
 - **Detalhe do jogo**: veja capa, background, screenshot, metadados, caminho da ROM e formulario de edicao em uma tela dedicada.
 - **Importacao de metadados no formulario**: busque e importe metadados de bases publicas diretamente pelo formulario de edicao do jogo.
 - **Filtros de colecao**: filtre por todos, favoritos, jogando, concluidos e nao jogados.
@@ -113,7 +115,7 @@ Antes de `npm run dev`, `npm run build:renderer`, `npm run build:main`, `npm run
 Formato exibido no app:
 
 ```text
-1.0.0 (build 11e2fc4)
+1.1.1 (build 11e2fc4)
 ```
 
 Resumo:
@@ -126,8 +128,8 @@ Resumo:
 Exemplo opcional de tag de release apos gerar uma versao:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.1
+git push origin v1.1.1
 ```
 
 ## Auto Update

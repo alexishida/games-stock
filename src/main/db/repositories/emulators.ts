@@ -10,7 +10,7 @@
 import { getDatabase } from "../database";
 import { EmulatorDao, EmulatorInput } from "../dao/emulatorDao";
 import { PlatformEmulatorDao } from "../dao/platformEmulatorDao";
-import { Emulator, PlatformEmulator } from "../../../shared/types";
+import { Emulator, PlatformEmulator, PlatformEmulatorLinkInput } from "../../../shared/types";
 
 // Re-exporta EmulatorInput para que consumidores externos não precisem importar do DAO diretamente.
 export type { EmulatorInput };
@@ -77,6 +77,11 @@ export function listEmulatorsByPlatform(platformId: number): PlatformEmulator[] 
   return platformEmulatorDao().listByPlatform(platformId);
 }
 
+/** Lista vínculos de várias plataformas em uma única consulta SQLite. */
+export function listEmulatorsByPlatforms(platformIds: number[]): Record<number, PlatformEmulator[]> {
+  return platformEmulatorDao().listByPlatforms(platformIds);
+}
+
 /**
  * Retorna o emulador marcado como padrão para uma plataforma.
  *
@@ -115,4 +120,9 @@ export function linkEmulatorToPlatform(
  */
 export function unlinkEmulatorFromPlatform(emulatorId: number, platformId: number): { success: true } {
   return platformEmulatorDao().unlink(emulatorId, platformId);
+}
+
+/** Salva vários vínculos de emulador atomicamente. */
+export function linkEmulatorsToPlatforms(changes: PlatformEmulatorLinkInput[]): { success: true } {
+  return platformEmulatorDao().linkMany(changes);
 }

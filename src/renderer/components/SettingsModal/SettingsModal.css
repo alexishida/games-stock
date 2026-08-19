@@ -103,6 +103,13 @@
   padding-right: 2px;
 }
 
+/* Feedback mínimo exibido enquanto uma seção lazy é carregada. */
+.settings-section-loading {
+  margin: 16px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
 /* Aba Sobre: coluna única empilhada. Evita grid de 2 colunas com células de
    alturas diferentes, que deixava logo/descrição e stats/ações desalinhados. */
 .about-page {

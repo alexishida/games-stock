@@ -14,6 +14,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { getAppUserDataDir } from "../appPaths";
+import { buildStoredLibraryGroupKey, matchesLibraryGenre } from "./libraryGrouping";
 import { LEGACY_PLATFORM_ALIASES, PLATFORM_CATALOG } from "./platformCatalog";
 
 // Instância singleton do banco de dados — null enquanto não inicializado.
@@ -53,6 +54,10 @@ export function getDatabase(): Database.Database {
   db = database;
   // Ativa integridade referencial (foreign keys) — desabilitada por padrão no SQLite.
   database.pragma("foreign_keys = ON");
+  // Expõe regra de gênero no SQLite para filtrar sem carregar biblioteca inteira no Node.
+  database.function("library_has_genre", { deterministic: true }, (genre: unknown, selectedGenre: unknown) =>
+    matchesLibraryGenre(typeof genre === "string" ? genre : null, typeof selectedGenre === "string" ? selectedGenre : null) ? 1 : 0
+  );
 
   // Garante que o diretório de fotos do inventário existe.
   fs.mkdirSync(getInventarioImagesDir(), { recursive: true });
@@ -69,6 +74,7 @@ export function getDatabase(): Database.Database {
   seedHardwareInventoryDefaults(database);
   runOnceMigration(database, "rom-variant-titles-v1", () => backfillRomVariantTitles(database));
   runOnceMigration(database, "cached-cover-paths-v1", () => backfillCachedCoverPaths(database));
+  runOnceMigration(database, "library-group-key-v1", () => backfillLibraryGroupKeys(database));
   return database;
 }
 
@@ -123,6 +129,7 @@ function applySchema(database: Database.Database): void {
       notes TEXT,
       launchbox_id TEXT,
       launch_count INTEGER NOT NULL DEFAULT 0,
+      library_group_key TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE RESTRICT
@@ -204,6 +211,7 @@ function applySchema(database: Database.Database): void {
   addColumnIfMissing(database, "games", "rom_path", "TEXT");
   addColumnIfMissing(database, "games", "launchbox_id", "TEXT");
   addColumnIfMissing(database, "games", "launch_count", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(database, "games", "library_group_key", "TEXT");
   addColumnIfMissing(database, "platforms", "is_default", "INTEGER NOT NULL DEFAULT 0");
 
   // Índices adicionais para campos de filtro comuns na listagem de jogos.
@@ -212,6 +220,9 @@ function applySchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_games_play_status ON games(play_status);
     CREATE INDEX IF NOT EXISTS idx_games_rom_path ON games(rom_path);
     CREATE INDEX IF NOT EXISTS idx_games_launch_count ON games(launch_count DESC);
+    CREATE INDEX IF NOT EXISTS idx_games_library_group_title ON games(platform_id, library_group_key, title COLLATE NOCASE)
+      WHERE library_group_key IS NOT NULL AND library_group_key != '';
+    CREATE INDEX IF NOT EXISTS idx_games_recent ON games(created_at DESC, id DESC);
   `);
 
   // ── Inventário de hardware físico ──────────────────────────────────────────
@@ -673,6 +684,29 @@ function seedPlatformMappings(database: Database.Database): void {
  */
 function seedEmulators(database: Database.Database): void {
   database.prepare("INSERT OR IGNORE INTO emulators (name, executable, is_retroarch) VALUES ('RetroArch', '', 1)").run();
+}
+
+/**
+ * Backfill: calcula chave visual persistida para cada jogo com ROM já existente.
+ * Jogos manuais mantêm `null` para continuarem independentes por seu ID SQLite.
+ */
+function backfillLibraryGroupKeys(database: Database.Database): void {
+  const rows = database
+    .prepare(`
+      SELECT id, title, rom_path
+      FROM games
+      WHERE rom_path IS NOT NULL AND TRIM(rom_path) != ''
+    `)
+    .all() as Array<{ id: number; title: string; rom_path: string }>;
+
+  const update = database.prepare("UPDATE games SET library_group_key = ? WHERE id = ?");
+  const apply = database.transaction((items: Array<{ id: number; title: string; rom_path: string }>) => {
+    for (const item of items) {
+      update.run(buildStoredLibraryGroupKey(item), item.id);
+    }
+  });
+
+  apply(rows);
 }
 
 /**

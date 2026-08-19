@@ -28,6 +28,7 @@ import { previewImportPackage } from "./dataPortability";
 import { ensureLaunchBoxMetadata, importGame, searchGames, downloadLaunchBoxImages, syncMissingCovers, getLaunchBoxMetadataDownloadedAt, metadataExists } from "./lib/launchbox";
 import { importRomFolder, SUPPORTED_ROM_EXTENSIONS } from "./romFolderImport";
 import { createSplashWindow } from "./splash-window";
+import { registerEmulatorIpc, registerPlatformIpc } from "./ipc/registerPlatformEmulatorIpc";
 import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, supportsInPlaceAutoUpdate, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
 import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest, RomFolderScanResult } from "../shared/types";
@@ -261,27 +262,9 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.listVersions, (_event, id: number) => games.listGameVersions(id));
   ipcMain.handle(IPC_CHANNELS.games.resetLaunchStats, () => games.resetGameLaunchStats());
 
-  // ── Plataformas ────────────────────────────────────────────────────────────
-  ipcMain.handle(IPC_CHANNELS.platforms.list, () => platforms.listPlatforms());
-  ipcMain.handle(IPC_CHANNELS.platforms.create, (_event, data: platforms.PlatformInput) => platforms.createPlatform(data));
-  ipcMain.handle(IPC_CHANNELS.platforms.update, (_event, id: number, data: Partial<platforms.PlatformInput>) => platforms.updatePlatform(id, data));
-  ipcMain.handle(IPC_CHANNELS.platforms.delete, (_event, id: number) => platforms.deletePlatform(id));
-  ipcMain.handle(IPC_CHANNELS.platforms.getMappings, (_event, platformId: number) => platforms.getPlatformMappings(platformId));
-  ipcMain.handle(IPC_CHANNELS.platforms.saveMappings, (_event, platformId: number, data) => platforms.savePlatformMappings(platformId, data));
-
-  // ── Emuladores ─────────────────────────────────────────────────────────────
-  ipcMain.handle(IPC_CHANNELS.emulators.list, () => emulators.listEmulators());
-  ipcMain.handle(IPC_CHANNELS.emulators.create, (_event, data: emulators.EmulatorInput) => emulators.createEmulator(data));
-  ipcMain.handle(IPC_CHANNELS.emulators.update, (_event, id: number, data: Partial<emulators.EmulatorInput>) => emulators.updateEmulator(id, data));
-  ipcMain.handle(IPC_CHANNELS.emulators.delete, (_event, id: number) => emulators.deleteEmulator(id));
-  ipcMain.handle(IPC_CHANNELS.emulators.listByPlatform, (_event, platformId: number) => emulators.listEmulatorsByPlatform(platformId));
-  ipcMain.handle(IPC_CHANNELS.emulators.listRetroArchCores, (_event, emulatorId: number) => listRetroArchCores(emulatorId));
-  ipcMain.handle(IPC_CHANNELS.emulators.linkPlatform, (_event, emulatorId: number, platformId: number, isDefault: boolean, corePath?: string | null) =>
-    emulators.linkEmulatorToPlatform(emulatorId, platformId, isDefault, corePath)
-  );
-  ipcMain.handle(IPC_CHANNELS.emulators.unlinkPlatform, (_event, emulatorId: number, platformId: number) =>
-    emulators.unlinkEmulatorFromPlatform(emulatorId, platformId)
-  );
+  // Registradores por domínio mantêm este arquivo focado no ciclo de vida do Electron.
+  registerPlatformIpc(ipcMain, { platforms });
+  registerEmulatorIpc(ipcMain, { emulators, listRetroArchCores });
 
   // ── Launch (abrir jogo no emulador) ───────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.games.launch, async (_event, gameId: number) => {
@@ -586,9 +569,28 @@ function registerIpc(): void {
   );
 }
 
-/** Envia progresso de operação LaunchBox para o renderer via IPC push. */
+/** Estado de throttle por job para não misturar operações LaunchBox simultâneas. */
+const launchBoxProgressThrottle = new Map<string, { sentAt: number; percent: number | null }>();
+
+/** Intervalo máximo entre atualizações de progresso sem avanço percentual. */
+const LAUNCHBOX_PROGRESS_THROTTLE_MS = 100;
+
+/**
+ * Envia progresso de operação LaunchBox para renderer via IPC push.
+ * Primeiro, erro e fim são imediatos; demais eventos só passam após 100 ms ou novo percentual inteiro.
+ */
 function sendLaunchBoxProgress(progress: LaunchBoxProgress): void {
+  const key = progress.jobId ?? "default";
+  const previous = launchBoxProgressThrottle.get(key);
+  const now = Date.now();
+  const percent = progress.total > 0 ? Math.floor((progress.current / progress.total) * 100) : null;
+  const terminal = progress.status === "error" || (progress.total > 0 && progress.current >= progress.total);
+  const shouldSend = !previous || terminal || previous.percent !== percent || now - previous.sentAt >= LAUNCHBOX_PROGRESS_THROTTLE_MS;
+  if (!shouldSend) return;
+
+  launchBoxProgressThrottle.set(key, { sentAt: now, percent });
   mainWindow?.webContents.send(IPC_CHANNELS.launchbox.progress, progress);
+  if (terminal) launchBoxProgressThrottle.delete(key);
 }
 
 /**

@@ -40,6 +40,8 @@ export function HardwareInventory() {
   const [localSearch, setLocalSearch] = useState(inventoryFilters.search ?? "");
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  // Chave do último filtro consultado; evita IPC na página antiga antes de resetar para a primeira.
+  const appliedFilterKey = useRef("");
 
   // Proximo criterio do ciclo de ordenacao do inventario: nome -> tipo -> recentes.
   const nextInventorySort = inventorySortBy === "name" ? "type" : inventorySortBy === "type" ? "recent" : "name";
@@ -52,6 +54,14 @@ export function HardwareInventory() {
   function reloadItems() { setReloadToken((t) => t + 1); }
 
   useEffect(() => {
+    const filterKey = JSON.stringify({ inventoryFilters, inventorySortBy });
+    if (page > 1 && appliedFilterKey.current && appliedFilterKey.current !== filterKey) {
+      // Interrompe antes do IPC: próximo render consulta apenas página 1 com filtro novo.
+      setPage(1);
+      setSelectedItem(null);
+      return;
+    }
+    appliedFilterKey.current = filterKey;
     let canceled = false;
     setLoading(true);
     void window.gameStockAPI.hardwareInventory
@@ -68,12 +78,6 @@ export function HardwareInventory() {
       .finally(() => { if (!canceled) setLoading(false); });
     return () => { canceled = true; };
   }, [inventoryFilters, inventorySortBy, page, reloadToken]);
-
-  // Filtros ou ordenacao mudaram: volta para pagina 1 e fecha detalhe.
-  useEffect(() => {
-    setPage(1);
-    setSelectedItem(null);
-  }, [inventoryFilters, inventorySortBy]);
 
   // Mantem o texto local alinhado quando a busca e alterada por outro fluxo.
   useEffect(() => {

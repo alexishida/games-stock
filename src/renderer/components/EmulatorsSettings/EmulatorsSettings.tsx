@@ -22,6 +22,7 @@ import {
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
+import { useEmulatorAssociations } from "./useEmulatorAssociations";
 import "./EmulatorsSettings.css";
 
 /**
@@ -581,44 +582,10 @@ function EmulatorRow({
   onReload: () => void;
   onConfigureRetroArchCores?: () => void;
 }) {
-  // Vínculos do emulador com plataformas (carregados ao expandir a linha)
-  const [associations, setAssociations] = useState<PlatformEmulator[]>([]);
-
-  // Controla se a lista de plataformas vinculadas está expandida
-  const [expanded, setExpanded] = useState(false);
+  const { associations, expanded, setExpanded, loadAssociations, unlink } = useEmulatorAssociations(emulator, platforms, onReload);
 
   // Controla se o modal de vincular plataforma está aberto
   const [linking, setLinking] = useState(false);
-
-  /**
-   * Carrega todas as associações deste emulador iterando pelas plataformas,
-   * pois a API retorna vínculos por plataforma, não por emulador.
-   */
-  async function loadAssociations(): Promise<void> {
-    const all: PlatformEmulator[] = [];
-    for (const p of platforms) {
-      const list = await window.gameStockAPI.emulators.listByPlatform(p.id);
-      for (const pe of list) {
-        if (pe.emulator_id === emulator.id) all.push({ ...pe, emulator });
-      }
-    }
-    setAssociations(all);
-  }
-
-  /** Carrega as associações sempre que a linha for expandida. */
-  useEffect(() => {
-    if (expanded) void loadAssociations();
-  }, [expanded]);
-
-  /**
-   * Remove o vínculo do emulador com uma plataforma via IPC
-   * e recarrega as associações e a lista principal.
-   */
-  async function unlink(platformId: number): Promise<void> {
-    await window.gameStockAPI.emulators.unlinkPlatform(emulator.id, platformId);
-    void loadAssociations();
-    onReload();
-  }
 
   /** Retorna o nome da plataforma pelo ID, com fallback para "#id" se não encontrada. */
   const platformName = (id: number) => platforms.find((p) => p.id === id)?.name ?? `#${id}`;
@@ -807,7 +774,7 @@ function RetroArchPlatformCores({
   }, [openCorePickerPlatformId]);
 
   /**
-   * Carrega (em paralelo) os vínculos de plataforma e o inventário de cores instalados.
+   * Carrega (em paralelo) vínculos em lote e inventário de cores instalados.
    * Atualiza os rascunhos preservando edições não salvas do usuário.
    * Roda sempre que platforms, reloadToken ou retroArch.id mudam.
    */
@@ -823,16 +790,14 @@ function RetroArchPlatformCores({
     // Flag para evitar atualizar estado após desmontagem do componente
     let active = true;
     void Promise.all([
-      Promise.all(
-        platforms.map(async (platform) => {
-          const links = await window.gameStockAPI.emulators.listByPlatform(platform.id);
-          const retroArchLink = links.find((entry) => entry.emulator_id === retroArch.id) ?? null;
-          return { platform, retroArchLink };
-        })
-      ),
+      window.gameStockAPI.emulators.listByPlatforms(platforms.map((platform) => platform.id)),
       window.gameStockAPI.emulators.listRetroArchCores(retroArch.id)
-    ]).then(([nextConfigs, inventory]) => {
+    ]).then(([linksByPlatform, inventory]) => {
       if (!active) return;
+      const nextConfigs = platforms.map((platform) => ({
+        platform,
+        retroArchLink: linksByPlatform[platform.id]?.find((entry) => entry.emulator_id === retroArch.id) ?? null
+      }));
       setConfigs(nextConfigs);
       setCoreInventory(inventory);
       setOpenCorePickerPlatformId(null);
@@ -883,14 +848,13 @@ function RetroArchPlatformCores({
     setError("");
     setSavingAll(true);
     try {
-      for (const config of configsToSave) {
-        await window.gameStockAPI.emulators.linkPlatform(
-          retroArch.id,
-          config.platform.id,
-          config.retroArchLink?.is_default === 1,
-          coreDrafts[config.platform.id].trim()
-        );
-      }
+      // Envia todas as edições uma vez; SQLite reverte lote inteiro se algum vínculo falhar.
+      await window.gameStockAPI.emulators.savePlatformLinks(configsToSave.map((config) => ({
+        platformId: config.platform.id,
+        emulatorId: retroArch.id,
+        isDefault: config.retroArchLink?.is_default === 1,
+        corePath: coreDrafts[config.platform.id].trim()
+      })));
       setEditedPlatformIds({});
       onReload();
     } catch (err) {

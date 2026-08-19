@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Gamepad2, RefreshCw, TriangleAlert, WifiOff } from "lucide-react";
 import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
-import splashHero from "../renderer/assets/gamestock-splash.png";
+import splashHero from "../renderer/assets/gamestock-splash.webp";
 
 /** Estado inicial exibido enquanto o main ainda não enviou progresso real. */
 const INITIAL_STATUS: UpdaterStatus = {

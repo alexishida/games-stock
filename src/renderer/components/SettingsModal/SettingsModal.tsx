@@ -16,21 +16,23 @@
  * A seção ativa é controlada pelo store (settingsSection).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { DatabaseBackup, FolderOpen, Gamepad2, Images, Info, MonitorPlay, RefreshCw, RotateCcw, ScrollText, Settings, Trash2, X } from "lucide-react";
 import logoSrc from "../../assets/logo-about.png";
-import { CoversSettings } from "../CoversSettings/CoversSettings";
-import { DataPortabilitySettings } from "../DataPortabilitySettings/DataPortabilitySettings";
-import { EmulatorsSettings } from "../EmulatorsSettings/EmulatorsSettings";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { SettingsSection, useGameStockStore } from "../../store";
-import { PlayHistorySettings } from "../PlayHistorySettings/PlayHistorySettings";
-import { PlatformManager } from "../PlatformManager/PlatformManager";
-import { RomFolderImporter } from "../RomFolderImporter/RomFolderImporter";
-import { LogsSettings } from "../LogsSettings/LogsSettings";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import type { UpdaterAppInfo, UpdaterStatus } from "../../../shared/updater";
 import "./SettingsModal.css";
+
+/** Seções pesadas carregadas somente quando usuário abre aba correspondente. */
+const DataPortabilitySettings = lazy(async () => import("../DataPortabilitySettings/DataPortabilitySettings").then(({ DataPortabilitySettings: Component }) => ({ default: Component })));
+const RomFolderImporter = lazy(async () => import("../RomFolderImporter/RomFolderImporter").then(({ RomFolderImporter: Component }) => ({ default: Component })));
+const PlatformManager = lazy(async () => import("../PlatformManager/PlatformManager").then(({ PlatformManager: Component }) => ({ default: Component })));
+const EmulatorsSettings = lazy(async () => import("../EmulatorsSettings/EmulatorsSettings").then(({ EmulatorsSettings: Component }) => ({ default: Component })));
+const CoversSettings = lazy(async () => import("../CoversSettings/CoversSettings").then(({ CoversSettings: Component }) => ({ default: Component })));
+const PlayHistorySettings = lazy(async () => import("../PlayHistorySettings/PlayHistorySettings").then(({ PlayHistorySettings: Component }) => ({ default: Component })));
+const LogsSettings = lazy(async () => import("../LogsSettings/LogsSettings").then(({ LogsSettings: Component }) => ({ default: Component })));
 
 /**
  * Itens de navegação do menu lateral.
@@ -447,6 +449,8 @@ export function SettingsModal() {
 
           {/* Corpo da seção: renderização condicional por seção ativa */}
           <div className="settings-body">
+            {/* Feedback curto enquanto Vite baixa chunk da seção escolhida. */}
+            <Suspense fallback={<p className="settings-section-loading" role="status">Carregando seção…</p>}>
             {/* Seção: Backup — exportação e importação de dados */}
             {section === "backup" && (
               <DataPortabilitySettings appVersion={appVersion} storageStats={storageStats} />
@@ -657,6 +661,7 @@ export function SettingsModal() {
                 )}
               </div>
             )}
+            </Suspense>
           </div>
         </div>
       </div>

@@ -105,6 +105,8 @@ const api = {
     delete: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.delete, id),
     /** Lista emuladores vinculados a uma plataforma específica. */
     listByPlatform: (platformId: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.listByPlatform, platformId),
+    /** Lista vínculos de várias plataformas em uma única chamada IPC. */
+    listByPlatforms: (platformIds: number[]) => ipcRenderer.invoke(IPC_CHANNELS.emulators.listByPlatforms, platformIds),
     /** Lista os cores RetroArch instalados para o emulador informado. */
     listRetroArchCores: (emulatorId: number) => ipcRenderer.invoke(IPC_CHANNELS.emulators.listRetroArchCores, emulatorId),
     /** Vincula um emulador a uma plataforma, definindo se é padrão e o core a usar. */
@@ -112,7 +114,10 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.emulators.linkPlatform, emulatorId, platformId, isDefault, corePath),
     /** Remove o vínculo entre um emulador e uma plataforma. */
     unlinkPlatform: (emulatorId: number, platformId: number) =>
-      ipcRenderer.invoke(IPC_CHANNELS.emulators.unlinkPlatform, emulatorId, platformId)
+      ipcRenderer.invoke(IPC_CHANNELS.emulators.unlinkPlatform, emulatorId, platformId),
+    /** Aplica vários vínculos em uma transação SQLite. */
+    savePlatformLinks: (changes: import("../shared/types").PlatformEmulatorLinkInput[]) =>
+      ipcRenderer.invoke(IPC_CHANNELS.emulators.savePlatformLinks, changes)
   },
 
   /** Operações sobre plataformas cadastradas. */

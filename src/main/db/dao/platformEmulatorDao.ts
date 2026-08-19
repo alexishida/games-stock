@@ -7,7 +7,7 @@
  */
 
 import type Database from "better-sqlite3";
-import { Emulator, PlatformEmulator } from "../../../shared/types";
+import { Emulator, PlatformEmulator, PlatformEmulatorLinkInput } from "../../../shared/types";
 
 /**
  * Linha bruta retornada pelo JOIN entre `platform_emulators` e `emulators`.
@@ -69,6 +69,31 @@ export class PlatformEmulatorDao {
   }
 
   /**
+   * Lista vínculos para várias plataformas em uma única query.
+   * Retorna também plataformas sem vínculo para simplificar consumo no renderer.
+   */
+  listByPlatforms(platformIds: number[]): Record<number, PlatformEmulator[]> {
+    const uniqueIds = [...new Set(platformIds.filter((id) => Number.isInteger(id) && id > 0))];
+    const grouped = Object.fromEntries(uniqueIds.map((id) => [id, []])) as Record<number, PlatformEmulator[]>;
+    if (!uniqueIds.length) return grouped;
+
+    const placeholders = uniqueIds.map(() => "?").join(", ");
+    const rows = this.database
+      .prepare(`
+        SELECT pe.*, e.id as em_id, e.name as em_name, e.executable as em_executable,
+               e.args as em_args, e.is_retroarch as em_is_retroarch, e.created_at as em_created_at
+        FROM platform_emulators pe
+        JOIN emulators e ON e.id = pe.emulator_id
+        WHERE pe.platform_id IN (${placeholders})
+        ORDER BY pe.platform_id, pe.is_default DESC, e.name COLLATE NOCASE
+      `)
+      .all(...uniqueIds) as PlatformEmulatorRow[];
+
+    for (const row of rows) grouped[row.platform_id].push(rowToRecord(row));
+    return grouped;
+  }
+
+  /**
    * Retorna o emulador padrão de uma plataforma.
    * Retorna `undefined` se nenhum emulador padrão estiver configurado.
    */
@@ -120,6 +145,30 @@ export class PlatformEmulatorDao {
     this.database
       .prepare("DELETE FROM platform_emulators WHERE emulator_id = ? AND platform_id = ?")
       .run(emulatorId, platformId);
+    return { success: true };
+  }
+
+  /**
+   * Aplica vários upserts de vínculos em uma única transação SQLite.
+   * Qualquer chave estrangeira inválida ou falha no trigger desfaz lote inteiro.
+   */
+  linkMany(changes: PlatformEmulatorLinkInput[]): { success: true } {
+    const upsert = this.database.prepare(`
+      INSERT INTO platform_emulators (platform_id, emulator_id, is_default, core_path)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(platform_id, emulator_id) DO UPDATE SET
+        is_default = excluded.is_default,
+        core_path = excluded.core_path
+    `);
+    const apply = this.database.transaction((items: PlatformEmulatorLinkInput[]) => {
+      for (const item of items) {
+        if (!Number.isInteger(item.platformId) || item.platformId <= 0 || !Number.isInteger(item.emulatorId) || item.emulatorId <= 0) {
+          throw new Error("Vínculo de emulador inválido");
+        }
+        upsert.run(item.platformId, item.emulatorId, item.isDefault ? 1 : 0, item.corePath?.trim() || null);
+      }
+    });
+    apply(changes);
     return { success: true };
   }
 }

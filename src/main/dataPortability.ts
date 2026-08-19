@@ -44,6 +44,7 @@ import {
   PortableRomLocation
 } from "./db/dao/dataPortabilityDao";
 import { getInventarioImagesDir } from "./db/database";
+import * as backupMedia from "./dataPortabilityMedia";
 
 /** Versão do esquema de backup; incrementar ao mudar estrutura do pacote de forma incompatível. */
 const SCHEMA_VERSION = 1;
@@ -145,7 +146,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   const warnings: DataPortabilityWarning[] = [];
   const counts: DataPortabilityManifest["counts"] = {};
   const mediaRefs = categories.includes("images") ? dao.listMediaReferences() : [];
-  const imageFiles = categories.includes("images") ? listImageFilesForBackup(getImagesDir()) : [];
+  const imageFiles = categories.includes("images") ? backupMedia.listImageFilesForBackup(getImagesDir()) : [];
 
   // Total de etapas: categorias não-imagem + arquivos de imagem + 2 (gravar + validar)
   const reportedCategoryCount = categories.filter((category) => category !== "images").length;
@@ -201,7 +202,7 @@ export function exportDataPackage(request: ExportPackageRequest, onProgress?: Pr
   if (categories.includes("inventoryImages")) {
     const inventoryBundle = dao.listInventoryData();
     const inventarioImagesDir = getInventarioImagesDir();
-    const inventoryFiles = listImageFilesForBackup(inventarioImagesDir);
+    const inventoryFiles = backupMedia.listImageFilesForBackup(inventarioImagesDir);
 
     counts.inventoryItems = inventoryBundle.items.length;
     counts.inventoryPhotos = inventoryBundle.photos.length;
@@ -305,7 +306,7 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
   const dao = new DataPortabilityDao(getDatabase());
   const copiedFiles: string[] = []; // Rastreia arquivos copiados para rollback em caso de erro
   const summary = createEmptySummary(validation.warnings);
-  const imageFileCount = categories.includes("images") ? countMediaFilesInBackup(loaded.zip) : 0;
+  const imageFileCount = categories.includes("images") ? backupMedia.countMediaFilesInBackup(loaded.zip) : 0;
   const total = Math.max(1, categories.length + imageFileCount + (categories.includes("images") ? loaded.data.mediaMap.length : 0) + 2);
   let current = 1;
 
@@ -382,13 +383,13 @@ function exportMedia(
       sourcePath: file.sourcePath,
       size: file.size
     });
-    exportedBySource.set(normalizePathForLookup(file.sourcePath), file);
+    exportedBySource.set(backupMedia.normalizePathForLookup(file.sourcePath), file);
     onItem?.(`Imagem adicionada: ${file.relativePath}`);
   });
 
   const mediaMap: PortableMediaEntry[] = [];
   refs.forEach((ref) => {
-    const exported = exportedBySource.get(normalizePathForLookup(ref.sourcePath));
+    const exported = exportedBySource.get(backupMedia.normalizePathForLookup(ref.sourcePath));
     if (!exported) {
       // Imagem referenciada no banco mas arquivo ausente em disco
       warnings.push(createWarning("missing-image", `Imagem nao encontrada: ${path.basename(ref.sourcePath)}`, ref.sourcePath));
@@ -420,7 +421,7 @@ function importImages(
 ): void {
   const imagesDir = getImagesDir();
   // Primeiro extrai todos os arquivos de imagem do ZIP para o disco
-  restoreImagesTree(loaded, imagesDir, copiedFiles, onItem);
+  backupMedia.restoreImagesTree(loaded.zip, imagesDir, copiedFiles, onItem);
 
   // Depois atualiza cada referência de mídia no banco
   for (const entry of loaded.data.mediaMap) {
@@ -607,7 +608,7 @@ function normalizeCategories(categories: DataPortabilityCategory[]): DataPortabi
  */
 function detectAvailableCategories(loaded: LoadedBackup): DataPortabilityCategory[] {
   const hasMetadata = Boolean(loaded.zip.getEntry("data/games.json"));
-  const hasImages = Boolean(loaded.zip.getEntry("data/mediaMap.json")) || countMediaFilesInBackup(loaded.zip) > 0;
+  const hasImages = Boolean(loaded.zip.getEntry("data/mediaMap.json")) || backupMedia.countMediaFilesInBackup(loaded.zip) > 0;
   const hasPlatforms =
     Boolean(loaded.zip.getEntry("data/platforms.json")) ||
     Boolean(loaded.zip.getEntry("data/platformMappings.json")) ||
@@ -651,7 +652,7 @@ function buildPreviewCounts(
     counts.emulators = loaded.data.emulators.length;
   }
   if (availableCategories.includes("images")) {
-    counts.images = countMediaFilesInBackup(loaded.zip);
+    counts.images = backupMedia.countMediaFilesInBackup(loaded.zip);
   }
   if (availableCategories.includes("romLocations")) {
     counts.romLocations = loaded.data.romLocations.length;
@@ -824,69 +825,6 @@ function cleanupCopiedFiles(paths: string[]): void {
 }
 
 /**
- * Lista recursivamente todos os arquivos de imagem no diretório de mídia,
- * retornando metadados necessários para inclusão no arquivo ZIP.
- */
-function listImageFilesForBackup(imagesDir: string): ExportedMediaFile[] {
-  if (!fs.existsSync(imagesDir)) return [];
-
-  const results: ExportedMediaFile[] = [];
-
-  /** Percorre recursivamente o diretório de imagens. */
-  const walk = (currentDir: string): void => {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-
-      const relativePath = toPortableRelativePath(path.relative(imagesDir, fullPath));
-      if (!relativePath) continue;
-
-      results.push({
-        packagePath: `media/${relativePath}`,
-        relativePath,
-        sourcePath: fullPath,
-        size: fs.statSync(fullPath).size
-      });
-    }
-  };
-
-  walk(imagesDir);
-  // Ordena por caminho relativo para saída determinística (facilita diff entre backups)
-  results.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: "base" }));
-  return results;
-}
-
-/**
- * Extrai todas as entradas de mídia do ZIP para o diretório local de imagens.
- * Registra cada arquivo extraído em `copiedFiles` para rollback em caso de falha.
- */
-function restoreImagesTree(
-  loaded: LoadedBackup,
-  imagesDir: string,
-  copiedFiles: string[],
-  onItem?: (message: string) => void
-): void {
-  const mediaEntries = loaded.zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/"));
-
-  for (const zipEntry of mediaEntries) {
-    // Remove o prefixo "media/" para obter o caminho relativo real
-    const relativePath = normalizeZipRelativePath(zipEntry.entryName.slice("media/".length));
-    if (!relativePath) continue;
-
-    const targetPath = ensurePathInsideImagesDir(imagesDir, relativePath);
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.writeFileSync(targetPath, zipEntry.getData());
-    copiedFiles.push(targetPath);
-    onItem?.(`Imagem restaurada: ${relativePath}`);
-  }
-}
-
-/**
  * Resolve o caminho absoluto de destino de uma entrada de mídia importada,
  * usando o campo `relativePath` ou derivando do `packagePath`.
  */
@@ -917,12 +855,6 @@ function ensurePathInsideImagesDir(imagesDir: string, relativePath: string): str
   return targetPath;
 }
 
-/** Converte backslashes para forward slashes e remove leading slashes para portabilidade entre SOs. */
-function toPortableRelativePath(relativePath: string): string | null {
-  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
-  return normalizeZipRelativePath(normalized);
-}
-
 /**
  * Normaliza um caminho relativo de entrada ZIP: remove backslashes, normaliza separadores
  * e rejeita caminhos vazios ou com path traversal (`../`).
@@ -931,16 +863,6 @@ function normalizeZipRelativePath(relativePath: string): string | null {
   const normalized = path.posix.normalize((relativePath || "").replace(/\\/g, "/")).replace(/^\/+/, "");
   if (!normalized || normalized === "." || normalized.startsWith("../")) return null;
   return normalized;
-}
-
-/** Normaliza um caminho para lookup case-insensitive no mapa de arquivos exportados. */
-function normalizePathForLookup(value: string): string {
-  return path.resolve(value).toLowerCase();
-}
-
-/** Conta os arquivos de mídia (não-diretórios com prefixo "media/") dentro de um ZIP. */
-function countMediaFilesInBackup(zip: PortableZipArchive): number {
-  return zip.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.startsWith("media/")).length;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

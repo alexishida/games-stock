@@ -15,8 +15,15 @@ export function usePlatforms(): void {
 
   useEffect(() => {
     // Busca plataformas via IPC e ordena pelo nome em pt-BR antes de armazenar no store
-    window.gameStockAPI.platforms.list().then((list) =>
-      setPlatforms([...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })))
-    );
+    let cancelled = false;
+    void window.gameStockAPI.platforms.list()
+      .then((list) => {
+        if (!cancelled) setPlatforms([...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })));
+      })
+      .catch((cause: unknown) => {
+        // Não apaga lista já exibida em falha transitória de IPC.
+        console.error("Falha ao carregar plataformas", cause);
+      });
+    return () => { cancelled = true; };
   }, [platformsReloadToken, setPlatforms]);
 }

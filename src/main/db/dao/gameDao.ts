@@ -9,6 +9,7 @@
 import type Database from "better-sqlite3";
 import path from "node:path";
 import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption } from "../../../shared/types";
+import { buildStoredLibraryGroupKey } from "../libraryGrouping";
 
 /** Linha bruta do SQLite: `favorite` chega como 0|1 em vez de boolean. */
 type GameRow = Omit<Game, "favorite"> & { favorite: 0 | 1 };
@@ -35,6 +36,9 @@ const writeColumns = [
   "launch_count"
 ] as const;
 
+/** Colunas do INSERT, incluindo chave derivada usada exclusivamente pela paginação da biblioteca. */
+const insertColumns = [...writeColumns, "library_group_key"] as const;
+
 export class GameDao {
   constructor(private readonly database: Database.Database) {}
 
@@ -50,27 +54,31 @@ export class GameDao {
     const pageSize = filters.pageSize ?? 50;
     const offset = (page - 1) * pageSize;
 
-    // Carrega candidatos filtrados antes da contagem para agrupar variantes.
-    // O agrupamento preserva as ROMs no banco e muda apenas a representacao da biblioteca.
-    const filteredCandidates = this.database
-      .prepare(`${baseSelect()} ${where.sql} ${buildOrder(filters)}`)
-      .all(...where.params)
-      .map((row) => mapGame(row as GameRow));
-    // O filtro por gênero roda em memória porque um mesmo campo `genre`
-    // pode trazer múltiplas categorias separadas por delimitadores diferentes.
-    const filteredGroups = groupGamesForLibrary(filterGamesByGenre(filteredCandidates, filters.genre));
-    const filtered = filteredGroups.length;
+    // O ranking escolhe representante de cada grupo antes do LIMIT/OFFSET.
+    // Assim variantes não vazam entre páginas e só a página requisitada atravessa IPC.
+    const items = this.database.prepare(`
+      WITH ranked_games AS (
+        SELECT
+          games.*,
+          platforms.name AS platform_name,
+          ROW_NUMBER() OVER (
+            PARTITION BY ${libraryGroupExpression("games")}
+            ORDER BY ${buildOrderTerms(filters, "games")}
+          ) AS library_rank
+        FROM games
+        JOIN platforms ON platforms.id = games.platform_id
+        ${where.sql}
+      )
+      SELECT *
+      FROM ranked_games
+      WHERE library_rank = 1
+      ORDER BY ${buildOrderTerms(filters, "ranked_games")}
+      LIMIT ? OFFSET ?
+    `).all(...where.params, pageSize, offset).map((row) => mapGame(row as GameRow));
 
-    // Monta a pagina atual a partir da lista ja agrupada.
-    // A pagina precisa ser cortada depois do agrupamento para nao vazar duplicata entre paginas.
-    const items = filteredGroups.slice(offset, offset + pageSize);
-
-    // Calcula o total sem filtros com o mesmo agrupamento visual.
-    // O total tambem usa jogos-base para o contador bater com os cards visiveis.
-    const total = groupGamesForLibrary(this.database
-      .prepare(`${baseSelect()} ${buildOrder({ sortBy: "title" })}`)
-      .all()
-      .map((row) => mapGame(row as GameRow))).length;
+    // Contagens usam mesma chave que a paginação, mantendo TopBar e páginas consistentes.
+    const filtered = this.countLibraryGroups(where);
+    const total = this.countLibraryGroups({ sql: "", params: [] });
 
     return { items, total, filtered };
   }
@@ -136,10 +144,13 @@ export class GameDao {
     });
     const result = this.database
       .prepare(`
-        INSERT INTO games (${writeColumns.join(", ")})
-        VALUES (${writeColumns.map(() => "?").join(", ")})
+        INSERT INTO games (${insertColumns.join(", ")})
+        VALUES (${insertColumns.map(() => "?").join(", ")})
       `)
-      .run(...writeColumns.map((column) => values[column]));
+      .run(
+        ...writeColumns.map((column) => values[column]),
+        buildStoredLibraryGroupKey({ title: values.title as string, rom_path: values.rom_path as string | null })
+      );
 
     return this.get(Number(result.lastInsertRowid))!;
   }
@@ -152,8 +163,19 @@ export class GameDao {
    */
   update(id: number, data: GameUpdateInput): Game {
     // Filtra apenas os campos presentes no objeto de entrada (exclui `undefined`)
-    const entries = Object.entries(normalizeInput(data)).filter(([, value]) => value !== undefined);
+    const normalized = normalizeInput(data);
+    const entries = Object.entries(normalized).filter(([, value]) => value !== undefined);
     if (!entries.length) return this.get(id)!; // Sem campos para atualizar
+
+    const changesLibraryGrouping = entries.some(([column]) => column === "title" || column === "rom_path");
+    if (changesLibraryGrouping) {
+      const current = this.get(id);
+      if (!current) throw new Error("Jogo não encontrado");
+      const nextTitle = typeof normalized.title === "string" ? normalized.title : current.title;
+      const nextRomPath = normalized.rom_path === undefined ? current.rom_path : normalized.rom_path as string | null;
+      // Chave derivada acompanha toda edição que altera título ou ROM.
+      entries.push(["library_group_key", buildStoredLibraryGroupKey({ title: nextTitle, rom_path: nextRomPath })]);
+    }
 
     const assignments = entries.map(([column]) => `${column} = ?`).join(", ");
     this.database
@@ -237,10 +259,21 @@ export class GameDao {
    * Usado na aba Sobre para o contador de "Jogos na biblioteca" bater com a contagem da TopBar.
    */
   libraryGameCount(): number {
-    return groupGamesForLibrary(this.database
-      .prepare(`${baseSelect()} ${buildOrder({ sortBy: "title" })}`)
-      .all()
-      .map((row) => mapGame(row as GameRow))).length;
+    return this.countLibraryGroups({ sql: "", params: [] });
+  }
+
+  /** Conta grupos visuais diretamente no SQLite, sem materializar todos os jogos no Node. */
+  private countLibraryGroups(where: { sql: string; params: unknown[] }): number {
+    const row = this.database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM (
+        SELECT ${libraryGroupExpression("games")}
+        FROM games
+        ${where.sql}
+        GROUP BY ${libraryGroupExpression("games")}
+      )
+    `).get(...where.params) as { count: number };
+    return row.count;
   }
 
   /**
@@ -534,8 +567,10 @@ export class GameDao {
 }
 
 /** Converte uma linha do SQLite para o tipo `Game`, convertendo `favorite` de 0|1 para boolean. */
-function mapGame(row: GameRow): Game {
-  return { ...row, favorite: Boolean(row.favorite) };
+function mapGame(row: GameRow & { library_rank?: number }): Game {
+  // Ranking existe só dentro da CTE; não deve atravessar o contrato IPC de Game.
+  const { library_rank: _libraryRank, ...game } = row;
+  return { ...game, favorite: Boolean(game.favorite) };
 }
 
 /**
@@ -551,31 +586,17 @@ function baseSelect(): string {
 }
 
 /**
- * Agrupa variantes locais com ROM para a biblioteca exibir um unico card por jogo-base.
- * A primeira linha de cada grupo e mantida para respeitar a ordenacao aplicada antes.
+ * Monta expressão SQL da chave visual com plataforma, ROM e fallback seguro.
+ * Chaves legadas vazias permanecem independentes até migration preencher registro.
  */
-function groupGamesForLibrary(games: Game[]): Game[] {
-  const seen = new Set<string>();
-  const grouped: Game[] = [];
-
-  for (const game of games) {
-    const key = buildLibraryGroupKey(game);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    grouped.push(game);
-  }
-
-  return grouped;
-}
-
-/**
- * Cria a chave usada so na listagem da biblioteca, combinando plataforma e titulo-base.
- * Isso une arquivos como `Air Diver (Japan).bin` e `Air Diver (USA).bin`.
- */
-function buildLibraryGroupKey(game: Pick<Game, "id" | "platform_id" | "title" | "rom_path">): string {
-  // Jogos manuais sem ROM ficam independentes para evitar esconder cadastros soltos.
-  if (!game.rom_path?.trim()) return `manual:${game.id}`;
-  return `${game.platform_id}:${buildVersionGroupKey(game)}`;
+function libraryGroupExpression(tableAlias: string): string {
+  return `
+    CASE
+      WHEN ${tableAlias}.rom_path IS NULL OR TRIM(${tableAlias}.rom_path) = '' THEN 'manual:' || ${tableAlias}.id
+      WHEN ${tableAlias}.library_group_key IS NULL OR TRIM(${tableAlias}.library_group_key) = '' THEN 'legacy:' || ${tableAlias}.id
+      ELSE 'rom:' || ${tableAlias}.platform_id || ':' || ${tableAlias}.library_group_key
+    END
+  `;
 }
 
 /**
@@ -595,6 +616,11 @@ function buildWhere(filters: GameFilters = {}): { sql: string; params: unknown[]
   if (filters.search?.trim()) {
     parts.push("LOWER(games.title) LIKE ?");
     params.push(`%${filters.search.trim().toLowerCase()}%`);
+  }
+  // Função SQLite preserva separadores e normalização usados no filtro de gêneros anterior.
+  if (filters.genre?.trim()) {
+    parts.push("library_has_genre(games.genre, ?) = 1");
+    params.push(filters.genre);
   }
   // Filtro de coleção (favoritos, jogando, concluídos, não jogados, mais jogados)
   if (filters.collectionFilter) {
@@ -636,41 +662,25 @@ function buildCollectionFilter(filter: CollectionFilter): string | null {
  * - mostPlayed: jogos com maior `launch_count` no topo
  * - title: alfabético case-insensitive (padrão)
  */
-function buildOrder(filters: GameFilters = {}): string {
+function buildOrderTerms(filters: GameFilters = {}, tableAlias = "games"): string {
   if (filters.collectionFilter === "mostPlayed") {
-    return "ORDER BY games.launch_count DESC, games.title COLLATE NOCASE";
+    return `${tableAlias}.launch_count DESC, ${tableAlias}.title COLLATE NOCASE`;
   }
 
   const sortBy = filters.sortBy ?? "title";
   switch (sortBy) {
     case "year":
-      return "ORDER BY games.year IS NULL, games.year DESC, games.title COLLATE NOCASE";
+      return `${tableAlias}.year IS NULL, ${tableAlias}.year DESC, ${tableAlias}.title COLLATE NOCASE`;
     case "recent":
-      return "ORDER BY games.created_at DESC, games.id DESC";
+      return `${tableAlias}.created_at DESC, ${tableAlias}.id DESC`;
     case "mostPlayed":
-      return "ORDER BY games.launch_count DESC, games.title COLLATE NOCASE";
+      return `${tableAlias}.launch_count DESC, ${tableAlias}.title COLLATE NOCASE`;
     case "title":
-      return "ORDER BY games.title COLLATE NOCASE";
+      return `${tableAlias}.title COLLATE NOCASE`;
   }
 }
 
-/**
- * Filtra jogos por categoria/gênero já normalizado a partir do conteúdo textual salvo.
- * Um jogo entra quando qualquer gênero individual bate exatamente com a opção escolhida.
- */
-function filterGamesByGenre(games: Game[], selectedGenre: string | undefined): Game[] {
-  const normalizedSelectedGenre = normalizeGenre(selectedGenre);
-  if (!normalizedSelectedGenre) return games;
-
-  return games.filter((game) =>
-    splitGenres(game.genre).some((genre) => normalizeGenre(genre) === normalizedSelectedGenre)
-  );
-}
-
-/**
- * Divide um campo de gênero em tokens individuais.
- * Aceita separadores comuns vindos de importações diferentes.
- */
+/** Divide campo composto de gêneros em tokens individuais para montar opções de filtro. */
 function splitGenres(value: string | null | undefined): string[] {
   if (!value?.trim()) return [];
   return value
@@ -679,9 +689,7 @@ function splitGenres(value: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-/**
- * Normaliza gênero para comparação case-insensitive sem alterar rótulo exibido na UI.
- */
+/** Normaliza gênero apenas para comparação, sem alterar o rótulo salvo no banco. */
 function normalizeGenre(value: string | null | undefined): string {
   return value?.trim().toLocaleLowerCase("pt-BR") ?? "";
 }

@@ -155,6 +155,10 @@ export function useGames(): void {
           }
         }
       })
+      .catch((cause: unknown) => {
+        // Mantém resultado cacheado quando possível, mas registra falha para diagnóstico no console do renderer.
+        console.error("Falha ao carregar jogos", cause);
+      })
       .finally(() => {
         // Garante que o loading seja removido mesmo em caso de erro
         if (!cancelled) setLoading(false);
