@@ -258,8 +258,14 @@ export class HardwareItemDao {
 
     if ("name" in data)                  addField("name",                  data.name);
     if ("platform_id" in data || "is_multiplatform" in data) {
-      // Atualiza plataforma e flag juntas para manter o marcador restrito ao inventario.
-      const platform = normalizePlatformAssignment(data);
+      // Atualiza plataforma e flag juntas mantendo o marcador restrito ao inventario.
+      // Campo ausente conserva valor atual da linha — não assume false por omissão.
+      const current = this.get(id);
+      const effective = {
+        platform_id: "platform_id" in data ? data.platform_id : (current?.platform_id ?? null),
+        is_multiplatform: "is_multiplatform" in data ? data.is_multiplatform : (current?.is_multiplatform ?? 0)
+      };
+      const platform = normalizePlatformAssignment(effective);
       addField("platform_id", platform.platformId);
       addField("is_multiplatform", platform.isMultiplatform);
     }

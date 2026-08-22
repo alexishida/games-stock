@@ -207,6 +207,14 @@
   opacity: 0.46;
 }
 
+.detail-launch-spinner {
+  animation: detail-launch-spin 0.8s linear infinite;
+}
+
+@keyframes detail-launch-spin {
+  to { transform: rotate(360deg); }
+}
+
 .detail-hero-launch-error {
   max-width: 240px;
   overflow-wrap: anywhere;

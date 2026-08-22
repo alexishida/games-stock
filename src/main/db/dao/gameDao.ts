@@ -459,7 +459,20 @@ export class GameDao {
   upsertLaunchBox(data: Partial<GameCreateInput> & { title: string; platform_id: number }): { game: Game; created: boolean } {
     const existing = this.findExisting(data);
 
-    if (existing) return { game: this.update(existing.id, data), created: false };
+    if (existing) {
+      // Re-import de pasta/LaunchBox não pode zerar estado do usuário nem apagar
+      // dados preenchidos manualmente. Estado ético (favorito/status) nunca é
+      // tocado no update; campos de mídia/anotações só são preenchidos quando
+      // o registro ainda não possui valor (importa apenas "gaps").
+      const update: GameUpdateInput = { ...data };
+      delete update.favorite;
+      delete update.play_status;
+      for (const field of ["notes", "box_art_path", "background_path", "screenshot_path"]) {
+        const value = data[field as keyof typeof data];
+        if (value === null || value === undefined || value === "") delete update[field as keyof GameUpdateInput];
+      }
+      return { game: this.update(existing.id, update), created: false };
+    }
     return { game: this.create(data), created: true };
   }
 
@@ -627,6 +640,10 @@ function buildWhere(filters: GameFilters = {}): { sql: string; params: unknown[]
     const collection = buildCollectionFilter(filters.collectionFilter);
     if (collection) parts.push(collection);
   }
+  // Quando desativado, mantém somente registros que possuem caminho de capa válido.
+  if (filters.includeMissingCovers === false) {
+    parts.push("games.box_art_path IS NOT NULL AND TRIM(games.box_art_path) != ''");
+  }
 
   return {
     sql: parts.length ? `WHERE ${parts.join(" AND ")}` : "",
@@ -744,11 +761,17 @@ function isPathInsideFolder(targetPath: string, normalizedFolder: string): boole
  * - Converte para minúsculas
  */
 function normalizeFsPath(value: string): string {
-  return path
+  let normalized = path
     .resolve(value)
     .replace(/\\/g, "/")  // Windows: \ → /
     .replace(/\/+$/g, "") // Remove barra final
     .toLowerCase();
+  // Raiz do filesystem (ex.: "/"): sem barra final viraria string vazia.
+  if (normalized === "") normalized = "/";
+  // Raiz de drive Windows (ex.: "c:"): sem "/" final, isPathInsideFolder
+  // compararia "c:/arquivo" contra "c:" e nunca casaria.
+  else if (/^[a-z]:$/.test(normalized)) normalized = `${normalized}/`;
+  return normalized;
 }
 
 /**

@@ -99,6 +99,17 @@ export interface CoverSyncResult extends CoverSyncStats {
   failures: CoverSyncFailureItem[];
 }
 
+/** Escopo da sincronização de mídia da biblioteca. */
+export type CoverSyncMode = "missing" | "all";
+
+/** Opções de execução da sincronização de mídia. */
+export interface CoverSyncOptions {
+  /** ID que vincula os eventos de progresso à notificação correta. */
+  jobId?: string;
+  /** "missing" preserva mídias existentes; "all" baixa e substitui mídias LaunchBox. */
+  mode?: CoverSyncMode;
+}
+
 /** Critério de ordenação da lista de jogos na biblioteca. */
 export type GameSortBy = "title" | "year" | "recent" | "mostPlayed";
 
@@ -665,6 +676,8 @@ export interface GameFilters {
   genre?: string;
   /** Filtro de coleção (favoritos, status de jogo etc.). */
   collectionFilter?: CollectionFilter;
+  /** Inclui jogos sem capa; falso exibe apenas jogos com capa associada. */
+  includeMissingCovers?: boolean;
   /** Critério de ordenação. */
   sortBy?: GameSortBy;
   /** Página atual para paginação (base 1). */
@@ -841,6 +854,8 @@ export interface LaunchBoxProgress {
 export interface LaunchBoxImportParams {
   /** ID do jogo no LaunchBox a importar. */
   launchboxGameId: string;
+  /** ID opcional para vincular progresso ao job de notificação do renderer. */
+  jobId?: string;
   /** ID do jogo local a atualizar (null = criar novo jogo). */
   targetGameId?: number | null;
   /** ID da plataforma local a associar (null = detectar pelo nome da plataforma LaunchBox). */

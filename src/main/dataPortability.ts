@@ -353,7 +353,11 @@ export function importDataPackage(request: DataPortabilityImportRequest, onProgr
 
       if (categories.includes("romLocations")) {
         summary.romLocations = dao.importRomLocations(loaded.data.romLocations);
-        summary.romFolderEntries = normalizeRomFolderEntries(loaded.data.romFolderEntries);
+        // Reaproveita pastas do backup ligando-as à plataforma LOCAL por nome,
+        // nunca pelo ID SQLite da máquina de origem.
+        summary.romFolderEntries = dao.resolveRomFolderEntryPlatforms(
+          normalizeRomFolderEntries(loaded.data.romFolderEntries)
+        );
         summary.romLocations.romFolderEntries = summary.romFolderEntries.length;
         report("rom_locations", `${summary.romLocations.updated} localizacao(oes) de ROM atualizadas`);
       }
@@ -1220,7 +1224,9 @@ function readZipArchive(filePath: string): PortableZipArchive {
       throw new Error("Pacote ZIP excede tamanho total seguro");
     }
 
-    const entryName = nameBuffer.toString((flags & UTF8_FLAG) === UTF8_FLAG ? "utf8" : "utf8");
+    // Sem o flag UTF-8, o ZIP codifica nomes em CP437; latin1 preserva os bytes
+    // sem introduzir mojibake duplo (decode cp437 completo exigiria tabela extra).
+    const entryName = nameBuffer.toString((flags & UTF8_FLAG) === UTF8_FLAG ? "utf8" : "latin1");
     entries.push(new FileBackedZipEntry(filePath, {
       entryName,
       isDirectory: entryName.endsWith("/"),
@@ -1380,11 +1386,18 @@ class FileBackedZipArchive implements PortableZipArchive {
   private readonly entriesByName = new Map<string, FileBackedZipEntry>();
 
   constructor(private readonly entries: FileBackedZipEntry[]) {
-    for (const entry of entries) this.entriesByName.set(entry.entryName, entry);
+    for (const entry of entries) {
+      const name = entry.entryName.replace(/\\/g, "/");
+      this.entriesByName.set(entry.entryName, entry);
+      // Pacotes criados por ferramentas externas (ex.: Explorer/adm-zip) podem
+      // gravar nomes com "\". Índexa também a forma normalizada ("/") para o
+      // getEntry("data/...") casar independente do separador.
+      if (name !== entry.entryName) this.entriesByName.set(name, entry);
+    }
   }
 
   getEntry(entryName: string): PortableZipEntry | null {
-    return this.entriesByName.get(entryName) ?? null;
+    return this.entriesByName.get(entryName) ?? this.entriesByName.get(entryName.replace(/\\/g, "/")) ?? null;
   }
 
   getEntries(): PortableZipEntry[] {

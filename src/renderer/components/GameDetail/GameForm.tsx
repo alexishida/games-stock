@@ -11,7 +11,7 @@
  */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Database, FolderOpen, ImagePlus, LoaderCircle, Pencil, Save, Search, Sparkles, Unlink, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Database, FolderOpen, ImagePlus, LoaderCircle, Pencil, RefreshCw, Save, Search, Sparkles, Unlink, X } from "lucide-react";
 import { Game, GameUpdateInput, LaunchBoxGame, LaunchBoxImageType } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
@@ -33,6 +33,9 @@ const metadataImportTypes: LaunchBoxImageType[] = ["Box - Front", "Fanart - Back
 export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: () => void; onSaved?: () => void }) {
   const reloadGames = useGameStockStore((state) => state.reloadGames);
   const upsertGame = useGameStockStore((state) => state.upsertGame);
+  const startMediaSyncJob = useGameStockStore((state) => state.startMediaSyncJob);
+  const finishMediaSyncJob = useGameStockStore((state) => state.finishMediaSyncJob);
+  const failMediaSyncJob = useGameStockStore((state) => state.failMediaSyncJob);
 
   // Cópia mutável dos dados do jogo para edição local (draft)
   const [draft, setDraft] = useState(game);
@@ -174,15 +177,19 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
    * Quando o LaunchBox ID já pertence a outra variante local, mantém os
    * metadados/imagens mas salva o jogo atual como outra versão sem duplicar o ID.
    */
-  async function applyMetadataSuggestion(suggestion: LaunchBoxGame): Promise<void> {
+  async function applyMetadataSuggestion(suggestion: Pick<LaunchBoxGame, "id" | "name">, jobId?: string): Promise<string | null> {
     setImportingMetadataId(suggestion.id);
     setMetadataError("");
     setMetadataImportStatus(`Importando "${suggestion.name}"...`);
     try {
+      // Garante índice disponível também quando atualização parte de vínculo já existente.
+      const metadataExists = await window.gameStockAPI.launchbox.metadataExists();
+      if (!metadataExists) await window.gameStockAPI.launchbox.ensureMetadata({ jobId });
       const result = await window.gameStockAPI.launchbox.importGame({
         launchboxGameId: suggestion.id,
         targetGameId: game.id,
-        imageTypes: metadataImportTypes
+        imageTypes: metadataImportTypes,
+        jobId
       });
       const updated = await window.gameStockAPI.games.get(result.gameId);
       if (!updated) throw new Error("Jogo atualizado não encontrado");
@@ -191,9 +198,12 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
       reloadGames();
       setMetadataImportStatus(result.linkedAsVariant ? "Metadados importados como outra versão" : "Metadados importados");
       setMetadataPickerOpen(false);
+      return null;
     } catch (err) {
-      setMetadataError(err instanceof Error ? err.message : "Falha ao importar metadados");
+      const message = err instanceof Error ? err.message : "Falha ao importar metadados";
+      setMetadataError(message);
       setMetadataImportStatus("");
+      return message;
     } finally {
       setImportingMetadataId(null);
     }
@@ -205,6 +215,33 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
   function openMetadataPicker(): void {
     setMetadataPickerOpen(true);
     if (!searchingMetadata) void searchMetadata();
+  }
+
+  /** Atualiza metadados e imagens usando vínculo LaunchBox atual; sem vínculo, abre busca para escolher título. */
+  async function refreshMetadata(): Promise<void> {
+    if (!draft.launchbox_id) {
+      openMetadataPicker();
+      return;
+    }
+    const jobId = `game-refresh-${game.id}-${Date.now()}`;
+    startMediaSyncJob({
+      jobId,
+      title: "Atualizando dados e imagens",
+      subtitle: draft.title,
+      detail: "Consultando LaunchBox",
+      progressLabel: "Preparando",
+      indeterminate: true
+    });
+    const error = await applyMetadataSuggestion({ id: draft.launchbox_id, name: draft.title }, jobId);
+    if (error) {
+      failMediaSyncJob(jobId, error);
+      return;
+    }
+    finishMediaSyncJob(jobId, {
+      title: "Dados e imagens atualizados",
+      detail: draft.title,
+      progressLabel: "Concluído"
+    });
   }
 
   /**
@@ -258,6 +295,10 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
                 <button type="button" className="text-button active" onClick={() => setMetadataEditorOpen(true)}>
                   <Database size={14} aria-hidden="true" />
                   Ver metadados
+                </button>
+                <button type="button" className="text-button" onClick={() => void refreshMetadata()} disabled={searchingMetadata || Boolean(importingMetadataId)}>
+                  {importingMetadataId ? <LoaderCircle className="spin" size={14} aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}
+                  Atualizar dados e imagens
                 </button>
                 <button type="button" className="text-button" onClick={openMetadataPicker} disabled={searchingMetadata || Boolean(importingMetadataId)}>
                   <Search size={14} aria-hidden="true" />

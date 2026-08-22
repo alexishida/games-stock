@@ -2,7 +2,7 @@
 
 GameStock e um aplicativo desktop para Windows e Linux para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
-Versao atual: **1.1.1**.
+Versao atual: **1.1.2**.
 
 ## Capturas de tela
 
@@ -31,7 +31,9 @@ Versao atual: **1.1.1**.
 - **Associacao de ROMs**: selecione arquivos ROM por dialogos nativos do sistema.
 - **Importador de metadados**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
 - **Importacao por pasta de ROMs**: escaneie pastas ou arquivos, revise candidatos, rode importacao em background e acompanhe progresso. Suporta busca em subpastas e deteccao automatica de plataforma por extensao de ROM.
-- **Sincronizacao de capas**: atualize midias de jogos com metadados remotos, acompanhe multiplos jobs simultaneos e veja estatisticas de capas.
+- **Sincronizacao de midia**: escolha entre completar somente pendencias ou atualizar dados, capas, fundos e screenshots de todos os jogos vinculados ao LaunchBox.
+- **Atualizacao individual**: atualize dados e imagens de um jogo diretamente no formulario de edicao, com notificacao de progresso.
+- **Feedback de launch**: botoes Jogar exibem loading enquanto o emulador e a ROM sao preparados.
 - **Notificacoes de jobs**: acompanhe downloads e importacoes em background pela UI. Jobs concluidos ficam visiveis ate serem dispensados manualmente.
 - **Resiliencia de jobs**: jobs interrompidos por fechamento do app sao detectados na proxima abertura e exibem botao de retomada. Cards de job tem borda colorida por status (azul=rodando, verde=concluido, vermelho=falhou, amarelo=interrompido).
 - **Inventario fisico de hardware**: cadastre e gerencie consoles, perifericos e acessorios fisicos com estado de conservacao, fotos e notas. Visualizacao em cards ou lista com filtro por tipo.
@@ -115,7 +117,7 @@ Antes de `npm run dev`, `npm run build:renderer`, `npm run build:main`, `npm run
 Formato exibido no app:
 
 ```text
-1.1.1 (build 11e2fc4)
+1.1.2 (build <hash-do-commit>)
 ```
 
 Resumo:
@@ -128,8 +130,8 @@ Resumo:
 Exemplo opcional de tag de release apos gerar uma versao:
 
 ```bash
-git tag v1.1.1
-git push origin v1.1.1
+git tag v1.1.2
+git push origin v1.1.2
 ```
 
 ## Auto Update

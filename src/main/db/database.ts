@@ -54,6 +54,10 @@ export function getDatabase(): Database.Database {
   db = database;
   // Ativa integridade referencial (foreign keys) — desabilitada por padrão no SQLite.
   database.pragma("foreign_keys = ON");
+  // Workers (scan de ROM, portabilidade) abrem segunda conexão no mesmo arquivo
+  // enquanto o main escreve; sem busy_timeout, concorrência resulta em SQLITE_BUSY
+  // intermitente e falha de jobs por erro genérico.
+  database.pragma("busy_timeout = 10000");
   // Expõe regra de gênero no SQLite para filtrar sem carregar biblioteca inteira no Node.
   database.function("library_has_genre", { deterministic: true }, (genre: unknown, selectedGenre: unknown) =>
     matchesLibraryGenre(typeof genre === "string" ? genre : null, typeof selectedGenre === "string" ? selectedGenre : null) ? 1 : 0

@@ -11,8 +11,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { DatabaseZap, Gamepad2, Image, ImageOff, RefreshCw, X } from "lucide-react";
-import { CoverSyncStats, RomFolderImportProgress } from "../../../shared/types";
+import { DatabaseZap, Download, Gamepad2, Image, ImageOff, Play, RefreshCw, X } from "lucide-react";
+import { CoverSyncMode, CoverSyncStats, RomFolderImportProgress } from "../../../shared/types";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import "./CoversSettings.css";
@@ -39,6 +39,8 @@ export function CoversSettings() {
   const stats = storeCoverStats ?? EMPTY_STATS;
 
   const [error, setError] = useState<string | null>(null);
+  // Define se a sincronização completa apenas pendências ou substitui toda mídia LaunchBox.
+  const [syncMode, setSyncMode] = useState<CoverSyncMode>("missing");
 
   const reloadGames = useGameStockStore((state) => state.reloadGames);
 
@@ -113,17 +115,18 @@ export function CoversSettings() {
    */
   async function syncCovers() {
     const jobId = `media-sync-${Date.now()}`;
+    const refreshAll = syncMode === "all";
     setError(null);
     startMediaSyncJob({
       jobId,
-      title: "Sincronizando mídia",
+      title: refreshAll ? "Atualizando dados e imagens" : "Sincronizando itens pendentes",
       subtitle: "Biblioteca",
-      detail: "Preparando sincronização",
+      detail: refreshAll ? "Atualizando todos os jogos vinculados" : "Buscando dados e mídias ausentes",
       progressLabel: "Sincronizando"
     });
     try {
       // Envia o jobId ao main para cada tick de progresso voltar vinculado ao card correto.
-      const result = await window.gameStockAPI.games.syncCovers({ jobId });
+      const result = await window.gameStockAPI.games.syncCovers({ jobId, mode: syncMode });
       setCoverStats(result);
       reloadGames();
       finishMediaSyncJob(jobId, {
@@ -292,12 +295,35 @@ export function CoversSettings() {
         <div className="covers-sync-header">
           <div>
             <strong>Sincronização de mídia</strong>
+            <span>{syncMode === "all" ? "Atualiza dados e imagens de todos os jogos vinculados." : "Completa somente dados e imagens que estão faltando."}</span>
           </div>
-          {/* Botão desabilitado se não há jogos sincronizáveis ou outro job em andamento */}
-          <button type="button" className="text-button active" onClick={syncCovers} disabled={syncing || updatingMetadata || romImportRunning || (stats.syncable === 0 && stats.metadataSyncable === 0)}>
-            <RefreshCw aria-hidden="true" size={16} className={syncing ? "spin" : ""} />
-            {syncing ? "Sincronizando" : "Sincronizar"}
-          </button>
+          <div className="covers-sync-controls">
+            <div className="covers-sync-mode" role="group" aria-label="Modo de sincronização de mídia">
+              <button
+                type="button"
+                className={syncMode === "missing" ? "covers-sync-mode-button active" : "covers-sync-mode-button"}
+                onClick={() => setSyncMode("missing")}
+                disabled={syncing || updatingMetadata || romImportRunning}
+              >
+                <Download aria-hidden="true" size={15} />
+                Somente pendentes
+              </button>
+              <button
+                type="button"
+                className={syncMode === "all" ? "covers-sync-mode-button active" : "covers-sync-mode-button"}
+                onClick={() => setSyncMode("all")}
+                disabled={syncing || updatingMetadata || romImportRunning}
+              >
+                <RefreshCw aria-hidden="true" size={15} />
+                Atualizar tudo
+              </button>
+            </div>
+            {/* Botão desabilitado se não há jogos sincronizáveis ou outro job em andamento */}
+            <button type="button" className="text-button active" onClick={syncCovers} disabled={syncing || updatingMetadata || romImportRunning || (stats.syncable === 0 && stats.metadataSyncable === 0)}>
+              {syncing ? <RefreshCw aria-hidden="true" size={16} className="spin" /> : <Play aria-hidden="true" size={16} />}
+              {syncing ? "Sincronizando" : "Sincronizar"}
+            </button>
+          </div>
         </div>
 
         {/* Cards de jobs de sincronização de mídia da biblioteca (um por job) */}

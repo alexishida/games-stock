@@ -153,3 +153,11 @@
   opacity: 1;
   animation: launch-pulse 700ms ease infinite alternate;
 }
+
+.list-launch-spinner {
+  animation: list-launch-spin 0.8s linear infinite;
+}
+
+@keyframes list-launch-spin {
+  to { transform: rotate(360deg); }
+}

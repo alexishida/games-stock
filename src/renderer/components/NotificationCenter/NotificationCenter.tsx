@@ -10,7 +10,7 @@
  * "Continuar" para retomar a operação.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { DataPortabilityJob, RomFolderImportJob, RomFolderImportProgress } from "../../../shared/types";
 import { MediaSyncJob, useGameStockStore } from "../../store";
@@ -41,7 +41,26 @@ export function NotificationCenter() {
    * Inicializado com jobs já concluídos ou falhos para não exibi-los
    * na primeira renderização após reload de estado persistido.
    */
-  const [dismissedIds, setDismissedIds] = useState<string[]>(() => initialDismissedIds([romImportJob, ...mediaSyncJobs, ...dataPortabilityJobs]));
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+
+  // Marca do início desta sessão para distinguir jobs hidratados do SQLite
+  // (começados em sessão anterior) dos jobs iniciados agora.
+  const sessionStartRef = useRef(Date.now());
+  const jobsReady = romImportJob || mediaSyncJobs.length || dataPortabilityJobs.length;
+
+  useEffect(() => {
+    // Só roda quando os jobs hidratados já estão disponíveis (App.tsx preenche o
+    // store de forma assíncrona). Jobs terminais de sessões anteriores são
+    // auto-dispensados; jobs terminais desta sessão permanecem visíveis.
+    if (!jobsReady) return;
+    const terminalFromPast = [romImportJob, ...mediaSyncJobs, ...dataPortabilityJobs]
+      .filter((job): job is NonNullable<typeof job> => Boolean(job))
+      .filter((job) => job.status === "completed" || job.status === "failed" || job.status === "interrupted")
+      .filter((job) => timestamp(job.startedAt) < sessionStartRef.current)
+      .map((job) => job.jobId);
+    if (!terminalFromPast.length) return;
+    setDismissedIds((current) => Array.from(new Set([...current, ...terminalFromPast])));
+  }, [dataPortabilityJobs, jobsReady, mediaSyncJobs, romImportJob]);
 
   /**
    * Lista de notificações visíveis, derivada dos jobs do store.
@@ -72,18 +91,6 @@ export function NotificationCenter() {
       ))}
     </aside>
   );
-}
-
-/**
- * Retorna os IDs dos jobs que já estão em estado terminal (concluído ou falho)
- * para pré-popular a lista de dispensados e evitar re-exibição desnecessária.
- */
-function initialDismissedIds(jobs: Array<RomFolderImportJob | MediaSyncJob | DataPortabilityJob | null>): string[] {
-  return jobs
-    .filter((job): job is RomFolderImportJob | MediaSyncJob | DataPortabilityJob =>
-      Boolean(job && (job.status === "completed" || job.status === "failed"))
-    )
-    .map((job) => job.jobId);
 }
 
 /**

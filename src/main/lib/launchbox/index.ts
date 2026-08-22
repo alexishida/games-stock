@@ -136,8 +136,9 @@ export async function importGame(params: LaunchBoxImportParams, onProgress?: Pro
  * - Se não houver capa, tenta baixar a imagem "Box - Front".
  *
  * @param onProgress - Callback de progresso chamado por jogo processado.
+ * @param refreshAll - Força atualização de capa, fanart e screenshot vinculados ao LaunchBox.
  */
-export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<CoverSyncResult> {
+export async function syncMissingCovers(onProgress?: ProgressCallback, refreshAll = false): Promise<CoverSyncResult> {
   const linkedGames = listLaunchBoxLinkedGames();
   const index = await buildIndex(onProgress);
   let downloadedNow = 0;
@@ -172,7 +173,7 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
     });
     metadataUpdated += 1;
 
-    if (gameRecord.box_art_path) {
+    if (gameRecord.box_art_path && !refreshAll) {
       // Já possui capa; não precisa baixar novamente
       onProgress?.({ current, total: linkedGames.length, filename: gameRecord.title, status: "done" });
     } else {
@@ -191,20 +192,29 @@ export async function syncMissingCovers(onProgress?: ProgressCallback): Promise<
         continue;
       }
 
-      const download = await downloadImages(launchBoxGame, getImagesDir(), ["Box - Front"], (progress) => {
+      const imageTypes: LaunchBoxImageType[] = refreshAll
+        ? ["Box - Front", "Fanart - Background", "Screenshot - Gameplay"]
+        : ["Box - Front"];
+      const download = await downloadImages(launchBoxGame, getImagesDir(), imageTypes, (progress) => {
         onProgress?.({
           current,
           total: linkedGames.length,
           filename: progress.filename ?? gameRecord.title,
           status: progress.status
         });
-      });
+      }, refreshAll);
 
       // Prioriza cover.jpg gerado pelo scraper; fallback para qualquer box-front baixado
       const boxArtPath = download.files.find((file) => file.endsWith("cover.jpg")) ?? download.files.find((file) => file.includes("box-front")) ?? null;
 
       if (boxArtPath) {
-        updateGame(gameRecord.id, { box_art_path: boxArtPath });
+        const backgroundPath = download.files.find((file) => file.includes("fanart-background")) ?? null;
+        const screenshotPath = download.files.find((file) => file.includes("screenshot-gameplay")) ?? null;
+        updateGame(gameRecord.id, {
+          box_art_path: boxArtPath,
+          ...(refreshAll && backgroundPath ? { background_path: backgroundPath } : {}),
+          ...(refreshAll && screenshotPath ? { screenshot_path: screenshotPath } : {})
+        });
         downloadedNow += 1;
       } else {
         failed += 1;

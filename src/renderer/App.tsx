@@ -7,8 +7,7 @@
  * - Baixar a base de dados LaunchBox (Metadata.zip) caso ainda não exista.
  * - Renderizar o layout principal: Sidebar, TopBar, área de conteúdo e modais globais.
  */
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { BarChart3, Gamepad2, Layers3, Star, Trophy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { GameDetail } from "./components/GameDetail/GameDetail";
 import { GameGrid } from "./components/GameGrid/GameGrid";
 import { GameList } from "./components/GameList/GameList";
@@ -24,7 +23,7 @@ import { useCollectionCounts } from "./hooks/useCollectionCounts";
 import { useGames } from "./hooks/useGames";
 import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
-import { CollectionFilter, GameSortBy } from "../shared/types";
+import { GameSortBy } from "../shared/types";
 import {
   getPersistedRomFolderEntries,
   getPersistedDataPortabilityJobs,
@@ -34,31 +33,19 @@ import {
   migrateLegacyLocalStorageToDb
 } from "./lib/appStatePersistence";
 
-/** Definição de uma aba de filtro da coleção: valor do filtro, rótulo e ícone. */
-type CollectionTab = { value: CollectionFilter; label: string; icon: ReactNode };
-
-/** Abas de filtro exibidas no cabeçalho da biblioteca. */
-const COLLECTION_TABS: CollectionTab[] = [
-  { value: "all", label: "Todos os jogos", icon: <Layers3 aria-hidden="true" size={15} /> },
-  { value: "mostPlayed", label: "Mais Jogados", icon: <BarChart3 aria-hidden="true" size={15} /> },
-  { value: "favorites", label: "Favoritos", icon: <Star aria-hidden="true" size={15} /> },
-  { value: "playing", label: "Jogando", icon: <Gamepad2 aria-hidden="true" size={15} /> },
-  { value: "completed", label: "Concluído", icon: <Trophy aria-hidden="true" size={15} /> }
-];
-
 /**
- * Exibe o conteúdo principal da biblioteca: abas de filtro, ordenação e a grade/lista de jogos.
+ * Exibe o conteúdo principal da biblioteca: filtros de categoria, ordenação e grade/lista de jogos.
  * Renderizado quando nenhum jogo está selecionado.
  */
 function LibraryView() {
-  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   const selectedCategory = useGameStockStore((state) => state.selectedCategory);
   const sortBy = useGameStockStore((state) => state.sortBy);
+  const showGamesWithoutCover = useGameStockStore((state) => state.showGamesWithoutCover);
   const viewMode = useGameStockStore((state) => state.viewMode);
   const reloadToken = useGameStockStore((state) => state.reloadToken);
-  const setCollectionFilter = useGameStockStore((state) => state.setCollectionFilter);
   const setSelectedCategory = useGameStockStore((state) => state.setSelectedCategory);
   const setSortBy = useGameStockStore((state) => state.setSortBy);
+  const setShowGamesWithoutCover = useGameStockStore((state) => state.setShowGamesWithoutCover);
   const [genres, setGenres] = useState<string[]>([]);
 
   useEffect(() => {
@@ -86,21 +73,16 @@ function LibraryView() {
 
   return (
     <div className="home-content">
-      <section className="library-header" aria-label="Filtros da biblioteca">
-        <div className="library-tabs">
-          {COLLECTION_TABS.map(({ value, label, icon }) => (
-            <button
-              key={value}
-              type="button"
-              className={collectionFilter === value ? "active" : ""}
-              onClick={() => setCollectionFilter(value)}
-            >
-              {icon}
-              {label}
-            </button>
-          ))}
-        </div>
+      <section className="library-header" aria-label="Controles da biblioteca">
         <div className="library-actions">
+          <label className="cover-visibility-control">
+            <input
+              type="checkbox"
+              checked={showGamesWithoutCover}
+              onChange={(event) => setShowGamesWithoutCover(event.target.checked)}
+            />
+            Exibir sem capa
+          </label>
           <div className="category-control">
             <span>Categoria:</span>
             <select

@@ -149,9 +149,15 @@ async function waitForAutomaticCheck(): Promise<UpdateInfo | null | false> {
   const skipPromise = new Promise<false>((resolve) => {
     skipResolver = () => resolve(false);
   });
-  const updatePromise = autoUpdater.checkForUpdates().then((result) => (
-    result?.isUpdateAvailable ? result.updateInfo : null
-  ));
+  // Catch no updatePromise evita unhandled rejection quando race já resolveu
+  // (skip/timeout) e o check rejeita depois — comum com DNS/offline.
+  const updatePromise = autoUpdater
+    .checkForUpdates()
+    .then((result) => (result?.isUpdateAvailable ? result.updateInfo : null))
+    .catch((error) => {
+      console.warn("[updater] Falha no check automatico:", error);
+      return null;
+    });
 
   return Promise.race([updatePromise, timeoutPromise, skipPromise]);
 }

@@ -2,6 +2,25 @@
 
 Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
+## [1.1.2] - 2026-08-22
+
+### Adicionado
+
+- Opcao para exibir ou ocultar jogos sem capa na biblioteca.
+- Atualizacao individual de dados e imagens LaunchBox pelo formulario de edicao, com notificacao de progresso.
+- Modos de sincronizacao de midia: completar somente pendencias ou atualizar todos os jogos vinculados, incluindo capa, fundo e screenshot.
+- Loading animado nos botoes Jogar da tela de detalhe, grade e lista.
+
+### Alterado
+
+- Busca sempre consulta toda a biblioteca e limpa filtros ativos antes de pesquisar.
+- Filtros de colecao e console agora podem ser combinados; "Todos os jogos" mostra contagem do console selecionado.
+- Grade de capas centralizada e controles de sincronizacao de midia reorganizados.
+
+### Corrigido
+
+- Busca iniciada no detalhe de um jogo retorna corretamente para a biblioteca.
+
 ## [1.1.1] - 2026-08-18
 
 ### Adicionado
@@ -45,3 +64,4 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
 [1.1.0]: https://github.com/alexishida/games-stock/releases/tag/v1.1.0
 [1.1.1]: https://github.com/alexishida/games-stock/releases/tag/v1.1.1
+[1.1.2]: https://github.com/alexishida/games-stock/releases/tag/v1.1.2

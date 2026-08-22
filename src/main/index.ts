@@ -9,7 +9,7 @@
  * - Iniciar e monitorar jobs de importação de ROMs e portabilidade de dados.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent, Menu, net, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent, Menu, net, protocol, screen, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -31,7 +31,7 @@ import { createSplashWindow } from "./splash-window";
 import { registerEmulatorIpc, registerPlatformIpc } from "./ipc/registerPlatformEmulatorIpc";
 import { requestUpdaterSkip, runManualUpdateFlow, runUpdateFlow, supportsInPlaceAutoUpdate, updaterAppInfo } from "./updater";
 import { IPC_CHANNELS } from "../shared/ipc-channels";
-import { DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest, RomFolderScanResult } from "../shared/types";
+import { CoverSyncOptions, DataPortabilityExportRequest, DataPortabilityExportResult, DataPortabilityImportRequest, DataPortabilityImportResult, DataPortabilityJob, DataPortabilityProgress, DataPortabilityRomFolderEntry, GameCreateInput, GameMediaItem, GameUpdateInput, LaunchBoxDownloadParams, LaunchBoxImportParams, LaunchBoxProgress, RetroArchCoreInventory, RomFolderImportJob, RomFolderImportProgress, RomFolderImportRequest, RomFolderRecordCountRequest, RomFolderScanRequest, RomFolderScanResult } from "../shared/types";
 import { getRetroArchCoreCandidatesForPlatform } from "../shared/retroarch";
 import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { resolveConfiguredExecutable } from "./executableResolver";
@@ -97,12 +97,29 @@ function getBoundsFile(): string {
 /**
  * Carrega os bounds (tamanho e posição) salvos da janela principal.
  * Retorna dimensões padrão de 1122×957 se o arquivo não existir ou estiver corrompido.
+ * Garante que a janela não reapareça fora da área visível dos monitores atuais
+ * (ex.: monitor desconectado desde o último salvamento).
  */
 function loadBounds(): Electron.Rectangle {
+  let bounds: Electron.Rectangle;
   try {
-    return JSON.parse(fs.readFileSync(getBoundsFile(), "utf8")) as Electron.Rectangle;
+    bounds = JSON.parse(fs.readFileSync(getBoundsFile(), "utf8")) as Electron.Rectangle;
   } catch {
-    return { width: 1122, height: 957, x: undefined as never, y: undefined as never };
+    bounds = { width: 1122, height: 957, x: undefined as never, y: undefined as never };
+  }
+
+  try {
+    const { width, height, x, y } = bounds;
+    if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y)) {
+      return bounds;
+    }
+    const display = screen.getDisplayMatching({ x, y, width, height }).workArea;
+    const clampedX = Math.min(Math.max(x, display.x), Math.max(display.x, display.x + display.width - Math.min(width, display.width)));
+    const clampedY = Math.min(Math.max(y, display.y), Math.max(display.y, display.y + display.height - Math.min(height, display.height)));
+    return { ...bounds, x: clampedX, y: clampedY };
+  } catch {
+    // Sem displays disponíveis (carga antes do app.ready): mantém valores salvos.
+    return bounds;
   }
 }
 
@@ -251,11 +268,11 @@ function registerIpc(): void {
     ...games.getCoverStats(),
     metadataDownloadedAt: getLaunchBoxMetadataDownloadedAt()
   }));
-  ipcMain.handle(IPC_CHANNELS.games.syncCovers, (_event, options?: { jobId?: string }) => syncMissingCovers((progress) => {
+  ipcMain.handle(IPC_CHANNELS.games.syncCovers, (_event, options?: CoverSyncOptions) => syncMissingCovers((progress) => {
     // Propaga o jobId do renderer para cada tick, evitando sobrescrever outro card ativo.
     sendLaunchBoxProgress(attachLaunchBoxJobId(progress, options?.jobId));
     sendCoverStats(); // Atualiza stats de capa no renderer após cada jogo processado
-  }));
+  }, options?.mode === "all"));
   ipcMain.handle(IPC_CHANNELS.games.create, (_event, data: Partial<GameCreateInput>) => games.createGame(data));
   ipcMain.handle(IPC_CHANNELS.games.update, (_event, id: number, data: GameUpdateInput) => games.updateGame(id, data));
   ipcMain.handle(IPC_CHANNELS.games.delete, (_event, id: number) => games.deleteGame(id));
@@ -290,13 +307,14 @@ function registerIpc(): void {
       if (!corePath) throw new Error("Core do RetroArch não configurado para esta plataforma");
       args = ["-L", corePath, launchRomPath];
     } else {
-      // Emuladores genéricos: args configurados pelo usuário + caminho da ROM
-      const parsedArgs = emulator.args.trim() ? emulator.args.trim().split(/\s+/) : [];
+      // Emuladores genéricos: args configurados pelo usuário + caminho da ROM.
+      // Tokenização respeita aspas para caminhos com espaços.
+      const parsedArgs = parseQuotedArgs(emulator.args);
       args = [...parsedArgs, launchRomPath];
     }
 
-    await spawnDetachedProcess(resolvedExecutable.resolvedPath, args);
     games.incrementGameLaunchCount(gameId);
+    await spawnDetachedProcess(resolvedExecutable.resolvedPath, args);
     return { success: true };
   });
 
@@ -358,8 +376,8 @@ function registerIpc(): void {
     });
     if (result.canceled || !result.filePaths[0]) return null;
     const source = result.filePaths[0];
-    // Copia a imagem selecionada para o diretório de imagens do GameStock (timestamp como nome)
-    const dest = path.join(getImagesDir(), `${Date.now()}${path.extname(source)}`);
+    // Copia a imagem selecionada para o diretório de imagens do GameStock (nome UUID evita colisão)
+    const dest = path.join(getImagesDir(), `${crypto.randomUUID()}${path.extname(source)}`);
     fs.copyFileSync(source, dest);
     return dest;
   });
@@ -415,6 +433,9 @@ function registerIpc(): void {
 
   // ── Portabilidade de dados (exportação/importação) ─────────────────────────
   ipcMain.handle(IPC_CHANNELS.dataPortability.exportPackage, async (_event, request: DataPortabilityExportRequest) => {
+    if (!request || typeof request !== "object") {
+      throw new Error("Requisição de exportação inválida.");
+    }
     let targetPath = request.targetPath?.trim() ?? "";
     if (!targetPath) {
       // Abre diálogo nativo de salvamento se o caminho não foi fornecido pelo renderer
@@ -447,7 +468,10 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.launchbox.downloadImages, (_event, params: LaunchBoxDownloadParams) =>
     downloadLaunchBoxImages(params, sendLaunchBoxProgress)
   );
-  ipcMain.handle(IPC_CHANNELS.launchbox.importGame, (_event, params: LaunchBoxImportParams) => importGame(params, sendLaunchBoxProgress));
+  // Propaga jobId para cada tick de importação, mantendo notificação correta no renderer.
+  ipcMain.handle(IPC_CHANNELS.launchbox.importGame, (_event, params: LaunchBoxImportParams) =>
+    importGame(params, (progress) => sendLaunchBoxProgress(attachLaunchBoxJobId(progress, params.jobId)))
+  );
 
   // ── Importação de pastas de ROM ────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.romFolderImport.scan, (_event, params: RomFolderScanRequest) => scanRomFolderInWorker(params));
@@ -538,6 +562,14 @@ function registerIpc(): void {
 
   // Handler de adição de foto: copia o arquivo para userData com nome UUID e cria registro no banco.
   ipcMain.handle(IPC_CHANNELS.hardwareInventory.photosAdd, (_event, itemId: number, sourcePath: string) => {
+    // Renderer é não-confiável: valida extensão e conteúdo real de imagem antes de copiar,
+    // impedindo exfiltração de arquivos arbitrários para dentro de userData.
+    if (typeof sourcePath !== "string" || !MEDIA_EXTENSIONS.has(path.extname(sourcePath).toLowerCase())) {
+      throw new Error("Arquivo de origem não é uma imagem suportada.");
+    }
+    if (!isImageFileContent(sourcePath)) {
+      throw new Error("Arquivo de origem não é uma imagem válida.");
+    }
     const ext = path.extname(sourcePath).toLowerCase() || ".jpg";
     const uuid = crypto.randomUUID();
     const destDir = path.join(getInventarioImagesDir(), String(itemId));
@@ -665,16 +697,30 @@ function startDataPortabilityJob(
   dataPortabilityJobs.set(jobId, job);
   sendDataPortabilityProgress(initialProgress);
 
-  // Inicia o worker thread com os dados necessários para a operação
-  const worker = new Worker(path.join(__dirname, "dataPortabilityWorker.js"), {
-    workerData: {
-      jobId,
-      kind,
-      request,
-      appVersion: APP_VERSION_LABEL,
-      userDataDir: getUserDataDir()
-    }
-  });
+  // Inicia o worker thread com os dados necessários para a operação.
+  // Falha síncrona do `new Worker` (ex.: módulo ausente) não pode deixar o
+  // job preso em "running": marca falha terminal imediatamente.
+  let worker: Worker;
+  try {
+    worker = new Worker(path.join(__dirname, "dataPortabilityWorker.js"), {
+      workerData: {
+        jobId,
+        kind,
+        request,
+        appVersion: APP_VERSION_LABEL,
+        userDataDir: getUserDataDir()
+      }
+    });
+  } catch (error) {
+    failDataPortabilityJob(job, error instanceof Error ? error.message : String(error));
+    return job;
+  }
+
+  // Termina o worker assim que entrar em estado terminal, liberando a conexão
+  // SQLite do thread e impedindo vazamento de memória até o fim da sessão.
+  const terminateWorker = (): void => {
+    void worker.terminate();
+  };
 
   worker.on("message", (message: DataPortabilityWorkerMessage) => {
     if (message.type === "progress") {
@@ -701,15 +747,18 @@ function startDataPortabilityJob(
         sendCoverStats();
       }
       mainWindow?.webContents.send(IPC_CHANNELS.dataPortability.completed, job);
+      terminateWorker();
       return;
     }
 
     // Mensagem de erro do worker
     failDataPortabilityJob(job, message.error);
+    terminateWorker();
   });
 
   worker.on("error", (error) => {
     failDataPortabilityJob(job, error.message);
+    terminateWorker();
   });
 
   worker.on("exit", (code) => {
@@ -753,6 +802,8 @@ function scanRomFolderInWorker(request: RomFolderScanRequest): Promise<RomFolder
     const finish = (callback: () => void): void => {
       if (settled) return;
       settled = true;
+      // Libera o thread após concluir/errar; listener único por evento garante idempotência.
+      void worker.terminate();
       callback();
     };
 
@@ -1055,11 +1106,58 @@ function listGameMedia(id: number): GameMediaItem[] {
 /**
  * Verifica se um caminho está dentro do diretório de dados do usuário.
  * Usado como barreira de segurança antes de servir ou listar arquivos.
+ * Resolve symlinks/junctions via realpath e normaliza case no Windows
+ * para evitar 403 falso-positivo e escape por link simbólico interno.
  */
 function isPathAllowed(targetPath: string): boolean {
-  const normalized = path.resolve(targetPath);
-  const allowedRoot = path.resolve(getUserDataDir());
+  let normalized: string;
+  let allowedRoot: string;
+  try {
+    normalized = fs.realpathSync(targetPath);
+    allowedRoot = fs.realpathSync(getUserDataDir());
+  } catch {
+    // Arquivo ainda não existe (ex.: será criado depois): compara pelo path resolvido.
+    normalized = path.resolve(targetPath);
+    allowedRoot = path.resolve(getUserDataDir());
+  }
+  if (process.platform === "win32") {
+    const n = normalized.toLowerCase();
+    const r = allowedRoot.toLowerCase();
+    return n === r || n.startsWith(`${r}${path.sep}`);
+  }
   return normalized === allowedRoot || normalized.startsWith(`${allowedRoot}${path.sep}`);
+}
+
+/**
+ * Verifica os bytes de assinatura de um arquivo para confirmar que se trata
+ * de imagem JPEG/PNG/WebP real (não apenas por extensão). Previne a cópia de
+ * arquivos arbitrários do sistema para dentro do diretório de mídia do app.
+ */
+function isImageFileContent(filePath: string): boolean {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(filePath, "r");
+    const header = Buffer.alloc(16);
+    const read = fs.readSync(fd, header, 0, header.length, 0);
+    if (read < 4) return false;
+    // JPEG: FF D8 FF
+    if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) return true;
+    // PNG: 89 50 4E 47 "PNG"
+    if (header[0] === 0x89 && header.toString("ascii", 1, 4) === "PNG") return true;
+    // WebP: "RIFF" .... "WEBP"
+    if (header.toString("ascii", 0, 4) === "RIFF" && header.toString("ascii", 8, 12) === "WEBP") return true;
+    return false;
+  } catch {
+    return false;
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // Ignora erro de fechamento; nada mais pode ser feito.
+      }
+    }
+  }
 }
 
 /**
@@ -1113,6 +1211,22 @@ function mediaSortWeight(filePath: string): number {
 }
 
 // ── Utilitários de processo ────────────────────────────────────────────────
+
+/**
+ * Tokeniza uma linha de argumentos respeitando aspas simples e duplas.
+ * Ex.: `-f "C:\path com espaco\dir"` vira [`-f`, `C:\path com espaco\dir`].
+ */
+function parseQuotedArgs(input: string): string[] {
+  const tokens: string[] = [];
+  const text = input.trim();
+  if (!text) return tokens;
+  const pattern = /"([^"]*)"|'([^']*)'|([^\s]+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    tokens.push(match[1] ?? match[2] ?? match[3]);
+  }
+  return tokens;
+}
 
 /**
  * Inicia um processo filho desanexado do processo principal (detached).

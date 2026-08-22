@@ -131,24 +131,34 @@ function needsUpdate(filePath: string): boolean {
 /**
  * Inicia o extract-worker para descompactar o Metadata.zip em thread separada.
  * Resolve quando a extração concluir ou rejeita em caso de erro.
+ * Resolve também no `exit` limpo (código 0) para o fluxo nunca pendurar se o
+ * worker terminar sem postar mensagem; sempre encerra o thread ao terminar.
  */
 function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: string, onProgress?: ProgressCallback): Promise<void> {
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "extract-worker.js");
     const worker = new Worker(workerPath, { workerData: { zipPath, cacheDir, metadataFile } });
+    let settled = false;
+    const finish = (callback: () => void): void => {
+      if (settled) return;
+      settled = true;
+      void worker.terminate();
+      callback();
+    };
     worker.on("message", (result: { ok?: boolean; error?: string; status?: string }) => {
       if (result.status) {
         // Mensagem de progresso intermediária
         onProgress?.(result as Parameters<ProgressCallback>[0]);
       } else if (result.error) {
-        reject(new Error(result.error));
+        finish(() => reject(new Error(result.error)));
       } else {
-        resolve();
+        finish(() => resolve());
       }
     });
-    worker.on("error", reject);
+    worker.on("error", (error) => finish(() => reject(error)));
     worker.on("exit", (code) => {
-      if (code !== 0) reject(new Error(`Extract worker saiu com codigo ${code}`));
+      if (code !== 0) finish(() => reject(new Error(`Extract worker saiu com codigo ${code}`)));
+      else finish(() => resolve());
     });
   });
 }
@@ -156,24 +166,33 @@ function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: strin
 /**
  * Inicia o index-worker para construir o índice JSON a partir do XML em thread separada.
  * Resolve com o índice pronto ou rejeita em caso de erro de parsing.
+ * Resolve também no `exit` limpo (código 0) como fallback contra pendência infinita.
  */
 function runIndexWorker(metadataFile: string, indexFile: string, onProgress?: ProgressCallback): Promise<Record<string, LaunchBoxGame>> {
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "index-worker.js");
     const worker = new Worker(workerPath, { workerData: { metadataFile, indexFile } });
+    let settled = false;
+    const finish = (callback: () => void): void => {
+      if (settled) return;
+      settled = true;
+      void worker.terminate();
+      callback();
+    };
     worker.on("message", (result: Record<string, LaunchBoxGame> | { error: string; status?: never } | { status: string }) => {
       if ("status" in result && result.status) {
         // Mensagem de progresso intermediária do worker
         onProgress?.(result as Parameters<ProgressCallback>[0]);
       } else if ("error" in result) {
-        reject(new Error((result as { error: string }).error));
+        finish(() => reject(new Error((result as { error: string }).error)));
       } else {
-        resolve(result as Record<string, LaunchBoxGame>);
+        finish(() => resolve(result as Record<string, LaunchBoxGame>));
       }
     });
-    worker.on("error", reject);
+    worker.on("error", (error) => finish(() => reject(error)));
     worker.on("exit", (code) => {
-      if (code !== 0) reject(new Error(`Index worker saiu com codigo ${code}`));
+      if (code !== 0) finish(() => reject(new Error(`Index worker saiu com codigo ${code}`)));
+      else finish(() => resolve(JSON.parse(fs.readFileSync(indexFile, "utf8")) as Record<string, LaunchBoxGame>));
     });
   });
 }

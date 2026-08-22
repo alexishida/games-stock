@@ -10,7 +10,7 @@
  */
 
 import { type MouseEvent, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, Monitor, Pencil, Play, Star, Trash2, Trophy, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, Gamepad2, Image, Library, LoaderCircle, Monitor, Pencil, Play, Star, Trash2, Trophy, X } from "lucide-react";
 import { GameMediaItem, GameVersionOption, PlatformEmulator } from "../../../shared/types";
 import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
@@ -525,7 +525,8 @@ export function GameDetail() {
               onClick={() => void launchGame()}
               title={playButtonTitle}
             >
-              <Play aria-hidden="true" size={18} />
+              {/* Spinner confirma que IPC de lançamento ainda está preparando emulador/ROM. */}
+              {launching ? <LoaderCircle aria-hidden="true" size={18} className="detail-launch-spinner" /> : <Play aria-hidden="true" size={18} />}
               {launching ? "Abrindo..." : "Jogar"}
             </button>
             {/* Mensagem de erro de lançamento exibida temporariamente */}

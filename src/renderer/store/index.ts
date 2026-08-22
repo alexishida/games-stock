@@ -102,6 +102,8 @@ interface GameStockState {
   viewMode: ViewMode;
   /** Filtro de coleção ativo (todos, favoritos, jogando, concluído). */
   collectionFilter: CollectionFilter;
+  /** Define se jogos sem capa aparecem na biblioteca. */
+  showGamesWithoutCover: boolean;
   /** Critério de ordenação da lista de jogos. */
   sortBy: GameSortBy;
 
@@ -188,6 +190,7 @@ interface GameStockState {
   setSelectedCategory(value: string): void;
   setViewMode(value: ViewMode): void;
   setCollectionFilter(value: CollectionFilter): void;
+  setShowGamesWithoutCover(value: boolean): void;
   setSortBy(value: GameSortBy): void;
   setCurrentPage(value: number): void;
   setGames(value: GameListResult): void;
@@ -271,6 +274,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   selectedCategory: "",
   viewMode: "grid",
   collectionFilter: "all",
+  showGamesWithoutCover: true,
   sortBy: "title",
   games: [],
   total: 0,
@@ -300,15 +304,25 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   inventorySortBy: "name",
   inventoryFilters: { platformId: null, itemTypeId: null, conservationStateId: null, search: null },
 
-  // Ao trocar plataforma, reseta filtro de coleção, página e seleção de jogo
-  setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, collectionFilter: "all", currentPage: 1, selectedGameId: null, selectedGame: null }),
-  // Ao buscar, retorna à primeira página
-  setSearchQuery: (searchQuery) => set({ searchQuery, currentPage: 1 }),
+  // Plataforma compõe com filtros de coleção, permitindo favoritos por console.
+  setSelectedPlatformId: (selectedPlatformId) => set({ selectedPlatformId, currentPage: 1, selectedGameId: null, selectedGame: null }),
+  // Busca sempre consulta biblioteca inteira, sem restringir por console, coleção ou categoria.
+  setSearchQuery: (searchQuery) => set({
+    searchQuery,
+    selectedPlatformId: null,
+    selectedCategory: "",
+    collectionFilter: "all",
+    currentPage: 1,
+    selectedGameId: null,
+    selectedGame: null
+  }),
   // Ao trocar categoria/gênero, reinicia a paginação para evitar página vazia.
   setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
   setViewMode: (viewMode) => set({ viewMode }),
-  // Ao trocar filtro de coleção, limpa plataforma selecionada e volta à página 1
-  setCollectionFilter: (collectionFilter) => set({ collectionFilter, selectedPlatformId: null, currentPage: 1, selectedGameId: null, selectedGame: null }),
+  // Filtro de coleção compõe com plataforma selecionada e volta à página 1.
+  setCollectionFilter: (collectionFilter) => set({ collectionFilter, currentPage: 1, selectedGameId: null, selectedGame: null }),
+  // Ao alternar visibilidade de jogos sem capa, reinicia paginação para evitar página vazia.
+  setShowGamesWithoutCover: (showGamesWithoutCover) => set({ showGamesWithoutCover, currentPage: 1 }),
   setSortBy: (sortBy) => set({ sortBy, currentPage: 1 }),
   setCurrentPage: (currentPage) => set({ currentPage }),
   // Atualiza lista de jogos e mantém o jogo selecionado sincronizado com os novos dados
@@ -376,10 +390,15 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     return { lastRomImportJob: nextJob };
   }),
 
-  // Tick de progresso: atualiza apenas memória, sem write no SQLite
+  // Tick de progresso: atualiza apenas memória, sem write no SQLite.
+  // Exceção única: stage "error" é transição terminal — persiste o job falho
+  // para ele sobreviver a restart (regra de persistência de terminal states).
   updateRomImportProgress: (progress) => set((state) => {
     if (!progress.jobId) return {};
     const nextJob = buildRomImportJobFromProgress(state.lastRomImportJob, progress);
+    if (progress.stage === "error" && state.lastRomImportJob?.status !== "failed") {
+      void setPersistedLastRomImportJob(nextJob);
+    }
     return { lastRomImportJob: nextJob };
   }),
 
@@ -484,6 +503,9 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   updateDataPortabilityProgress: (progress) => set((state) => {
     if (!progress.jobId) return {};
     const existing = state.dataPortabilityJobs.find((job) => job.jobId === progress.jobId);
+    // Ticks atrasados/duplicados não podem "ressuscitar" job em estado terminal
+    // (completed/failed/interrupted) de volta para running.
+    if (existing && existing.status !== "running") return {};
     const next: DataPortabilityJob = normalizeDataPortabilityJob({
       jobId: progress.jobId,
       kind: progress.kind,
@@ -542,6 +564,10 @@ function resolveSetterValue<T>(value: SetterValue<T>, current: T): T {
  */
 function buildRomImportJobFromProgress(current: RomFolderImportJob | null, progress: RomFolderImportProgress): RomFolderImportJob {
   const previous = current?.jobId === progress.jobId ? current : null;
+  // Ticks tardios ("done" reentrando) não podem regredir um job já terminal.
+  const status = previous && previous.status !== "running"
+    ? previous.status
+    : (progress.stage === "error" ? "failed" : "running");
   return {
     jobId: progress.jobId!,
     folderPaths: previous?.folderPaths ?? [],
@@ -551,7 +577,7 @@ function buildRomImportJobFromProgress(current: RomFolderImportJob | null, progr
     detectionMode: previous?.detectionMode ?? "manual",
     detectedPlatforms: previous?.detectedPlatforms ?? [],
     includeSubfolders: previous?.includeSubfolders ?? false,
-    status: progress.stage === "error" ? "failed" : "running",
+    status,
     startedAt: previous?.startedAt ?? new Date().toISOString(),
     progress,
     result: previous?.result,
@@ -590,12 +616,16 @@ function buildCompletedRomImportJob(current: RomFolderImportJob | null, result: 
 /**
  * Aplica um tick de progresso do LaunchBox a um MediaSyncJob existente,
  * atualizando detalhe, rótulo de progresso, percentual e flag de indeterminado.
+ *
+ * O status "error" aqui representa falha de download de um item individual
+ * (não-terminal): o job permanece em "running" e o terminal só é definido
+ * pelos eventos `finishMediaSyncJob`/`failMediaSyncJob`. Marcar o job como
+ * falho por item congelava o progresso e impedia ticks subsequentes.
  */
 function buildMediaJobFromProgress(current: MediaSyncJob, progress: LaunchBoxProgress): MediaSyncJob {
-  const failed = progress.status === "error";
   return {
     ...current,
-    status: failed ? "failed" : current.status,
+    status: "running",
     detail: mediaProgressDetail(progress, current.detail),
     progressLabel: mediaProgressLabel(progress),
     percent: mediaProgressPercent(progress, current.percent),

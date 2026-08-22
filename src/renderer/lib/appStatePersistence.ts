@@ -130,7 +130,9 @@ export async function getPersistedMediaSyncJobs(): Promise<MediaSyncJob[]> {
 
   // Compatibilidade com versão anterior que persistia apenas um job (não uma lista)
   const legacy = await getPersistedValue<unknown>(APP_STATE_KEYS.media.lastMediaSyncJob);
-  return isMediaSyncJob(legacy) ? [legacy] : [];
+  return isMediaSyncJob(legacy)
+    ? [legacy.status === "running" ? { ...legacy, status: "interrupted", progressLabel: "Interrompido" } : legacy]
+    : [];
 }
 
 /**
