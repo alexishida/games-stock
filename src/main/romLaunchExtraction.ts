@@ -224,10 +224,24 @@ async function pickLaunchFile(extractionDir: string): Promise<string | null> {
     )
   );
   const romCandidates = files.filter((file) => knownRomExtensions.has(path.extname(file.relativePath).toLowerCase()));
-  const pool = romCandidates.length > 0 ? romCandidates : files;
+  if (romCandidates.length > 0) {
+    return romCandidates.reduce((largest, file) => (file.size > largest.size ? file : largest)).relativePath;
+  }
 
-  return pool.reduce((largest, file) => (file.size > largest.size ? file : largest)).relativePath;
+  // Último recurso: maior arquivo com cara de ROM. Exclui compactados aninhados
+  // e arquivos de texto/metadados (readme, nfo, dat...) que nunca são o jogo.
+  const fallbackPool = files.filter((file) => {
+    const ext = path.extname(file.relativePath).toLowerCase();
+    return !COMPRESSED_EXTENSIONS.has(ext) && !JUNK_LAUNCH_EXTENSIONS.has(ext);
+  });
+  if (!fallbackPool.length) return null;
+  return fallbackPool.reduce((largest, file) => (file.size > largest.size ? file : largest)).relativePath;
 }
+
+/** Extensões que nunca devem ser entregues ao emulador como arquivo de launch. */
+const JUNK_LAUNCH_EXTENSIONS = new Set([
+  ".txt", ".md", ".nfo", ".dat", ".html", ".htm", ".log", ".ini", ".xml", ".json", ".sfv", ".diz", ".url"
+]);
 
 /** Lista recursivamente os arquivos extraídos, ignorando o marcador interno. */
 async function listExtractedFiles(extractionDir: string, relativeBase = ""): Promise<ExtractedFile[]> {

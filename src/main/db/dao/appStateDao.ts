@@ -26,8 +26,13 @@ export class AppStateDao {
       .prepare("SELECT key, value_json FROM app_state WHERE key = ?")
       .get(key) as AppStateRow | undefined;
     if (!row) return null;
-    // Desserializa o JSON armazenado na coluna value_json
-    return JSON.parse(row.value_json);
+    // Desserializa o JSON armazenado na coluna value_json.
+    // Valor corrompido/truncado (de versão antiga do app) não pode derrubar o handler.
+    try {
+      return JSON.parse(row.value_json);
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -46,9 +51,14 @@ export class AppStateDao {
       .prepare(`SELECT key, value_json FROM app_state WHERE key IN (${placeholders})`)
       .all(...normalized) as AppStateRow[];
 
-    // Reduz as linhas para um mapa chave → valor desserializado
+    // Reduz as linhas para um mapa chave → valor desserializado.
+    // Valor corrompido é tratado como ausente em vez de quebrar o handler.
     return rows.reduce<Record<string, unknown>>((acc, row) => {
-      acc[row.key] = JSON.parse(row.value_json);
+      try {
+        acc[row.key] = JSON.parse(row.value_json);
+      } catch {
+        // Linha corrompida: omite a chave do mapa.
+      }
       return acc;
     }, {});
   }

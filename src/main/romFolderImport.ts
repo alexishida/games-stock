@@ -67,6 +67,9 @@ interface MatchContext {
   platformMatches: MatchEntry[];
   /** Lookup rápido por nome exato normalizado → lista de MatchEntry. */
   exactByName: Map<string, MatchEntry[]>;
+  /** Índice invertido de tokens (palavra → entradas que a contêm em matchKeys),
+   * usado para pré-filtrar candidatos do scorling e evitar O(candidatos × jogos). */
+  byToken: Map<string, MatchEntry[]>;
 }
 
 /** Lista de extensões de ROM suportadas pelo GameStock (importada do catálogo de plataformas). */
@@ -449,8 +452,7 @@ export function matchCandidate(candidate: RomFolderImportCandidate, index: Recor
   if (exact.length > 1) return { ...candidate, status: "ambiguous", match: null, alternatives: exact.map((entry) => entry.game) };
 
   // Matching por score de similaridade
-  const ranked = context.platformMatches
-    .map((entry) => ({ game: entry.game, score: scoreEntry(normalizedQuery, entry) }))
+  const ranked = scoreCandidates(normalizedQuery, context)
     .filter((item) => item.score >= 0.72) // Threshold de confiança mínima
     .sort((a, b) => b.score - a.score || a.game.name.localeCompare(b.game.name));
 
@@ -479,16 +481,55 @@ function createMatchContext(platformId: number, index: Record<string, LaunchBoxG
 
   // Índice de lookup por chave exata para matching O(1)
   const exactByName = new Map<string, MatchEntry[]>();
+  // Índice invertido de tokens para pré-filtrar o scoring de similaridade.
+  // Sem isso, cada candidato varreria todos os jogos da plataforma (O(n×m)).
+  const byToken = new Map<string, MatchEntry[]>();
+
+  const indexEntry = (map: Map<string, MatchEntry[]>, key: string, entry: MatchEntry): void => {
+    const existing = map.get(key) ?? [];
+    existing.push(entry);
+    map.set(key, existing);
+  };
 
   for (const entry of platformMatches) {
     for (const key of entry.matchKeys) {
-      const existing = exactByName.get(key) ?? [];
-      existing.push(entry);
-      exactByName.set(key, existing);
+      indexEntry(exactByName, key, entry);
+      for (const token of key.split(" ")) {
+        if (token) indexEntry(byToken, token, entry);
+      }
     }
   }
 
-  return { platformMatches, exactByName };
+  return { platformMatches, exactByName, byToken };
+}
+
+/**
+ * Pontua apenas candidatos com pelo menos um token em comum com a query
+ * (via índice invertido), evitando varrer a plataforma inteira por ROM.
+ * Caso contrário, a importação de uma pasta grande congela o main process.
+ */
+function scoreCandidates(query: string, context: MatchContext): Array<{ game: LaunchBoxGame; score: number }> {
+  const queryTokens = query.split(" ").filter(Boolean);
+  if (!queryTokens.length) return [];
+
+  const candidates = new Map<MatchEntry, number>();
+  for (const token of queryTokens) {
+    const entries = context.byToken.get(token);
+    if (!entries) continue;
+    for (const entry of entries) {
+      candidates.set(entry, (candidates.get(entry) ?? 0) + 1);
+    }
+  }
+
+  // Query com poucos tokens é frágil: sem nenhum token comum, não há o que pontuar.
+  if (!candidates.size) return [];
+
+  const results: Array<{ game: LaunchBoxGame; score: number }> = [];
+  for (const [entry] of candidates) {
+    const score = scoreEntry(query, entry);
+    if (score > 0) results.push({ game: entry.game, score });
+  }
+  return results;
 }
 
 /**

@@ -441,14 +441,18 @@ export class DataPortabilityDao {
     }
 
     // Garante que plataformas referenciadas por aliases e extensões também existam
+    const mappingPlatformNames = new Set<string>();
     for (const item of [...bundle.aliases, ...bundle.romExtensions]) {
       if (!item.platformName?.trim()) continue;
       platformNames.add(normalizeName(item.platformName));
+      mappingPlatformNames.add(normalizeName(item.platformName));
       this.ensurePlatform(item.platformName, "Importadas");
     }
 
-    // Limpa aliases e extensões das plataformas afetadas antes de reinserir
-    for (const platformName of platformNames) {
+    // Remove aliases/extensões existentes apenas de plataformas que o pacote traz
+    // mapeamentos — preserva config local de plataformas listadas sem mappings,
+    // evitando perda de dados em re-import de backup parcial/antigo.
+    for (const platformName of mappingPlatformNames) {
       const platformId = this.getPlatformIdByNormalizedName(platformName);
       if (!platformId) continue;
       this.database.prepare("DELETE FROM platform_launchbox_aliases WHERE platform_id = ?").run(platformId);
@@ -622,8 +626,14 @@ export class DataPortabilityDao {
   /**
    * Atualiza o caminho de um campo de mídia específico de um jogo.
    * Usado após a extração e reescrita dos arquivos de imagem do backup.
+   * Valida `field` em whitelist runtime: o valor viaja de arquivo de backup
+   * (entrada não-confiável) e nunca pode interpolar SQL arbitrário.
    */
   updateGameMedia(gameId: number, field: PortableMediaField, filePath: string): void {
+    const allowedFields: PortableMediaField[] = ["box_art_path", "background_path", "screenshot_path"];
+    if (!allowedFields.includes(field)) {
+      throw new Error(`Campo de mídia inválido: ${String(field)}`);
+    }
     this.database.prepare(`UPDATE games SET ${field} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(filePath, gameId);
   }
 
@@ -633,6 +643,25 @@ export class DataPortabilityDao {
    */
   countRomFolderEntries(entries: DataPortabilityRomFolderEntry[]): number {
     return entries.filter((entry) => entry.folderPath?.trim()).length;
+  }
+
+  /**
+   * Reaproveita entradas de pasta de ROM do backup remapeando `platformId`
+   * da máquina de origem para o ID da plataforma local correspondente
+   * (matching por `platformName`, case-insensitive — chave estável).
+   * Entradas cuja plataforma não existe localmente são descartadas para
+   * não registrar pasta ligada a ID inexistente.
+   */
+  resolveRomFolderEntryPlatforms(entries: DataPortabilityRomFolderEntry[]): DataPortabilityRomFolderEntry[] {
+    const result: DataPortabilityRomFolderEntry[] = [];
+    for (const entry of entries) {
+      const platformName = entry.platformName?.trim();
+      if (!platformName) continue;
+      const localPlatformId = this.getPlatformIdByName(platformName);
+      if (!localPlatformId) continue;
+      result.push({ ...entry, platformId: localPlatformId });
+    }
+    return result;
   }
 
   /**
@@ -671,10 +700,18 @@ export class DataPortabilityDao {
   private upsertEmulator(emulator: PortableEmulator): void {
     const existingId = this.getEmulatorIdByName(emulator.name);
     if (existingId) {
-      // Emulador já existe — atualiza campos editáveis
+      // Emulador já existe — atualiza campos editáveis preservando caminho local:
+      // o `executable` do backup aponta para a máquina de origem e não deve
+      // sobrescrever um executável já configurado nesta máquina.
+      const current = this.database.prepare("SELECT executable, args, is_retroarch FROM emulators WHERE id = ?").get(existingId) as
+        | { executable: string; args: string; is_retroarch: number }
+        | undefined;
+      const incomingExecutable = emulator.executable?.trim() ?? "";
+      const executable = current?.executable?.trim() && incomingExecutable ? current.executable : (incomingExecutable || current?.executable || "");
+      const args = emulator.args?.trim() ?? current?.args ?? "";
       this.database
         .prepare("UPDATE emulators SET executable = ?, args = ?, is_retroarch = ? WHERE id = ?")
-        .run(emulator.executable?.trim() ?? "", emulator.args?.trim() ?? "", emulator.is_retroarch ? 1 : 0, existingId);
+        .run(executable, args, emulator.is_retroarch ? 1 : 0, existingId);
       return;
     }
 
@@ -838,9 +875,14 @@ export class DataPortabilityDao {
         );
         summary.itemsUpdated += 1;
 
-        // Adiciona novas fotos (não sobrescreve as existentes)
+        // Adiciona novas fotos (não sobrescreve as existentes; evita duplicar
+        // file_path já presente do item em re-importações do mesmo backup)
         const key = portableInventoryItemKey(item.name, item.platformName ?? null, isMultiplatform);
+        const existingPhoto = this.database.prepare(
+          "SELECT 1 FROM hardware_item_photos WHERE item_id = ? AND file_path = ?"
+        );
         for (const fp of (photoFilePaths.get(key) ?? [])) {
+          if (existingPhoto.get(existingRow.id, fp)) continue;
           const maxRow = this.database.prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM hardware_item_photos WHERE item_id = ?").get(existingRow.id) as { m: number };
           this.database.prepare("INSERT INTO hardware_item_photos (item_id, file_path, sort_order) VALUES (?, ?, ?)").run(existingRow.id, fp, maxRow.m + 1);
         }
@@ -912,6 +954,8 @@ export class DataPortabilityDao {
 
   /**
    * Busca uma variante existente pelo nome do arquivo ROM dentro da plataforma.
+   * Caso o título local tenha sido renomeado pelo usuário, ainda casa pelo nome
+   * de arquivo ROM quando houver um único candidato com aquele arquivo.
    */
   private findGameIdByRomFileName(platformId: number, title: string, romFileName: string): number | null {
     const rows = this.database
@@ -923,12 +967,17 @@ export class DataPortabilityDao {
       `)
       .all(platformId) as Array<{ id: number; title: string; rom_path: string }>;
 
-    const matches = rows.filter((row) => {
-      const existingRomFile = normalizePortableRomFileName(extractRomFileName(row.rom_path));
-      return existingRomFile === romFileName && row.title.trim().toLowerCase() === title.trim().toLowerCase();
-    });
+    const byRomFile = rows.filter((row) => normalizePortableRomFileName(extractRomFileName(row.rom_path)) === romFileName);
 
-    return matches.length === 1 ? matches[0].id : null;
+    // Preferência: título igual + arquivo igual (variante exata)
+    const exact = byRomFile.filter((row) => row.title.trim().toLowerCase() === title.trim().toLowerCase());
+    if (exact.length === 1) return exact[0].id;
+
+    // Fallback anti-duplicação: um único jogo com esse arquivo de ROM na plataforma
+    // (título renomeado localmente) → reaproveita em vez de criar duplicata.
+    if (byRomFile.length === 1) return byRomFile[0].id;
+
+    return null;
   }
 
   /**

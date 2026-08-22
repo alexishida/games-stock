@@ -8,7 +8,7 @@
  */
 
 import { memo, useState } from "react";
-import { Gamepad2, Play, Star, Trophy } from "lucide-react";
+import { Gamepad2, LoaderCircle, Play, Star, Trophy } from "lucide-react";
 import { Game } from "../../../shared/types";
 import { requestGameLaunch } from "../../lib/gameLaunch";
 import { useGameStockStore } from "../../store";
@@ -128,7 +128,8 @@ export const GameListRow = memo(function GameListRow({ game }: { game: Game }) {
           onClick={launch}
           aria-label="Jogar"
         >
-          <Play size={12} fill="currentColor" aria-hidden="true" />
+          {/* Spinner mantém feedback visível enquanto processo do emulador é iniciado. */}
+          {launching ? <LoaderCircle size={13} className="list-launch-spinner" aria-hidden="true" /> : <Play size={12} fill="currentColor" aria-hidden="true" />}
         </button>
       </span>
     </div>

@@ -17,6 +17,7 @@ import { IPC_CHANNELS } from "../shared/ipc-channels";
 import type { AppStateEntry } from "../shared/appState";
 import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
 import {
+  CoverSyncOptions,
   CoverSyncStats,
   DataPortabilityExportRequest,
   DataPortabilityRomFolderEntry,
@@ -76,7 +77,7 @@ const api = {
       return () => ipcRenderer.removeListener(IPC_CHANNELS.games.coverStatsUpdated, listener);
     },
     /** Inicia a sincronização de capas com o LaunchBox. */
-    syncCovers: (options?: { jobId?: string }) => ipcRenderer.invoke(IPC_CHANNELS.games.syncCovers, options),
+    syncCovers: (options?: CoverSyncOptions) => ipcRenderer.invoke(IPC_CHANNELS.games.syncCovers, options),
     /** Cria um novo jogo na biblioteca. */
     create: (data: Partial<GameCreateInput>) => ipcRenderer.invoke(IPC_CHANNELS.games.create, data),
     /** Atualiza dados de um jogo existente. */

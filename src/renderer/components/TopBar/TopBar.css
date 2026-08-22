@@ -18,7 +18,7 @@
   max-width: 480px;
 }
 
-.topbar-search svg {
+.topbar-search > svg {
   position: absolute;
   left: 10px;
   top: 50%;
@@ -34,8 +34,24 @@
   outline: 0;
   background: var(--bg-control);
   color: var(--text-primary);
-  padding: 0 12px 0 36px;
+  padding: 0 36px;
   font-size: var(--form-control-font-size);
+}
+
+.topbar-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--text-secondary);
+  transform: translateY(-50%);
+}
+
+.topbar-search-clear:hover {
+  color: var(--accent);
 }
 
 .topbar-search input:focus {

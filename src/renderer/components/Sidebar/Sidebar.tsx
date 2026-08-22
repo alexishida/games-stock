@@ -36,6 +36,9 @@ export function Sidebar() {
   const openSettings          = useGameStockStore((state) => state.openSettings);
   const collectionFilter      = useGameStockStore((state) => state.collectionFilter);
   const collectionCounts      = useGameStockStore((state) => state.collectionCounts);
+  const totalGames            = useGameStockStore((state) => state.total);
+  const platforms             = useGameStockStore((state) => state.platforms);
+  const selectedPlatformId    = useGameStockStore((state) => state.selectedPlatformId);
   const setCollectionFilter   = useGameStockStore((state) => state.setCollectionFilter);
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
   const sidebarMode             = useGameStockStore((state) => state.sidebarMode);
@@ -50,6 +53,10 @@ export function Sidebar() {
   const [itemTypes, setItemTypes] = useState<Array<{ id: number; name: string; count: number }>>([]);
   const [conservationStates, setConservationStates] = useState<Array<{ id: number; name: string; count: number }>>([]);
   const totalItems = itemTypes.reduce((acc, t) => acc + t.count, 0);
+  // "Todos os jogos" mostra total do console ativo, ou total da biblioteca sem seleção.
+  const visibleLibraryTotal = selectedPlatformId === null
+    ? totalGames
+    : platforms.find((platform) => platform.id === selectedPlatformId)?.gameCount ?? 0;
 
   // Carrega versão do app
   useEffect(() => {
@@ -77,6 +84,8 @@ export function Sidebar() {
 
   function handleSwitchToLibrary() {
     setSidebarMode("library");
+    // Biblioteca restaura visualização geral antes de escolher outro console.
+    setCollectionFilter("all");
     setSelectedPlatformId(null);
   }
 
@@ -125,6 +134,16 @@ export function Sidebar() {
               <>
                 {/* Filtros de coleção */}
                 <nav className="sidebar-nav" aria-label="Filtros de coleção">
+                  {/* Limpa filtro especial sem depender do botão geral de Biblioteca. */}
+                  <button
+                    type="button"
+                    className={collectionFilter === "all" ? "nav-item nav-item-sub active" : "nav-item nav-item-sub"}
+                    onClick={() => setCollectionFilter("all")}
+                  >
+                    <Library aria-hidden="true" size={15} />
+                    Todos os jogos
+                    <span className="nav-item-count">{visibleLibraryTotal}</span>
+                  </button>
                   {COLLECTION_FILTERS.map((item) => (
                     <button
                       key={item.value}

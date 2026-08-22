@@ -14,7 +14,7 @@ import { useGameStockStore } from "../../store";
  * Componente de árvore de plataformas na sidebar.
  * Agrupa plataformas por categoria e ordena os grupos alfabeticamente.
  * A plataforma selecionada recebe a classe "selected".
- * "Todos" é considerado ativo quando não há plataforma nem filtro de coleção selecionados.
+ * "Todos" é considerado ativo quando não há plataforma selecionada, mesmo com filtro de coleção.
  */
 export function PlatformTree() {
   // Lista de todas as plataformas cadastradas
@@ -23,8 +23,6 @@ export function PlatformTree() {
   const total = useGameStockStore((state) => state.total);
   // ID da plataforma atualmente selecionada (null = todas)
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
-  // Filtro de coleção ativo (ex.: "favorites", "playing", "completed")
-  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
   // Atualiza a plataforma selecionada no store (null limpa o filtro)
   const setSelectedPlatformId = useGameStockStore((state) => state.setSelectedPlatformId);
 
@@ -45,8 +43,8 @@ export function PlatformTree() {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [platforms]);
 
-  // "Todos" está ativo quando não há plataforma selecionada e o filtro é "all"
-  const isAll = selectedPlatformId === null && collectionFilter === "all";
+  // "Todos" limpa somente plataforma, preservando favoritos e demais filtros de coleção.
+  const isAll = selectedPlatformId === null;
 
   return (
     <div className="platform-tree">

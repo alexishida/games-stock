@@ -63,12 +63,14 @@ export function searchGames(
  * @param outputDir - Diretório raiz onde as imagens serão armazenadas.
  * @param types - Tipos de imagem a baixar; vazio baixa todos os tipos disponíveis.
  * @param onProgress - Callback de progresso chamado por imagem processada.
+ * @param force - Baixa novamente mesmo quando o arquivo já existe localmente.
  */
 export async function downloadImages(
   game: LaunchBoxGame,
   outputDir = getImagesDir(),
   types: LaunchBoxImageType[] = [],
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  force = false
 ): Promise<LaunchBoxDownloadResult> {
   // Filtra imagens pelos tipos solicitados, ou usa todas se nenhum tipo for especificado
   const images = types.length ? game.images.filter((image) => types.includes(image.type)) : game.images;
@@ -84,7 +86,7 @@ export async function downloadImages(
     const current = index + 1;
 
     // Imagem já existe localmente; apenas adiciona ao resultado sem baixar novamente
-    if (fs.existsSync(dest)) {
+    if (!force && fs.existsSync(dest)) {
       result.skipped += 1;
       result.files.push(dest);
       onProgress?.({ current, total: images.length, filename, status: "skipped" });
@@ -103,6 +105,13 @@ export async function downloadImages(
       result.files.push(dest);
       onProgress?.({ current, total: images.length, filename, status: "done" });
     } catch {
+      // Remove arquivo parcial: sem limpeza, o arquivo truncado vira "skipped"
+      // no próximo ciclo e envenena o cache com imagem corrompida.
+      try {
+        fs.rmSync(dest, { force: true });
+      } catch {
+        // Falha ao limpar não deve derrubar o loop.
+      }
       result.failed += 1;
       onProgress?.({ current, total: images.length, filename, status: "error" });
     }
@@ -119,10 +128,15 @@ export async function downloadImages(
 
 /**
  * Retorna o diretório de imagens de um jogo específico dentro do diretório raiz.
- * Estrutura: `outputDir/<plataforma-sanitizada>/<nome-sanitizado>/`
+ * Estrutura: `outputDir/<plataforma-sanitizada>/<nome-sanitizado>-<id>/`
+ *
+ * O sufixo com o ID do LaunchBox evita que jogos distintos com o mesmo nome
+ * sanitizado (ex.: "Ghouls 'n Ghosts (USA)" e "(Europe)") compartilhem pasta
+ * e roubem a arte um do outro.
  */
-export function getGameImageDir(outputDir: string, game: Pick<LaunchBoxGame, "name" | "platform">): string {
-  return path.join(outputDir, sanitize(game.platform || "unknown-platform"), sanitize(game.name));
+export function getGameImageDir(outputDir: string, game: Pick<LaunchBoxGame, "name" | "platform" | "id">): string {
+  const idSuffix = game.id ? `-${game.id}` : "";
+  return path.join(outputDir, sanitize(game.platform || "unknown-platform"), `${sanitize(game.name)}${idSuffix}`);
 }
 
 /**
@@ -140,16 +154,12 @@ function sanitize(value: string): string {
 
 /**
  * Gera o nome de arquivo para uma imagem LaunchBox baseado em tipo e região.
- * - Imagens de caixa (Box -): incluem número de índice para evitar colisão.
- * - Demais tipos: nome sem índice (um arquivo por tipo/região).
+ * Todos os tipos incluem índice numérico para evitar colisão quando o catálogo
+ * traz múltiplas imagens do mesmo tipo+região (screenshots/fanarts repetidos).
  */
 function getImageFilename(image: Pick<LaunchBoxGame["images"][number], "filename" | "region" | "type">, index: number): string {
   const ext = path.extname(image.filename) || ".jpg";
-  if (image.type.startsWith("Box -")) {
-    return `${slug(image.type)}-${slug(image.region || "no_region")}-${String(index + 1).padStart(2, "0")}${ext}`;
-  }
-
-  return `${slug(image.type)}-${slug(image.region || "no_region")}${ext}`;
+  return `${slug(image.type)}-${slug(image.region || "no_region")}-${String(index + 1).padStart(2, "0")}${ext}`;
 }
 
 /**

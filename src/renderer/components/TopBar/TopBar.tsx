@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { ArrowUpDown, Grid2X2, List, Search } from "lucide-react";
+import { ArrowUpDown, Grid2X2, List, Search, X } from "lucide-react";
 import { useGameStockStore } from "../../store";
 import "./TopBar.css";
 
@@ -47,6 +47,12 @@ export function TopBar() {
   // Rascunho local mantem digitacao fluida enquanto o store recebe update com debounce
   const [draftSearchQuery, setDraftSearchQuery] = useState(storeSearchQuery);
 
+  /** Limpa rascunho e filtro aplicado sem aguardar debounce. */
+  function clearSearch(): void {
+    setDraftSearchQuery("");
+    setSearchQuery("");
+  }
+
   /** Sincroniza o campo quando a busca muda por fora do TopBar. */
   useEffect(() => {
     setDraftSearchQuery(storeSearchQuery);
@@ -72,6 +78,11 @@ export function TopBar() {
           onChange={(event) => setDraftSearchQuery(event.target.value)}
           placeholder="Buscar biblioteca"
         />
+        {draftSearchQuery && (
+          <button type="button" className="topbar-search-clear" onClick={clearSearch} aria-label="Limpar busca" title="Limpar busca">
+            <X aria-hidden="true" size={16} />
+          </button>
+        )}
       </div>
 
       {/* Controles de ordenação e visualização: ocultos quando um jogo está selecionado */}

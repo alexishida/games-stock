@@ -14,6 +14,7 @@ import type { UpdaterAppInfo, UpdaterStatus } from "../shared/updater";
 import {
   CollectionCounts,
   ConservationState,
+  CoverSyncOptions,
   CoverSyncResult,
   CoverSyncStats,
   DataPortabilityExportRequest,
@@ -95,7 +96,7 @@ export interface GameStockAPI {
      */
     onCoverStatsUpdated(callback: (stats: CoverSyncStats) => void): () => void;
     /** Inicia sincronização de capas e retorna o resultado completo. */
-    syncCovers(options?: { jobId?: string }): Promise<CoverSyncResult>;
+    syncCovers(options?: CoverSyncOptions): Promise<CoverSyncResult>;
     /** Cria um novo jogo na biblioteca. */
     create(data: Partial<GameCreateInput>): Promise<Game>;
     /** Atualiza dados de um jogo existente. */

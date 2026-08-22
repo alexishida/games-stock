@@ -92,6 +92,10 @@ export class PlatformDao {
     // Protege contra remoção de plataformas com jogos cadastrados
     const count = this.database.prepare("SELECT COUNT(*) as count FROM games WHERE platform_id = ?").get(id) as { count: number };
     if (count.count > 0) throw new Error("Não é possível remover plataforma com jogos associados");
+    // Protege contra remoção de plataformas com itens físicos no inventário,
+    // que ficariam órfãos com platform_id = NULL (ON DELETE SET NULL), invisíveis.
+    const inventoryCount = this.database.prepare("SELECT COUNT(*) as count FROM hardware_items WHERE platform_id = ?").get(id) as { count: number };
+    if (inventoryCount.count > 0) throw new Error("Não é possível remover plataforma com itens de inventário associados");
     this.database.prepare("DELETE FROM platforms WHERE id = ?").run(id);
     return { success: true };
   }

@@ -36,6 +36,7 @@ function buildFilters(params: {
   searchQuery: string;
   selectedCategory: string;
   collectionFilter: GameFilters["collectionFilter"];
+  showGamesWithoutCover: boolean;
   sortBy: GameFilters["sortBy"];
   currentPage: number;
 }): GameFilters {
@@ -44,6 +45,7 @@ function buildFilters(params: {
     search: params.searchQuery,
     genre: params.selectedCategory,
     collectionFilter: params.collectionFilter,
+    includeMissingCovers: params.showGamesWithoutCover,
     sortBy: params.sortBy,
     page: params.currentPage,
     pageSize: PAGE_SIZE
@@ -94,19 +96,36 @@ function fetchPage(filters: GameFilters, reloadToken: number): Promise<GameListR
   return request;
 }
 
+/** Timers de pré-carga em andamento, para cancelamento seguro no unmount/mudança de filtros. */
+const pendingPrefetchTimers = new Set<ReturnType<typeof setTimeout>>();
+
 /**
  * Pré-carrega uma página em background após um pequeno atraso,
  * armazenando o resultado no cache sem atualizar o store.
  * Não dispara nova requisição se a página já estiver em cache.
+ * O timer é rastreado para ser cancelado quando o hook desmonta.
  */
 function prefetchPage(filters: GameFilters, reloadToken: number): void {
   const key = cacheKey(filters, reloadToken);
   if (pageCache.has(key) || pendingPages.has(key)) return;
 
   // Pequeno atraso para não disputar banda com a requisição principal
-  window.setTimeout(() => {
+  const timer = window.setTimeout(() => {
+    pendingPrefetchTimers.delete(timer);
     void fetchPage(filters, reloadToken).catch(() => undefined);
   }, 250);
+  pendingPrefetchTimers.add(timer);
+}
+
+/**
+ * Cancela todos os timers de pré-carga pendentes.
+ * Chamado no cleanup do efeito para evitar disparos após teardown do hook.
+ */
+function clearPendingPrefetchTimers(): void {
+  for (const timer of pendingPrefetchTimers) {
+    window.clearTimeout(timer);
+  }
+  pendingPrefetchTimers.clear();
 }
 
 /**
@@ -118,6 +137,7 @@ export function useGames(): void {
   const searchQuery = useGameStockStore((state) => state.searchQuery);
   const selectedCategory = useGameStockStore((state) => state.selectedCategory);
   const collectionFilter = useGameStockStore((state) => state.collectionFilter);
+  const showGamesWithoutCover = useGameStockStore((state) => state.showGamesWithoutCover);
   const sortBy = useGameStockStore((state) => state.sortBy);
   const currentPage = useGameStockStore((state) => state.currentPage);
   const reloadToken = useGameStockStore((state) => state.reloadToken);
@@ -127,7 +147,7 @@ export function useGames(): void {
   useEffect(() => {
     let cancelled = false;
     // Inclui categoria/gênero na chave para cachear cada combinação de filtros corretamente.
-    const filters = buildFilters({ selectedPlatformId, searchQuery, selectedCategory, collectionFilter, sortBy, currentPage });
+    const filters = buildFilters({ selectedPlatformId, searchQuery, selectedCategory, collectionFilter, showGamesWithoutCover, sortBy, currentPage });
     const key = cacheKey(filters, reloadToken);
     const cached = pageCache.get(key);
 
@@ -167,6 +187,8 @@ export function useGames(): void {
     return () => {
       // Cancela o efeito se os filtros mudarem antes da resposta chegar
       cancelled = true;
+      // Cancela pré-cargas agendadas para não disparar IPC após o teardown do efeito
+      clearPendingPrefetchTimers();
     };
-  }, [selectedPlatformId, searchQuery, selectedCategory, collectionFilter, sortBy, currentPage, reloadToken, setGames, setLoading]);
+  }, [selectedPlatformId, searchQuery, selectedCategory, collectionFilter, showGamesWithoutCover, sortBy, currentPage, reloadToken, setGames, setLoading]);
 }

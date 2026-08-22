@@ -6,7 +6,7 @@
  * do GameGrid para evitar uma chamada IPC por card.
  */
 import { memo, useState } from "react";
-import { Play, Star } from "lucide-react";
+import { LoaderCircle, Play, Star } from "lucide-react";
 import type { Game, PlatformEmulator } from "../../../shared/types";
 import { requestGameLaunch } from "../../lib/gameLaunch";
 import { useGameStockStore } from "../../store";
@@ -181,7 +181,8 @@ export const GameCard = memo(function GameCard({
             onClick={launch}
             aria-label="Jogar"
           >
-            <Play size={13} fill="currentColor" aria-hidden="true" />
+            {/* Spinner deixa claro que launch ainda aguarda início do processo do emulador. */}
+            {launching ? <LoaderCircle size={14} className="card-launch-spinner" aria-hidden="true" /> : <Play size={13} fill="currentColor" aria-hidden="true" />}
           </button>
         </div>
         {launchError && <div className="card-launch-error">{launchError}</div>}

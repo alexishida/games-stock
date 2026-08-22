@@ -67,11 +67,12 @@ export class EmulatorDao {
     if (!current) throw new Error("Emulador não encontrado");
     try {
       this.database
-        .prepare("UPDATE emulators SET name = ?, executable = ?, args = ? WHERE id = ?")
+        .prepare("UPDATE emulators SET name = ?, executable = ?, args = ?, is_retroarch = ? WHERE id = ?")
         .run(
           data.name?.trim() ?? current.name,         // Mantém o nome atual se não informado
           data.executable?.trim() ?? current.executable,
           data.args?.trim() ?? current.args,
+          data.is_retroarch !== undefined ? (data.is_retroarch ? 1 : 0) : current.is_retroarch,
           id
         );
       return this.get(id)!;

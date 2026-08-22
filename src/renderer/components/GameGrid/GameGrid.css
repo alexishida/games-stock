@@ -7,7 +7,8 @@
   grid-auto-rows: 260px;
   gap: 24px;
   align-content: start;
-  justify-content: start;
+  /* Centraliza colunas fixas quando largura disponível não comporta outra coluna. */
+  justify-content: center;
   padding: 2px 4px 24px;
 }
 
@@ -230,6 +231,14 @@
 
 .card-launch-btn.launching {
   animation: launch-pulse 700ms ease infinite alternate;
+}
+
+.card-launch-spinner {
+  animation: card-launch-spin 0.8s linear infinite;
+}
+
+@keyframes card-launch-spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes launch-pulse {
