@@ -182,7 +182,7 @@ export class HardwareItemDao {
   list(filters: HardwareItemFilters = {}): HardwareItemListResult {
     const where = buildWhere(filters);
     const page = Math.max(1, filters.page ?? 1);
-    const pageSize = filters.pageSize ?? 50;
+    const pageSize = filters.pageSize ?? 36;
     const offset = (page - 1) * pageSize;
 
     const total = (

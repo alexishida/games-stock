@@ -19,8 +19,8 @@ import { useGameStockStore } from "../../store";
 export function PlatformTree() {
   // Lista de todas as plataformas cadastradas
   const platforms = useGameStockStore((state) => state.platforms);
-  // Total de jogos na biblioteca (sem filtros)
-  const total = useGameStockStore((state) => state.total);
+  // Contagens facetadas que respeitam a coleção e demais filtros ativos.
+  const sidebarCounts = useGameStockStore((state) => state.librarySidebarCounts);
   // ID da plataforma atualmente selecionada (null = todas)
   const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
   // Atualiza a plataforma selecionada no store (null limpa o filtro)
@@ -51,7 +51,7 @@ export function PlatformTree() {
       {/* Botão "Todos": exibe o total geral e limpa a seleção de plataforma */}
       <button type="button" className={isAll ? "tree-item selected" : "tree-item"} onClick={() => setSelectedPlatformId(null)}>
         <span>Todos</span>
-        <span>{total}</span>
+        <span>{sidebarCounts.all}</span>
       </button>
 
       {/* Grupos de plataformas por categoria */}
@@ -67,7 +67,7 @@ export function PlatformTree() {
             >
               <span>{platform.name}</span>
               {/* Contagem de jogos da plataforma */}
-              <span>{platform.gameCount ?? 0}</span>
+              <span>{sidebarCounts.platforms[platform.id] ?? 0}</span>
             </button>
           ))}
         </div>

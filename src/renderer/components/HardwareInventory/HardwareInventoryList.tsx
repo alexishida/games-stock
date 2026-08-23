@@ -9,10 +9,11 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Cpu } from "lucide-react";
 import { HardwareItem } from "../../../shared/types";
 import { localMediaUrl } from "../../utils/media";
+import { scrollToCollectionTop } from "../../utils/scrollToCollectionTop";
 import "./HardwareInventoryList.css";
 
 /** Quantidade de itens carregados por pagina no inventario. */
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 36;
 
 /** Props recebidas pela lista tabular de inventario. */
 interface Props {
@@ -122,6 +123,12 @@ export function HardwareInventoryList({
 }: Props) {
   const totalPages = Math.ceil(filtered / PAGE_SIZE);
 
+  /** Atualiza página e retorna a lista ao topo para exibir seus primeiros itens. */
+  function handlePageChange(nextPage: number): void {
+    onPageChange(nextPage);
+    scrollToCollectionTop();
+  }
+
   if (items.length === 0) {
     return (
       <div className="hw-list-empty">
@@ -168,7 +175,7 @@ export function HardwareInventoryList({
               type="button"
               className="hw-pagination-btn"
               disabled={page === 1}
-              onClick={() => onPageChange(1)}
+              onClick={() => handlePageChange(1)}
               aria-label="Primeira página"
             >
               <ChevronsLeft size={16} aria-hidden="true" />
@@ -177,7 +184,7 @@ export function HardwareInventoryList({
               type="button"
               className="hw-pagination-btn"
               disabled={page === 1}
-              onClick={() => onPageChange(page - 1)}
+              onClick={() => handlePageChange(page - 1)}
               aria-label="Página anterior"
             >
               <ChevronLeft size={16} aria-hidden="true" />
@@ -187,7 +194,7 @@ export function HardwareInventoryList({
               type="button"
               className="hw-pagination-btn"
               disabled={page === totalPages}
-              onClick={() => onPageChange(page + 1)}
+              onClick={() => handlePageChange(page + 1)}
               aria-label="Próxima página"
             >
               <ChevronRight size={16} aria-hidden="true" />
@@ -196,7 +203,7 @@ export function HardwareInventoryList({
               type="button"
               className="hw-pagination-btn"
               disabled={page === totalPages}
-              onClick={() => onPageChange(totalPages)}
+              onClick={() => handlePageChange(totalPages)}
               aria-label="Última página"
             >
               <ChevronsRight size={16} aria-hidden="true" />

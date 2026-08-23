@@ -2,16 +2,17 @@
  * HardwareInventoryGrid.tsx
  *
  * Grade paginada de cards de itens de hardware do inventário físico.
- * Exibe 50 itens por página, reutilizando lógica de paginação local
+ * Exibe 36 itens por página, reutilizando lógica de paginação local
  * (não usa o store global para não interferir com a grade de jogos).
  */
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { HardwareItem } from "../../../shared/types";
+import { scrollToCollectionTop } from "../../utils/scrollToCollectionTop";
 import { HardwareItemCard } from "./HardwareItemCard";
 import "./HardwareInventoryGrid.css";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 36;
 
 interface Props {
   items: HardwareItem[];
@@ -37,6 +38,12 @@ export function HardwareInventoryGrid({
   onSelectItem
 }: Props) {
   const totalPages = Math.ceil(filtered / PAGE_SIZE);
+
+  /** Atualiza página e retorna a grade ao topo para exibir seus primeiros cards. */
+  function handlePageChange(nextPage: number): void {
+    onPageChange(nextPage);
+    scrollToCollectionTop();
+  }
 
   if (items.length === 0) {
     return (
@@ -71,7 +78,7 @@ export function HardwareInventoryGrid({
               type="button"
               className="hw-pagination-btn"
               disabled={page === 1}
-              onClick={() => onPageChange(1)}
+              onClick={() => handlePageChange(1)}
               aria-label="Primeira página"
             >
               <ChevronsLeft size={16} aria-hidden="true" />
@@ -80,7 +87,7 @@ export function HardwareInventoryGrid({
               type="button"
               className="hw-pagination-btn"
               disabled={page === 1}
-              onClick={() => onPageChange(page - 1)}
+              onClick={() => handlePageChange(page - 1)}
               aria-label="Página anterior"
             >
               <ChevronLeft size={16} aria-hidden="true" />
@@ -90,7 +97,7 @@ export function HardwareInventoryGrid({
               type="button"
               className="hw-pagination-btn"
               disabled={page === totalPages}
-              onClick={() => onPageChange(page + 1)}
+              onClick={() => handlePageChange(page + 1)}
               aria-label="Próxima página"
             >
               <ChevronRight size={16} aria-hidden="true" />
@@ -99,7 +106,7 @@ export function HardwareInventoryGrid({
               type="button"
               className="hw-pagination-btn"
               disabled={page === totalPages}
-              onClick={() => onPageChange(totalPages)}
+              onClick={() => handlePageChange(totalPages)}
               aria-label="Última página"
             >
               <ChevronsRight size={16} aria-hidden="true" />

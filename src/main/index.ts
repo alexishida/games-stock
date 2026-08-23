@@ -263,6 +263,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC_CHANNELS.games.get, (_event, id: number) => games.getGame(id));
   ipcMain.handle(IPC_CHANNELS.games.listMedia, (_event, id: number) => listGameMedia(id));
   ipcMain.handle(IPC_CHANNELS.games.collectionCounts, () => games.getCollectionCounts());
+  ipcMain.handle(IPC_CHANNELS.games.sidebarCounts, (_event, filters) => games.getLibrarySidebarCounts(filters));
   ipcMain.handle(IPC_CHANNELS.games.launchStats, () => games.getGameLaunchStats());
   ipcMain.handle(IPC_CHANNELS.games.coverStats, () => ({
     ...games.getCoverStats(),

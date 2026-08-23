@@ -72,7 +72,7 @@ export function HardwareInventory() {
         search:              inventoryFilters.search,
         sortBy:              inventorySortBy,
         page,
-        pageSize: 50
+        pageSize: 36
       })
       .then((data) => { if (!canceled) setResult(data); })
       .finally(() => { if (!canceled) setLoading(false); });

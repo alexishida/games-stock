@@ -23,6 +23,7 @@ import {
   GameSortBy,
   GameVersionOption,
   HardwareInventorySortBy,
+  LibrarySidebarCounts,
   LaunchBoxProgress,
   Platform,
   RomFolderImportJob,
@@ -146,6 +147,8 @@ interface GameStockState {
   // --- Contagens da coleção ---
   /** Contagens de jogos por coleção especial (favoritos, jogando, concluído). */
   collectionCounts: CollectionCounts;
+  /** Contagens facetadas usadas pelos menus da sidebar da biblioteca. */
+  librarySidebarCounts: LibrarySidebarCounts;
 
   // --- Estado de importação de ROMs ---
   /** Entradas de pastas de ROM configuradas e persistidas. */
@@ -213,6 +216,8 @@ interface GameStockState {
   /** Fecha o modal de seleção de versões. */
   closeLaunchSelection(): void;
   setCollectionCounts(value: CollectionCounts): void;
+  /** Atualiza as contagens facetadas da sidebar da biblioteca. */
+  setLibrarySidebarCounts(value: LibrarySidebarCounts): void;
   /** Hidrata entradas de pastas de ROM a partir do SQLite (sem persistir de volta). */
   hydrateRomFolderEntries(value: PersistedRomFolderEntry[]): void;
   /** Atualiza entradas de pastas de ROM e persiste no SQLite. */
@@ -292,6 +297,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   reloadToken: 0,
   platformsReloadToken: 0,
   collectionCounts: { favorites: 0, playing: 0, completed: 0, mostPlayed: 0 },
+  librarySidebarCounts: { all: 0, collections: { favorites: 0, playing: 0, completed: 0, mostPlayed: 0 }, platforms: {} },
   romFolderEntries: [],
   lastRomImportJob: null,
   mediaSyncJobs: [],
@@ -366,6 +372,7 @@ export const useGameStockStore = create<GameStockState>((set) => ({
   openLaunchSelection: (sourceGameId, options) => set({ launchSelection: { sourceGameId, options } }),
   closeLaunchSelection: () => set({ launchSelection: null }),
   setCollectionCounts: (collectionCounts) => set({ collectionCounts }),
+  setLibrarySidebarCounts: (librarySidebarCounts) => set({ librarySidebarCounts }),
 
   // Hidrata sem persistir (dados já vieram do SQLite)
   hydrateRomFolderEntries: (romFolderEntries) => set({ romFolderEntries }),

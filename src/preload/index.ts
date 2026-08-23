@@ -63,6 +63,8 @@ const api = {
     listMedia: (id: number) => ipcRenderer.invoke(IPC_CHANNELS.games.listMedia, id),
     /** Retorna contagens de favoritos, jogando e concluídos. */
     collectionCounts: () => ipcRenderer.invoke(IPC_CHANNELS.games.collectionCounts),
+    /** Retorna contagens sincronizadas dos filtros da sidebar da biblioteca. */
+    sidebarCounts: (filters: GameFilters) => ipcRenderer.invoke(IPC_CHANNELS.games.sidebarCounts, filters),
     /** Retorna estatísticas agregadas do histórico de partidas. */
     launchStats: () => ipcRenderer.invoke(IPC_CHANNELS.games.launchStats) as Promise<GameLaunchStats>,
     /** Retorna estatísticas sobre capas baixadas e disponíveis. */

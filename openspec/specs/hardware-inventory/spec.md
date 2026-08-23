@@ -48,7 +48,7 @@ As fotos SHALL ser copiadas para `inventario/images/<item_id>/`, ordenadas por `
 
 ### Requirement: Listagem do inventario
 
-O inventario SHALL oferecer visualizacoes em cards e lista, com pagina de 50 itens e ordenacao `name`, `type` ou `recent`.
+O inventario SHALL oferecer visualizacoes em cards e lista, com pagina de 36 itens e ordenacao `name`, `type` ou `recent`.
 
 #### Scenario: Alternar visualizacao
 

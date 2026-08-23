@@ -13,7 +13,7 @@ import { GameFilters, GameListResult } from "../../shared/types";
 import { useGameStockStore } from "../store";
 
 /** Número de jogos carregados por página. Exportado para uso no cálculo de borda de página em navegação. */
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 36;
 
 /**
  * Cache em memória de resultados de páginas já carregadas.

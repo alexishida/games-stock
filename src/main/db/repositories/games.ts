@@ -10,7 +10,7 @@
 
 import { getDatabase } from "../database";
 import { GameDao } from "../dao/gameDao";
-import { CollectionCounts, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption } from "../../../shared/types";
+import { CollectionCounts, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption, LibrarySidebarCounts } from "../../../shared/types";
 
 /**
  * Cria uma instância do GameDao conectada ao banco de dados ativo.
@@ -27,6 +27,16 @@ function gameDao(): GameDao {
  */
 export function listGames(filters: GameFilters = {}): GameListResult {
   return gameDao().list(filters);
+}
+
+/**
+ * Retorna as contagens facetadas usadas pelos menus da sidebar da biblioteca.
+ *
+ * @param filters - Contexto atual de filtros aplicado em cada faceta compatível.
+ * @returns Totais de coleção e plataforma sincronizados.
+ */
+export function getLibrarySidebarCounts(filters: GameFilters = {}): LibrarySidebarCounts {
+  return gameDao().sidebarCounts(filters);
 }
 
 /**

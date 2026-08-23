@@ -48,6 +48,7 @@ import {
   LaunchBoxImportResult,
   LaunchBoxProgress,
   LaunchBoxSearchParams,
+  LibrarySidebarCounts,
   Platform,
   PlatformEmulator,
   PlatformEmulatorLinkInput,
@@ -86,6 +87,8 @@ export interface GameStockAPI {
     listMedia(id: number): Promise<GameMediaItem[]>;
     /** Retorna contagens de favoritos, jogando e concluídos. */
     collectionCounts(): Promise<CollectionCounts>;
+    /** Retorna contagens sincronizadas dos filtros da sidebar da biblioteca. */
+    sidebarCounts(filters: GameFilters): Promise<LibrarySidebarCounts>;
     /** Retorna estatísticas agregadas do histórico de partidas. */
     launchStats(): Promise<GameLaunchStats>;
     /** Retorna estatísticas sobre capas baixadas e disponíveis. */
