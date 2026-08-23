@@ -21,6 +21,8 @@ export const IPC_CHANNELS = {
     listMedia: "games:listMedia",
     /** Retorna contagens de favoritos, jogando e concluídos na coleção. */
     collectionCounts: "games:collectionCounts",
+    /** Retorna contagens facetadas para os menus de coleção e plataforma da sidebar. */
+    sidebarCounts: "games:sidebarCounts",
     /** Retorna estatísticas de capas (total, baixadas, faltando, sincronizáveis). */
     coverStats: "games:coverStats",
     /** Retorna estatísticas agregadas do histórico de partidas. */

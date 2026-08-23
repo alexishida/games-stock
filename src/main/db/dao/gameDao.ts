@@ -8,7 +8,7 @@
 
 import type Database from "better-sqlite3";
 import path from "node:path";
-import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption } from "../../../shared/types";
+import { CollectionCounts, CollectionFilter, CoverSyncStats, Game, GameCreateInput, GameFilters, GameLaunchStats, GameListResult, GameUpdateInput, GameVersionOption, LibrarySidebarCounts } from "../../../shared/types";
 import { buildStoredLibraryGroupKey } from "../libraryGrouping";
 
 /** Linha bruta do SQLite: `favorite` chega como 0|1 em vez de boolean. */
@@ -51,7 +51,7 @@ export class GameDao {
   list(filters: GameFilters = {}): GameListResult {
     const where = buildWhere(filters);
     const page = Math.max(1, filters.page ?? 1);
-    const pageSize = filters.pageSize ?? 50;
+    const pageSize = filters.pageSize ?? 36;
     const offset = (page - 1) * pageSize;
 
     // O ranking escolhe representante de cada grupo antes do LIMIT/OFFSET.
@@ -204,6 +204,38 @@ export class GameDao {
       playing: row.playing ?? 0,
       completed: row.completed ?? 0,
       mostPlayed: row.mostPlayed ?? 0
+    };
+  }
+
+  /**
+   * Calcula os totais dos dois menus da sidebar mantendo seus filtros cruzados.
+   * O menu de coleção ignora somente a própria seleção; o de plataformas faz
+   * o equivalente, preservando busca, gênero e a regra de capas em ambos.
+   */
+  sidebarCounts(filters: GameFilters = {}): LibrarySidebarCounts {
+    const collectionBase = buildWhere({ ...filters, collectionFilter: "all" });
+    const platformBase = buildWhere({ ...filters, platformId: null });
+    const collections = {
+      favorites: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "favorites" })),
+      playing: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "playing" })),
+      completed: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "completed" })),
+      mostPlayed: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "mostPlayed" }))
+    };
+    const rows = this.database.prepare(`
+      SELECT platform_id, COUNT(*) AS count
+      FROM (
+        SELECT games.platform_id, ${libraryGroupExpression("games")} AS group_key
+        FROM games
+        ${platformBase.sql}
+        GROUP BY games.platform_id, group_key
+      )
+      GROUP BY platform_id
+    `).all(...platformBase.params) as Array<{ platform_id: number; count: number }>;
+
+    return {
+      all: this.countLibraryGroups(collectionBase),
+      collections,
+      platforms: Object.fromEntries(rows.map((row) => [row.platform_id, row.count]))
     };
   }
 

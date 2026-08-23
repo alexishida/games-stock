@@ -40,6 +40,20 @@ export interface CollectionCounts {
   mostPlayed: number;
 }
 
+/**
+ * Contagens facetadas da sidebar da biblioteca.
+ * Cada menu recebe os filtros aplicáveis do outro menu, para que plataformas
+ * e coleções exibam sempre a quantidade correspondente ao contexto atual.
+ */
+export interface LibrarySidebarCounts {
+  /** Total que será exibido ao limpar o filtro de coleção atual. */
+  all: number;
+  /** Quantidades dos filtros especiais, respeitando a plataforma ativa. */
+  collections: CollectionCounts;
+  /** Quantidade por plataforma, respeitando a coleção ativa. */
+  platforms: Record<number, number>;
+}
+
 /** Estatísticas agregadas do histórico de partidas da biblioteca. */
 export interface GameLaunchStats {
   /** Soma total de partidas iniciadas em todos os jogos. */

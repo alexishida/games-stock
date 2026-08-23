@@ -9,19 +9,30 @@ import { useEffect } from "react";
 import { useGameStockStore } from "../store";
 
 export function useCollectionCounts(): void {
-  // Observa o token de recarga para re-executar a query quando a biblioteca mudar
+  // Observa filtros e token para manter ambas facetas sincronizadas com a lista.
   const reloadToken = useGameStockStore((state) => state.reloadToken);
-  const setCollectionCounts = useGameStockStore((state) => state.setCollectionCounts);
+  const selectedPlatformId = useGameStockStore((state) => state.selectedPlatformId);
+  const searchQuery = useGameStockStore((state) => state.searchQuery);
+  const selectedCategory = useGameStockStore((state) => state.selectedCategory);
+  const collectionFilter = useGameStockStore((state) => state.collectionFilter);
+  const showGamesWithoutCover = useGameStockStore((state) => state.showGamesWithoutCover);
+  const setLibrarySidebarCounts = useGameStockStore((state) => state.setLibrarySidebarCounts);
 
   useEffect(() => {
-    // Busca contagens atualizadas via IPC e atualiza o store
+    // Query facetada evita que um menu ignore a seleção feita no outro.
     let cancelled = false;
-    void window.gameStockAPI.games.collectionCounts()
-      .then((counts) => { if (!cancelled) setCollectionCounts(counts); })
+    void window.gameStockAPI.games.sidebarCounts({
+      platformId: selectedPlatformId,
+      search: searchQuery,
+      genre: selectedCategory,
+      collectionFilter,
+      includeMissingCovers: showGamesWithoutCover
+    })
+      .then((counts) => { if (!cancelled) setLibrarySidebarCounts(counts); })
       .catch((cause: unknown) => {
         // Preserva contagens anteriores se SQLite/IPC falhar temporariamente.
         console.error("Falha ao carregar contagens da coleção", cause);
       });
     return () => { cancelled = true; };
-  }, [reloadToken, setCollectionCounts]);
+  }, [reloadToken, selectedPlatformId, searchQuery, selectedCategory, collectionFilter, showGamesWithoutCover, setLibrarySidebarCounts]);
 }

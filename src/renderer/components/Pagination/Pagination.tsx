@@ -10,10 +10,11 @@
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useGameStockStore } from "../../store";
+import { scrollToCollectionTop } from "../../utils/scrollToCollectionTop";
 import "./Pagination.css";
 
 /** Quantidade de jogos exibidos por página */
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 36;
 
 /**
  * Componente de paginação da biblioteca.
@@ -38,6 +39,12 @@ export function Pagination() {
   const start = (currentPage - 1) * PAGE_SIZE + 1;
   const end = Math.min(currentPage * PAGE_SIZE, filtered);
 
+  /** Atualiza página e reposiciona coleção para iniciar leitura pelos primeiros itens. */
+  function handlePageChange(page: number): void {
+    setCurrentPage(page);
+    scrollToCollectionTop();
+  }
+
   return (
     <div className="pagination">
       {/* Indicador textual do intervalo atual (ex.: "1–50 de 320") */}
@@ -51,7 +58,7 @@ export function Pagination() {
           type="button"
           className="pagination-btn"
           disabled={currentPage === 1}
-          onClick={() => setCurrentPage(1)}
+          onClick={() => handlePageChange(1)}
           aria-label="Primeira página"
         >
           <ChevronsLeft aria-hidden="true" size={18} />
@@ -62,7 +69,7 @@ export function Pagination() {
           type="button"
           className="pagination-btn"
           disabled={currentPage === 1}
-          onClick={() => setCurrentPage(currentPage - 1)}
+          onClick={() => handlePageChange(currentPage - 1)}
           aria-label="Página anterior"
         >
           <ChevronLeft aria-hidden="true" size={18} />
@@ -78,7 +85,7 @@ export function Pagination() {
           type="button"
           className="pagination-btn"
           disabled={currentPage === totalPages}
-          onClick={() => setCurrentPage(currentPage + 1)}
+          onClick={() => handlePageChange(currentPage + 1)}
           aria-label="Próxima página"
         >
           <ChevronRight aria-hidden="true" size={18} />
@@ -89,7 +96,7 @@ export function Pagination() {
           type="button"
           className="pagination-btn"
           disabled={currentPage === totalPages}
-          onClick={() => setCurrentPage(totalPages)}
+          onClick={() => handlePageChange(totalPages)}
           aria-label="Última página"
         >
           <ChevronsRight aria-hidden="true" size={18} />

@@ -48,7 +48,7 @@ O sistema SHALL suportar os filtros de colecao `all`, `favorites`, `playing`, `c
 
 ### Requirement: Listagem paginada com contagens
 
-O sistema SHALL retornar `items`, `total` e `filtered`, com pagina padrao de 50 itens.
+O sistema SHALL retornar `items`, `total` e `filtered`, com pagina padrao de 36 itens.
 
 #### Scenario: Resposta paginada
 
