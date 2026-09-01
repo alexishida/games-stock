@@ -17,11 +17,20 @@
  * para que a UI possa exibir a situação corretamente ao usuário.
  */
 import { APP_STATE_KEYS } from "../../shared/appState";
-import { DataPortabilityJob, DataPortabilityRomFolderEntry, RomFolderImportJob } from "../../shared/types";
+import { CollectionFilter, DataPortabilityJob, DataPortabilityRomFolderEntry, GameSortBy, RomFolderImportJob, ViewMode } from "../../shared/types";
 import type { MediaSyncJob } from "../store";
 
 /** Entrada de pasta de ROM persistida, com contagem total de ROMs (opcional). */
 export type PersistedRomFolderEntry = DataPortabilityRomFolderEntry & { totalCount?: number };
+
+/** Filtros da biblioteca persistidos no SQLite para restaurar a preferência do usuário. */
+export interface PersistedLibraryFilters {
+  selectedCategory: string;
+  collectionFilter: CollectionFilter;
+  showGamesWithoutCover: boolean;
+  sortBy: GameSortBy;
+  viewMode: ViewMode;
+}
 
 /** Fonte de importação legada (antes de migrar para o formato de entradas de pasta). */
 type ImportSource = { path: string; type: "folder" | "file" };
@@ -175,6 +184,36 @@ export async function setPersistedDataPortabilityJobs(jobs: DataPortabilityJob[]
   await setPersistedValue(APP_STATE_KEYS.dataPortability.jobs, recent);
 }
 
+// ─── Filtros da biblioteca ───────────────────────────────────────────────────
+
+/**
+ * Lê os filtros da biblioteca persistidos no SQLite.
+ * Valida cada campo e aplica defaults quando ausente ou inválido;
+ * retorna null quando o valor armazenado não é um objeto válido.
+ */
+export async function getPersistedLibraryFilters(): Promise<PersistedLibraryFilters | null> {
+  const value = await getPersistedValue<unknown>(APP_STATE_KEYS.ui.libraryFilters);
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<PersistedLibraryFilters>;
+  if (typeof raw.showGamesWithoutCover !== "boolean") return null;
+  return {
+    selectedCategory: typeof raw.selectedCategory === "string" ? raw.selectedCategory : "",
+    collectionFilter: isCollectionFilter(raw.collectionFilter) ? raw.collectionFilter : "all",
+    showGamesWithoutCover: raw.showGamesWithoutCover,
+    sortBy: isGameSortBy(raw.sortBy) ? raw.sortBy : "title",
+    viewMode: isViewMode(raw.viewMode) ? raw.viewMode : "grid"
+  };
+}
+
+/**
+ * Persiste os filtros da biblioteca no SQLite.
+ * Chamado sempre que o usuário altera categoria, coleção, exibição sem capa,
+ * ordenação ou modo de visualização.
+ */
+export async function setPersistedLibraryFilters(filters: PersistedLibraryFilters): Promise<void> {
+  await setPersistedValue(APP_STATE_KEYS.ui.libraryFilters, filters);
+}
+
 // ─── Migração do localStorage para SQLite ────────────────────────────────────
 
 /**
@@ -320,6 +359,21 @@ function buildFolderEntriesFromLegacySources(rawSources: unknown, rawPlatformId:
 }
 
 // ─── Type guards ─────────────────────────────────────────────────────────────
+
+/** Verifica se um valor desconhecido é um `CollectionFilter` válido. */
+function isCollectionFilter(value: unknown): value is CollectionFilter {
+  return value === "all" || value === "favorites" || value === "playing" || value === "completed" || value === "unplayed" || value === "mostPlayed";
+}
+
+/** Verifica se um valor desconhecido é um `GameSortBy` válido. */
+function isGameSortBy(value: unknown): value is GameSortBy {
+  return value === "title" || value === "year" || value === "recent" || value === "mostPlayed";
+}
+
+/** Verifica se um valor desconhecido é um `ViewMode` válido. */
+function isViewMode(value: unknown): value is ViewMode {
+  return value === "grid" || value === "list";
+}
 
 /** Verifica se um valor desconhecido é uma `PersistedRomFolderEntry` válida. */
 function isFolderEntry(value: unknown): value is PersistedRomFolderEntry {

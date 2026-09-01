@@ -27,6 +27,10 @@ export const APP_STATE_KEYS = {
   dataPortability: {
     /** Lista de jobs de exportação/importação de portabilidade de dados. */
     jobs: "gamestock.dataPortability.jobs"
+  },
+  ui: {
+    /** Filtros ativos da biblioteca (categoria, coleção, sem capa, ordenação, visualização). */
+    libraryFilters: "gamestock.ui.libraryFilters"
   }
 } as const;
 
