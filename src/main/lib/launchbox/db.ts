@@ -22,6 +22,24 @@ type ProgressCallback = (progress: LaunchBoxProgress) => void;
 /** Cache em memória do índice; evita releitura do JSON a cada consulta. */
 let memoryIndex: Record<string, LaunchBoxGame> | null = null;
 
+/** Operações compartilhadas impedem downloads e workers concorrentes sobre o mesmo cache. */
+let pendingMetadata: Promise<{ status: "cached" | "downloaded" }> | null = null;
+let pendingIndex: Promise<Record<string, LaunchBoxGame>> | null = null;
+
+/** Cada consumidor recebe progresso mesmo quando compartilha uma operação já iniciada. */
+const progressListeners = new Set<ProgressCallback>();
+
+/** Isola falhas de observadores para não interromper download ou deixar promises pendentes. */
+function notifyProgress(progress: LaunchBoxProgress): void {
+  for (const listener of progressListeners) {
+    try {
+      listener(progress);
+    } catch (error) {
+      console.error("Falha ao notificar progresso do LaunchBox", error);
+    }
+  }
+}
+
 /**
  * Garante que o Metadata.xml esteja presente e atualizado no cache local.
  *
@@ -33,12 +51,35 @@ let memoryIndex: Record<string, LaunchBoxGame> | null = null;
  * @param onProgress - Callback opcional de progresso para exibir ao usuário.
  */
 export async function ensureMetadata(force = false, onProgress?: ProgressCallback): Promise<{ status: "cached" | "downloaded" }> {
+  // Wrapper próprio permite que chamadas usando o mesmo callback tenham ciclos independentes.
+  const listener: ProgressCallback = (progress) => onProgress?.(progress);
+  if (onProgress) progressListeners.add(listener);
+  try {
+    if (!pendingMetadata) {
+      if (!force && !needsUpdate(getMetadataFile())) return { status: "cached" };
+      // Captura somente o worker já ativo; novos leitores aguardam este download.
+      const activeIndex = pendingIndex;
+      pendingMetadata = (async () => {
+        try {
+          await activeIndex;
+        } catch (error) {
+          // Metadados novos podem reparar o XML que fez a indexação anterior falhar.
+          console.warn("Índice anterior falhou antes da atualização de metadados", error);
+        }
+        return downloadMetadata();
+      })().finally(() => { pendingMetadata = null; });
+    }
+    return await pendingMetadata;
+  } finally {
+    progressListeners.delete(listener);
+  }
+}
+
+/** Baixa e extrai metadados depois que leitores anteriores liberam os arquivos do cache. */
+async function downloadMetadata(): Promise<{ status: "downloaded" }> {
   const cacheDir = getLaunchBoxCacheDir();
   const metadataFile = getMetadataFile();
   fs.mkdirSync(cacheDir, { recursive: true });
-
-  // Cache ainda válido e download não foi forçado
-  if (!force && !needsUpdate(metadataFile)) return { status: "cached" };
 
   const response = await fetch(METADATA_URL);
   if (!response.ok || !response.body) throw new Error(`HTTP ${response.status} ao baixar Metadata.zip`);
@@ -52,13 +93,13 @@ export async function ensureMetadata(force = false, onProgress?: ProgressCallbac
   // Reporta progresso de download chunk a chunk
   body.on("data", (chunk: Buffer) => {
     downloaded += chunk.length;
-    onProgress?.({ current: downloaded, total, filename: "Metadata.zip", status: "downloading" });
+    notifyProgress({ current: downloaded, total, filename: "Metadata.zip", status: "downloading" });
   });
 
   await pipeline(body, dest);
 
   // Extrai o XML do ZIP via worker thread
-  await runExtractWorker(zipPath, cacheDir, metadataFile, onProgress);
+  await runExtractWorker(zipPath, cacheDir, metadataFile, notifyProgress);
 
   // Remove o ZIP temporário após extração bem-sucedida
   fs.rmSync(zipPath, { force: true });
@@ -79,28 +120,26 @@ export async function ensureMetadata(force = false, onProgress?: ProgressCallbac
  * @param onProgress - Callback opcional de progresso repassado ao worker.
  */
 export async function buildIndex(onProgress?: ProgressCallback): Promise<Record<string, LaunchBoxGame>> {
-  // Retorna cache em memória se disponível
-  if (memoryIndex) return memoryIndex;
+  // Serializa leitura com download e compartilha a desserialização entre consumidores.
+  const listener: ProgressCallback = (progress) => onProgress?.(progress);
+  if (onProgress) progressListeners.add(listener);
+  try {
+    if (pendingMetadata) await pendingMetadata;
+    if (memoryIndex) return memoryIndex;
+    if (!fs.existsSync(getMetadataFile())) await ensureMetadata(false);
 
-  const indexFile = getIndexFile();
-  const metadataFile = getMetadataFile();
-
-  // Garante que o Metadata.xml existe antes de tentar indexar
-  if (!fs.existsSync(metadataFile)) await ensureMetadata(false, onProgress);
-
-  if (fs.existsSync(indexFile)) {
-    const xmlMtime = fs.statSync(metadataFile).mtimeMs;
-    const idxMtime = fs.statSync(indexFile).mtimeMs;
-    // Usa o índice em disco apenas se for mais recente que o XML fonte
-    if (idxMtime >= xmlMtime) {
-      memoryIndex = JSON.parse(fs.readFileSync(indexFile, "utf8")) as Record<string, LaunchBoxGame>;
-      return memoryIndex;
+    if (!pendingIndex) {
+      pendingIndex = runIndexWorker(getMetadataFile(), getIndexFile(), notifyProgress)
+        .then((index) => {
+          memoryIndex = index;
+          return index;
+        })
+        .finally(() => { pendingIndex = null; });
     }
+    return await pendingIndex;
+  } finally {
+    progressListeners.delete(listener);
   }
-
-  // Reconstrói o índice via worker thread
-  memoryIndex = await runIndexWorker(metadataFile, indexFile, onProgress);
-  return memoryIndex;
 }
 
 /** Verifica se o Metadata.xml já existe em cache. */
@@ -166,7 +205,7 @@ function runExtractWorker(zipPath: string, cacheDir: string, metadataFile: strin
 /**
  * Inicia o index-worker para construir o índice JSON a partir do XML em thread separada.
  * Resolve com o índice pronto ou rejeita em caso de erro de parsing.
- * Resolve também no `exit` limpo (código 0) como fallback contra pendência infinita.
+ * Saída sem resultado rejeita explicitamente, sem leitura síncrona ou exceção fora da promise.
  */
 function runIndexWorker(metadataFile: string, indexFile: string, onProgress?: ProgressCallback): Promise<Record<string, LaunchBoxGame>> {
   return new Promise((resolve, reject) => {
@@ -192,7 +231,7 @@ function runIndexWorker(metadataFile: string, indexFile: string, onProgress?: Pr
     worker.on("error", (error) => finish(() => reject(error)));
     worker.on("exit", (code) => {
       if (code !== 0) finish(() => reject(new Error(`Index worker saiu com codigo ${code}`)));
-      else finish(() => resolve(JSON.parse(fs.readFileSync(indexFile, "utf8")) as Record<string, LaunchBoxGame>));
+      else finish(() => reject(new Error("Index worker terminou sem retornar o índice")));
     });
   });
 }

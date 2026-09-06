@@ -56,11 +56,11 @@ export class GameDao {
 
     // O ranking escolhe representante de cada grupo antes do LIMIT/OFFSET.
     // Assim variantes não vazam entre páginas e só a página requisitada atravessa IPC.
+    // Ordena apenas campos leves; notas e caminhos completos são lidos só para a página final.
     const items = this.database.prepare(`
       WITH ranked_games AS (
         SELECT
-          games.*,
-          platforms.name AS platform_name,
+          games.id, games.title, games.year, games.created_at, games.launch_count,
           ROW_NUMBER() OVER (
             PARTITION BY ${libraryGroupExpression("games")}
             ORDER BY ${buildOrderTerms(filters, "games")}
@@ -69,16 +69,23 @@ export class GameDao {
         JOIN platforms ON platforms.id = games.platform_id
         ${where.sql}
       )
-      SELECT *
-      FROM ranked_games
-      WHERE library_rank = 1
-      ORDER BY ${buildOrderTerms(filters, "ranked_games")}
-      LIMIT ? OFFSET ?
+      , page_games AS (
+        SELECT * FROM ranked_games
+        WHERE library_rank = 1
+        ORDER BY ${buildOrderTerms(filters, "ranked_games")}
+        LIMIT ? OFFSET ?
+      )
+      SELECT games.*, platforms.name AS platform_name
+      FROM page_games
+      JOIN games ON games.id = page_games.id
+      JOIN platforms ON platforms.id = games.platform_id
+      ORDER BY ${buildOrderTerms(filters, "games")}
     `).all(...where.params, pageSize, offset).map((row) => mapGame(row as GameRow));
 
     // Contagens usam mesma chave que a paginação, mantendo TopBar e páginas consistentes.
     const filtered = this.countLibraryGroups(where);
-    const total = this.countLibraryGroups({ sql: "", params: [] });
+    // Sem filtros, reaproveita contagem e evita repetir a mesma agregação.
+    const total = where.sql ? this.countLibraryGroups({ sql: "", params: [] }) : filtered;
 
     return { items, total, filtered };
   }
@@ -89,7 +96,8 @@ export class GameDao {
    */
   listGenres(): string[] {
     const rows = this.database
-      .prepare("SELECT genre FROM games WHERE genre IS NOT NULL AND TRIM(genre) != ''")
+      // Gêneros se repetem em milhares de jogos; transfere apenas valores distintos.
+      .prepare("SELECT DISTINCT genre FROM games WHERE genre IS NOT NULL AND TRIM(genre) != ''")
       .all() as Array<{ genre: string }>;
 
     const genreMap = new Map<string, string>();
@@ -215,12 +223,24 @@ export class GameDao {
   sidebarCounts(filters: GameFilters = {}): LibrarySidebarCounts {
     const collectionBase = buildWhere({ ...filters, collectionFilter: "all" });
     const platformBase = buildWhere({ ...filters, platformId: null });
-    const collections = {
-      favorites: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "favorites" })),
-      playing: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "playing" })),
-      completed: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "completed" })),
-      mostPlayed: this.countLibraryGroups(buildWhere({ ...filters, collectionFilter: "mostPlayed" }))
-    };
+    // Agrupa uma única vez: basta qualquer variante atender à coleção para contar o grupo.
+    // MAX preserva favoritos/status distintos entre variantes sem contá-las em duplicidade.
+    const { all, ...collections } = this.database.prepare(`
+      SELECT COUNT(*) AS "all",
+        COALESCE(SUM(favorites), 0) AS favorites,
+        COALESCE(SUM(playing), 0) AS playing,
+        COALESCE(SUM(completed), 0) AS completed,
+        COALESCE(SUM(mostPlayed), 0) AS mostPlayed
+      FROM (
+        SELECT MAX(games.favorite = 1) AS favorites,
+          MAX(games.play_status = 'playing') AS playing,
+          MAX(games.play_status = 'completed') AS completed,
+          MAX(games.launch_count > 0) AS mostPlayed
+        FROM games
+        ${collectionBase.sql}
+        GROUP BY ${libraryGroupExpression("games")}
+      )
+    `).get(...collectionBase.params) as CollectionCounts & { all: number };
     const rows = this.database.prepare(`
       SELECT platform_id, COUNT(*) AS count
       FROM (
@@ -233,7 +253,7 @@ export class GameDao {
     `).all(...platformBase.params) as Array<{ platform_id: number; count: number }>;
 
     return {
-      all: this.countLibraryGroups(collectionBase),
+      all,
       collections,
       platforms: Object.fromEntries(rows.map((row) => [row.platform_id, row.count]))
     };
@@ -712,20 +732,21 @@ function buildCollectionFilter(filter: CollectionFilter): string | null {
  * - title: alfabético case-insensitive (padrão)
  */
 function buildOrderTerms(filters: GameFilters = {}, tableAlias = "games"): string {
+  // ID desempata títulos iguais para paginação e escolha de variante estáveis.
   if (filters.collectionFilter === "mostPlayed") {
-    return `${tableAlias}.launch_count DESC, ${tableAlias}.title COLLATE NOCASE`;
+    return `${tableAlias}.launch_count DESC, ${tableAlias}.title COLLATE NOCASE, ${tableAlias}.id`;
   }
 
   const sortBy = filters.sortBy ?? "title";
   switch (sortBy) {
     case "year":
-      return `${tableAlias}.year IS NULL, ${tableAlias}.year DESC, ${tableAlias}.title COLLATE NOCASE`;
+      return `${tableAlias}.year IS NULL, ${tableAlias}.year DESC, ${tableAlias}.title COLLATE NOCASE, ${tableAlias}.id`;
     case "recent":
       return `${tableAlias}.created_at DESC, ${tableAlias}.id DESC`;
     case "mostPlayed":
-      return `${tableAlias}.launch_count DESC, ${tableAlias}.title COLLATE NOCASE`;
+      return `${tableAlias}.launch_count DESC, ${tableAlias}.title COLLATE NOCASE, ${tableAlias}.id`;
     case "title":
-      return `${tableAlias}.title COLLATE NOCASE`;
+      return `${tableAlias}.title COLLATE NOCASE, ${tableAlias}.id`;
   }
 }
 

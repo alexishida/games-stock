@@ -35,6 +35,22 @@ async function run() {
     indexFile: string;
   };
 
+  // Leitura e JSON.parse ficam no worker: cache grande também pode congelar o main.
+  // Cache parcial/corrompido é descartável; o XML permanece como fonte para reparo.
+  if (fs.existsSync(indexFile)) {
+    try {
+      if (fs.statSync(indexFile).mtimeMs >= fs.statSync(metadataFile).mtimeMs) {
+        const cached: unknown = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+        if (cached && typeof cached === "object" && !Array.isArray(cached)) {
+          parentPort!.postMessage(cached);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn("Cache do LaunchBox inválido; reconstruindo a partir do XML", error);
+    }
+  }
+
   // Notifica o processo principal que a indexação começou
   parentPort!.postMessage({ status: "indexing", current: 0, total: 0, filename: "Construindo índice" });
 

@@ -25,6 +25,7 @@ import { usePlatforms } from "./hooks/usePlatforms";
 import { useGameStockStore } from "./store";
 import { GameSortBy } from "../shared/types";
 import {
+  getPersistedLibraryFilters,
   getPersistedRomFolderEntries,
   getPersistedDataPortabilityJobs,
   getPersistedLastRomImportJob,
@@ -144,6 +145,7 @@ export default function App() {
   const hydrateRomFolderEntries = useGameStockStore((state) => state.hydrateRomFolderEntries);
   const hydrateMediaSyncJobs = useGameStockStore((state) => state.hydrateMediaSyncJobs);
   const hydrateRomImportJobs = useGameStockStore((state) => state.hydrateRomImportJobs);
+  const hydrateLibraryFilters = useGameStockStore((state) => state.hydrateLibraryFilters);
 
   // Ações relacionadas a jobs de importação de ROMs
   const updateRomImportProgress = useGameStockStore((state) => state.updateRomImportProgress);
@@ -190,11 +192,12 @@ export default function App() {
       // Garante que dados antigos do localStorage sejam movidos para o SQLite antes de ler
       await migrateLegacyLocalStorageToDb();
 
-      const [romFolderEntries, lastRomImportJob, mediaSyncJobs, dataPortabilityJobs] = await Promise.all([
+      const [romFolderEntries, lastRomImportJob, mediaSyncJobs, dataPortabilityJobs, libraryFilters] = await Promise.all([
         getPersistedRomFolderEntries(),
         getPersistedLastRomImportJob(),
         getPersistedMediaSyncJobs(),
-        getPersistedDataPortabilityJobs()
+        getPersistedDataPortabilityJobs(),
+        getPersistedLibraryFilters()
       ]);
 
       if (canceled) return;
@@ -202,12 +205,13 @@ export default function App() {
       hydratePersistedLastRomImportJob(lastRomImportJob);
       hydrateMediaSyncJobs(mediaSyncJobs);
       hydrateDataPortabilityJobs(dataPortabilityJobs);
+      if (libraryFilters) hydrateLibraryFilters(libraryFilters);
     })();
 
     return () => {
       canceled = true;
     };
-  }, [hydrateDataPortabilityJobs, hydrateMediaSyncJobs, hydratePersistedLastRomImportJob, hydrateRomFolderEntries]);
+  }, [hydrateDataPortabilityJobs, hydrateLibraryFilters, hydrateMediaSyncJobs, hydratePersistedLastRomImportJob, hydrateRomFolderEntries]);
 
   // Baixa automaticamente o Metadata.zip do LaunchBox na primeira vez que o app abre
   useEffect(() => {

@@ -34,8 +34,10 @@ import {
 import {
   setPersistedDataPortabilityJobs,
   setPersistedLastRomImportJob,
+  setPersistedLibraryFilters,
   setPersistedMediaSyncJobs,
   setPersistedRomFolderEntries,
+  type PersistedLibraryFilters,
   type PersistedRomFolderEntry
 } from "../lib/appStatePersistence";
 import { timestamp } from "../lib/time";
@@ -195,6 +197,8 @@ interface GameStockState {
   setCollectionFilter(value: CollectionFilter): void;
   setShowGamesWithoutCover(value: boolean): void;
   setSortBy(value: GameSortBy): void;
+  /** Hidrata os filtros da biblioteca persistidos no SQLite (sem persistir de volta). */
+  hydrateLibraryFilters(value: PersistedLibraryFilters): void;
   setCurrentPage(value: number): void;
   setGames(value: GameListResult): void;
   setPlatforms(value: Platform[]): void;
@@ -323,13 +327,36 @@ export const useGameStockStore = create<GameStockState>((set) => ({
     selectedGame: null
   }),
   // Ao trocar categoria/gênero, reinicia a paginação para evitar página vazia.
-  setSelectedCategory: (selectedCategory) => set({ selectedCategory, currentPage: 1 }),
-  setViewMode: (viewMode) => set({ viewMode }),
+  setSelectedCategory: (selectedCategory) => set((state) => {
+    void setPersistedLibraryFilters(buildLibraryFilters(state, { selectedCategory }));
+    return { selectedCategory, currentPage: 1 };
+  }),
+  setViewMode: (viewMode) => set((state) => {
+    void setPersistedLibraryFilters(buildLibraryFilters(state, { viewMode }));
+    return { viewMode };
+  }),
   // Filtro de coleção compõe com plataforma selecionada e volta à página 1.
-  setCollectionFilter: (collectionFilter) => set({ collectionFilter, currentPage: 1, selectedGameId: null, selectedGame: null }),
+  setCollectionFilter: (collectionFilter) => set((state) => {
+    void setPersistedLibraryFilters(buildLibraryFilters(state, { collectionFilter }));
+    return { collectionFilter, currentPage: 1, selectedGameId: null, selectedGame: null };
+  }),
   // Ao alternar visibilidade de jogos sem capa, reinicia paginação para evitar página vazia.
-  setShowGamesWithoutCover: (showGamesWithoutCover) => set({ showGamesWithoutCover, currentPage: 1 }),
-  setSortBy: (sortBy) => set({ sortBy, currentPage: 1 }),
+  setShowGamesWithoutCover: (showGamesWithoutCover) => set((state) => {
+    void setPersistedLibraryFilters(buildLibraryFilters(state, { showGamesWithoutCover }));
+    return { showGamesWithoutCover, currentPage: 1 };
+  }),
+  setSortBy: (sortBy) => set((state) => {
+    void setPersistedLibraryFilters(buildLibraryFilters(state, { sortBy }));
+    return { sortBy, currentPage: 1 };
+  }),
+  // Restaura filtros da biblioteca vindos do SQLite (defaults nos valores não persistidos).
+  hydrateLibraryFilters: (value) => set({
+    selectedCategory: value.selectedCategory,
+    collectionFilter: value.collectionFilter,
+    showGamesWithoutCover: value.showGamesWithoutCover,
+    sortBy: value.sortBy,
+    viewMode: value.viewMode
+  }),
   setCurrentPage: (currentPage) => set({ currentPage }),
   // Atualiza lista de jogos e mantém o jogo selecionado sincronizado com os novos dados
   setGames: ({ items, total, filtered }) => set((state) => ({
@@ -563,6 +590,20 @@ export const useGameStockStore = create<GameStockState>((set) => ({
  */
 function resolveSetterValue<T>(value: SetterValue<T>, current: T): T {
   return typeof value === "function" ? (value as (current: T) => T)(current) : value;
+}
+
+/**
+ * Monta o snapshot dos filtros da biblioteca para persistência,
+ * aplicando os overrides do setter sobre o estado atual do store.
+ */
+function buildLibraryFilters(state: GameStockState, overrides: Partial<PersistedLibraryFilters>): PersistedLibraryFilters {
+  return {
+    selectedCategory: overrides.selectedCategory ?? state.selectedCategory,
+    collectionFilter: overrides.collectionFilter ?? state.collectionFilter,
+    showGamesWithoutCover: overrides.showGamesWithoutCover ?? state.showGamesWithoutCover,
+    sortBy: overrides.sortBy ?? state.sortBy,
+    viewMode: overrides.viewMode ?? state.viewMode
+  };
 }
 
 /**
