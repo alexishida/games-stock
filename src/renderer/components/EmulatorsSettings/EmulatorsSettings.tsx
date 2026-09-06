@@ -11,9 +11,9 @@
  */
 
 import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, FolderOpen, Link, Pencil, Plus, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
+import { ChevronDown, FolderOpen, Link, Pencil, Plus, RefreshCw, Save, SlidersHorizontal, Trash2, Unlink, X } from "lucide-react";
 import { createPortal } from "react-dom";
-import { Emulator, Platform, PlatformEmulator, RetroArchCoreInventory } from "../../../shared/types";
+import { Emulator, Platform, PlatformEmulator } from "../../../shared/types";
 import {
   getRetroArchCompatibleInstalledCoresForPlatform,
   getRetroArchCoreCandidatesForPlatform,
@@ -23,6 +23,7 @@ import { useDraggableDialog } from "../../hooks/useDraggableDialog";
 import { useGameStockStore } from "../../store";
 import { SectionIntro } from "../SectionIntro/SectionIntro";
 import { useEmulatorAssociations } from "./useEmulatorAssociations";
+import { useRetroArchCoreInventory } from "./useRetroArchCoreInventory";
 import "./EmulatorsSettings.css";
 
 /**
@@ -39,7 +40,8 @@ interface PlatformRetroArchConfig {
  * Retorna string vazia quando o valor é null ou undefined.
  */
 function normalizeCoreName(coreName: string | null | undefined): string {
-  return coreName?.trim().toLowerCase() ?? "";
+  const fileName = coreName?.trim().replace(/\\/g, "/").split("/").pop() ?? "";
+  return fileName.toLowerCase().replace(/\.(dll|so|dylib)$/i, "");
 }
 
 /**
@@ -64,7 +66,7 @@ function getCoreDisplayLabel(coreName: string): string {
 
 /**
  * Monta as opções de core para o picker de uma plataforma, separando em
- * "recomendados" (cores sugeridos para a plataforma) e "instalados" (demais variantes compativeis presentes).
+ * "recomendados" (cores sugeridos para a plataforma) e "instalados" (inventário completo da pasta).
  *
  * @param platformName    Nome da plataforma para buscar sugestões.
  * @param installedCores  Lista de cores instalados no RetroArch.
@@ -81,13 +83,10 @@ function buildCoreOptions(
     installed: installedCores.some((installedCore) => normalizeCoreName(installedCore) === normalizeCoreName(coreName))
   }));
 
-  // Filtra apenas cores instalados que parecem compativeis com a plataforma selecionada
-  const compatibleInstalledCores = getRetroArchCompatibleInstalledCoresForPlatform(platformName, installedCores);
-
-  // Cores instalados que nao aparecem entre os recomendados
-  const installed = compatibleInstalledCores.filter((coreName) =>
-    !recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(coreName))
-  );
+  // Exibe inventário completo: catálogo estático não pode esconder core recém-instalado.
+  const installed = Array.from(new Set(installedCores))
+    .filter((coreName) => !recommended.some((entry) => normalizeCoreName(entry.value) === normalizeCoreName(coreName)))
+    .sort((left, right) => left.localeCompare(right));
 
   // Adiciona o valor atual ao início da lista de instalados caso não esteja em nenhum grupo
   if (currentValue.trim()) {
@@ -248,12 +247,12 @@ function LinkPlatformModal({
   const [corePath, setCorePath] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [coreInventory, setCoreInventory] = useState<RetroArchCoreInventory | null>(null);
   const [corePickerOpen, setCorePickerOpen] = useState(false);
   const [corePickerMenuStyle, setCorePickerMenuStyle] = useState<CSSProperties>({});
 
   /** Indica se o emulador é uma instância do RetroArch */
   const isRetroArch = emulator.is_retroarch === 1;
+  const { inventory: coreInventory } = useRetroArchCoreInventory(emulator.id, isRetroArch);
 
   /**
    * Ref que rastreia o último core sugerido automaticamente,
@@ -271,30 +270,12 @@ function LinkPlatformModal({
 
   /**
    * Opcoes reais do picker, derivadas do inventario instalado e da plataforma atual.
-   * Mantem recomendados separados das demais variantes compativeis detectadas.
+   * Mantém recomendados separados dos demais cores instalados detectados.
    */
   const coreOptions = useMemo(
     () => buildCoreOptions(selectedPlatform?.name ?? "", coreInventory?.installedCores ?? [], corePath),
     [coreInventory?.installedCores, corePath, selectedPlatform?.name]
   );
-
-  /**
-   * Carrega inventario de cores uma vez por abertura do modal para mostrar variantes instaladas.
-   */
-  useEffect(() => {
-    if (!isRetroArch) return;
-    let active = true;
-    window.gameStockAPI.emulators.listRetroArchCores(emulator.id)
-      .then((inventory) => {
-        if (active) setCoreInventory(inventory);
-      })
-      .catch(() => {
-        if (active) setCoreInventory(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [emulator.id, isRetroArch]);
 
   /**
    * Fecha menu de selecao quando usuario clica fora do picker.
@@ -483,7 +464,7 @@ function LinkPlatformModal({
                       )}
                       {coreOptions.installed.length > 0 && (
                         <div className="retroarch-core-group">
-                          <strong>Compativeis instalados</strong>
+                          <strong>Outros instalados</strong>
                           {coreOptions.installed.map((installedCore) => (
                             <button
                               key={`link-installed-${installedCore}`}
@@ -518,7 +499,7 @@ function LinkPlatformModal({
               )}
               {!defaultRetroArchCore && (
                 <span className="emulator-core-hint">
-                  Lista mostra somente cores compativeis com plataforma atual.
+                  Lista mostra todos os cores instalados no RetroArch.
                 </span>
               )}
               {coreInventory && !coreInventory.executableConfigured && (
@@ -719,9 +700,20 @@ function RetroArchPlatformCores({
 
   // Set de plataformas com alterações pendentes (não salvas ainda)
   const [editedPlatformIds, setEditedPlatformIds] = useState<Record<number, true>>({});
+  const editedPlatformIdsRef = useRef(editedPlatformIds);
 
-  // Inventário de cores instalados no RetroArch (DLLs na pasta de cores)
-  const [coreInventory, setCoreInventory] = useState<RetroArchCoreInventory | null>(null);
+  useEffect(() => {
+    // Resposta IPC precisa consultar edições mais recentes sem refazer leitura a cada clique.
+    editedPlatformIdsRef.current = editedPlatformIds;
+  }, [editedPlatformIds]);
+
+  // Inventário relê pasta ao abrir, ao voltar para janela e por ação manual.
+  const {
+    inventory: coreInventory,
+    loading: loadingCoreInventory,
+    error: coreInventoryError,
+    reload: reloadCoreInventory
+  } = useRetroArchCoreInventory(retroArch.id, true);
 
   const [savingAll, setSavingAll] = useState(false);
   const [error, setError] = useState("");
@@ -774,8 +766,8 @@ function RetroArchPlatformCores({
   }, [openCorePickerPlatformId]);
 
   /**
-   * Carrega (em paralelo) vínculos em lote e inventário de cores instalados.
-   * Atualiza os rascunhos preservando edições não salvas do usuário.
+   * Carrega vínculos em lote e atualiza rascunhos com dados persistidos.
+   * Inventário do filesystem possui ciclo independente para uma falha não apagar plataformas.
    * Roda sempre que platforms, reloadToken ou retroArch.id mudam.
    */
   useEffect(() => {
@@ -783,41 +775,37 @@ function RetroArchPlatformCores({
       setConfigs([]);
       setCoreDrafts({});
       setEditedPlatformIds({});
-      setCoreInventory(null);
       return;
     }
 
     // Flag para evitar atualizar estado após desmontagem do componente
     let active = true;
-    void Promise.all([
-      window.gameStockAPI.emulators.listByPlatforms(platforms.map((platform) => platform.id)),
-      window.gameStockAPI.emulators.listRetroArchCores(retroArch.id)
-    ]).then(([linksByPlatform, inventory]) => {
+    void window.gameStockAPI.emulators.listByPlatforms(platforms.map((platform) => platform.id)).then((linksByPlatform) => {
       if (!active) return;
       const nextConfigs = platforms.map((platform) => ({
         platform,
         retroArchLink: linksByPlatform[platform.id]?.find((entry) => entry.emulator_id === retroArch.id) ?? null
       }));
       setConfigs(nextConfigs);
-      setCoreInventory(inventory);
       setOpenCorePickerPlatformId(null);
       setCoreDrafts((current) => {
         const nextDrafts: Record<number, string> = {};
+        const currentEdited = editedPlatformIdsRef.current;
         for (const config of nextConfigs) {
-          // Preserva o rascunho do usuário se já houver; caso contrário, usa o core salvo ou o sugerido
-          nextDrafts[config.platform.id] =
-            current[config.platform.id] ??
-            config.retroArchLink?.core_path ??
-            getRetroArchCoreForPlatform(config.platform.name) ??
-            "";
+          const loadedValue = config.retroArchLink?.core_path ?? getRetroArchCoreForPlatform(config.platform.name) ?? "";
+          // Preserva somente edição pendente; demais linhas recebem valor novo do SQLite.
+          nextDrafts[config.platform.id] = currentEdited[config.platform.id]
+            ? current[config.platform.id] ?? loadedValue
+            : loadedValue;
         }
         return nextDrafts;
       });
-      setEditedPlatformIds({});
+      setEditedPlatformIds((current) => Object.fromEntries(
+        Object.entries(current).filter(([platformId]) => nextConfigs.some((config) => config.platform.id === Number(platformId)))
+      ));
     }).catch(() => {
       if (active) {
         setConfigs([]);
-        setCoreInventory(null);
         setOpenCorePickerPlatformId(null);
       }
     });
@@ -896,6 +884,15 @@ function RetroArchPlatformCores({
               placeholder="Plataforma ou core"
             />
           </label>
+          <button
+            type="button"
+            className="text-button retroarch-core-refresh-button"
+            onClick={reloadCoreInventory}
+            disabled={loadingCoreInventory}
+          >
+            <RefreshCw className={loadingCoreInventory ? "retroarch-core-refreshing" : ""} size={14} aria-hidden="true" />
+            {loadingCoreInventory ? "Atualizando..." : "Atualizar cores"}
+          </button>
         </div>
 
         {/* Lista de plataformas com seus respectivos pickers de core */}
@@ -1040,6 +1037,7 @@ function RetroArchPlatformCores({
           {coreInventory?.executableConfigured && !coreInventory.coresDirExists && (
             <p className="form-error">Pasta de cores não encontrada ao lado do RetroArch.</p>
           )}
+          {coreInventoryError && <p className="form-error">{coreInventoryError}</p>}
           {error && <p className="form-error">{error}</p>}
           <button type="button" className="text-button danger form-action-button" onClick={onClose}>
             <X size={14} aria-hidden="true" />

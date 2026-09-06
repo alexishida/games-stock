@@ -2,7 +2,7 @@
 
 GameStock e um aplicativo desktop para Windows e Linux para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
-Versao atual: **1.1.2**.
+Versao atual: **1.1.3**.
 
 ## Capturas de tela
 
@@ -26,7 +26,7 @@ Versao atual: **1.1.2**.
 - **Busca e plataformas**: pesquise por titulo e navegue pela sidebar com plataformas agrupadas por categoria.
 - **Gerenciador de plataformas**: cadastre, edite e remova plataformas; configure aliases para correspondencia de metadados e extensoes de ROM aceitas por plataforma.
 - **Gerenciador de emuladores**: cadastre emuladores por plataforma, defina o emulador padrao e lance jogos diretamente pela tela de detalhe.
-- **Integracao RetroArch**: detecte cores instalados, configure o core padrao por plataforma e lance jogos com o core correto automaticamente.
+- **Integracao RetroArch**: detecte todos os cores instalados, atualize a lista ao voltar do Core Updater, configure o core padrao por plataforma e lance jogos com o core correto automaticamente.
 - **Cadastro manual**: adicione jogos sem depender de fontes externas.
 - **Associacao de ROMs**: selecione arquivos ROM por dialogos nativos do sistema.
 - **Importador de metadados**: baixe/cacheie metadados publicos, pesquise jogos, escolha tipos de imagem e importe metadados + midias.
@@ -39,6 +39,8 @@ Versao atual: **1.1.2**.
 - **Inventario fisico de hardware**: cadastre e gerencie consoles, perifericos e acessorios fisicos com estado de conservacao, fotos e notas. Visualizacao em cards ou lista com filtro por tipo.
 - **Portabilidade de dados**: exporte e importe backup comprimido (`.gamestock-backup`) com metadados, imagens e configuracoes de plataformas e pastas de ROMs. Disponivel em Configuracoes.
 - **Verificacao manual de update**: botao em Configuracoes para buscar atualizacoes sem reiniciar o app.
+- **Biblioteca otimizada**: paginacao carrega os dados completos somente dos jogos exibidos e consolida contagens da sidebar em menos consultas SQLite.
+- **Cache LaunchBox resiliente**: leitura do indice ocorre em worker, operacoes simultaneas sao compartilhadas e cache corrompido e reconstruido automaticamente.
 - **Dados locais**: banco, imagens, cache e estado de janela ficam no diretorio de dados do usuario do sistema operacional atual.
 
 ## Requisitos
@@ -117,7 +119,7 @@ Antes de `npm run dev`, `npm run build:renderer`, `npm run build:main`, `npm run
 Formato exibido no app:
 
 ```text
-1.1.2 (build <hash-do-commit>)
+1.1.3 (build <hash-do-commit>)
 ```
 
 Resumo:
@@ -130,8 +132,8 @@ Resumo:
 Exemplo opcional de tag de release apos gerar uma versao:
 
 ```bash
-git tag v1.1.2
-git push origin v1.1.2
+git tag v1.1.3
+git push origin v1.1.3
 ```
 
 ## Auto Update
@@ -208,6 +210,14 @@ npm test
 
 O comando executa TypeScript estrito com detecção de variáveis e parâmetros não usados. Testes E2E de Electron devem ser adicionados novamente junto com cenários reproduzíveis e seus fixtures, antes de voltar a expor scripts públicos de E2E.
 
+Regressoes de desempenho e concorrencia da biblioteca e do cache LaunchBox:
+
+```bash
+node scripts/test-optimizations.cjs
+```
+
+Esse teste usa banco SQLite e cache temporarios. Nenhum dado real do usuario e lido ou alterado. Em benchmark sintetico com 30 mil registros, a listagem geral caiu de aproximadamente 560 ms para 232 ms e as contagens da sidebar de 398 ms para 209 ms; os tempos variam conforme hardware e filtros.
+
 Observacoes para Linux:
 
 - `npm run dist:linux` e o smoke principal de empacotamento Linux.
@@ -231,7 +241,7 @@ Quando `GAMESTOCK_USER_DATA_DIR` estiver definida, ela sobrescreve o diretorio p
 
 ## Importador de Metadados
 
-O importador baixa e extrai um pacote publico de metadados e cria um indice local em `index.json`. O cache e reutilizado quando tem menos de 24 horas, salvo quando uma atualizacao forcada e solicitada.
+O importador baixa e extrai um pacote publico de metadados e cria um indice local em `index.json`. O cache e reutilizado quando tem menos de 24 horas, salvo quando uma atualizacao forcada e solicitada. Leitura e desserializacao rodam em worker para manter a janela responsiva. Chamadas simultaneas compartilham download ou indexacao em andamento; cache JSON invalido e reconstruido automaticamente a partir do XML local.
 
 A busca usa o indice local, pode filtrar por plataforma e limita resultados para manter a UI responsiva. Ao importar, o GameStock cria ou atualiza o jogo no SQLite, baixa as imagens escolhidas e gera um `cover.jpg` otimizado com `sharp` quando ha imagem "Box - Front".
 
