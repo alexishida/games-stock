@@ -75,6 +75,8 @@ export function getDatabase(): Database.Database {
   seedPlatforms(database);
   seedPlatformMappings(database);
   seedEmulators(database);
+  runOnceMigration(database, "teknoparrot-profile-filename-v1", () => migrateTeknoParrotProfileArgument(database));
+  seedArcadeEmulatorAssociations(database);
   seedHardwareInventoryDefaults(database);
   runOnceMigration(database, "rom-variant-titles-v1", () => backfillRomVariantTitles(database));
   runOnceMigration(database, "cached-cover-paths-v1", () => backfillCachedCoverPaths(database));
@@ -688,6 +690,39 @@ function seedPlatformMappings(database: Database.Database): void {
  */
 function seedEmulators(database: Database.Database): void {
   database.prepare("INSERT OR IGNORE INTO emulators (name, executable, is_retroarch) VALUES ('RetroArch', '', 1)").run();
+  // TeknoParrot procura o perfil pelo nome dentro de UserProfiles; o executável
+  // permanece vazio para o usuário informar sua instalação local.
+  database.prepare("INSERT OR IGNORE INTO emulators (name, executable, args, is_retroarch) VALUES ('TeknoParrot', '', '--profile={romFileName} --startMinimized', 0)").run();
+}
+
+/**
+ * Corrige somente o argumento padrão criado pela versão inicial da integração.
+ * Configurações alteradas manualmente pelo usuário são preservadas para não
+ * substituir flags ou fluxos de launch personalizados.
+ */
+function migrateTeknoParrotProfileArgument(database: Database.Database): void {
+  database.prepare(`
+    UPDATE emulators
+    SET args = '--profile={romFileName} --startMinimized'
+    WHERE name = 'TeknoParrot' COLLATE NOCASE
+      AND args = '--profile={romPath} --startMinimized'
+  `).run();
+}
+
+/**
+ * Vincula TeknoParrot à plataforma homônima sem alterar a preferência já definida pelo usuário.
+ * O vínculo recebe o padrão apenas em instalações onde a plataforma ainda não possui emulador padrão.
+ */
+function seedArcadeEmulatorAssociations(database: Database.Database): void {
+  const teknoParrot = database.prepare("SELECT id FROM emulators WHERE name = ? COLLATE NOCASE").get("TeknoParrot") as { id: number } | undefined;
+  const platform = database.prepare("SELECT id FROM platforms WHERE name = ? COLLATE NOCASE").get("TeknoParrot") as { id: number } | undefined;
+  if (!teknoParrot || !platform) return;
+
+  const hasDefault = database.prepare("SELECT 1 FROM platform_emulators WHERE platform_id = ? AND is_default = 1").get(platform.id);
+  database.prepare(`
+    INSERT OR IGNORE INTO platform_emulators (platform_id, emulator_id, is_default)
+    VALUES (?, ?, ?)
+  `).run(platform.id, teknoParrot.id, hasDefault ? 0 : 1);
 }
 
 /**

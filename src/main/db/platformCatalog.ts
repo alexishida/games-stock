@@ -48,6 +48,42 @@ const COMPRESSED_ROM_EXTENSIONS: PlatformCatalogRomExtension[] = [
  * Cada entrada é usada como seed na inicialização do banco de dados.
  */
 export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
+  // Plataformas de arcade mantidas separadas para preservar metadados, emuladores
+  // e formatos próprios de cada placa, sem misturá-los com consoles domésticos.
+  {
+    name: "Arcade",
+    category: "Arcade",
+    launchboxAliases: ["Arcade", "MAME"],
+    romExtensions: [
+      { extension: ".chd", kind: "Imagem de disco arcade", isPrimary: true },
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Capcom CPS-1",
+    category: "Arcade",
+    launchboxAliases: ["Arcade - Capcom CPS-1", "Capcom CPS-1"],
+    romExtensions: [
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Capcom CPS-2",
+    category: "Arcade",
+    launchboxAliases: ["Arcade - Capcom CPS-2", "Capcom CPS-2"],
+    romExtensions: [
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Capcom CPS-3",
+    category: "Arcade",
+    launchboxAliases: ["Arcade - Capcom CPS-3", "Capcom CPS-3"],
+    romExtensions: [
+      { extension: ".chd", kind: "Imagem de disco CPS-3", isPrimary: true },
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
   {
     name: "Atari 2600",
     category: "Consoles",
@@ -318,8 +354,87 @@ export const PLATFORM_CATALOG: PlatformCatalogEntry[] = [
       { extension: ".grp", kind: "Build Engine Group File", isPrimary: true },
       ...COMPRESSED_ROM_EXTENSIONS
     ]
+  },
+  {
+    name: "Sammy Atomiswave",
+    category: "Arcade",
+    launchboxAliases: ["Sammy Atomiswave", "Atomiswave"],
+    romExtensions: [
+      { extension: ".bin", kind: "Imagem de cartucho arcade", isPrimary: false },
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Sega Model 2",
+    category: "Arcade",
+    launchboxAliases: ["Sega Model 2", "Arcade - Sega Model 2"],
+    romExtensions: [
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Sega Model 3",
+    category: "Arcade",
+    launchboxAliases: ["Sega Model 3", "Arcade - Sega Model 3"],
+    romExtensions: [
+      { extension: ".zip", kind: "Conjunto de ROM Model 3", isPrimary: true },
+    ]
+  },
+  {
+    name: "Sega Naomi",
+    category: "Arcade",
+    launchboxAliases: ["Sega Naomi", "Naomi"],
+    romExtensions: [
+      { extension: ".bin", kind: "Imagem de cartucho arcade", isPrimary: false },
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Sega Naomi 2",
+    category: "Arcade",
+    launchboxAliases: ["Sega Naomi 2", "Naomi 2"],
+    romExtensions: [
+      { extension: ".bin", kind: "Imagem de cartucho arcade", isPrimary: false },
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "SNK Neo Geo MVS",
+    category: "Arcade",
+    launchboxAliases: ["SNK Neo Geo MVS", "Neo Geo MVS"],
+    romExtensions: [
+      ...COMPRESSED_ROM_EXTENSIONS
+    ]
+  },
+  {
+    name: "Taito Type X",
+    category: "Arcade",
+    launchboxAliases: ["Taito Type X", "Taito Type X2", "Taito Type X3"],
+    romExtensions: [
+      { extension: ".exe", kind: "Executavel do jogo arcade", isPrimary: true },
+      { extension: ".bat", kind: "Script de inicializacao arcade", isPrimary: true }
+    ]
+  },
+  {
+    name: "TeknoParrot",
+    category: "Arcade",
+    launchboxAliases: ["TeknoParrot"],
+    romExtensions: [
+      { extension: ".xml", kind: "Perfil de jogo TeknoParrot", isPrimary: true }
+    ]
   }
 ];
+
+/**
+ * Verifica se uma plataforma canônica pertence à categoria Arcade.
+ * A decisão de launch usa o catálogo para preservar arquivos compactados que
+ * emuladores arcade leem diretamente, como os conjuntos ZIP do MAME.
+ */
+export function isArcadePlatform(platformName: string | null | undefined): boolean {
+  return Boolean(platformName) && PLATFORM_CATALOG.some(
+    (platform) => platform.category === "Arcade" && platform.name === platformName
+  );
+}
 
 /**
  * Mapeamentos de nomes legados para nomes canônicos de plataformas.

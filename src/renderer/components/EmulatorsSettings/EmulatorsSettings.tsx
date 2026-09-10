@@ -199,7 +199,8 @@ function EmulatorFormModal({
           </label>
           <label>
             Argumentos <span className="emulator-label-hint">(opcional, separados por espaço)</span>
-            <input value={args} onChange={(e) => setArgs(e.target.value)} placeholder="Ex: -fullscreen -noaudio" />
+            <input value={args} onChange={(e) => setArgs(e.target.value)} placeholder="Ex: -fullscreen ou --profile={romFileName}" />
+            <small className="emulator-label-hint">Use {"{romPath}"} para o caminho completo ou {"{romFileName}"} para somente o arquivo, como no TeknoParrot.</small>
           </label>
           {error && <p className="form-error">{error}</p>}
           <footer>

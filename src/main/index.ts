@@ -37,6 +37,7 @@ import { APP_VERSION_LABEL } from "../shared/build-meta";
 import { resolveConfiguredExecutable } from "./executableResolver";
 import { clearExtractedRomCache, prepareRomPathForLaunch } from "./romLaunchExtraction";
 import { clearAppLogs, installConsoleLogCapture, listAppLogs, writeAppLog } from "./logger";
+import { isArcadePlatform } from "./db/platformCatalog";
 
 // Captura logs do processo principal antes de inicializar fluxos e handlers do aplicativo.
 installConsoleLogCapture();
@@ -297,9 +298,11 @@ function registerIpc(): void {
     if (!emulator.executable?.trim()) throw new Error("Executável do emulador não configurado");
     const resolvedExecutable = resolveConfiguredExecutable(emulator.executable);
 
-    // ROM compactada (.zip/.7z) é extraída para a pasta temporária do GameStock
-    // e o emulador recebe o arquivo extraído; demais formatos passam direto.
-    const launchRomPath = await prepareRomPathForLaunch(game.rom_path);
+    // Emuladores arcade como MAME e Supermodel leem conjuntos ZIP diretamente.
+    // Preservar o pacote evita quebrar a estrutura e os checksums esperados pelo emulador.
+    const launchRomPath = !emulator.is_retroarch && isArcadePlatform(game.platform_name)
+      ? game.rom_path
+      : await prepareRomPathForLaunch(game.rom_path);
 
     let args: string[];
     if (emulator.is_retroarch) {
@@ -308,10 +311,9 @@ function registerIpc(): void {
       if (!corePath) throw new Error("Core do RetroArch não configurado para esta plataforma");
       args = ["-L", corePath, launchRomPath];
     } else {
-      // Emuladores genéricos: args configurados pelo usuário + caminho da ROM.
-      // Tokenização respeita aspas para caminhos com espaços.
-      const parsedArgs = parseQuotedArgs(emulator.args);
-      args = [...parsedArgs, launchRomPath];
+      // Emuladores genéricos recebem a ROM ao fim. Marcadores permitem adaptar
+      // formatos como --profile=<arquivo> do TeknoParrot sem anexar outro argumento.
+      args = buildGenericEmulatorLaunchArgs(emulator.args, launchRomPath);
     }
 
     games.incrementGameLaunchCount(gameId);
@@ -1227,6 +1229,26 @@ function parseQuotedArgs(input: string): string[] {
     tokens.push(match[1] ?? match[2] ?? match[3]);
   }
   return tokens;
+}
+
+/**
+ * Monta argumentos de emuladores genéricos substituindo marcadores de caminho.
+ * `{romPath}` usa o caminho absoluto; `{romFileName}` usa só o nome do arquivo,
+ * exigido pelo TeknoParrot para localizar perfis em `UserProfiles`. Sem marcador,
+ * preserva a compatibilidade: o caminho do jogo segue como último argumento.
+ */
+function buildGenericEmulatorLaunchArgs(configuredArgs: string, romPath: string): string[] {
+  const parsedArgs = parseQuotedArgs(configuredArgs);
+  const markers = {
+    "{romPath}": romPath,
+    "{romFileName}": path.basename(romPath)
+  };
+  const usesLaunchMarker = parsedArgs.some((argument) => Object.keys(markers).some((marker) => argument.includes(marker)));
+  const args = parsedArgs.map((argument) => Object.entries(markers).reduce(
+    (result, [marker, value]) => result.replaceAll(marker, value),
+    argument
+  ));
+  return usesLaunchMarker ? args : [...args, romPath];
 }
 
 /**

@@ -18,6 +18,7 @@ import path from "node:path";
 import { getImagesDir } from "./db/database";
 import { ALL_SUPPORTED_ROM_EXTENSIONS } from "./db/platformCatalog";
 import { createGame, findGameByLaunchBoxId, upsertLaunchBoxGame } from "./db/repositories/games";
+import { listEmulators } from "./db/repositories/emulators";
 import { getLaunchBoxAliasesForPlatformId, getPrimaryRomExtensionsForPlatform, listPlatforms, listPrimaryRomExtensionMappings } from "./db/repositories/platforms";
 import { buildIndex, ensureMetadata } from "./lib/launchbox/db";
 import { downloadImages } from "./lib/launchbox/scraper";
@@ -37,8 +38,11 @@ import {
 
 type ProgressCallback = (progress: RomFolderImportProgress) => void;
 
-/** Entrada de arquivo encontrado durante o scan de uma pasta. */
-type ScanEntry = { folderPath: string; romPath: string; filename: string };
+/**
+ * Entrada de arquivo encontrado durante o scan de uma pasta.
+ * O título pode vir do perfil TeknoParrot quando o nome técnico do XML não é legível.
+ */
+type ScanEntry = { folderPath: string; romPath: string; filename: string; titleCandidate?: string };
 
 /** Referência leve a uma plataforma (ID + nome) para uso no scan. */
 interface PlatformRef {
@@ -133,18 +137,21 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
   const includeSubfolders = Boolean(request.includeSubfolders);
   const ignoredItems: RomFolderIgnoredItem[] = [];
 
-  // Combina entradas de pastas e arquivos individuais em uma lista única
-  const entries: ScanEntry[] = [
-    ...folderPaths.flatMap((folderPath) => listFolderEntries(folderPath, includeSubfolders)),
-    ...romFilePaths.map((romPath) => ({
-      folderPath: path.dirname(romPath),
-      romPath,
-      filename: path.basename(romPath)
-    }))
-  ];
-
   if (detectionMode === "manual") {
     const platform = requirePlatform(request.platformId ?? 0);
+    // Perfis TeknoParrot não são XMLs genéricos dentro de cada jogo: ficam em
+    // UserProfiles e referenciam o executável real por GamePath. Esse caminho
+    // evita importar configurações Linux/engine encontradas recursivamente.
+    const entries = platform.name === "TeknoParrot"
+      ? listTeknoParrotProfileEntries(folderPaths, romFilePaths, ignoredItems)
+      : [
+        ...folderPaths.flatMap((folderPath) => listFolderEntries(folderPath, includeSubfolders)),
+        ...romFilePaths.map((romPath) => ({
+          folderPath: path.dirname(romPath),
+          romPath,
+          filename: path.basename(romPath)
+        }))
+      ];
     const allowedExtensions = getAllowedRomExtensions(platform.id);
     const candidates = entries.flatMap((entry): RomFolderImportCandidate[] => {
       const ext = path.extname(entry.filename).toLowerCase();
@@ -175,6 +182,17 @@ export function scanRomFolder(request: RomFolderScanRequest): RomFolderScanResul
       ignoredItems
     };
   }
+
+  // Combina entradas de pastas e arquivos individuais em uma lista única para
+  // detecção automática, que não possui tratamento específico por plataforma.
+  const entries: ScanEntry[] = [
+    ...folderPaths.flatMap((folderPath) => listFolderEntries(folderPath, includeSubfolders)),
+    ...romFilePaths.map((romPath) => ({
+      folderPath: path.dirname(romPath),
+      romPath,
+      filename: path.basename(romPath)
+    }))
+  ];
 
   // Modo automático: cria detector por extensão e classifica cada arquivo
   const detector = createAutomaticPlatformDetector();
@@ -345,6 +363,153 @@ function listFolderEntries(folderPath: string, includeSubfolders: boolean): Arra
   return files;
 }
 
+/** Dados relevantes extraídos de um perfil XML do TeknoParrot. */
+interface TeknoParrotProfile {
+  /** Caminho absoluto do perfil XML usado para lançar o jogo. */
+  profilePath: string;
+  /** Executável ou diretório do jogo configurado no campo GamePath. */
+  gamePath: string;
+  /** Título salvo no perfil, preferível ao nome técnico do arquivo XML. */
+  title: string;
+}
+
+/** Nome da pasta que armazena perfis configurados pelo usuário no TeknoParrot. */
+const TEKNO_PARROT_USER_PROFILES_DIR = "UserProfiles";
+
+/**
+ * Localiza perfis TeknoParrot associados às pastas de jogos selecionadas.
+ * Também aceita perfis XML escolhidos diretamente, desde que tenham a estrutura
+ * GameProfile. Isso torna a importação independente de XMLs de configuração
+ * internos existentes dentro de dumps de jogos arcade.
+ */
+function listTeknoParrotProfileEntries(
+  folderPaths: string[],
+  romFilePaths: string[],
+  ignoredItems: RomFolderIgnoredItem[]
+): ScanEntry[] {
+  const profilePaths = new Set<string>();
+
+  // XML escolhido explicitamente continua sendo um fluxo válido para importar
+  // apenas alguns jogos, sem precisar selecionar a pasta inteira de ROMs.
+  for (const filePath of romFilePaths) {
+    if (path.extname(filePath).toLowerCase() === ".xml") profilePaths.add(filePath);
+  }
+
+  const configuredProfilesDir = getTeknoParrotUserProfilesDir();
+  if (configuredProfilesDir) {
+    for (const profilePath of listXmlFiles(configuredProfilesDir)) {
+      const profile = readTeknoParrotProfile(profilePath);
+      if (profile && folderPaths.some((folderPath) => isPathInside(profile.gamePath, folderPath))) {
+        profilePaths.add(profilePath);
+      }
+    }
+  }
+
+  // Quando o usuário seleciona diretamente UserProfiles, usa seus perfis mesmo
+  // se GamePath estiver vazio ou fora da pasta de ROMs atualmente selecionada.
+  for (const folderPath of folderPaths) {
+    if (path.basename(folderPath).toLowerCase() !== TEKNO_PARROT_USER_PROFILES_DIR.toLowerCase()) continue;
+    for (const profilePath of listXmlFiles(folderPath)) profilePaths.add(profilePath);
+  }
+
+  const entries: ScanEntry[] = [];
+  for (const profilePath of profilePaths) {
+    const profile = readTeknoParrotProfile(profilePath);
+    if (!profile) {
+      ignoredItems.push({
+        folderPath: path.dirname(profilePath),
+        romPath: profilePath,
+        filename: path.basename(profilePath),
+        reason: "XML não é um perfil GameProfile do TeknoParrot"
+      });
+      continue;
+    }
+    entries.push({
+      folderPath: path.dirname(profile.profilePath),
+      romPath: profile.profilePath,
+      filename: path.basename(profile.profilePath),
+      titleCandidate: profile.title
+    });
+  }
+
+  if (!entries.length && !ignoredItems.length) {
+    for (const folderPath of folderPaths) {
+      ignoredItems.push({
+        folderPath,
+        romPath: folderPath,
+        filename: path.basename(folderPath),
+        reason: "Nenhum perfil TeknoParrot correspondente foi encontrado em UserProfiles"
+      });
+    }
+  }
+
+  return entries;
+}
+
+/** Retorna a pasta UserProfiles ao lado do executável TeknoParrot configurado. */
+function getTeknoParrotUserProfilesDir(): string | null {
+  const emulator = listEmulators().find((item) => item.name.trim().toLowerCase() === "teknoparrot");
+  if (!emulator?.executable.trim()) return null;
+
+  const profilesDir = path.join(path.dirname(path.resolve(emulator.executable)), TEKNO_PARROT_USER_PROFILES_DIR);
+  return fs.existsSync(profilesDir) ? profilesDir : null;
+}
+
+/** Lista somente XMLs no diretório de perfis; TeknoParrot não recorre UserProfiles. */
+function listXmlFiles(folderPath: string): string[] {
+  try {
+    return fs.readdirSync(folderPath, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".xml")
+      .map((entry) => path.join(folderPath, entry.name));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lê um perfil XML de forma tolerante, confirmando a raiz GameProfile e os
+ * campos que o TeknoParrot usa para identificar e abrir o jogo.
+ */
+function readTeknoParrotProfile(profilePath: string): TeknoParrotProfile | null {
+  let xml: string;
+  try {
+    // Perfis válidos são pequenos; limitar a leitura protege o scan de XMLs grandes.
+    const stats = fs.statSync(profilePath);
+    if (stats.size > 1024 * 1024) return null;
+    xml = fs.readFileSync(profilePath, "utf8");
+  } catch {
+    return null;
+  }
+
+  if (!/<GameProfile(?:\s|>)/i.test(xml)) return null;
+  const gamePath = readTeknoParrotXmlValue(xml, "GamePath");
+  const title = readTeknoParrotXmlValue(xml, "GameNameInternal")
+    || readTeknoParrotXmlValue(xml, "ProfileName")
+    || path.basename(profilePath, path.extname(profilePath));
+  return { profilePath, gamePath: gamePath ? path.resolve(gamePath) : "", title };
+}
+
+/** Extrai e decodifica o conteúdo simples de uma tag XML de perfil. */
+function readTeknoParrotXmlValue(xml: string, tagName: string): string {
+  const match = xml.match(new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)</${tagName}>`, "i"));
+  return match?.[1]
+    ?.trim()
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/i, "$1")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&apos;/gi, "'")
+    ?? "";
+}
+
+/** Verifica se o caminho configurado no perfil pertence a uma das pastas selecionadas. */
+function isPathInside(targetPath: string, folderPath: string): boolean {
+  if (!targetPath) return false;
+  const relative = path.relative(path.resolve(folderPath), path.resolve(targetPath));
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
 /** Constrói um `RomFolderImportCandidate` a partir de uma entrada de scan e referência de plataforma. */
 function buildCandidate(entry: ScanEntry, platform: PlatformRef): RomFolderImportCandidate {
   return {
@@ -352,7 +517,7 @@ function buildCandidate(entry: ScanEntry, platform: PlatformRef): RomFolderImpor
     romPath: entry.romPath,
     filename: entry.filename,
     // Título candidato: nome do arquivo sem extensão e sem tags de região/revisão
-    titleCandidate: normalizeRomTitle(entry.filename),
+    titleCandidate: entry.titleCandidate || normalizeRomTitle(entry.filename),
     platformId: platform.platformId,
     platformName: platform.platformName
   };
