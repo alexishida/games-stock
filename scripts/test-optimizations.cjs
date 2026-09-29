@@ -179,3 +179,98 @@ test("download concorrente é único e atualização aguarda indexação ativa",
     global.fetch = originalFetch;
   }
 });
+
+// Exercita contagem, sync incremental e remoção usando apenas o SQLite temporário.
+test("pastas raiz reconhecem ROMs e pastas vizinhas permanecem isoladas", (t) => {
+  const directory = temporaryData(t);
+  const { getDatabase, closeDatabase } = require("../dist/main/db/database.js");
+  const { GameDao } = require("../dist/main/db/dao/gameDao.js");
+  const database = getDatabase();
+  try {
+    const { id: platform_id } = database.prepare("SELECT id FROM platforms LIMIT 1").get();
+    const dao = new GameDao(database);
+    const folder = path.join(directory, "ROMs");
+    const rom = path.join(folder, "Mario.nes");
+    const neighbor = path.join(directory, "ROMs-extra", "Zelda.nes");
+    dao.create({ title: "Mario", platform_id, rom_path: rom });
+    const other = dao.create({ title: "Zelda", platform_id, rom_path: neighbor });
+    const root = path.parse(directory).root;
+    assert.equal(dao.countByRomFolder(root), 2);
+    assert.deepEqual(new Set(dao.listRomPathsByFolder(root)), new Set([rom, neighbor]));
+    assert.equal(dao.countByRomFolder(folder), 1);
+    assert.equal(dao.countByRomFolder(""), 0);
+    assert.equal(dao.deleteByRomFolder("").deleted, 0);
+    // A semântica de caixa acompanha o filesystem da plataforma em execução.
+    assert.equal(dao.countByRomFolder(path.join(directory, "roms")), process.platform === "win32" ? 1 : 0);
+    assert.equal(dao.deleteByRomFolder(folder).deleted, 1);
+    assert.ok(dao.get(other.id));
+    assert.equal(dao.deleteByRomFolder(root).deleted, 1);
+  } finally {
+    closeDatabase();
+  }
+});
+
+/** Monta metadados mínimos para buscas e downloads sem depender de serviços externos. */
+function catalogGame(id, name, platform = "Sony PlayStation", extra = {}) {
+  return {
+    id: String(id), name, platform, release: "", developer: "", publisher: "",
+    genres: "", overview: "", players: "", rating: "", cooperative: "", images: [], ...extra
+  };
+}
+
+// A ordenação parcial não pode ocultar uma correspondência exata após o centésimo item.
+test("busca mantém nomes regionais, limite, aliases e isolamento entre catálogos", () => {
+  const { searchGames } = require("../dist/main/lib/launchbox/scraper.js");
+  const index = Object.fromEntries(Array.from({ length: 150 }, (_, id) => [String(id), catalogGame(id, `Mario ${id}`)]));
+  index.exact = catalogGame("exact", "Z regional", "Sony PlayStation", { alternateNames: ["Mário!"] });
+  index.other = catalogGame("other", "Mario", "Sony PlayStation 2");
+  const results = searchGames(index, "mario", ["Sony PlayStation"]);
+  assert.equal(results.length, 100);
+  assert.strictEqual(results[0], index.exact);
+  assert.ok(results.every((game) => game.platform === "Sony PlayStation"));
+  assert.deepEqual(searchGames(index, "mario", []), []);
+  assert.deepEqual(searchGames(index, "!", null), []);
+  assert.deepEqual(searchGames(index, "mario", ["Sony PlayStation 2"]), [index.other]);
+  assert.equal(searchGames(index, "mario", ["sony playstation", "SONY PLAYSTATION"]).length, 100);
+  assert.equal(searchGames(index, "mario", null)[0].id, "other");
+  assert.deepEqual(searchGames({ new: catalogGame("new", "Mário novo") }, "mario").map((game) => game.id), ["new"]);
+});
+
+// Falhas HTTP e interrupções no corpo não podem apagar um download anterior válido.
+test("download interrompido preserva mídia anterior e permite nova tentativa", async (t) => {
+  const directory = temporaryData(t);
+  const { downloadImages, getGameImageDir } = require("../dist/main/lib/launchbox/scraper.js");
+  const game = catalogGame("download", "Teste", "NES", {
+    images: [{ filename: "shot.png", type: "Screenshot - Gameplay", region: "Brazil" }]
+  });
+  const gameDir = getGameImageDir(directory, game);
+  const destination = path.join(gameDir, "screenshot-gameplay-brazil-01.png");
+  fs.mkdirSync(gameDir, { recursive: true });
+  fs.writeFileSync(destination, "imagem anterior");
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async (_url, options) => {
+      assert.ok(options.signal instanceof AbortSignal);
+      return new Response(null, { status: 503 });
+    };
+    assert.equal((await downloadImages(game, directory, [], undefined, true)).failed, 1);
+    assert.equal(fs.readFileSync(destination, "utf8"), "imagem anterior");
+    global.fetch = async () => new Response(new ReadableStream({
+      start(controller) { controller.enqueue(new Uint8Array([1, 2, 3])); },
+      pull(controller) { controller.error(new Error("conexão interrompida")); }
+    }));
+    assert.equal((await downloadImages(game, directory, [], undefined, true)).failed, 1);
+    assert.equal(fs.readFileSync(destination, "utf8"), "imagem anterior");
+    assert.ok(fs.readdirSync(gameDir).every((file) => !file.endsWith(".tmp")));
+    fs.unlinkSync(destination);
+    assert.equal((await downloadImages(game, directory)).failed, 1);
+    assert.equal(fs.existsSync(destination), false);
+    global.fetch = async () => new Response("imagem nova");
+    assert.equal((await downloadImages(game, directory)).success, 1);
+    assert.equal(fs.readFileSync(destination, "utf8"), "imagem nova");
+    global.fetch = async () => { throw new Error("cache não deveria acessar a rede"); };
+    assert.equal((await downloadImages(game, directory)).skipped, 1);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

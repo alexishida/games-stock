@@ -41,7 +41,11 @@ async function run() {
     try {
       if (fs.statSync(indexFile).mtimeMs >= fs.statSync(metadataFile).mtimeMs) {
         const cached: unknown = JSON.parse(fs.readFileSync(indexFile, "utf8"));
-        if (cached && typeof cached === "object" && !Array.isArray(cached)) {
+        const first = cached && typeof cached === "object" && !Array.isArray(cached)
+          ? Object.values(cached)[0] as LaunchBoxGame | undefined
+          : undefined;
+        // Índices antigos não trazem nomes regionais; reconstrói-los a partir do XML.
+        if (first && Array.isArray(first.alternateNames)) {
           parentPort!.postMessage(cached);
           return;
         }
@@ -61,6 +65,7 @@ async function run() {
   const top = (root.LaunchBox ?? root.Root ?? Object.values(root)[0]) as {
     Game?: XmlNode[];
     GameImage?: XmlNode[];
+    GameAlternateName?: XmlNode[];
   };
 
   // Índice final: DatabaseID → LaunchBoxGame
@@ -73,6 +78,7 @@ async function run() {
     index[id] = {
       id,
       name: txt(game.Name),
+      alternateNames: [],
       platform: txt(game.Platform),
       // Apenas a parte da data (YYYY-MM-DD); descarta hora
       release: txt(game.ReleaseDate).slice(0, 10),
@@ -85,6 +91,13 @@ async function run() {
       cooperative: txt(game.Cooperative),
       images: []
     };
+  }
+
+  // Nomes alternativos usam o mesmo DatabaseID e apontam para os metadados principais.
+  for (const alternate of top.GameAlternateName ?? []) {
+    const target = index[txt(alternate.DatabaseID)];
+    const name = txt(alternate.AlternateName);
+    if (target && name && !target.alternateNames?.includes(name)) target.alternateNames?.push(name);
   }
 
   // Segunda passagem: associa imagens ao jogo correspondente pelo DatabaseID

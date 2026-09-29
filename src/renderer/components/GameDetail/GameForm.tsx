@@ -3,7 +3,7 @@
  *
  * Formulário de edição de um jogo dentro do modal de detalhe.
  * Agrupa três fluxos principais:
- *   1. Edição de metadados via busca na base LaunchBox (MetadataPickerModal)
+ *   1. Edição de metadados via busca LaunchBox, OpenVGDB e Libretro (MetadataPickerModal)
  *   2. Edição manual dos campos de metadados (MetadataEditorModal)
  *   3. Associação de arquivos locais: ROM e box art
  *
@@ -43,7 +43,7 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
   // Query da barra de busca de metadados (inicializada com o título do jogo)
   const [metadataQuery, setMetadataQuery] = useState(game.title);
 
-  // Sugestões retornadas pela busca na base LaunchBox
+  // Sugestões retornadas pela busca nas fontes disponíveis
   const [metadataSuggestions, setMetadataSuggestions] = useState<LaunchBoxGame[]>([]);
 
   // Mensagem de erro da busca ou importação de metadados
@@ -137,8 +137,8 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
   }
 
   /**
-   * Busca títulos na base de metadados LaunchBox pelo nome do jogo.
-   * Garante que o Metadata.zip existe antes de pesquisar.
+   * Busca títulos nas fontes disponíveis pelo nome do jogo.
+   * O processo principal tenta as fontes alternativas mesmo sem cache LaunchBox.
    * Exibe todos os resultados retornados pelo backend no MetadataPickerModal.
    */
   async function searchMetadata(): Promise<void> {
@@ -151,11 +151,9 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
     setSearchingMetadata(true);
     setMetadataError("");
     try {
-      // Verifica se o banco de metadados local existe; faz download se necessário
-      const metadataExists = await window.gameStockAPI.launchbox.metadataExists();
-      if (!metadataExists) await window.gameStockAPI.launchbox.ensureMetadata();
       const results = await window.gameStockAPI.launchbox.searchGames({
         query,
+        includeAlternatives: true,
         platformId: draft.platform_id,
         platformName: draft.platform_name ?? null
       });
@@ -171,7 +169,7 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
   }
 
   /**
-   * Aplica os metadados de uma sugestão LaunchBox ao jogo atual.
+   * Aplica os metadados e imagens disponíveis na fonte escolhida ao jogo atual.
    * Importa capa frontal, fanart e screenshot automaticamente.
    * Atualiza o draft e o store após a importação.
    * Quando o LaunchBox ID já pertence a outra variante local, mantém os
@@ -182,9 +180,6 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
     setMetadataError("");
     setMetadataImportStatus(`Importando "${suggestion.name}"...`);
     try {
-      // Garante índice disponível também quando atualização parte de vínculo já existente.
-      const metadataExists = await window.gameStockAPI.launchbox.metadataExists();
-      if (!metadataExists) await window.gameStockAPI.launchbox.ensureMetadata({ jobId });
       const result = await window.gameStockAPI.launchbox.importGame({
         launchboxGameId: suggestion.id,
         targetGameId: game.id,
@@ -313,7 +308,7 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
                 <Sparkles size={16} aria-hidden="true" />
                 <div>
                   <strong>Complete o cadastro com a base de metadados</strong>
-                  <p>Capa, publisher, gênero, rating e descrição entram automaticamente após selecionar um título.</p>
+                  <p>Capa e campos como publisher, gênero e descrição entram quando disponíveis na fonte selecionada.</p>
                 </div>
               </div>
               {/* Barra de busca compacta exibida quando não há metadados */}
@@ -382,7 +377,7 @@ export function GameForm({ game, onCancel, onSaved }: { game: Game; onCancel?: (
         </footer>
       </form>
 
-      {/* Modal de busca de metadados na base LaunchBox */}
+      {/* Modal de busca de metadados nas fontes disponíveis */}
       {metadataPickerOpen && (
         <MetadataPickerModal
           query={metadataQuery}
@@ -628,11 +623,14 @@ function MetadataPickerModal({
           )}
           {suggestions.length > 0 ? suggestions.map((suggestion) => {
             const importing = importingMetadataId === suggestion.id;
+            // Expõe o nome regional que fez a busca encontrar o registro principal.
+            const matchedAlias = suggestion.alternateNames?.find((name) => normalizeSearchTitle(name) === normalizeSearchTitle(query));
             return (
               <article key={suggestion.id} className="detail-metadata-card">
                 <div className="detail-metadata-card-copy">
                   <strong>{suggestion.name}</strong>
-                  <span>{suggestion.platform}</span>
+                  <span>{suggestion.platform} · {suggestion.source === "openvgdb" ? "OpenVGDB" : suggestion.source === "libretro" ? "Libretro (mídia)" : "LaunchBox"}</span>
+                  {matchedAlias && <p>Nome alternativo: {matchedAlias}</p>}
                   {/* Resumo gerado a partir de ano, publisher e gêneros da sugestão */}
                   <p>{buildSuggestionSummary(suggestion)}</p>
                 </div>
@@ -663,6 +661,11 @@ function MetadataPickerModal({
   );
 }
 
+/** Compara a busca com nomes regionais sem exigir pontuação idêntica. */
+function normalizeSearchTitle(value: string): string {
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 /**
  * Verifica se o jogo possui ao menos um campo de metadados preenchido.
  * Usado para determinar o estado visual da seção de metadados no formulário.
@@ -674,9 +677,7 @@ function hasGameMetadata(game: Game): boolean {
     || game.genre?.trim()
     || game.rating?.trim()
     || game.notes?.trim()
-    || game.box_art_path
-    || game.background_path
-    || game.screenshot_path
+    || game.year
   );
 }
 
@@ -685,6 +686,7 @@ function hasGameMetadata(game: Game): boolean {
  * Concatena ano de lançamento, publisher e gêneros disponíveis separados por " / ".
  */
 function buildSuggestionSummary(game: LaunchBoxGame): string {
+  if (game.source === "libretro") return "Capa e screenshot, quando disponíveis";
   const parts = [game.release?.slice(0, 4), game.publisher, game.genres]
     .map((part) => part?.trim())
     .filter(Boolean);

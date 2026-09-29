@@ -2,6 +2,16 @@
 
 Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
+## [1.1.4] - 2026-09-28
+
+### Adicionado
+
+- OpenVGDB como fonte alternativa de metadados e Libretro como fonte alternativa de capas e screenshots.
+
+### Corrigido
+
+- Busca de metadados no formulario limitada ao console do jogo, incluindo aliases e nomes regionais.
+
 ## [1.1.3] - 2026-09-05
 
 ### Adicionado
@@ -87,3 +97,4 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 [1.1.1]: https://github.com/alexishida/games-stock/releases/tag/v1.1.1
 [1.1.2]: https://github.com/alexishida/games-stock/releases/tag/v1.1.2
 [1.1.3]: https://github.com/alexishida/games-stock/releases/tag/v1.1.3
+[1.1.4]: https://github.com/alexishida/games-stock/releases/tag/v1.1.4

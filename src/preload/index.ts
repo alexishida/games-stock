@@ -259,11 +259,11 @@ const api = {
     ensureMetadata: (options?: { force?: boolean; jobId?: string }) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.ensureMetadata, options),
     /** Verifica se os metadados LaunchBox já foram baixados. */
     metadataExists: () => ipcRenderer.invoke(IPC_CHANNELS.launchbox.metadataExists) as Promise<boolean>,
-    /** Busca jogos no índice LaunchBox por título e plataforma. */
+    /** Busca jogos no LaunchBox e nas fontes alternativas por título e plataforma. */
     searchGames: (params: LaunchBoxSearchParams) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.searchGames, params),
-    /** Baixa imagens do LaunchBox para um jogo específico. */
+    /** Baixa imagens do LaunchBox e completa lacunas com a Libretro. */
     downloadImages: (params: LaunchBoxDownloadParams) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.downloadImages, params),
-    /** Importa um jogo do LaunchBox para a biblioteca local. */
+    /** Importa um jogo da fonte selecionada para a biblioteca local. */
     importGame: (params: LaunchBoxImportParams) => ipcRenderer.invoke(IPC_CHANNELS.launchbox.importGame, params),
     /**
      * Registra listener para progresso de download/indexação do LaunchBox.

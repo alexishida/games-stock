@@ -794,10 +794,14 @@ export interface LaunchBoxImage {
 
 /** Registro de jogo do banco de dados LaunchBox. */
 export interface LaunchBoxGame {
-  /** ID único do jogo no LaunchBox. */
+  /** ID LaunchBox ou identificador prefixado da fonte alternativa. */
   id: string;
+  /** Origem do resultado quando a busca usa um catálogo alternativo. */
+  source?: "launchbox" | "openvgdb" | "libretro";
   /** Título do jogo. */
   name: string;
+  /** Nomes regionais e alternativos associados ao mesmo jogo. */
+  alternateNames?: string[];
   /** Nome da plataforma conforme o LaunchBox. */
   platform: string;
   /** Data de lançamento. */
@@ -824,6 +828,8 @@ export interface LaunchBoxGame {
 export interface LaunchBoxSearchParams {
   /** Texto de busca (título ou parte do título). */
   query: string;
+  /** Habilita OpenVGDB e Libretro no formulário de edição de cadastro. */
+  includeAlternatives?: boolean;
   /** ID da plataforma local para restringir a busca com base nos aliases cadastrados. */
   platformId?: number | null;
   /** Nome da plataforma para restringir a busca (null = todas as plataformas). */
@@ -838,7 +844,7 @@ export interface LaunchBoxDownloadParams {
   types: LaunchBoxImageType[];
 }
 
-/** Resultado de um download de imagens LaunchBox. */
+/** Resultado do download de imagens, incluindo a fonte alternativa quando necessária. */
 export interface LaunchBoxDownloadResult {
   /** Quantidade de imagens baixadas com sucesso. */
   success: number;
@@ -866,7 +872,7 @@ export interface LaunchBoxProgress {
 
 /** Parâmetros para importar um jogo do LaunchBox para a biblioteca local. */
 export interface LaunchBoxImportParams {
-  /** ID do jogo no LaunchBox a importar. */
+  /** ID do jogo selecionado no LaunchBox ou em uma fonte alternativa. */
   launchboxGameId: string;
   /** ID opcional para vincular progresso ao job de notificação do renderer. */
   jobId?: string;

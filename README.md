@@ -2,7 +2,7 @@
 
 GameStock e um aplicativo desktop para Windows e Linux para organizar bibliotecas de jogos retro, ROMs, capas, metadados e inventario fisico. O app roda com Electron, React, TypeScript, Vite e SQLite local via `better-sqlite3`.
 
-Versao atual: **1.1.3**.
+Versao atual: **1.1.4**.
 
 ## Capturas de tela
 
@@ -119,7 +119,7 @@ Antes de `npm run dev`, `npm run build:renderer`, `npm run build:main`, `npm run
 Formato exibido no app:
 
 ```text
-1.1.3 (build <hash-do-commit>)
+1.1.4 (build <hash-do-commit>)
 ```
 
 Resumo:
@@ -132,8 +132,8 @@ Resumo:
 Exemplo opcional de tag de release apos gerar uma versao:
 
 ```bash
-git tag v1.1.3
-git push origin v1.1.3
+git tag v1.1.4
+git push origin v1.1.4
 ```
 
 ## Auto Update

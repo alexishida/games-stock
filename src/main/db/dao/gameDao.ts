@@ -801,28 +801,30 @@ function has(data: Partial<GameCreateInput>, key: keyof GameCreateInput): boolea
  * consistência entre sistemas operacionais.
  */
 function isPathInsideFolder(targetPath: string, normalizedFolder: string): boolean {
+  // Entradas vazias não representam o diretório de trabalho do processo.
+  if (!normalizedFolder || !targetPath.trim()) return false;
   const normalizedTarget = normalizeFsPath(targetPath);
-  // Corresponde ao próprio caminho da pasta ou a qualquer subpath dentro dela
-  return normalizedTarget === normalizedFolder || normalizedTarget.startsWith(`${normalizedFolder}/`);
+  // Raízes já terminam em barra; duplicá-la impedia reconhecer ROMs em C:/ ou /.
+  const prefix = normalizedFolder.endsWith("/") ? normalizedFolder : `${normalizedFolder}/`;
+  return normalizedTarget === normalizedFolder || normalizedTarget.startsWith(prefix);
 }
 
 /**
  * Normaliza um caminho do sistema de arquivos para comparação cross-platform:
  * - Resolve para caminho absoluto
- * - Converte separadores para /
- * - Remove barra final
- * - Converte para minúsculas
+ * - No Windows, converte separadores para / e ignora diferenças de caixa
+ * - Preserva caixa e barras invertidas em nomes Linux
+ * - Mantém o separador de raízes de disco e do filesystem
  */
 function normalizeFsPath(value: string): string {
-  let normalized = path
-    .resolve(value)
-    .replace(/\\/g, "/")  // Windows: \ → /
-    .replace(/\/+$/g, "") // Remove barra final
-    .toLowerCase();
+  if (!value.trim()) return "";
+  // Linux distingue ROMs de roms; ignorar caixa poderia remover itens de outra pasta.
+  let normalized = path.resolve(value);
+  if (process.platform === "win32") normalized = normalized.replace(/\\/g, "/").toLowerCase();
+  normalized = normalized.replace(/\/+$/g, "");
   // Raiz do filesystem (ex.: "/"): sem barra final viraria string vazia.
   if (normalized === "") normalized = "/";
-  // Raiz de drive Windows (ex.: "c:"): sem "/" final, isPathInsideFolder
-  // compararia "c:/arquivo" contra "c:" e nunca casaria.
+  // Restaura o separador de uma raiz de drive Windows após remover barras finais.
   else if (/^[a-z]:$/.test(normalized)) normalized = `${normalized}/`;
   return normalized;
 }
