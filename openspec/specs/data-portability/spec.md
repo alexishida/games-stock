@@ -1,7 +1,7 @@
 # data-portability Specification
 
 ## Purpose
-Exportar e importar dados do GameStock em pacote local versionado, com selecao por categorias e restauracao segura no ambiente atual.
+Definir a portabilidade de dados do GameStock em QML/C++: exportacao/importacao das cinco categorias, backup ZIP64, matching, staging e restauracao segura.
 
 ## Requirements
 ### Requirement: Exportacao seletiva por categoria

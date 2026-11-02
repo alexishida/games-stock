@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Atualizar instalacoes NSIS Windows usando artefatos padrao do electron-builder publicados em GitHub Releases.
+Atualizar instalacoes Windows via manifesto assinado publicado em GitHub Releases, com splash, timeout/offline e atualizacao externa para portatil e Linux.
 
 ## Requirements
 

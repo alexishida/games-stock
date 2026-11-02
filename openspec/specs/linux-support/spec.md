@@ -1,7 +1,7 @@
 # linux-support Specification
 
 ## Purpose
-Definir o suporte oficial do GameStock em Linux, incluindo build distribuivel, execucao desktop e limitacoes conhecidas de atualizacao.
+Definir o suporte oficial do GameStock em Linux com build Qt, execucao desktop e atualizacao externa; a validacao Linux permanece adiada por decisao do usuario.
 
 ## Requirements
 ### Requirement: Artefatos oficiais Linux

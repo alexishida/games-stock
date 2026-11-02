@@ -1,151 +1,125 @@
 # GameStock — Guia para IA
 
-## Stack
+## Stack oficial
 
-- Electron + Vite + React + TypeScript
-- SQLite via better-sqlite3
-- Zustand para estado global no renderer
-- IPC via `contextBridge` (preload exposto em `window.gameStockAPI`)
+- **C++20 + Qt 6.8.3 Quick/QML**, build CMake em `native/`.
+- SQLite via QSQLITE; DAOs em `native/src/db/dao`.
+- Serviços `QObject` tipados e modelos `QAbstractListModel`; QML não contém SQL.
+- libarchive + zlib vendorizados para ZIP/ZIP64 de backup.
+- O runtime distribuído **não** depende de Electron, React, Node ou WebView.
+- O código-fonte Electron/React foi retirado no corte (tarefa 11.5). O backend congelado em
+  `tools/legacy-runtime/` existe apenas para fixtures/compatibilidade e não deve receber
+  funcionalidades novas. Ferramentas Node em `scripts/` servem apenas a fixtures, comparação e
+  assinatura local.
 
 ## Convenções de UI
 
 ### Design
-Sempre que for criar alguma funcionalidade, tela, modal, botão, campos de formulários ou qualquer coisa que use CSS, seguir `.ai-framework/DESIGN.md`.
+Seguir `.ai-framework/DESIGN.md` e os tokens de `native/qml/Theme.qml`. Não redesenhar a identidade,
+tipografia, espaçamentos ou efeitos durante correções comuns.
 
-### Icones
-Usar sempre `lucide-react` para ícones da UI. A dependência deve ficar local no projeto, importando apenas os ícones necessários em cada componente. Não usar Material Symbols, fontes remotas de ícones ou SVG inline quando existir equivalente Lucide.
+### Ícones
+Usar os SVGs Lucide locais em `native/assets/` via `ActionButton`/`NavigationButton`/`Image`. Não
+introduzir família visual diferente, fonte remota ou dependência React no runtime.
 
-### Topo padrao de colecoes
+### Topo padrão de coleções
+Biblioteca e inventário usam o mesmo padrão:
 
-Telas que exibem colecoes navegaveis (biblioteca e inventario) devem usar o mesmo padrao de topo:
-
-- Busca a esquerda, com icone `Search` do `lucide-react`, altura de 34px, largura maxima visual de 480px e placeholder especifico da area.
-- Controles a direita: botao de ordenacao com `ArrowUpDown`, alternancia de visualizacao em cards/lista com `Grid2X2` e `List`, e contador no formato `Exibindo X de Y <entidade>`.
-- A estrutura visual deve reutilizar as classes/padroes da `TopBar` (`topbar`, `topbar-search`, `topbar-menu`, `view-switch`, `topbar-count`) sempre que possivel.
-- O inventario fisico deve obrigatoriamente oferecer as duas visualizacoes: cards e lista. A alternancia do inventario nao deve interferir na visualizacao da biblioteca.
-- Quando um detalhe estiver aberto, o topo pode manter apenas a busca se os controles de lista/cards deixarem de fazer sentido naquele estado.
+- busca à esquerda (34 px, máximo visual 480 px, placeholder específico);
+- ordenação, alternância cards/lista e contador `Exibindo X de Y`;
+- preferências independentes entre biblioteca e inventário;
+- detalhe aberto pode manter apenas a busca.
 
 ### Janelas e modais
 
-**Nunca criar uma `BrowserWindow` separada do Electron para fluxos de UI.**
+- Fluxos de UI são overlays dentro da janela principal (`DragDialog`/QML), nunca janelas extras.
+- Todo modal é arrastável pelo corpo, limitado à área visível, centralizado ao abrir.
+- Controles interativos não iniciam arraste.
+- Modal empilhado escurece a camada inferior (`Theme.stackedScrim`).
+- Ações do rodapé à direita; Cancelar antes da ação principal.
 
-Quando o usuário pedir "abrir uma nova janela", "abrir em uma janela", ou qualquer variante, a implementação correta é sempre um **modal/overlay dentro do renderer React**, seguindo o padrão já usado no projeto:
+## Arquitetura nativa
 
-- Overlay: `position: absolute; inset: 0` dentro de um container `position: relative`
-- Dialog flutuante por cima: div com `border`, `border-radius`, `background: var(--bg-panel)`, `box-shadow`
-- Todo modal React do projeto deve ser **arrastável por padrão**, inclusive modal principal, modal de formulário, modal de confirmação e modal secundário sobreposto, salvo exceção explícita de UX muito bem justificada
-- Reutilizar lógica compartilhada de drag (ex.: hook utilitário no renderer) em vez de reimplementar comportamento diferente em cada modal
-- Ver `.panel-confirm-overlay` + `.confirm-dialog` em `RomFolderImporter.css` como referência
+- `native/src/app`: bootstrap, perfil, lock, janela, canal, caminhos e mídia.
+- `native/src/services`: fachadas `QObject` por domínio; validação e orquestração.
+- `native/src/db`: schema, migrations, seeds, conexões e DAOs. Toda SQL fica nos DAOs.
+- `native/src/models`: papéis tipados para QML.
+- `native/src/jobs`: `JobRegistry`, `JobManager` e `JobWorker`; progresso fora da thread gráfica.
+- `native/src/portability` e `native/src/update`: ZIP/ZIP64, manifesto e updater assinado.
+- `native/qml`: `Main.qml`, `Theme.qml` e componentes `qml/components`.
 
-`BrowserWindow` adicional só é justificado para funcionalidade completamente independente da janela principal (ex.: janela de configurações do sistema operacional). Fluxos de cadastro, formulários, confirmações e assistentes sempre usam modal React.
-
-### Padrão de overlay no projeto
-
-```tsx
-// No container pai: position: relative
-<div className="rom-folder-panel"> {/* position: relative */}
-  {overlayOpen && (
-    <div className="panel-confirm-overlay"> {/* position: absolute; inset: 0 */}
-      <div className="confirm-dialog"> {/* o card flutuante */}
-        ...
-      </div>
-    </div>
-  )}
-</div>
-```
-
-## Arquitetura IPC
-
-- Canais definidos em `src/shared/ipc-channels.ts`
-- Handlers registrados em `src/main/index.ts` via `ipcMain.handle`
-- Expostos ao renderer em `src/preload/index.ts` via `contextBridge`
-- Tipos em `src/preload/types.d.ts`
-
-Sempre que adicionar um canal IPC, atualizar os 4 arquivos acima.
+Não expor SQL, filesystem irrestrito, `QProcess` genérico ou objetos internos ao QML. Serviços
+retornam DTOs/mapas estáveis; erros são mensagens acionáveis.
 
 ## Arquitetura SQLite
 
-- Todo código relacionado ao SQLite deve ficar em `src/main/db`.
-- Conexão, schema, migrations simples e seeds ficam em `src/main/db/database.ts`.
-- Chamadas SQL (`prepare`, `transaction`, queries e comandos) devem ficar nos DAOs em `src/main/db/dao`.
-- Repositórios em `src/main/db/repositories` devem ser fachadas finas ou orquestração; não colocar SQL direto neles.
-- Código fora de `src/main/db` deve acessar o banco via repositórios/DAOs exportados, nunca via `better-sqlite3` direto.
+- Conexões pertencem à thread que as criou (`WriteConnection`/`ReadOnlyConnection`).
+- Migrations/seed preservam IDs e dados existentes; nunca `DROP TABLE` como atalho.
+- Foreign keys e timeout habilitados; operações de escrita em transação.
+- Snapshot consistente antes de migration nova; schema futuro é recusado.
+- QML nunca executa SQL nem abre conexões.
 
-## Regra: retrocompatibilidade com dados existentes
+## Retrocompatibilidade com dados existentes
 
-Toda funcionalidade nova, correção de bug, refatoração ou alteração de schema **deve preservar e reaproveitar os dados já populados** no SQLite local do usuário. O app é instalado e usado localmente; o banco do usuário é a fonte da verdade e não pode ser descartado, recriado do zero ou ignorado por conveniência de implementação.
+O banco do usuário é a fonte da verdade. Toda mudança deve funcionar em instalação limpa e em banco
+populado por versões anteriores.
 
-- **Nunca** assumir banco vazio. Toda lógica nova deve funcionar tanto em instalação limpa quanto em banco já populado por versões anteriores.
-- Mudanças de schema devem entrar como migration incremental em `src/main/db/database.ts`, preservando linhas existentes. Não usar `DROP TABLE` + `CREATE TABLE` como atalho para "resetar" estrutura.
-- Ao adicionar coluna nova, definir `DEFAULT` adequado ou backfill explícito na migration para que registros antigos continuem válidos.
-- Ao renomear/remover coluna ou tabela, fazer migration de dados (copiar para nova estrutura) antes de remover a antiga. Nunca exigir que o usuário reimporte ou reconfigure algo que já estava configurado.
-- Correções de bug que envolvem dados sujos ou inconsistentes gerados por versão anterior devem incluir migration de saneamento, não apenas corrigir o código daqui pra frente.
-- Funcionalidades que dependem de novo metadado (ex.: novo campo em jogo, plataforma ou ROM) devem ter fallback explícito quando o dado não existir no registro antigo, e idealmente backfill automático na primeira execução.
-- Importadores, sincronizadores e jobs devem ser idempotentes em relação ao que já existe: reprocessar um item já populado não pode duplicar, sobrescrever silenciosamente ou perder relacionamentos.
-- Chaves de matching para reaproveitamento devem seguir as mesmas estáveis já definidas em portabilidade (plataforma por `name` case-insensitive, jogo por `launchbox_id + platformName` com fallback `title + platformName`, emulador por `name`), nunca IDs autoincrementais.
-- Estado persistido de UI (entradas do importador de ROM, histórico de jobs, flags) deve ser lido com tolerância a campos ausentes — versão antiga do registro não pode quebrar a leitura.
+- Nunca assumir banco vazio ou exigir reimportação.
+- Colunas novas precisam de default/backfill; renomeações exigem migration de dados.
+- Dados sujos de versão anterior recebem saneamento em migration.
+- Importadores/jobs devem ser idempotentes e não duplicar relacionamentos.
+- Chaves de matching estáveis: plataforma por `name`; jogo por `launchbox_id + platformName` ou
+  `title + platformName`; emulador por `name`; nunca IDs autoincrementais do pacote.
+- Estado de UI persistido deve tolerar campos ausentes.
 
-Em PR de feature ou bugfix, considerar explicitamente: "como esse código se comporta no banco de um usuário que já usa o app há meses?" Se a resposta exigir reimport, reset ou intervenção manual do usuário, a abordagem está errada.
+Pergunta obrigatória em feature/bugfix: “como isso se comporta no banco de um usuário que já usa o
+app há meses?”. Se a resposta for reset/reimport, a abordagem está errada.
 
-## Arquitetura de portabilidade de dados
+## Portabilidade e backups
 
-- Fluxos de exportação e importação de dados devem rodar no `main process`, nunca no renderer.
-- UI de portabilidade deve viver dentro de `Configurações`, em modal React já existente. Não criar `BrowserWindow` nova para exportar, importar, revisar ou confirmar restore.
-- Seleção de arquivo/pasta deve usar diálogos nativos via IPC.
-- Pacote de backup deve usar formato zip com extensão sugerida `.gamestock-backup`.
-- Implementação deve reutilizar `adm-zip`, sem adicionar dependência nova para empacotamento do backup.
-- Categorias suportadas devem continuar independentes: `metadata`, `images`, `platforms` e `romLocations`.
-- Importação com escrita em SQLite deve ser transacional. Se falhar, reverter banco e reportar resumo claro do erro.
-- Caminhos de imagens importadas devem ser regravados para diretório de dados atual do app; nunca preservar path absoluto de outra máquina.
-- ROMs físicas não entram no backup. Exportar e importar apenas caminhos de ROM e entradas configuradas de pastas.
-- Entradas do importador de pastas de ROM, histórico de jobs e demais estados persistidos da UI devem ficar no SQLite local, via `src/main/db`, sem depender de `localStorage` do renderer.
-- Matching de importação não deve depender de IDs SQLite brutos do pacote. Preferir chaves estáveis:
-  - Plataformas por `name` case-insensitive.
-  - Jogos por `launchbox_id + platformName`; fallback `title + platformName`.
-  - Emuladores por `name`.
+- Formato `.gamestock-backup` schemaVersion 1 com ZIP/ZIP64 e manifesto assinado/validado.
+- Cinco categorias independentes: `metadata`, `images`, `platforms`, `romLocations`,
+  `inventoryImages`.
+- Exportação/importação em `BackupService`, fora da thread gráfica; UI consome progresso do
+  `JobManager`.
+- Importação é transacional; mídias passam por staging, com rollback e preservação de arquivos
+  preexistentes.
+- Não embutir ROMs físicas; salvar caminhos e configurações de pastas.
+- Caminhos de mídia importados são regravados para o perfil atual, nunca para a máquina de origem.
+
+## Atualizações
+
+- Feed `latest.json` assinado (ECDSA P-256/SHA-256) publicado manualmente em GitHub Releases.
+- Chave privada fica fora do repositório; só a pública entra em `UpdateConfig.h`.
+- Verificar assinatura, SHA-256 e tamanho antes de executar o instalador.
+- Portátil/Linux usam atualização externa; nunca execução in-place.
+- Não publicar releases automaticamente a partir de um agente.
 
 ## Regra: documentação obrigatória de código
 
-Todo arquivo criado ou alterado deve ter comentários em **português (pt-br)**. Sem exceção.
+Todo arquivo criado ou alterado deve ter comentários em **português (pt-br)**.
 
-- **Arquivo novo**: comentário de bloco no topo descrevendo propósito do módulo + JSDoc em todas as funções, interfaces, tipos e constantes exportadas.
-- **Arquivo alterado**: toda função, tipo ou bloco lógico novo ou modificado deve receber comentário. Não é necessário reescrever comentários preexistentes não tocados.
-- Use `//` para comentários inline e `/** */` para JSDoc.
-- Comente o **porquê** em lógica não-óbvia (invariantes, workarounds, restrições ocultas). O **o quê** fica implícito em nomes bem escolhidos.
-- Termos técnicos fixos (IPC, SQLite, Zustand, worker, hook, store, DAO) permanecem em inglês; o restante do comentário em pt-br.
+- Arquivo novo: bloco no topo com propósito + Doxygen `/** */` para classes/funções/tipos exportados.
+- Arquivo alterado: comentar o que foi criado/modificado; não reescrever o que não foi tocado.
+- Comentar o **porquê** em invariantes, workarounds e restrições; o quê fica nos nomes.
+- Termos técnicos fixos (SQLite, DAO, job, worker, provider) permanecem em inglês.
 
-## Regra aprendida: estado assíncrono compartilhado
+## Estado assíncrono compartilhado
 
-Sempre usar Zustand (`src/renderer/store/index.ts`) para qualquer estado assíncrono que precise ser visível em mais de um componente (ex: download em andamento, job de importação, flags de loading global).
+- `JobManager`/`JobRegistry` são a fonte única de jobs; não criar estado paralelo na tela.
+- Progresso atualiza apenas memória/sinais; SQLite recebe início, conclusão, falha e dispensa.
+- `running` vira `interrupted` na reabertura; retomada não pode duplicar entidades.
 
-Nunca usar `window.dispatchEvent` como mecanismo de estado compartilhado. Eventos são fire-and-forget — componentes que montam depois do evento já ter sido emitido perdem o estado. O Zustand persiste o valor e qualquer componente lê o estado atual ao montar.
+## Modais e empilhamento (QML)
 
-## Regra aprendida: modais empilhados
+- Reutilizar `DragDialog`/`ConfirmDialog`; não duplicar drag em cada tela.
+- O fundo é desfocado na superfície principal (`blurDepth`), não no painel do modal.
+- Overlay apenas escurece; escurecimento maior quando há modal empilhado.
+- Modais devem caber na janela mínima (1024×768) e preservar foco/Escape.
 
-Quando já existir um modal aberto e outro modal/confirmação for aberto acima dele, o modal de trás deve receber nova camada escura semi-transparente. Isso vale para 2º, 3º, 4º modal e seguintes, para manter o modal de cima mais legível.
+## Testes
 
-Exemplo atual: `.panel-confirm-overlay` em `RomFolderImporter.css` deve usar `background: rgba(...)` quando usado dentro do modal de configurações. O modal filho continua com `border`, `border-radius`, `background: var(--bg-panel)` e `box-shadow`.
-
-## Regra aprendida: todos modais arrastaveis
-
-Todo modal React do projeto deve ser arrastável dentro da área da janela principal. Isso inclui modal principal, modal secundário, confirmação, assistente, formulário e modal aberto sobre outro modal. Use overlay React, não `BrowserWindow`.
-
-- O drag deve funcionar pelo corpo do modal sempre que possível.
-- Controles interativos (`button`, `input`, `select`, `textarea`, `label`, links e elementos com `role="button"`) não devem iniciar drag, para manter clique, foco e seleção funcionando.
-- O modal deve iniciar centralizado e ter deslocamento limitado para não sair da área visível da janela.
-- Para mover modal arrastável, preferir `position: relative/fixed` com `top/left` ou variáveis equivalentes. Evitar `transform: translate(...)` no container do modal quando ele puder abrir outro modal por cima, porque isso prende overlays `position: fixed` filhos ao retângulo do modal pai.
-- Quando o modal precisar cobrir toda a área arrastável, usar overlay `position: fixed; inset: 0`; para modal empilhado, permitir fundo transparente quando isso fizer mais sentido visual.
-- Em implementação nova, preferir reutilizar hook/utilitário compartilhado de drag em vez de duplicar lógica inline.
-- Só abrir exceção para modal não arrastável quando houver motivo claro de UX e isso for descrito explicitamente na tarefa.
-- Botões de ação no rodapé de modal devem ficar alinhados à direita (`justify-content: flex-end`) com gap consistente.
-
-## Regra aprendida: persistência de jobs assíncronos
-
-Actions de progresso de jobs (`updateRomImportProgress`, `updateMediaSyncProgress`, `updateDataPortabilityProgress`) **nunca** devem chamar `setPersistedXxx()`. Escrever SQLite a cada tick gera centenas de writes por segundo durante imports ativos.
-
-Persistir apenas em transições de estado terminal:
-- Job **start** → persiste `status: "running"` (para detectar "interrupted" após crash)
-- Job **complete / fail** → persiste estado final
-- Job **dismiss** → remove do SQLite
-
-Ticks de progresso atualizam apenas o estado Zustand em memória. A detecção de "interrupted" funciona porque qualquer job com `status: "running"` lido do SQLite na inicialização é convertido para `"interrupted"` pelo próprio `getPersistedXxx()`.
+- CTest para DAOs/serviços/jobs/ZIP/updater; QML tests para telas e interações.
+- Usar sempre perfis/DBs temporários e fixtures sintéticas; nunca o perfil real.
+- Testes de migração/backup/updater não podem depender de rede externa nem de segredos do usuário.
+- Alterações de UI devem manter a comparação visual contra `artifacts/native-migration`.

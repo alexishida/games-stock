@@ -1,7 +1,7 @@
 # app-shell Specification
 
 ## Purpose
-Definir a base do aplicativo desktop GameStock: bootstrap do Electron, janela principal, fronteira IPC segura, inicializacao do banco local e protocolo interno de midia.
+Definir a base do aplicativo desktop GameStock em Qt: bootstrap, janela principal, servicos tipados, inicializacao do banco local e provider de midia.
 
 ## Requirements
 ### Requirement: Janela principal Electron

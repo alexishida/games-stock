@@ -2,55 +2,21 @@
   "name": "gamestock",
   "version": "1.1.4",
   "description": "Desktop game collection manager for ROM libraries and physical inventory.",
+  "private": true,
   "author": {
     "name": "Alex Ishida",
     "email": "alexishida@gmail.com"
   },
-  "main": "dist/main/bootstrap.js",
-  "type": "commonjs",
   "scripts": {
-    "sync:build-meta": "node scripts/write-build-meta.cjs",
-    "predev": "npm run sync:build-meta",
-    "dev": "concurrently -k --success first -n VITE,TSC,PRELOAD,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"node scripts/build-preload.cjs --watch\" \"node scripts/dev-electron.cjs\"",
-    "predev:windows": "npm run sync:build-meta",
-    "dev:windows": "concurrently -k --success first -n VITE,TSC,PRELOAD,ELECTRON \"vite --host 127.0.0.1\" \"tsc -p tsconfig.main.json -w\" \"node scripts/build-preload.cjs --watch\" \"node scripts/dev-electron.cjs\"",
-    "prebuild:renderer": "npm run sync:build-meta",
-    "build:renderer": "vite build",
-    "prebuild:main": "npm run sync:build-meta",
-    "build:preload": "node scripts/build-preload.cjs",
-    "build:main": "tsc -p tsconfig.main.json && npm run build:preload",
-    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json --noEmit",
-    "test": "npm run typecheck",
-    "dist:windows": "node scripts/build-distribution.cjs --win",
-    "dist:linux": "node scripts/build-distribution.cjs --linux",
+    "fixtures": "node scripts/native-fixtures.cjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "7zip-bin": "^5.2.0",
-    "adm-zip": "^0.6.0",
-    "better-sqlite3": "^13.0.3",
-    "electron-updater": "^6.8.9",
-    "lucide-react": "^1.14.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "sharp": "^0.35.3",
-    "xml2js": "^0.6.2",
-    "zustand": "^5.0.0"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.7",
-    "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@types/sharp": "^0.31.1",
-    "@types/xml2js": "^0.4.14",
-    "@vitejs/plugin-react": "^5.0.0",
-    "concurrently": "^9.2.1",
     "electron": "^43.3.0",
-    "electron-builder": "^26.15.0",
-    "typescript": "^5.0.0",
-    "vite": "^7.3.5",
-    "wait-on": "^9.0.0"
+    "electron-builder": "^26.15.0"
   }
 }

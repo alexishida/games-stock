@@ -4,3 +4,12 @@ node_modules/
 *.db
 *.db-*
 layout-padrao/
+# Ferramentas e artefatos locais da migração Qt não fazem parte dos fontes.
+.native-tools/
+native/build/
+artifacts/native-migration/
+
+# Configurações específicas da máquina e logs de instalação local.
+.vscode/settings.json
+aqtinstall.log
+native/CMakeUserPresets.json

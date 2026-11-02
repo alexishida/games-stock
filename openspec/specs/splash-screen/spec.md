@@ -1,7 +1,7 @@
 # splash-screen Specification
 
 ## Purpose
-Exibir uma tela de inicializacao dedicada ao fluxo automatico de update antes da janela principal, com status de progresso, fallback offline e erro diagnosticavel.
+Exibir a splash de inicializacao do updater Qt antes da janela principal, com progresso, arraste, fallback offline e erro diagnosticavel.
 
 ## Requirements
 ### Requirement: Splash condicional do updater

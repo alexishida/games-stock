@@ -1,0 +1,129 @@
+/* Splash condicional do updater: fases, progresso, arraste e modo offline. */
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import GameStock
+
+Item {
+    id: splash
+    objectName: "updateSplash"
+    property var updateService: null
+    property real offsetX: 0
+    property real offsetY: 0
+    anchors.fill: parent
+    z: 100
+    visible: updateService !== null && updateService !== undefined && updateService.startupVisible
+
+    Rectangle { anchors.fill: parent; color: Theme.scrim }
+
+    Rectangle {
+        id: card
+        objectName: "updateSplashCard"
+        width: Math.min(430, parent.width - 48)
+        height: content.implicitHeight + 40
+        radius: 16
+        color: Theme.panel
+        border.color: Theme.border
+        x: Math.max(0, Math.min(parent.width - width, (parent.width - width) / 2 + splash.offsetX))
+        y: Math.max(0, Math.min(parent.height - height, (parent.height - height) / 2 + splash.offsetY))
+
+        DragHandler {
+            target: null
+            acceptedButtons: Qt.LeftButton
+            grabPermissions: PointerHandler.TakeOverForbidden
+            property real startX: 0
+            property real startY: 0
+            onActiveChanged: if (active) { startX = splash.offsetX; startY = splash.offsetY }
+            onTranslationChanged: if (active) {
+                splash.offsetX = startX + translation.x
+                splash.offsetY = startY + translation.y
+            }
+        }
+
+        ColumnLayout {
+            id: content
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                Image {
+                    Layout.preferredWidth: 96
+                    Layout.preferredHeight: 52
+                    source: "qrc:/qt/qml/GameStock/assets/logo.png"
+                    fillMode: Image.PreserveAspectFit
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+                    Text { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; font.weight: Font.ExtraBold; font.letterSpacing: 1.2 }
+                    Text { text: "GameStock"; color: Theme.text; font.pixelSize: 22; font.weight: Font.Black }
+                    Text { text: "v" + (splash.updateService ? splash.updateService.appVersion : ""); color: Theme.secondary; font.pixelSize: 11 }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
+
+            Text {
+                objectName: "updateSplashMessage"
+                Layout.fillWidth: true
+                text: splash.updateService ? splash.updateService.message : ""
+                color: Theme.text
+                font.pixelSize: 13
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                objectName: "updateSplashDetail"
+                Layout.fillWidth: true
+                visible: splash.updateService && splash.updateService.error.length > 0
+                text: splash.updateService ? splash.updateService.error : ""
+                color: "#ffb4ab"
+                font.pixelSize: 11
+                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 8
+                radius: 4
+                color: Theme.control
+                visible: splash.updateService && (splash.updateService.phase === "downloading" || splash.updateService.phase === "applying")
+                Rectangle {
+                    width: parent.width * (splash.updateService ? splash.updateService.percent : 0) / 100
+                    height: parent.height
+                    radius: 4
+                    color: Theme.accent
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: splash.updateService && splash.updateService.version.length > 0
+                text: splash.updateService ? ("Disponível: v" + splash.updateService.version
+                    + (splash.updateService.releaseDate.length > 0 ? " · " + splash.updateService.releaseDate : "")) : ""
+                color: Theme.secondary
+                font.pixelSize: 11
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: splash.updateService && splash.updateService.notes.length > 0
+                text: splash.updateService ? splash.updateService.notes : ""
+                color: Theme.muted
+                font.pixelSize: 11
+                wrapMode: Text.WordWrap
+                maximumLineCount: 3
+                elide: Text.ElideRight
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                ActionButton {
+                    objectName: "continueOffline"
+                    text: "Continuar offline"
+                    visible: splash.updateService && splash.updateService.requiresAction
+                    onClicked: if (splash.updateService) splash.updateService.skip()
+                }
+            }
+        }
+    }
+}

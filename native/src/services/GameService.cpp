@@ -1,0 +1,505 @@
+/** Implementação da fachada da biblioteca; toda a SQL fica nos DAOs. */
+#include "GameService.h"
+
+#include "app/DataPaths.h"
+#include "db/LibraryFilterState.h"
+#include "db/dao/GameWriteDao.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QRegularExpression>
+#include <QSqlError>
+
+#include <algorithm>
+
+namespace gamestock {
+namespace {
+/** Extensões reconhecidas como mídia de jogo, iguais às do Electron. */
+const QStringList& mediaExtensions() {
+    static const QStringList extensions = {QStringLiteral("jpg"), QStringLiteral("jpeg"),
+        QStringLiteral("png"), QStringLiteral("webp")};
+    return extensions;
+}
+
+/** Classificação semântica pelo prefixo do arquivo, como `mediaKind` do Electron. */
+QString mediaKind(const QString& filePath) {
+    const QString name = QFileInfo(filePath).fileName().toLower();
+    if (name == QLatin1String("cover.jpg")) return QStringLiteral("cover");
+    if (name.startsWith(QLatin1String("box-"))) return QStringLiteral("box-art");
+    if (name.startsWith(QLatin1String("cart-"))) return QStringLiteral("cart");
+    if (name.startsWith(QLatin1String("fanart-background"))) return QStringLiteral("background");
+    if (name.startsWith(QLatin1String("screenshot-"))) return QStringLiteral("screenshot");
+    return QStringLiteral("other");
+}
+
+/** Rótulo legível derivado do nome do arquivo, sem sufixo numérico. */
+QString mediaLabel(const QString& filePath) {
+    QString name = QFileInfo(filePath).completeBaseName().toLower();
+    if (name == QLatin1String("cover")) return QStringLiteral("Cover");
+    name.remove(QRegularExpression(QStringLiteral("-\\d+$")));
+    QStringList parts;
+    for (const QString& part : name.split(QLatin1Char('-'), Qt::SkipEmptyParts)) {
+        QString capitalized = part;
+        if (!capitalized.isEmpty()) capitalized[0] = capitalized.at(0).toUpper();
+        parts.append(capitalized);
+    }
+    return parts.join(QLatin1Char(' '));
+}
+
+/** Peso de exibição: capas, carts, fundos, screenshots e demais arquivos. */
+int mediaSortWeight(const QString& kind) {
+    if (kind == QLatin1String("cover")) return 0;
+    if (kind == QLatin1String("box-art")) return 1;
+    if (kind == QLatin1String("cart")) return 2;
+    if (kind == QLatin1String("background")) return 3;
+    if (kind == QLatin1String("screenshot")) return 4;
+    return 5;
+}
+
+/** Confirma que o diretório existe dentro da raiz autorizada do perfil. */
+QString allowedDirectory(const QString& root, const QString& directory) {
+    if (root.isEmpty() || directory.isEmpty()) return {};
+    const QFileInfo rootInfo(root);
+    const QFileInfo directoryInfo(directory);
+    if (!rootInfo.isDir() || !directoryInfo.isDir()) return {};
+    const QString canonicalRoot = rootInfo.canonicalFilePath();
+    const QString canonicalDirectory = directoryInfo.canonicalFilePath();
+    if (canonicalRoot.isEmpty() || canonicalDirectory.isEmpty()) return {};
+    const QString prefix = canonicalRoot.endsWith(QLatin1Char('/')) ? canonicalRoot : canonicalRoot + QLatin1Char('/');
+    return canonicalDirectory.startsWith(prefix, Qt::CaseSensitive) ? canonicalDirectory : QString();
+}
+} // namespace
+
+GameService::GameService(QObject* parent) : QObject(parent) {}
+
+bool GameService::open(const QString& databasePath, QString* error) {
+    QString localError;
+    if (!connection_.open(databasePath, &localError)) {
+        error_ = localError;
+        if (error) *error = localError;
+        emit changed();
+        return false;
+    }
+    open_ = true;
+    if (mediaRoot_.isEmpty()) mediaRoot_ = QFileInfo(databasePath).absolutePath();
+    // Preferências legadas precedem defaults, sem gravar nada durante a hidratação.
+    loading_ = true;
+    LibraryFilterStore preferences(connection_.database());
+    LibraryFilterState state;
+    bool present = false;
+    QString preferenceError;
+    if (preferences.load(&state, &present, &preferenceError) && present) {
+        genre_ = state.selectedCategory;
+        collection_ = state.collectionFilter;
+        includeMissingCovers_ = state.showGamesWithoutCover;
+        sortBy_ = state.sortBy;
+        viewMode_ = state.viewMode;
+    } else if (!preferenceError.isEmpty()) {
+        qWarning("Preferências da biblioteca indisponíveis: %s", qPrintable(preferenceError));
+    }
+    loading_ = false;
+    refresh();
+    if (!error_.isEmpty()) {
+        if (error) *error = error_;
+        return false;
+    }
+    if (error) error->clear();
+    return true;
+}
+
+bool GameService::isOpen() const { return open_; }
+void GameService::setMediaRoot(const QString& path) { mediaRoot_ = path; }
+QAbstractItemModel* GameService::model() { return &model_; }
+
+QVariantMap GameService::platformCounts() const {
+    QVariantMap result;
+    for (auto it = counts_.platforms.cbegin(); it != counts_.platforms.cend(); ++it) {
+        result.insert(QString::number(it.key()), it.value());
+    }
+    return result;
+}
+
+GameListFilters GameService::filters() const {
+    GameListFilters value;
+    value.platformId = platformId_;
+    value.search = search_;
+    value.genre = genre_;
+    value.collection = collection_;
+    value.sortBy = sortBy_;
+    value.includeMissingCovers = includeMissingCovers_;
+    return value;
+}
+
+void GameService::savePreferences() {
+    if (!open_ || loading_) return;
+    LibraryFilterState state;
+    state.selectedCategory = genre_;
+    state.collectionFilter = collection_;
+    state.showGamesWithoutCover = includeMissingCovers_;
+    state.sortBy = sortBy_;
+    state.viewMode = viewMode_;
+    LibraryFilterStore store(connection_.database());
+    QString error;
+    if (!store.save(state, &error)) {
+        error_ = error;
+        emit changed();
+    }
+}
+
+void GameService::decorate(QVariantMap* game) {
+    if (!game) return;
+    game->insert(QStringLiteral("coverUrl"),
+        GameListModel::coverUrl(game->value(QStringLiteral("box_art_path")).toString()));
+}
+
+void GameService::refresh() {
+    if (!open_) return;
+    GameReadDao dao(connection_.database());
+    GamePage result;
+    QString error;
+    // A página selecionada é revalidada contra o conjunto filtrado atual.
+    if (!dao.list(page_, pageSize_, &result, &error, filters())) {
+        error_ = error;
+        emit changed();
+        return;
+    }
+    if (result.items.isEmpty() && page_ > 1) {
+        page_ = 1;
+        if (!dao.list(page_, pageSize_, &result, &error, filters())) {
+            error_ = error;
+            emit changed();
+            return;
+        }
+    }
+    total_ = result.total;
+    filtered_ = result.filtered;
+    // A página vira lista de mapas com a URL de mídia já resolvida para o QML.
+    items_.clear();
+    for (QVariantMap game : result.items) {
+        decorate(&game);
+        items_.append(game);
+    }
+    model_.setGames(result.items);
+    if (!dao.listGenres(&genres_, &error)) {
+        error_ = error;
+        emit changed();
+        return;
+    }
+    if (!dao.sidebarCounts(filters(), &counts_, &error)) {
+        error_ = error;
+        emit changed();
+        return;
+    }
+    if (!dao.launchStats(&launchStats_, &error)) {
+        error_ = error;
+        emit changed();
+        return;
+    }
+    if (!dao.coverStats(&coverStats_, &error)) {
+        error_ = error;
+        emit changed();
+        return;
+    }
+    error_.clear();
+    emit changed();
+}
+
+void GameService::setSearch(const QString& value) {
+    if (search_ == value) return;
+    search_ = value;
+    page_ = 1;
+    refresh();
+}
+
+void GameService::setGenre(const QString& value) {
+    if (genre_ == value) return;
+    genre_ = value;
+    page_ = 1;
+    refresh();
+    savePreferences();
+}
+
+void GameService::setCollection(const QString& value) {
+    if (collection_ == value) return;
+    collection_ = value;
+    page_ = 1;
+    refresh();
+    savePreferences();
+}
+
+void GameService::setSortBy(const QString& value) {
+    if (sortBy_ == value) return;
+    sortBy_ = value;
+    page_ = 1;
+    refresh();
+    savePreferences();
+}
+
+void GameService::setViewMode(const QString& value) {
+    if (value != QLatin1String("grid") && value != QLatin1String("list")) return;
+    if (viewMode_ == value) return;
+    viewMode_ = value;
+    savePreferences();
+    emit changed();
+}
+
+void GameService::setPlatformId(qint64 value) {
+    if (platformId_ == value) return;
+    platformId_ = value;
+    page_ = 1;
+    refresh();
+}
+
+void GameService::setIncludeMissingCovers(bool value) {
+    if (includeMissingCovers_ == value) return;
+    includeMissingCovers_ = value;
+    page_ = 1;
+    refresh();
+    savePreferences();
+}
+
+void GameService::setPageSize(int value) {
+    if (value <= 0 || value > 1000 || pageSize_ == value) return;
+    pageSize_ = value;
+    page_ = 1;
+    refresh();
+}
+
+void GameService::goToPage(int value) {
+    if (value < 1 || value == page_) return;
+    page_ = value;
+    refresh();
+}
+
+QVariantMap GameService::get(qint64 id) {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return {};
+    }
+    GameReadDao dao(connection_.database());
+    QVariantMap game;
+    QString error;
+    if (!dao.get(id, &game, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    decorate(&game);
+    error_.clear();
+    return game;
+}
+
+QVariantMap GameService::create(const QVariantMap& input) {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return {};
+    }
+    GameWriteDao dao(connection_.database());
+    qint64 id = 0;
+    QString error;
+    if (!dao.create(input, &id, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    refresh();
+    if (!error_.isEmpty()) return {};
+    return get(id);
+}
+
+bool GameService::update(qint64 id, const QVariantMap& changes) {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return false;
+    }
+    GameWriteDao dao(connection_.database());
+    QString error;
+    if (!dao.update(id, changes, &error)) {
+        error_ = error;
+        emit changed();
+        return false;
+    }
+    refresh();
+    return error_.isEmpty();
+}
+
+bool GameService::remove(qint64 id) {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return false;
+    }
+    GameWriteDao dao(connection_.database());
+    QString error;
+    if (!dao.remove(id, &error)) {
+        error_ = error;
+        emit changed();
+        return false;
+    }
+    refresh();
+    return error_.isEmpty();
+}
+
+QVariantList GameService::listMedia(qint64 id) {
+    QVariantList result;
+    if (!open_) return result;
+    GameReadDao dao(connection_.database());
+    QVariantMap game;
+    QString error;
+    if (!dao.get(id, &game, &error)) {
+        error_ = error;
+        emit changed();
+        return result;
+    }
+
+    // O diretório vem dos caminhos conhecidos do jogo, sempre validado pela raiz autorizada.
+    QString mediaDirectory;
+    for (const QString& key : {QStringLiteral("box_art_path"), QStringLiteral("background_path"),
+             QStringLiteral("screenshot_path")}) {
+        const QString mediaPath = game.value(key).toString();
+        if (mediaPath.isEmpty()) continue;
+        if (!validatedMediaPath(mediaRoot_, mediaPath).isEmpty()) {
+            mediaDirectory = QFileInfo(mediaPath).absolutePath();
+            break;
+        }
+        if (mediaDirectory.isEmpty()) mediaDirectory = allowedDirectory(mediaRoot_, QFileInfo(mediaPath).absolutePath());
+    }
+    if (mediaDirectory.isEmpty()) return result;
+
+    const QFileInfoList entries = QDir(mediaDirectory).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+    QList<QVariantMap> files;
+    for (const QFileInfo& entry : entries) {
+        if (!mediaExtensions().contains(entry.suffix().toLower())) continue;
+        if (mediaKind(entry.absoluteFilePath()) == QLatin1String("cover")) continue;
+        const QString authorized = validatedMediaPath(mediaRoot_, entry.absoluteFilePath());
+        if (authorized.isEmpty()) continue;
+        files.append(QVariantMap{{QStringLiteral("path"), authorized},
+            {QStringLiteral("label"), mediaLabel(authorized)},
+            {QStringLiteral("kind"), mediaKind(authorized)}});
+    }
+    std::stable_sort(files.begin(), files.end(), [](const QVariantMap& left, const QVariantMap& right) {
+        const int leftWeight = mediaSortWeight(left.value(QStringLiteral("kind")).toString());
+        const int rightWeight = mediaSortWeight(right.value(QStringLiteral("kind")).toString());
+        if (leftWeight != rightWeight) return leftWeight < rightWeight;
+        return QString::compare(QFileInfo(left.value(QStringLiteral("path")).toString()).fileName(),
+            QFileInfo(right.value(QStringLiteral("path")).toString()).fileName(), Qt::CaseInsensitive) < 0;
+    });
+    for (const QVariantMap& file : files) result.append(file);
+    error_.clear();
+    return result;
+}
+
+QString GameService::mediaUrl(const QString& path) const {
+    return GameListModel::coverUrl(path);
+}
+
+QVariantList GameService::listVersions(qint64 id) {
+    QVariantList result;
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return result;
+    }
+    GameReadDao dao(connection_.database());
+    QList<QVariantMap> versions;
+    QString error;
+    if (!dao.listVersions(id, &versions, &error)) {
+        error_ = error;
+        emit changed();
+        return result;
+    }
+    for (QVariantMap version : versions) {
+        version.insert(QStringLiteral("coverUrl"),
+            GameListModel::coverUrl(version.value(QStringLiteral("boxArtPath")).toString()));
+        result.append(version);
+    }
+    error_.clear();
+    return result;
+}
+
+QVariantMap GameService::collectionCounts() {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return {};
+    }
+    GameReadDao dao(connection_.database());
+    GameReadDao::CollectionCounts counts;
+    QString error;
+    if (!dao.collectionCounts(&counts, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    error_.clear();
+    return QVariantMap{{QStringLiteral("favorites"), counts.favorites},
+        {QStringLiteral("playing"), counts.playing},
+        {QStringLiteral("completed"), counts.completed},
+        {QStringLiteral("mostPlayed"), counts.mostPlayed}};
+}
+
+QVariantMap GameService::launchStats() {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return {};
+    }
+    GameReadDao dao(connection_.database());
+    GameReadDao::LaunchStats stats;
+    QString error;
+    if (!dao.launchStats(&stats, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    launchStats_ = stats;
+    error_.clear();
+    emit changed();
+    return QVariantMap{{QStringLiteral("totalLaunches"), stats.totalLaunches},
+        {QStringLiteral("playedGames"), stats.playedGames}};
+}
+
+QVariantMap GameService::coverStats() {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return {};
+    }
+    GameReadDao dao(connection_.database());
+    GameReadDao::CoverStats stats;
+    QString error;
+    if (!dao.coverStats(&stats, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    coverStats_ = stats;
+    error_.clear();
+    emit changed();
+    return QVariantMap{{QStringLiteral("total"), stats.total},
+        {QStringLiteral("downloaded"), stats.downloaded}, {QStringLiteral("missing"), stats.missing},
+        {QStringLiteral("syncable"), stats.syncable}, {QStringLiteral("metadataSyncable"), stats.metadataSyncable}};
+}
+
+QVariantMap GameService::resetLaunchStats() {
+    if (!open_) {
+        error_ = QStringLiteral("Banco da biblioteca indisponível.");
+        emit changed();
+        return {};
+    }
+    GameWriteDao dao(connection_.database());
+    qint64 updated = 0;
+    QString error;
+    if (!dao.resetLaunchCounts(&updated, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    refresh();
+    if (!error_.isEmpty()) return {};
+    return QVariantMap{{QStringLiteral("success"), true}, {QStringLiteral("updated"), updated}};
+}
+} // namespace gamestock

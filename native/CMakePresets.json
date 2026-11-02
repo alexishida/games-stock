@@ -1,0 +1,41 @@
+{
+  "version": 6,
+  "vendor": {
+    "gamestock.dev/migration": {
+      "comentario": "Presets isolados para validar a migração sem substituir o build Electron."
+    }
+  },
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows-msvc",
+      "displayName": "Protótipo Windows x64 com Qt local e MSVC 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/windows-msvc",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "${sourceDir}/../.native-tools/Qt/6.8.3/msvc2022_64",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "linux-gcc",
+      "displayName": "Protótipo Linux x86_64 com Qt configurado em QT_ROOT",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-gcc",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT}",
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "Release" },
+    { "name": "linux-gcc", "configurePreset": "linux-gcc" }
+  ],
+  "testPresets": [
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "linux-gcc", "configurePreset": "linux-gcc", "output": { "outputOnFailure": true } }
+  ]
+}
