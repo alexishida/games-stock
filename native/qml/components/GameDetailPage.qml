@@ -293,9 +293,10 @@ Item {
                     id: aboutContent
                     anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
                     anchors.margins: 16
-                    spacing: 6
+                    /* CSS: h2 com margin-bottom 12px e parágrafo com line-height 1.6. */
+                    spacing: 12
                     UiText { text: "Descrição"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
-                    UiText { text: page.game.notes && page.game.notes.trim().length ? page.game.notes : "Sem descrição cadastrada para este jogo."; color: Theme.secondary; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    UiText { text: page.game.notes && page.game.notes.trim().length ? page.game.notes : "Sem descrição cadastrada para este jogo."; color: Theme.secondary; font.pixelSize: 14; lineHeight: 1.6; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 }
             }
             Rectangle {
@@ -311,7 +312,8 @@ Item {
                     id: fileContent
                     anchors.fill: parent
                     anchors.margins: 16
-                    spacing: 8
+                    /* O h2 do CSS usa margin 0 0 12px antes da lista dt/dd. */
+                    spacing: 12
                     UiText { text: "Arquivo"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
                     /* Cada linha distribui seu proprio espaco, como os pares dt/dd do CSS. */
                     ColumnLayout {
@@ -329,7 +331,8 @@ Item {
                             visible: page.versions.length > 1
                             spacing: 14
                             UiText { text: "Arquivos encontrados"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            UiText { text: page.versions.map(function(v) { return v.romFileName || "" }).filter(function(v, i, a) { return v.length > 0 && a.indexOf(v) === i }).join("\n"); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            /* detail-info-row-wrap usa max-width 95% para caber os nomes em uma linha. */
+                            UiText { text: page.versions.map(function(v) { return v.romFileName || "" }).filter(function(v, i, a) { return v.length > 0 && a.indexOf(v) === i }).join("\n"); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.95; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
                         }
                         RowLayout {
                             Layout.fillWidth: true

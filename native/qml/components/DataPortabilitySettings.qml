@@ -116,7 +116,8 @@ Item {
                             spacing: 6
                             RowLayout {
                                 spacing: 8
-                                Image { source: "qrc:/icons/" + modelData.icon + "-active.svg"; sourceSize: Qt.size(16, 16) }
+                                /* O DOM de referência usa ícones lucide de 18 px nos cards de status. */
+                                Image { source: "qrc:/icons/" + modelData.icon + "-active.svg"; sourceSize: Qt.size(18, 18) }
                                 UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                             }
                             UiText { text: modelData.value; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
