@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Aba Sobre: identidade, estatísticas do perfil e manutenção local. */
 import QtQuick
 import QtQuick.Controls
@@ -24,53 +26,56 @@ Item {
 
         ColumnLayout {
             id: content
-            width: parent.width
+            width: Math.min(616, parent.width)
+            anchors.horizontalCenter: parent.horizontalCenter
             spacing: 14
 
-            ColumnLayout {
+            SectionIntro {
                 Layout.fillWidth: true
-                spacing: 2
-                Text { text: "Sobre o GameStock"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-                Text {
-                    text: "Versão instalada, dados locais e manutenção rápida do aplicativo."
-                    color: Theme.secondary
-                    font.pixelSize: 12
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
+                title: "Sobre o GameStock"
+                description: "Versão instalada, dados locais e manutenção rápida do aplicativo."
+                bottomGap: 0
             }
 
             Rectangle {
                 Layout.fillWidth: true
-                implicitHeight: heroRow.implicitHeight + 32
-                radius: 16
-                color: "#dc201f1f"
+                implicitHeight: 170
+                radius: 8
+                color: "#06ffffff"
                 border.color: Theme.border
                 RowLayout {
                     id: heroRow
                     anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 18
+                    anchors.margins: 20
+                    spacing: 20
                     ColumnLayout {
-                        Layout.preferredWidth: 180
-                        spacing: 8
+                        Layout.preferredWidth: 150
+                        spacing: 10
                         Image {
-                            Layout.preferredWidth: 160
-                            Layout.preferredHeight: 110
+                            Layout.preferredWidth: 132
+                            Layout.preferredHeight: 96
+                            Layout.alignment: Qt.AlignHCenter
                             source: "qrc:/qt/qml/GameStock/assets/logo.png"
                             fillMode: Image.PreserveAspectFit
                         }
                         Rectangle {
-                            Layout.alignment: Qt.AlignLeft
+                            Layout.alignment: Qt.AlignHCenter
                             implicitWidth: versionText.implicitWidth + 14
-                            implicitHeight: 22
+                            implicitHeight: 24
                             radius: 11
                             color: Theme.accentSoft
                             border.color: Theme.borderStrong
-                            Text { id: versionText; anchors.centerIn: parent; text: "v" + (about.buildLabel || "—"); color: Theme.accent; font.pixelSize: 11; font.weight: Font.Bold }
+                            UiText { id: versionText; anchors.centerIn: parent; text: "v" + (about.buildLabel || "—"); color: Theme.accent; font.pixelSize: 11; textWeight: Font.Bold }
+                            /* Canal nativo permanece consultável na versão sem alterar a tabela original. */
+                            HoverHandler { id: versionHover }
+                            ToolTip {
+                                objectName: "aboutChannel"
+                                visible: versionHover.hovered
+                                text: about.settingsService && about.settingsService.channel.length > 0 ? about.settingsService.channel : "—"
+                            }
                         }
                     }
-                    Text {
+                    UiText {
                         Layout.fillWidth: true
                         text: "Organizador de biblioteca para jogos com cadastro manual, importação de ROMs, gerenciamento de mídia e integração com emuladores."
                         color: Theme.secondary
@@ -82,52 +87,47 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
-                implicitHeight: metaColumn.implicitHeight + 32
-                radius: 16
-                color: "#dc201f1f"
+                implicitHeight: metaColumn.implicitHeight + 2
+                radius: 8
+                color: "#06ffffff"
                 border.color: Theme.border
                 ColumnLayout {
                     id: metaColumn
                     anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 10
+                    anchors.margins: 1
+                    spacing: 0
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "JOGOS NA BIBLIOTECA"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.6; Layout.fillWidth: true }
-                        Text {
+                        Layout.preferredHeight: 40
+                        Layout.leftMargin: 14; Layout.rightMargin: 14
+                        UiText { text: "JOGOS NA BIBLIOTECA"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
+                        UiText {
                             objectName: "aboutTotalGames"
                             text: about.settingsService && about.settingsService.totalGames >= 0 ? about.settingsService.totalGames + " jogos" : (about.settingsService && about.settingsService.statsLoading ? "Carregando..." : "—")
                             color: Theme.text
                             font.pixelSize: 13
-                            font.weight: Font.Bold
+                            textWeight: Font.Bold
                         }
                     }
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "ESPAÇO EM DISCO"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.6; Layout.fillWidth: true }
-                        Text {
+                        Layout.preferredHeight: 40
+                        Layout.leftMargin: 14; Layout.rightMargin: 14
+                        UiText { text: "ESPAÇO EM DISCO"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
+                        UiText {
                             objectName: "aboutDataSize"
                             text: about.settingsService ? about.sizeLabel(about.settingsService.dataDirSizeMb) : "—"
                             color: Theme.text
                             font.pixelSize: 13
-                            font.weight: Font.Bold
+                            textWeight: Font.Bold
                         }
                     }
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "CANAL"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.6; Layout.fillWidth: true }
-                        Text {
-                            objectName: "aboutChannel"
-                            text: about.settingsService && about.settingsService.channel.length > 0 ? about.settingsService.channel : "—"
-                            color: Theme.text
-                            font.pixelSize: 13
-                            font.weight: Font.Bold
-                        }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text { text: "CRIADO POR"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.6; Layout.fillWidth: true }
-                        Text { text: "Alex Ishida"; color: Theme.accent; font.pixelSize: 13; font.weight: Font.Bold }
+                        Layout.preferredHeight: 40
+                        Layout.leftMargin: 14; Layout.rightMargin: 14
+                        UiText { text: "CRIADO POR"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
+                        UiText { text: "Alex Ishida"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Bold }
                     }
                 }
             }
@@ -137,6 +137,7 @@ Item {
                 spacing: 8
                 ActionButton {
                     objectName: "openDataDir"
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 50; wrapLabel: true
                     text: "Abrir pasta de dados"
                     iconName: "folder-open"
                     enabled: about.settingsService !== null
@@ -144,6 +145,7 @@ Item {
                 }
                 ActionButton {
                     objectName: "checkUpdate"
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 50; wrapLabel: true
                     text: about.updateService && about.updateService.running ? "Buscando..." : "Buscar atualização"
                     iconName: "refresh-cw"
                     enabled: about.updateService !== null && !about.updateService.running
@@ -151,12 +153,12 @@ Item {
                 }
                 ActionButton {
                     objectName: "clearRomCache"
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 50; wrapLabel: true
                     text: "Limpar cache de ROMs extraídas"
                     iconName: "trash-2"
                     enabled: about.settingsService !== null
                     onClicked: about.settingsService.clearRomCache()
                 }
-                Item { Layout.fillWidth: true }
             }
 
             Rectangle {
@@ -176,8 +178,8 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 2
-                            Text { text: "Atualizações"; color: Theme.text; font.pixelSize: 14; font.weight: Font.Bold }
-                            Text {
+                            UiText { text: "Atualizações"; color: Theme.text; font.pixelSize: 14; textWeight: Font.Bold }
+                            UiText {
                                 objectName: "aboutUpdateStatus"
                                 text: about.updateService ? about.updateService.message : "Updater indisponível."
                                 color: about.updateService && about.updateService.phase === "error" ? "#ffb4ab" : Theme.secondary
@@ -203,7 +205,7 @@ Item {
                 }
             }
 
-            Text {
+            UiText {
                 objectName: "aboutCacheFeedback"
                 visible: text.length > 0
                 text: about.settingsService ? about.settingsService.cacheFeedback : ""
@@ -212,7 +214,7 @@ Item {
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
-            Text {
+            UiText {
                 text: "O lançamento de arquivos .zip e .7z reaproveita extrações temporárias no cache. Limpar esse cache remove só arquivos temporários, sem apagar suas ROMs originais."
                 color: Theme.muted
                 font.pixelSize: 11

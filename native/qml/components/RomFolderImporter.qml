@@ -1,3 +1,6 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
+/* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Painel de importação de ROMs por pasta com revisão e histórico persistido. */
 import QtQuick
 import QtQuick.Controls
@@ -134,19 +137,13 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 12
-        RowLayout {
+        SectionIntro {
             Layout.fillWidth: true
-            spacing: 12
-            ColumnLayout {
-                spacing: 2
-                Text { text: "Pastas em uso"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-                Text {
-                    text: "Pastas já configuradas para importação, com a plataforma associada e o total de jogos indexados."
-                    color: Theme.secondary; font.pixelSize: 12
-                }
-            }
+            title: "Pastas em uso"
+            description: "Pastas já configuradas para importação, com a plataforma associada e o total de jogos indexados."
+            bottomGap: 0
         }
-        Text {
+        UiText {
             objectName: "romFolderError"
             visible: errorText.length > 0
             text: errorText
@@ -157,19 +154,22 @@ Item {
         }
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(240, 52 + Math.max(1, folderList.count) * 54)
-            color: "#d1121212"
-            radius: 10
+            Layout.preferredHeight: Math.min(240, 40 + Math.max(1, folderList.count) * 40)
+            color: "#0bffffff"
+            radius: 0
             border.color: Theme.border
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 12
-                spacing: 8
+                anchors.margins: 0
+                spacing: 0
                 RowLayout {
                     Layout.fillWidth: true
-                    Text { text: "PASTA"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth: 80 }
-                    Text { text: "PLATAFORMA"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold; Layout.preferredWidth: 130 }
-                    Text { text: "JOGOS"; color: Theme.muted; font.pixelSize: 11; font.weight: Font.DemiBold; Layout.preferredWidth: 50 }
+                    Layout.preferredHeight: 38
+                    Layout.leftMargin: 12
+                    Layout.rightMargin: 12
+                    UiText { text: "Pasta"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.Bold; Layout.fillWidth: true; Layout.minimumWidth: 80 }
+                    UiText { text: "Plataforma"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.Bold; Layout.preferredWidth: 180 }
+                    UiText { text: "Jogos"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.Bold; Layout.preferredWidth: 72 }
                     Item { Layout.fillWidth: true }
                 }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
@@ -179,14 +179,14 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    spacing: 4
+                    spacing: 0
                     model: root.folders
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
                         objectName: "romFolderRow" + index
                         width: folderList.width
-                        height: 54
+                        height: 40
                         radius: 6
                         color: root.selectedIndex === index ? Theme.accentSoft : (rowArea.containsMouse ? Theme.controlHover : "transparent")
                         RowLayout {
@@ -194,25 +194,25 @@ Item {
                             anchors.leftMargin: 8
                             anchors.rightMargin: 8
                             spacing: 12
-                            Text {
+                            UiText {
                                 text: modelData.folderPath
                                 color: Theme.text; font.pixelSize: 12
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 80
                             }
-                            Text {
+                            UiText {
                                 text: modelData.platformName ? modelData.platformName : "—"
                                 color: Theme.secondary; font.pixelSize: 12
-                                Layout.preferredWidth: 130
+                                Layout.preferredWidth: 180
                                 elide: Text.ElideRight
                             }
-                            Text {
+                            UiText {
                                 text: modelData.indexedCount !== undefined ? modelData.indexedCount : 0
-                                color: Theme.accent; font.pixelSize: 12; font.weight: Font.DemiBold
-                                Layout.preferredWidth: 50
+                                color: Theme.accent; font.pixelSize: 12; textWeight: Font.DemiBold
+                                Layout.preferredWidth: 72
                             }
-                            Text {
+                            UiText {
                                 visible: modelData.includeSubfolders === true
                                 text: "subpastas"
                                 color: Theme.muted; font.pixelSize: 11
@@ -229,8 +229,9 @@ Item {
                             ActionButton {
                                 objectName: "removeFolder" + index
                                 iconName: "trash-2-danger"
-                                toolbar: true
                                 dangerOutline: true
+                                implicitWidth: 28
+                                implicitHeight: 28
                                 Accessible.name: "Remover pasta"
                                 enabled: root.serviceMode && !root.busy
                                 onClicked: { root.selectedIndex = index; root.deleteOpen = true; deleteDialog.open() }
@@ -246,7 +247,7 @@ Item {
                         }
                     }
                 }
-                Text {
+                UiText {
                     visible: folderList.count === 0
                     text: root.serviceMode
                         ? "Nenhuma pasta configurada. Use \"Adicionar pasta\" para começar."
@@ -297,7 +298,7 @@ Item {
                 visible: root.step === "configure"
                 Layout.fillWidth: true
                 spacing: 10
-                Text { text: "Pasta"; color: Theme.secondary; font.pixelSize: 11; font.weight: Font.DemiBold }
+                UiText { text: "Pasta"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold }
                 RowLayout {
                     Layout.fillWidth: true
                     FormField {
@@ -310,8 +311,8 @@ Item {
                     }
                     ActionButton { objectName: "browseRomFolder"; text: "Procurar"; onClicked: folderDialog.open() }
                 }
-                Text { text: "Plataforma"; color: Theme.secondary; font.pixelSize: 11; font.weight: Font.DemiBold }
-                ComboBox {
+                UiText { text: "Plataforma"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold }
+                FormSelect {
                     id: platformPicker
                     objectName: "romFolderPlatform"
                     Layout.fillWidth: true
@@ -325,7 +326,7 @@ Item {
                     }
                     onActivated: root.selectedPlatformId = currentValue
                 }
-                CheckBox {
+                FormCheckBox {
                     id: subfoldersControl
                     objectName: "romFolderSubfolders"
                     text: "Incluir subpastas"
@@ -351,7 +352,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 8
-                Text {
+                UiText {
                     objectName: "romFolderReviewSummary"
                     text: root.scanResult
                         ? (root.scanResult.candidates.length + " ROM(s) encontrada(s) · "
@@ -359,7 +360,7 @@ Item {
                         : ""
                     color: Theme.text
                     font.pixelSize: 14
-                    font.weight: Font.DemiBold
+                    textWeight: Font.DemiBold
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -404,13 +405,13 @@ Item {
                                 anchors.leftMargin: 8
                                 anchors.rightMargin: 8
                                 spacing: 8
-                                Text {
+                                UiText {
                                     text: modelData.filename
                                     color: Theme.text; font.pixelSize: 12
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
-                                Text {
+                                UiText {
                                     text: root.reviewView === "candidates"
                                         ? (modelData.platformName || "")
                                         : (modelData.reason || "")
@@ -422,7 +423,7 @@ Item {
                             }
                         }
                     }
-                    Text {
+                    UiText {
                         anchors.centerIn: parent
                         visible: reviewList.count === 0
                         text: root.reviewView === "candidates"

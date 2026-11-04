@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Tela do inventário: topo fixo, cards/lista paginados, detalhe e formulário. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -192,12 +193,12 @@ Item {
                         }
                     }
                 }
-                Text {
+                UiText {
                     visible: page.selectedItem === null
                     text: page.serviceMode ? "Exibindo " + inventoryService.filtered + " de " + inventoryService.total + " itens" : "Inventário indisponível"
                     color: Theme.secondary
                     font.pixelSize: 11
-                    font.weight: Font.Bold
+                    textWeight: Font.Bold
                 }
             }
         }
@@ -248,7 +249,7 @@ Item {
                     contentHeight: gridFlow.height + 8
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: CollectionScrollBar {
                         policy: ScrollBar.AsNeeded
                         width: 6
                         background: Rectangle { implicitWidth: 6; color: Theme.background }
@@ -306,12 +307,12 @@ Item {
                     ColumnLayout {
                         anchors.centerIn: parent
                         spacing: 8
-                        Text { Layout.alignment: Qt.AlignHCenter; text: "Nenhum item encontrado"; color: Theme.text; font.pixelSize: 16; font.weight: Font.Medium }
-                        Text { Layout.alignment: Qt.AlignHCenter; text: "Ajuste os filtros ou adicione itens ao inventário."; color: Theme.secondary; font.pixelSize: 13 }
+                        UiText { Layout.alignment: Qt.AlignHCenter; text: "Nenhum item encontrado"; color: Theme.text; font.pixelSize: 16; textWeight: Font.Medium }
+                        UiText { Layout.alignment: Qt.AlignHCenter; text: "Ajuste os filtros ou adicione itens ao inventário."; color: Theme.secondary; font.pixelSize: 13 }
                     }
                 }
 
-                Text {
+                UiText {
                     objectName: "inventoryError"
                     visible: page.serviceMode && inventoryService.error.length > 0
                     text: page.serviceMode ? inventoryService.error : ""
@@ -326,7 +327,7 @@ Item {
                     visible: page.serviceMode && page.filteredCount > page.pageSize
                     Layout.alignment: Qt.AlignHCenter
                     spacing: 12
-                    Text {
+                    UiText {
                         text: ((page.currentPage - 1) * page.pageSize + 1) + "–"
                             + Math.min(page.currentPage * page.pageSize, page.filteredCount)
                             + " de " + page.filteredCount
@@ -339,7 +340,7 @@ Item {
                         spacing: 4
                         ActionButton { objectName: "firstInventoryPage"; iconName: "chevrons-left"; pagination: true; enabled: page.currentPage > 1; Accessible.name: "Primeira página"; onClicked: page.goToPage(1) }
                         ActionButton { objectName: "previousInventoryPage"; iconName: "chevron-left"; pagination: true; enabled: page.currentPage > 1; Accessible.name: "Página anterior"; onClicked: page.goToPage(page.currentPage - 1) }
-                        Text { text: page.currentPage + " / " + Math.ceil(page.filteredCount / page.pageSize); color: Theme.text; font.pixelSize: 13; Layout.minimumWidth: 56; horizontalAlignment: Text.AlignHCenter }
+                        UiText { text: page.currentPage + " / " + Math.ceil(page.filteredCount / page.pageSize); color: Theme.text; font.pixelSize: 13; Layout.minimumWidth: 56; horizontalAlignment: Text.AlignHCenter }
                         ActionButton { objectName: "nextInventoryPage"; iconName: "chevron-right"; pagination: true; enabled: page.currentPage * page.pageSize < page.filteredCount; Accessible.name: "Próxima página"; onClicked: page.goToPage(page.currentPage + 1) }
                         ActionButton { objectName: "lastInventoryPage"; iconName: "chevrons-right"; pagination: true; enabled: page.currentPage * page.pageSize < page.filteredCount; Accessible.name: "Última página"; onClicked: page.goToPage(Math.ceil(page.filteredCount / page.pageSize)) }
                     }

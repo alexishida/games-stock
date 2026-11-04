@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Gaps do management-form preservam as medidas originais do Electron. */
 /* Editor manual de metadados, empilhado sobre o formulário de edição do jogo. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -54,9 +56,9 @@ DragDialog {
         property alias text: field.text
         property alias fieldObjectName: field.objectName
         Layout.fillWidth: true
-        spacing: 4
-        Text { id: labelText; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; font.weight: Font.Bold }
-        FormField { id: field; Layout.fillWidth: true }
+        spacing: Theme.formLabelGap
+        UiText { id: labelText; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
+        FormField { font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold); id: field; Layout.fillWidth: true }
     }
 
     Flickable {
@@ -68,9 +70,9 @@ DragDialog {
         ColumnLayout {
             id: body
             width: parent.width
-            spacing: 12
+            spacing: Theme.formGroupGap
 
-            Text {
+            UiText {
                 text: "Dados usados no detalhe do jogo."
                 color: Theme.secondary
                 font.pixelSize: 12
@@ -99,8 +101,8 @@ DragDialog {
                             anchors.fill: parent
                             anchors.margins: 9
                             spacing: 1
-                            Text { text: modelData.label; color: Theme.muted; font.pixelSize: 9; font.weight: Font.ExtraBold }
-                            Text { text: modelData.value; color: Theme.text; font.pixelSize: 11; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                            UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold }
+                            UiText { text: modelData.value; color: Theme.text; font.pixelSize: 11; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                         }
                     }
                 }
@@ -119,9 +121,13 @@ DragDialog {
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 4
-                Text { text: "Descrição"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; font.weight: Font.Bold }
+                spacing: Theme.formLabelGap
+                UiText { text: "Descrição"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
                 TextArea {
+                    /* Mantém o texto editável suave como os demais controles. */
+                    renderType: TextEdit.QtRendering
+                    antialiasing: true
+                    font.hintingPreference: Font.PreferNoHinting
                     id: notesField
                     objectName: "gameMetadataNotesField"
                     Layout.fillWidth: true
@@ -134,7 +140,7 @@ DragDialog {
                     background: Rectangle { radius: 6; color: Theme.control; border.color: notesField.activeFocus ? Theme.accent : Theme.border }
                 }
             }
-            Text {
+            UiText {
                 id: errorText
                 visible: text.length > 0
                 color: "#ffb4ab"
@@ -147,7 +153,7 @@ DragDialog {
                 spacing: 8
                 Item { Layout.fillWidth: true }
                 ActionButton { objectName: "closeGameMetadataEditor"; text: "Fechar"; onClicked: editor.close() }
-                ActionButton { objectName: "applyGameMetadata"; text: "Salvar"; iconName: "save"; primary: true; onClicked: editor.apply() }
+                ActionButton { objectName: "applyGameMetadata"; text: "Salvar"; formAction: true; iconName: "save"; primary: true; onClicked: editor.apply() }
             }
         }
     }

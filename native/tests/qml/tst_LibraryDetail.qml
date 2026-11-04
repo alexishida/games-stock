@@ -227,6 +227,8 @@ Item {
         /** Criação manual exige plataforma e envia o rascunho ao serviço. */
         function test_createForm() {
             // A plataforma é obrigatória: sem catálogo o formulário recusa antes do serviço.
+            // O comando original fica no menu; abrir antes garante que a acao esteja visivel.
+            findChild(app, "libraryActionsMenu").open()
             mouseClick(findChild(app, "createGame"))
             const form = findChild(app, "gameFormDialog")
             tryVerify(function() { return form.visible }, 2000)

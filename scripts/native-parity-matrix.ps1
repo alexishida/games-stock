@@ -5,7 +5,9 @@ Cada captura usa uma cópia sintética limpa; o perfil real nunca é aberto.
 param(
     [string]$ReferenceRoot = 'artifacts/native-migration',
     [string]$OutputRoot = 'artifacts/native-migration/parity-matrix',
-    [string]$Only = ''
+    [string]$Only = '',
+    # Filtra estados por expressão regular para repetir apenas as telas afetadas no ajuste visual.
+    [string]$ScreenFilter = ''
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -80,7 +82,9 @@ try {
         New-Item -ItemType Directory -Force -Path $profile | Out-Null
         New-Item -ItemType Directory -Force -Path $target | Out-Null
         $env:QT_SCALE_FACTOR = ([string]::Format([Globalization.CultureInfo]::InvariantCulture, '{0}', $scale))
+        $capturedCount = 0
         foreach ($screen in $screens) {
+            if ($ScreenFilter -and $screen.name -notmatch $ScreenFilter) { continue }
             $source = if ($screen.db -eq 'jobs') { $jobsDb } else { $cleanDb }
             Copy-Item -LiteralPath $source -Destination (Join-Path $profile 'gamestock.db') -Force
             $capture = Join-Path $target ($screen.name + '.png')
@@ -93,12 +97,13 @@ try {
             & $exe @arguments 2>&1 | Out-Null
             $ErrorActionPreference = $callPreference
             if ($LASTEXITCODE -ne 0) { throw "Falha ao capturar $($reference.Name)/$($screen.name)." }
+            $capturedCount++
         }
         $manifest += [pscustomobject]@{
             reference = $reference.Name
             size = "$($width)x$($height)"
             scale = $scale
-            screens = $screens.Count
+            screens = $capturedCount
             geometry = $geometry
         }
         Write-Output "Matriz capturada: $($reference.Name) ($($width)x$($height) @ $scale)"

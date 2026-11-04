@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletor de variantes do mesmo jogo-base usado antes do lançamento. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -19,7 +20,10 @@ DragDialog {
     signal versionLaunched(var versionId)
 
     width: Math.min(760, parent.width - 48)
-    height: Math.min(526, parent.height - 48)
+    height: Math.min(680, versionBody.implicitHeight + 44, parent.height - 48)
+    padding: 22
+    panelColor: "#f51c1b1b"
+    panelBorder: "#59849495"
     heading: "Escolha versão"
     onClosed: actionError = ""
 
@@ -46,17 +50,18 @@ DragDialog {
     }
 
     ColumnLayout {
+        id: versionBody
         anchors.fill: parent
-        spacing: 12
+        spacing: 18
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Text {
+            UiText {
                 text: "Escolha versão"
                 color: Theme.text
                 font.pixelSize: 16
-                font.weight: Font.Bold
+                textWeight: Font.Normal
                 Layout.fillWidth: true
             }
             ActionButton {
@@ -69,23 +74,23 @@ DragDialog {
             }
         }
 
-        Text {
+        UiText {
             objectName: "versionBaseTitle"
             text: versions.options.length ? (versions.options[0].baseTitle || "Seleção de versão") : "Seleção de versão"
             color: Theme.text
-            font.pixelSize: 26
-            font.weight: Font.Bold
+            font.pixelSize: 22
+            textWeight: Font.Bold
             elide: Text.ElideRight
             Layout.fillWidth: true
         }
-        Text {
+        UiText {
             text: "Encontramos múltiplas variantes deste jogo. Escolha qual ROM deseja abrir agora."
             color: Theme.secondary
-            font.pixelSize: 14
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
-        Text {
+        UiText {
             objectName: "versionError"
             visible: versions.actionError.length > 0
             text: versions.actionError
@@ -100,6 +105,7 @@ DragDialog {
             Layout.fillHeight: true
             contentWidth: width
             contentHeight: optionList.implicitHeight
+            implicitHeight: optionList.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             ColumnLayout {
@@ -111,17 +117,17 @@ DragDialog {
                     delegate: Rectangle {
                         required property var modelData
                         Layout.fillWidth: true
-                        implicitHeight: 176
+                        implicitHeight: 168
                         radius: 14
-                        color: "#d1121212"
+                        color: "#04ffffff"
                         border.color: Theme.border
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 14
-                            spacing: 16
+                            spacing: 14
                             Rectangle {
                                 Layout.preferredWidth: 84
-                                Layout.preferredHeight: 84
+                                Layout.preferredHeight: 108
                                 Layout.alignment: Qt.AlignTop
                                 radius: 10
                                 color: Theme.control
@@ -143,17 +149,17 @@ DragDialog {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 spacing: 4
-                                Text {
+                                UiText {
                                     text: modelData.title || ""
                                     color: Theme.text
                                     font.pixelSize: 16
-                                    font.weight: Font.Bold
+                                    textWeight: Font.Bold
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
-                                Text {
+                                UiText {
                                     text: modelData.variantLabel || "Versão padrão"
-                                    color: Theme.accentMuted
+                                    color: Theme.secondary
                                     font.pixelSize: 12
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
@@ -161,30 +167,38 @@ DragDialog {
                                 GridLayout {
                                     Layout.fillWidth: true
                                     columns: 2
-                                    columnSpacing: 24
-                                    rowSpacing: 4
+                                    columnSpacing: 14
+                                    rowSpacing: 8
                                     RowLayout {
-                                        spacing: 5
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        spacing: 8
                                         Image { source: "qrc:/icons/globe-2.svg"; sourceSize: Qt.size(13, 13) }
-                                        Text { text: modelData.regionLabel || "Região não detectada"; color: Theme.secondary; font.pixelSize: 11 }
+                                        UiText { text: modelData.regionLabel || "Região não detectada"; color: Theme.secondary; font.pixelSize: 12 }
                                     }
                                     RowLayout {
-                                        spacing: 5
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        spacing: 8
                                         Image { source: "qrc:/icons/sparkles.svg"; sourceSize: Qt.size(13, 13) }
-                                        Text { text: modelData.typeLabel || "Sem marcador especial"; color: Theme.secondary; font.pixelSize: 11 }
+                                        UiText { text: modelData.typeLabel || "Sem marcador especial"; color: Theme.secondary; font.pixelSize: 12 }
                                     }
                                     RowLayout {
-                                        spacing: 5
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        spacing: 8
                                         Image { source: "qrc:/icons/scroll-text.svg"; sourceSize: Qt.size(13, 13) }
-                                        Text { text: modelData.romFileName || ""; color: Theme.secondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.maximumWidth: 220 }
+                                        UiText { text: modelData.romFileName || ""; color: Theme.secondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.maximumWidth: 220 }
                                     }
                                     RowLayout {
-                                        spacing: 5
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        spacing: 8
                                         Image { source: "qrc:/icons/rotate-ccw.svg"; sourceSize: Qt.size(13, 13) }
-                                        Text {
+                                        UiText {
                                             text: Number(modelData.launchCount || 0) + (Number(modelData.launchCount || 0) === 1 ? " jogada" : " jogadas")
                                             color: Theme.secondary
-                                            font.pixelSize: 11
+                                            font.pixelSize: 12
                                         }
                                     }
                                 }

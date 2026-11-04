@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Modal de importação de metadados e mídia do LaunchBox. */
 import QtQuick
 import QtQuick.Controls
@@ -86,7 +88,7 @@ DragDialog {
                 onTextChanged: importer.query = text
                 onAccepted: importer.runSearch()
             }
-            ComboBox {
+            FormSelect {
                 id: platformFilter
                 objectName: "launchBoxPlatform"
                 implicitHeight: Theme.controlHeight
@@ -107,7 +109,7 @@ DragDialog {
                 onClicked: importer.runSearch()
             }
         }
-        Text {
+        UiText {
             objectName: "launchBoxError"
             visible: importer.errorText.length > 0
                 || (importer.metadataService && importer.metadataService.error.length > 0)
@@ -147,13 +149,13 @@ DragDialog {
                             anchors.fill: parent
                             anchors.margins: 8
                             spacing: 1
-                            Text {
+                            UiText {
                                 text: modelData.name
-                                color: Theme.text; font.pixelSize: 13; font.weight: Font.DemiBold
+                                color: Theme.text; font.pixelSize: 13; textWeight: Font.DemiBold
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
-                            Text {
+                            UiText {
                                 text: modelData.platform + " · "
                                     + (modelData.images ? modelData.images.length : 0) + " imagens"
                                 color: Theme.muted; font.pixelSize: 11
@@ -166,7 +168,7 @@ DragDialog {
                             onClicked: importer.selectedGame = modelData
                         }
                     }
-                    Text {
+                    UiText {
                         anchors.centerIn: parent
                         visible: resultList.count === 0
                         text: importer.busy ? "Carregando catálogo..." : "Busque um jogo para importar."
@@ -178,10 +180,10 @@ DragDialog {
             ColumnLayout {
                 Layout.preferredWidth: 240
                 spacing: 6
-                Text { text: "IMAGENS"; color: Theme.accent; font.pixelSize: 11; font.weight: Font.Bold }
+                UiText { text: "IMAGENS"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.Bold }
                 Repeater {
                     model: importer.imageTypes
-                    delegate: CheckBox {
+                    delegate: FormCheckBox {
                         required property string modelData
                         text: modelData
                         checked: importer.selectedTypes.indexOf(modelData) >= 0
@@ -189,7 +191,7 @@ DragDialog {
                     }
                 }
                 Item { Layout.fillHeight: true }
-                Text {
+                UiText {
                     visible: importer.selectedGame !== null
                     text: importer.selectedGame ? importer.selectedGame.name : ""
                     color: Theme.secondary; font.pixelSize: 11

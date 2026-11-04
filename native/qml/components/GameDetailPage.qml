@@ -1,8 +1,11 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Hero e paineis usam a composicao lateral do GameDetail.css. */
 /* Página de detalhe do jogo, equivalente ao GameDetail do renderer Electron. */
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 import GameStock
 import "."
 
@@ -19,6 +22,8 @@ Item {
     property var versions: []
     property var gallery: []
     property string actionError: ""
+    /* A página tem fundo próprio; o brilho da biblioteca não atravessa o detalhe. */
+    Rectangle { anchors.fill: parent; color: Theme.background }
     readonly property string gameTitle: game.title || ""
 
     signal editRequested(var game)
@@ -116,32 +121,65 @@ Item {
     }
 
     Flickable {
+        id: detailViewport
         anchors.fill: parent
-        contentWidth: width
+        /* O scrollbar CSS ocupa 6 px; reservar a faixa mantém colunas e ações alinhadas. */
+        contentWidth: width - (contentHeight > height ? 6 : 0)
         contentHeight: body.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: CollectionScrollBar { }
         ColumnLayout {
             id: body
-            width: parent.width
+            width: detailViewport.contentWidth
             spacing: 18
-            RowLayout {
+            Item {
                 Layout.fillWidth: true
+                Layout.preferredHeight: 300
+                /* O fundo usa a midia do jogo, com as camadas tonais do hero CSS. */
+                Image {
+                    id: heroBackground
+                    anchors.fill: parent
+                    source: page.serviceMode && page.gameService && (page.game.background_path || page.game.screenshot_path) ? page.gameService.mediaUrl(page.game.background_path || page.game.screenshot_path) : ""
+                    fillMode: Image.PreserveAspectCrop
+                    visible: false
+                }
+                MultiEffect { anchors.fill: parent; source: heroBackground; visible: heroBackground.status === Image.Ready; blurEnabled: true; blur: 1; blurMax: 32; autoPaddingEnabled: false }
+                Rectangle {
+                    anchors.fill: parent
+                    visible: heroBackground.status === Image.Ready
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: "#14131313" }
+                        GradientStop { position: 0.66; color: "#b3131313" }
+                        GradientStop { position: 1; color: Theme.background }
+                    }
+                }
+            RowLayout {
+                anchors.top: parent.top; anchors.right: parent.right; z: 2
                 spacing: 8
                 Item { Layout.fillWidth: true }
-                ActionButton { objectName: "detailBack"; text: "Biblioteca"; iconName: "library"; onClicked: page.closeRequested() }
-                ActionButton { objectName: "previousGame"; iconName: "chevron-left"; toolbar: true; visible: page.hasPrevious; enabled: page.hasPrevious; Accessible.name: "Jogo anterior"; onClicked: page.previousRequested() }
-                ActionButton { objectName: "nextGame"; iconName: "chevron-right"; toolbar: true; visible: page.hasNext; enabled: page.hasNext; Accessible.name: "Próximo jogo"; onClicked: page.nextRequested() }
+                ActionButton { objectName: "detailBack"; font.pixelSize: 12; font.weight: Theme.cssFontWeight(Font.ExtraBold); font.family: Theme.heavyFontFamily; text: "Biblioteca"; iconName: "library"; onClicked: page.closeRequested() }
+                ActionButton { objectName: "previousGame"; iconName: "chevron-left"; implicitWidth: 40; visible: page.hasPrevious; enabled: page.hasPrevious; Accessible.name: "Jogo anterior"; onClicked: page.previousRequested() }
+                ActionButton { objectName: "nextGame"; iconName: "chevron-right"; implicitWidth: 40; visible: page.hasNext; enabled: page.hasNext; Accessible.name: "Próximo jogo"; onClicked: page.nextRequested() }
             }
             RowLayout {
-                Layout.fillWidth: true
-                spacing: 24
+                anchors.fill: parent
+                anchors.bottomMargin: 20
+                spacing: 28
                 Rectangle {
-                    Layout.preferredWidth: 196
-                    Layout.preferredHeight: 274
-                    radius: 10
+                    Layout.preferredWidth: 195
+                    Layout.minimumWidth: 195
+                    Layout.maximumWidth: 195
+                    Layout.preferredHeight: 280
+                    Layout.alignment: Qt.AlignBottom
+                    rotation: -1
+                    radius: 16
+                    border.color: Theme.border
                     color: Theme.card
                     clip: true
+                    layer.enabled: true
+                    layer.effect: MultiEffect { maskEnabled: true; maskSource: detailCoverMask }
+                    Rectangle { id: detailCoverMask; anchors.fill: parent; radius: 16; visible: false; layer.enabled: true }
                     Image {
                         anchors.fill: parent
                         source: page.game.coverUrl || ""
@@ -154,11 +192,13 @@ Item {
                         sourceSize: Qt.size(38, 38)
                         visible: !(page.game.coverUrl || "").toString().length
                     }
+                    Rectangle { anchors.fill: parent; radius: 16; color: "transparent"; border.color: Theme.border }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignTop
-                    spacing: 10
+                    Layout.alignment: Qt.AlignBottom
+                    Layout.bottomMargin: 8
+                    spacing: 6
                     RowLayout {
                         spacing: 6
                         Repeater {
@@ -168,57 +208,40 @@ Item {
                             delegate: Rectangle {
                                 required property string modelData
                                 radius: 999
-                                color: "transparent"
-                                border.color: Theme.accentMuted
+                                color: Theme.accentSoft
+                                border.color: "#4d00f2ff"
                                 implicitWidth: chip.implicitWidth + 18
                                 implicitHeight: 24
-                                Text {
+                                UiText {
                                     id: chip
                                     anchors.centerIn: parent
-                                    text: modelData
-                                    color: Theme.accentMuted
-                                    font.pixelSize: 11
-                                    font.weight: Font.Bold
+                                    text: modelData.toUpperCase()
+                                    color: Theme.accent
+                                    font.pixelSize: 10
+                                    textWeight: Font.Black
                                 }
                             }
                         }
                     }
-                    Text {
+                    UiText {
                         text: page.game.title || ""
                         color: Theme.text
                         font.pixelSize: 28
-                        font.weight: Font.Bold
+                        textWeight: Font.Bold
+                        lineHeightMode: Text.FixedHeight
+                        lineHeight: 32.2
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
-                    Text {
+                    UiText {
                         text: (page.game.publisher || "Publisher não informado") + " · " + (page.game.genre || "Gênero não informado")
-                        color: Theme.secondary
+                        color: Theme.accent
+                        textWeight: Font.Bold
                         font.pixelSize: 14
                         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                         Layout.fillWidth: true
                     }
-                    RowLayout {
-                        objectName: "gameDetailActions"
-                        spacing: 6
-                        ActionButton {
-                            objectName: "launchGame"
-                            text: "Jogar"
-                            iconName: "play-white"
-                            successFill: true
-                            enabled: page.serviceMode && !!page.game.rom_path
-                                && page.launchService !== null && page.launchService !== undefined
-                                && page.launchService.available === true
-                            onClicked: page.launch()
-                        }
-                        ActionButton { objectName: "favoriteGame"; iconName: page.game.favorite ? "star-favorite-white" : "star"; warningFill: page.game.favorite; enabled: page.serviceMode; Accessible.name: page.game.favorite ? "Remover favorito" : "Marcar favorito"; onClicked: page.toggleFavorite() }
-                        ActionButton { objectName: "completedGame"; iconName: page.game.play_status === "completed" ? "trophy-completed" : "trophy"; enabled: page.serviceMode; Accessible.name: "Concluído"; onClicked: page.toggleStatus("completed") }
-                        ActionButton { objectName: "playingGame"; iconName: page.game.play_status === "playing" ? "gamepad-playing" : "gamepad-2"; enabled: page.serviceMode; Accessible.name: "Jogando"; onClicked: page.toggleStatus("playing") }
-                        ActionButton { objectName: "editGame"; iconName: "pencil"; enabled: page.serviceMode; Accessible.name: "Editar"; onClicked: page.editRequested(page.game) }
-                        ActionButton { objectName: "deleteGame"; iconName: "trash-2-danger"; dangerOutline: true; enabled: page.serviceMode; Accessible.name: "Excluir"; onClicked: page.deleteRequested(page.game) }
-                        Item { Layout.fillWidth: true }
-                    }
-                    Text {
+                    UiText {
                         visible: page.actionError.length > 0
                         text: page.actionError
                         color: "#ffb4ab"
@@ -227,85 +250,132 @@ Item {
                         Layout.fillWidth: true
                     }
                 }
+                    RowLayout {
+                        objectName: "gameDetailActions"
+                        Layout.alignment: Qt.AlignBottom
+                        Layout.bottomMargin: 8
+                        spacing: 8
+                        ActionButton {
+                            objectName: "launchGame"
+                            font.pixelSize: 12
+                            font.weight: Font.Black
+                            font.family: Theme.heavyFontFamily
+                            text: "Jogar"
+                            iconName: "play-white"
+                            successFill: true
+                            implicitWidth: 132; implicitHeight: 44
+                            enabled: page.serviceMode && !!page.game.rom_path
+                                && page.launchService !== null && page.launchService !== undefined
+                                && page.launchService.available === true
+                            onClicked: page.launch()
+                        }
+                        ActionButton { objectName: "favoriteGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.favorite ? "star-favorite-white" : "star"; warningFill: !!page.game.favorite; enabled: page.serviceMode; Accessible.name: page.game.favorite ? "Remover favorito" : "Marcar favorito"; onClicked: page.toggleFavorite() }
+                        ActionButton { objectName: "completedGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.play_status === "completed" ? "trophy-completed" : "trophy"; enabled: page.serviceMode; Accessible.name: "Concluído"; onClicked: page.toggleStatus("completed") }
+                        ActionButton { objectName: "playingGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.play_status === "playing" ? "gamepad-playing" : "gamepad-2"; enabled: page.serviceMode; Accessible.name: "Jogando"; onClicked: page.toggleStatus("playing") }
+                        ActionButton { objectName: "editGame"; implicitWidth: 38; implicitHeight: 38; iconName: "pencil"; enabled: page.serviceMode; Accessible.name: "Editar"; onClicked: page.editRequested(page.game) }
+                        ActionButton { objectName: "deleteGame"; implicitWidth: 38; implicitHeight: 38; iconName: "trash-2-danger"; dangerOutline: true; enabled: page.serviceMode; Accessible.name: "Excluir"; onClicked: page.deleteRequested(page.game) }
+                    }
             }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 16
             Rectangle {
                 Layout.fillWidth: true
-                implicitHeight: aboutContent.implicitHeight + 28
-                radius: 12
+                Layout.preferredWidth: Math.max(0, body.width - 284)
+                Layout.maximumWidth: Math.max(0, body.width - 284)
+                Layout.fillHeight: true
+                implicitHeight: Math.max(284, aboutContent.implicitHeight + 32)
+                radius: 16
                 color: Theme.panel
                 border.color: Theme.border
                 ColumnLayout {
                     id: aboutContent
-                    anchors.fill: parent
-                    anchors.margins: 14
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                    anchors.margins: 16
                     spacing: 6
-                    Text { text: "Descrição"; color: Theme.text; font.pixelSize: 18; font.weight: Font.Bold }
-                    Text { text: page.game.notes && page.game.notes.trim().length ? page.game.notes : "Sem descrição cadastrada para este jogo."; color: Theme.secondary; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    UiText { text: "Descrição"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
+                    UiText { text: page.game.notes && page.game.notes.trim().length ? page.game.notes : "Sem descrição cadastrada para este jogo."; color: Theme.secondary; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 }
             }
             Rectangle {
                 Layout.fillWidth: true
-                implicitHeight: fileContent.implicitHeight + 28
-                radius: 12
+                Layout.preferredWidth: 268
+                Layout.maximumWidth: 268
+                Layout.minimumWidth: 260
+                implicitHeight: Math.max(284, fileContent.implicitHeight + 32)
+                radius: 16
                 color: Theme.panel
                 border.color: Theme.border
                 ColumnLayout {
                     id: fileContent
                     anchors.fill: parent
-                    anchors.margins: 14
+                    anchors.margins: 16
                     spacing: 8
-                    Text { text: "Arquivo"; color: Theme.text; font.pixelSize: 18; font.weight: Font.Bold }
-                    GridLayout {
+                    UiText { text: "Arquivo"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
+                    /* Cada linha distribui seu proprio espaco, como os pares dt/dd do CSS. */
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 18
-                        rowSpacing: 6
-                        Text { text: "ROM"; color: Theme.muted; font.pixelSize: 13 }
-                        Text { text: page.fileName(page.game.rom_path); color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; horizontalAlignment: Text.AlignRight }
-                        Text { visible: page.versions.length > 1; text: "Arquivos encontrados"; color: Theme.muted; font.pixelSize: 13 }
-                        Text {
-                            visible: page.versions.length > 1
-                            text: {
-                                const names = []
-                                const seen = ({})
-                                for (let index = 0; index < page.versions.length; index++) {
-                                    const name = String(page.versions[index].romFileName || "")
-                                    if (name && !seen[name]) {
-                                        seen[name] = true
-                                        names.push(name)
-                                    }
-                                }
-                                return names.join("\n")
-                            }
-                            color: Theme.secondary
-                            font.pixelSize: 13
+                        spacing: 11
+                        RowLayout {
                             Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignRight
+                            visible: true
+                            spacing: 14
+                            UiText { text: "ROM"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.fileName(page.game.rom_path); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
                         }
-                        Text { visible: page.versions.length > 1; text: "Imagens agrupadas"; color: Theme.muted; font.pixelSize: 13 }
-                        Text { visible: page.versions.length > 1; text: page.gallery.length; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                        Text { text: "Box Art"; color: Theme.muted; font.pixelSize: 13 }
-                        Text { text: page.game.box_art_path ? "Associada" : "Não associada"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                        Text { text: "Status"; color: Theme.muted; font.pixelSize: 13 }
-                        Text { text: page.game.rom_path ? "Pronto" : "Pendente"; color: page.game.rom_path ? Theme.accentMuted : Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                        Text { text: "Histórico"; color: Theme.muted; font.pixelSize: 13 }
-                        Text { text: Number(page.game.launch_count || 0) + (Number(page.game.launch_count || 0) === 1 ? " jogada" : " jogadas"); color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: page.versions.length > 1
+                            spacing: 14
+                            UiText { text: "Arquivos encontrados"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.versions.map(function(v) { return v.romFileName || "" }).filter(function(v, i, a) { return v.length > 0 && a.indexOf(v) === i }).join("\n"); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: page.versions.length > 1
+                            spacing: 14
+                            UiText { text: "Imagens agrupadas"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: String(page.gallery.length); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: true
+                            spacing: 14
+                            UiText { text: "Box Art"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.game.box_art_path ? "Associada" : "Não associada"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: true
+                            spacing: 14
+                            UiText { text: "Status"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.game.rom_path ? "Pronto" : "Pendente"; color: Theme.success; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: true
+                            spacing: 14
+                            UiText { text: "Histórico"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: "Jogadas: " + Number(page.game.launch_count || 0) + " vezes"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                        }
                     }
                 }
+            }
             }
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: galleryContent.implicitHeight + 28
-                radius: 12
+                radius: 16
                 color: Theme.panel
                 border.color: Theme.border
                 ColumnLayout {
                     id: galleryContent
                     anchors.fill: parent
-                    anchors.margins: 14
+                    anchors.margins: 16
                     spacing: 8
-                    Text { text: "Galeria"; color: Theme.text; font.pixelSize: 18; font.weight: Font.Bold }
-                    Text { visible: page.gallery.length === 0; text: "Nenhuma imagem baixada"; color: Theme.muted; font.pixelSize: 13 }
+                    UiText { text: "Galeria"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
+                    UiText { visible: page.gallery.length === 0; text: "Nenhuma imagem baixada"; color: Theme.muted; font.pixelSize: 13 }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 10
@@ -313,8 +383,8 @@ Item {
                             model: page.gallery
                             delegate: Rectangle {
                                 required property var modelData
-                                width: 132
-                                height: 96
+                                width: (galleryContent.width - (Math.max(1, Math.min(page.gallery.length, Math.floor((galleryContent.width + 10) / 230))) - 1) * 10) / Math.max(1, Math.min(page.gallery.length, Math.floor((galleryContent.width + 10) / 230)))
+                                height: 240
                                 radius: 8
                                 color: Theme.card
                                 clip: true
@@ -324,7 +394,7 @@ Item {
                                     source: page.serviceMode && page.gameService ? page.gameService.mediaUrl(modelData.path) : ""
                                     fillMode: Image.PreserveAspectCrop
                                 }
-                                Text {
+                                UiText {
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     anchors.bottom: parent.bottom

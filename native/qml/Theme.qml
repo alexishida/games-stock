@@ -47,13 +47,36 @@ QtObject {
     readonly property int backdropBlurRadius: 8
     /* MultiEffect medido: 32 reproduz o blur(8px) do Chromium. */
     readonly property int backdropBlurMax: 32
-    readonly property int stackedBackdropBlurMax: 16
+    /* Overlays secundários do gerenciamento usam blur(8px) no CSS efetivo. */
+    readonly property int stackedBackdropBlurMax: 32
     readonly property color scrim: "#ad000000"
     readonly property color stackedScrim: "#75000000"
-    readonly property string fontFamily: Qt.application.font.family
+    /* O CSS efetivo usa Segoe UI no Windows; o tema do SO não deve mudar as métricas. */
+    readonly property string fontFamily: Qt.platform.os === "windows" ? "Segoe UI" : Qt.application.font.family
+    /* FontInfo confirma Black como estilo de Segoe UI; outra família causaria fallback Tahoma. */
+    readonly property string heavyFontFamily: fontFamily
+    /** O matching CSS escolhe Black para 800; o Qt escolhe Bold se não normalizarmos o peso. */
+    function cssFontWeight(weight) { return Qt.platform.os === "windows" && weight === Font.ExtraBold ? Font.Black : weight }
     readonly property int sidebarWidth: 240
     readonly property int controlHeight: 34
     readonly property int modalTitleGap: 28
     readonly property int formControlFontSize: 13
     readonly property int formLabelFontSize: 11
+    /* Medidas de global.css: label/campo 8 px, grupos 16 px e ações com gap 10 px. */
+    readonly property int formLabelGap: 8
+    readonly property int formGroupGap: 16
+    readonly property int formActionGap: 10
+    readonly property int formActionMinWidth: 94
+    /* Medidas obtidas por getComputedStyle/getBoundingClientRect no Electron, sem escala extra. */
+    readonly property int navigationFontSize: 13
+    readonly property int navigationCompactFontSize: 12
+    readonly property int navigationCounterFontSize: 11
+    readonly property int navigationSectionFontSize: 9
+    readonly property int navigationRowHeight: 38
+    readonly property int navigationCompactRowHeight: 32
+    readonly property int navigationTreeRowHeight: 31
+    readonly property int inventoryCardTitleFontSize: 12
+    readonly property int inventoryCardMetaFontSize: 10
+    readonly property int libraryCardTitleFontSize: 14
+    readonly property int libraryCardLabelFontSize: 9
 }

@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Seletor de tipo/estado com criação inline, como os seletores do formulário Electron. */
 import QtQuick
 import QtQuick.Controls
@@ -14,7 +16,8 @@ ColumnLayout {
     property int currentValue: 0
     signal picked(int id)
 
-    spacing: 4
+    /* O label usa a mesma distância e o mesmo peso dos demais campos do inventário. */
+    spacing: Theme.formLabelGap
 
     readonly property var options: {
         if (!selector.service) return []
@@ -22,19 +25,18 @@ ColumnLayout {
     }
     readonly property string kindLabel: selector.mode === "type" ? "tipo" : "estado"
 
-    Text { text: selector.label.toUpperCase(); color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.6 }
+    UiText { text: selector.label.toUpperCase(); color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
 
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 6
-        ComboBox {
+        FormSelect {
+            font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
             id: combo
             objectName: selector.mode === "type" ? "hardwareItemTypeCombo" : "hardwareItemStateCombo"
             Layout.fillWidth: true
             implicitHeight: Theme.controlHeight
             font.pixelSize: Theme.formControlFontSize
-            leftPadding: 8
-            rightPadding: 26
             model: {
                 const values = ["Selecione um " + selector.kindLabel + "..."]
                 for (let index = 0; index < selector.options.length; index++) values.push(selector.options[index].name)
@@ -51,28 +53,22 @@ ColumnLayout {
                 selector.currentValue = pickedId
                 selector.picked(pickedId)
             }
-            background: Rectangle {
-                radius: 6
-                color: combo.hovered ? Theme.controlHover : Theme.control
-                border.color: combo.activeFocus ? Theme.accent : Theme.border
-            }
-            contentItem: Text {
+            contentItem: UiText {
                 text: combo.displayText
                 font: combo.font
                 color: Theme.text
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
             }
-            indicator: Text {
-                x: combo.width - width - 10
-                y: (combo.height - height) / 2
-                text: "▾"
-                color: Theme.secondary
-                font.pixelSize: 12
-            }
         }
         ActionButton {
             objectName: selector.mode === "type" ? "newItemType" : "newConservationState"
+            visible: !inline.visible
+            font.pixelSize: 11
+            font.weight: Theme.cssFontWeight(Font.ExtraBold)
+            font.family: Theme.heavyFontFamily
+            iconSize: 12
+            implicitHeight: 30
             text: "Novo " + selector.kindLabel
             iconName: "plus"
             Layout.alignment: Qt.AlignLeft
@@ -100,18 +96,21 @@ ColumnLayout {
         }
         ActionButton {
             objectName: selector.mode === "type" ? "createItemType" : "createConservationState"
+            font.pixelSize: 11
+            implicitHeight: 30
             text: "Criar"
-            primary: true
             enabled: newName.text.trim().length > 0
             onClicked: selector.createInline()
         }
         ActionButton {
             text: "Cancelar"
+            font.pixelSize: 11
+            implicitHeight: 30
             onClicked: inline.visible = false
         }
     }
 
-    Text {
+    UiText {
         id: createError
         visible: text.length > 0
         color: "#ffb4ab"

@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Splash condicional do updater: fases, progresso, arraste e modo offline. */
 import QtQuick
 import QtQuick.Controls
@@ -58,15 +59,15 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 2
-                    Text { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; font.weight: Font.ExtraBold; font.letterSpacing: 1.2 }
-                    Text { text: "GameStock"; color: Theme.text; font.pixelSize: 22; font.weight: Font.Black }
-                    Text { text: "v" + (splash.updateService ? splash.updateService.appVersion : ""); color: Theme.secondary; font.pixelSize: 11 }
+                    UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold; font.letterSpacing: 1.2 }
+                    UiText { text: "GameStock"; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black }
+                    UiText { text: "v" + (splash.updateService ? splash.updateService.appVersion : ""); color: Theme.secondary; font.pixelSize: 11 }
                 }
             }
 
             Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
 
-            Text {
+            UiText {
                 objectName: "updateSplashMessage"
                 Layout.fillWidth: true
                 text: splash.updateService ? splash.updateService.message : ""
@@ -74,7 +75,7 @@ Item {
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap
             }
-            Text {
+            UiText {
                 objectName: "updateSplashDetail"
                 Layout.fillWidth: true
                 visible: splash.updateService && splash.updateService.error.length > 0
@@ -96,7 +97,7 @@ Item {
                     color: Theme.accent
                 }
             }
-            Text {
+            UiText {
                 Layout.fillWidth: true
                 visible: splash.updateService && splash.updateService.version.length > 0
                 text: splash.updateService ? ("Disponível: v" + splash.updateService.version
@@ -104,7 +105,7 @@ Item {
                 color: Theme.secondary
                 font.pixelSize: 11
             }
-            Text {
+            UiText {
                 Layout.fillWidth: true
                 visible: splash.updateService && splash.updateService.notes.length > 0
                 text: splash.updateService ? splash.updateService.notes : ""

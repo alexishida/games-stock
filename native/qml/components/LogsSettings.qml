@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Aba Logs: histórico local com atualização, abertura da pasta e limpeza. */
 import QtQuick
 import QtQuick.Controls
@@ -28,14 +30,15 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
+        anchors.topMargin: 12
         spacing: 12
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
-            Text { text: "Aplicativo"; color: Theme.accent; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.8 }
-            Text { text: "Logs"; color: Theme.text; font.pixelSize: 28; font.weight: Font.Bold }
-            Text { text: "Logs do aplicativo"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-            Text {
+            UiText { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+            UiText { text: "Logs"; color: Theme.text; font.pixelSize: 28; textWeight: Font.Black; Layout.bottomMargin: 24 }
+            UiText { text: "Logs do aplicativo"; color: Theme.accent; font.pixelSize: 16; textWeight: Font.Black }
+            UiText {
                 text: "Histórico local de eventos, avisos e erros. Mostra até 500 registros recentes."
                 color: Theme.secondary
                 font.pixelSize: 12
@@ -46,12 +49,12 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
+            Item { Layout.fillWidth: true }
             ActionButton { objectName: "refreshLogs"; text: "Atualizar"; iconName: "refresh-cw"; enabled: logs.settingsService !== null; onClicked: logs.settingsService.refreshLogs() }
             ActionButton { objectName: "openLogsFolder"; text: "Abrir pasta"; iconName: "folder-open"; enabled: logs.settingsService !== null; onClicked: logs.settingsService.openLogsFolder() }
             ActionButton { objectName: "clearLogs"; text: "Limpar logs"; iconName: "trash-2"; enabled: logs.settingsService !== null; onClicked: logs.settingsService.clearLogs() }
-            Item { Layout.fillWidth: true }
         }
-        Text {
+        UiText {
             objectName: "logsError"
             visible: logs.settingsService && logs.settingsService.error.length > 0
             text: logs.settingsService ? logs.settingsService.error : ""
@@ -67,12 +70,12 @@ Item {
             contentHeight: logColumn.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 6 }
+            ScrollBar.vertical: CollectionScrollBar { policy: ScrollBar.AsNeeded; width: 6 }
             ColumnLayout {
                 id: logColumn
                 width: parent.width
                 spacing: 6
-                Text {
+                UiText {
                     visible: !logs.settingsService || logs.settingsService.logEntries.length === 0
                     text: logs.settingsService ? "Nenhum registro disponível." : "Serviço de logs indisponível."
                     color: Theme.secondary
@@ -84,8 +87,9 @@ Item {
                         required property var modelData
                         Layout.fillWidth: true
                         implicitHeight: entryColumn.implicitHeight + 16
-                        radius: 8
-                        color: Theme.panel
+                        radius: 6
+                        color: "#191919"
+                        Rectangle { width: 3; height: parent.height; radius: 2; color: logs.levelColor(modelData.level) }
                         border.color: Theme.border
                         ColumnLayout {
                             id: entryColumn
@@ -95,17 +99,18 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
-                                Text { text: logs.formatTimestamp(modelData.timestamp); color: Theme.muted; font.pixelSize: 11 }
-                                Text { text: modelData.source || "GameStock"; color: Theme.secondary; font.pixelSize: 11 }
-                                Text { text: String(modelData.level || "info").toUpperCase(); color: logs.levelColor(modelData.level); font.pixelSize: 10; font.weight: Font.ExtraBold }
+                                UiText { text: logs.formatTimestamp(modelData.timestamp); color: Theme.muted; font.pixelSize: 11 }
+                                UiText { text: modelData.source || "GameStock"; color: Theme.secondary; font.pixelSize: 11 }
+                                UiText { text: String(modelData.level || "info").toUpperCase(); color: logs.levelColor(modelData.level); font.pixelSize: 10; textWeight: Font.ExtraBold }
                                 Item { Layout.fillWidth: true }
                             }
-                            Text {
+                            UiText {
                                 Layout.fillWidth: true
                                 text: modelData.message || ""
                                 color: Theme.text
                                 font.pixelSize: 12
                                 font.family: "Consolas"
+                                textWeight: Font.Bold
                                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                             }
                         }

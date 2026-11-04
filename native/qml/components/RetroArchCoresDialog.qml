@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Cores do RetroArch por plataforma, salvando o lote em uma transação. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -8,6 +10,9 @@ import "."
 
 DragDialog {
     id: cores
+    cornerRadius: 12
+    panelBorder: Theme.borderStrong
+    secondaryScrim: Theme.scrim
     objectName: "retroArchCoresDialog"
     property var emulatorService: null
     property var emulator: null
@@ -19,16 +24,19 @@ DragDialog {
     property string search: ""
     property string formError: ""
 
-    width: Math.min(820, parent.width - 48)
-    height: Math.min(700, parent.height - 48)
+    width: Math.min(760, parent.width - 56)
+    height: Math.min(620, parent.height - 56)
     heading: "Cores do RetroArch"
+    /* Cabeçalho compartilhado conserva título e acesso ao fechamento. */
+    showHeading: false
+    padding: 18
     onOpened: load()
 
     function load() {
         formError = ""
         edited = ({})
         coreDrafts = ({})
-        inventory = emulatorService ? emulatorService.listRetroArchCores(Number(emulator.id)) : ({})
+        inventory = emulatorService ? emulatorService.listRetroArchCores(Number(emulator ? emulator.id : 0)) : ({})
         const ids = []
         for (let index = 0; index < platforms.length; index++) ids.push(Number(platforms[index].id))
         linksByPlatform = emulatorService ? emulatorService.listByPlatforms(ids) : ({})
@@ -45,7 +53,7 @@ DragDialog {
     function existingLink(platform) {
         const entries = linksByPlatform[String(platform.id)] || []
         for (let index = 0; index < entries.length; index++) {
-            if (Number(entries[index].emulator_id) === Number(emulator.id)) return entries[index]
+            if (Number(entries[index].emulator_id) === Number(emulator ? emulator.id : 0)) return entries[index]
         }
         return null
     }
@@ -112,7 +120,7 @@ DragDialog {
                 if (Number(platforms[position].id) === platformId) platform = platforms[position]
             }
             const existing = platform ? existingLink(platform) : null
-            changes.push({platformId: platformId, emulatorId: Number(emulator.id),
+            changes.push({platformId: platformId, emulatorId: Number(emulator ? emulator.id : 0),
                 isDefault: existing ? !!existing.isDefault : false, corePath: value})
         }
         if (!emulatorService.savePlatformLinks(changes)) {
@@ -122,112 +130,106 @@ DragDialog {
         cores.close()
     }
 
+    /* O seletor ocupa uma linha completa sob os dados da plataforma, como no renderer. */
     ColumnLayout {
         anchors.fill: parent
-        spacing: 12
-        Text { text: "Escolha cores recomendados ou instalados e salve tudo de uma vez."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+        spacing: 14
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
-            FormField {
+            ColumnLayout {
                 Layout.fillWidth: true
-                placeholderText: "Buscar plataforma ou core"
-                onTextChanged: cores.search = text
+                spacing: 8
+                UiText { text: cores.heading; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black; lineHeightMode: Text.FixedHeight; lineHeight: 22 }
+                UiText { text: "Escolha cores recomendados ou DLLs instaladas e salve tudo de uma vez."; color: Theme.secondary; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             }
-            ActionButton { objectName: "refreshCores"; text: "Atualizar cores"; iconName: "refresh-cw"; onClicked: cores.load() }
+            ActionButton { iconName: "x-danger"; Accessible.name: "Fechar"; onClicked: cores.close() }
         }
-        Text {
-            visible: cores.inventory.executableConfigured === false
-            text: "Configure o executável do RetroArch antes de selecionar cores."
-            color: "#ffb4ab"
-            font.pixelSize: 11
-            wrapMode: Text.WordWrap
+        RowLayout {
             Layout.fillWidth: true
+            spacing: 12
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.maximumWidth: 360
+                spacing: 8
+                UiText { text: "BUSCAR"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
+                FormField { Layout.fillWidth: true; placeholderText: "Plataforma ou core"; onTextChanged: cores.search = text }
+            }
+            Item { Layout.fillWidth: true }
+            ActionButton { objectName: "refreshCores"; Layout.alignment: Qt.AlignBottom; text: "Atualizar cores"; iconName: "refresh-cw"; implicitHeight: 34; onClicked: cores.load() }
         }
-        Text {
-            visible: cores.inventory.executableConfigured === true && cores.inventory.coresDirExists === false
-            text: "Pasta cores/ não encontrada ao lado do RetroArch."
-            color: "#ffb4ab"
-            font.pixelSize: 11
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-        }
-        Flickable {
+        PanelFlickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
             contentHeight: coreList.implicitHeight
-            clip: true
             boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: CollectionScrollBar { }
             ColumnLayout {
                 id: coreList
-                width: parent.width
-                spacing: 6
+                width: parent.width - 2
+                x: 1
+                spacing: 0
                 Repeater {
                     model: cores.filteredPlatforms()
                     delegate: Rectangle {
+                        id: coreRow
                         required property var modelData
+                        readonly property string draft: cores.coreDrafts[String(modelData.id)] || ""
                         Layout.fillWidth: true
-                        implicitHeight: 62
-                        radius: 10
-                        color: Theme.card
-                        border.color: cores.edited[String(modelData.id)] ? Theme.accent : Theme.border
-                        RowLayout {
+                        implicitHeight: rowBody.implicitHeight + 24
+                        color: "#04ffffff"
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
+                        ColumnLayout {
+                            id: rowBody
                             anchors.fill: parent
-                            anchors.margins: 10
+                            anchors.margins: 12
                             spacing: 10
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 1
-                                Text { text: modelData.name || ""; color: Theme.text; font.pixelSize: 13; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Text {
-                                    text: {
-                                        const existing = cores.existingLink(modelData)
-                                        return existing && existing.core_path ? "Core salvo: " + existing.core_path : "Sem core salvo"
-                                    }
-                                    color: Theme.muted
-                                    font.pixelSize: 10
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
+                                spacing: 2
+                                UiText { text: coreRow.modelData.name || ""; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
+                                UiText { text: "Defina o core usado pelo RetroArch nesta plataforma."; color: Theme.secondary; font.pixelSize: 11 }
+                                UiText {
+                                    visible: coreRow.draft.length > 0 && (cores.inventory.installedCores || []).indexOf(coreRow.draft) < 0
+                                    text: "Core recomendado " + coreRow.draft + ", não instalado. Baixe no RetroArch."
+                                    color: "#ff7b7b"; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WordWrap
                                 }
                             }
-                            ComboBox {
-                                id: corePicker
-                                Layout.preferredWidth: 300
-                                implicitHeight: 30
-                                font.pixelSize: Theme.formControlFontSize
-                                model: cores.optionsFor(modelData)
-                                currentIndex: cores.currentIndexFor(modelData)
-                                onActivated: cores.setDraft(modelData, corePicker.model[currentIndex])
-                                contentItem: Text {
-                                    text: corePicker.currentIndex >= 0 ? corePicker.displayText : "Selecione um core"
-                                    font: corePicker.font
-                                    color: Theme.text
-                                    verticalAlignment: Text.AlignVCenter
-                                    elide: Text.ElideRight
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    UiText { text: "CORE"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; Layout.fillWidth: true }
+                                    UiText { visible: coreRow.draft.length > 0; text: "Sugestão: " + coreRow.draft; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.Bold }
                                 }
-                                indicator: Text { x: corePicker.width - width - 10; y: (corePicker.height - height) / 2; text: "▾"; color: Theme.secondary; font.pixelSize: 12 }
-                                background: Rectangle { radius: 6; color: Theme.control; border.color: Theme.border }
+                                FormSelect {
+                                    id: corePicker
+                                    Layout.fillWidth: true
+                                    implicitHeight: 36
+                                    font.weight: Font.Bold
+                                    model: cores.optionsFor(coreRow.modelData)
+                                    currentIndex: cores.currentIndexFor(coreRow.modelData)
+                                    onActivated: cores.setDraft(coreRow.modelData, model[currentIndex])
+                                    contentItem: UiText { text: corePicker.displayText.length ? corePicker.displayText + (corePicker.displayText.endsWith(".dll") ? "" : ".dll") : "Selecione um core"; font: corePicker.font; color: Theme.text; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        Text {
-            objectName: "retroArchCoresError"
-            visible: cores.formError.length > 0
-            text: cores.formError
-            color: "#ffb4ab"
-            font.pixelSize: 12
-            wrapMode: Text.WordWrap
-            Layout.fillWidth: true
-        }
         RowLayout {
             Layout.fillWidth: true
-            Item { Layout.fillWidth: true }
-            ActionButton { objectName: "cancelCores"; text: "Fechar"; onClicked: cores.close() }
-            ActionButton { objectName: "saveCores"; text: "Salvar"; iconName: "save"; primary: true; onClicked: cores.save() }
+            spacing: 10
+            UiText {
+                objectName: "retroArchCoresError"
+                Layout.fillWidth: true
+                text: cores.formError.length ? cores.formError : cores.inventory.executableConfigured === false ? "Configure o executável do RetroArch antes de selecionar cores." : cores.inventory.coresDirExists === false ? "Pasta cores/ não encontrada ao lado do RetroArch." : ""
+                color: "#ff7b7b"; font.pixelSize: 11; textWeight: Font.Bold; wrapMode: Text.WordWrap
+            }
+            ActionButton { objectName: "cancelCores"; text: "Fechar"; iconName: "x-danger"; dangerOutline: true; formAction: true; onClicked: cores.close() }
+            ActionButton { objectName: "saveCores"; text: "Salvar"; iconName: "save"; accentOutline: true; formAction: true; onClicked: cores.save() }
         }
     }
 }

@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Composicao do hero e paineis laterais segue HardwareItemDetail.css. */
 /* Detalhe do item físico: hero com foto, chips, dados, galeria e lightbox. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -58,12 +60,14 @@ Item {
     }
 
     component DetailRow: RowLayout {
+        Layout.topMargin: 8
+        Layout.bottomMargin: 8
         property string label: ""
         property string value: ""
         Layout.fillWidth: true
         spacing: 12
-        Text { text: parent.label; color: Theme.muted; font.pixelSize: 11; Layout.preferredWidth: 112; elide: Text.ElideRight }
-        Text {
+        UiText { text: parent.label; color: Theme.muted; font.pixelSize: 12; Layout.preferredWidth: 112; elide: Text.ElideRight }
+        UiText {
             Layout.fillWidth: true
             text: parent.value && parent.value.length ? parent.value : "Não informado"
             color: parent.value && parent.value.length ? Theme.text : Theme.muted
@@ -79,13 +83,13 @@ Item {
         property string value: ""
         Layout.fillWidth: true
         spacing: 6
-        Text { text: parent.label; color: Theme.muted; font.pixelSize: 11; font.weight: Font.ExtraBold }
-        Text {
+        UiText { text: parent.label; color: Theme.muted; font.pixelSize: 11; textWeight: Font.ExtraBold }
+        UiText {
             Layout.fillWidth: true
             text: parent.value && parent.value.length ? parent.value : "Não informado"
             color: parent.value && parent.value.length ? Theme.text : Theme.muted
             font.pixelSize: 14
-            font.weight: Font.Black
+            textWeight: Font.Black
             font.italic: !parent.value || !parent.value.length
             opacity: parent.value && parent.value.length ? 1 : 0.68
             elide: Text.ElideRight
@@ -93,16 +97,17 @@ Item {
     }
 
     Flickable {
+        id: inventoryDetailViewport
         anchors.fill: parent
-        contentWidth: width
+        contentWidth: width - (contentHeight > height ? 6 : 0)
         contentHeight: content.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        ScrollBar.vertical: CollectionScrollBar { policy: ScrollBar.AsNeeded }
 
         ColumnLayout {
             id: content
-            width: parent.width
+            width: inventoryDetailViewport.contentWidth
             spacing: 0
 
             Rectangle {
@@ -172,14 +177,16 @@ Item {
                     }
                     ActionButton {
                         iconName: "chevron-left"
-                        toolbar: true
+                        visible: enabled
+                        implicitWidth: 40
                         enabled: detail.currentIndex > 0
                         Accessible.name: "Item anterior"
                         onClicked: detail.navigateRequested(detail.items[detail.currentIndex - 1])
                     }
                     ActionButton {
                         iconName: "chevron-right"
-                        toolbar: true
+                        visible: enabled
+                        implicitWidth: 40
                         enabled: detail.currentIndex >= 0 && detail.currentIndex < detail.items.length - 1
                         Accessible.name: "Próximo item"
                         onClicked: detail.navigateRequested(detail.items[detail.currentIndex + 1])
@@ -188,16 +195,16 @@ Item {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 24
+                    anchors.leftMargin: 20
                     anchors.rightMargin: 20
                     anchors.topMargin: 52
-                    anchors.bottomMargin: 24
-                    spacing: 24
+                    anchors.bottomMargin: 20
+                    spacing: 28
 
                     Rectangle {
                         Layout.preferredWidth: 320
                         Layout.preferredHeight: 200
-                        Layout.alignment: Qt.AlignVCenter
+                        Layout.alignment: Qt.AlignBottom
                         radius: 10
                         color: Theme.card
                         border.color: "#1fffffff"
@@ -218,7 +225,7 @@ Item {
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignVCenter
+                        Layout.alignment: Qt.AlignBottom
                         spacing: 10
                         RowLayout {
                             spacing: 8
@@ -233,50 +240,53 @@ Item {
                                     radius: 999
                                     color: "#2400f2ff"
                                     border.color: "#4d00f2ff"
-                                    Text {
+                                    UiText {
                                         id: chipText
                                         anchors.centerIn: parent
                                         text: String(modelData || "").toUpperCase()
                                         color: Theme.accent
                                         font.pixelSize: 10
-                                        font.weight: Font.Black
+                                        textWeight: Font.Black
                                     }
                                 }
                             }
                         }
-                        Text {
+                        UiText {
                             Layout.fillWidth: true
                             text: detail.item ? (detail.item.name || "") : ""
                             color: Theme.text
-                            font.pixelSize: 32
-                            font.weight: Font.Black
+                            font.pixelSize: 28
+                            textWeight: Font.Black
                             wrapMode: Text.WordWrap
                         }
+                    }
                         RowLayout {
                             spacing: 8
+                            Layout.alignment: Qt.AlignBottom
+                            Layout.bottomMargin: 8
                             ActionButton {
                                 objectName: "addHardwarePhotoDetail"
                                 iconName: "image"
-                                toolbar: true
+                                implicitWidth: 38; implicitHeight: 38
                                 Accessible.name: "Adicionar foto"
                                 onClicked: photoDialog.open()
                             }
                             ActionButton {
                                 objectName: "editHardwareItem"
                                 iconName: "pencil"
-                                toolbar: true
+                                implicitWidth: 38; implicitHeight: 38
                                 Accessible.name: "Editar"
                                 onClicked: detail.editRequested(detail.item)
                             }
                             ActionButton {
                                 objectName: "deleteHardwareItem"
-                                iconName: "trash-2"
-                                toolbar: true
+                                iconName: "trash-2-danger"
+                                dangerOutline: true
+                                implicitWidth: 38; implicitHeight: 38
                                 Accessible.name: "Deletar"
                                 onClicked: detail.deleteRequested(detail.item)
                             }
                         }
-                    }
                 }
             }
 
@@ -286,14 +296,21 @@ Item {
                 Layout.rightMargin: 24
                 Layout.bottomMargin: 48
                 Layout.topMargin: 20
-                columns: detail.width < 1100 ? 1 : 2
+                id: detailPanels
+                columns: detail.width < 680 ? 1 : 2
                 columnSpacing: 16
                 rowSpacing: 16
                 Layout.alignment: Qt.AlignTop
 
                 Rectangle {
-                    Layout.fillWidth: true
+                    /* Larguras derivadas do viewport evitam a autorreferência nas restrições do grid. */
+                    readonly property real panelWidth: detailPanels.columns === 1 ? inventoryDetailViewport.contentWidth - 48 : inventoryDetailViewport.contentWidth - 384
+                    objectName: "hardwareInfoPanel"
+                    Layout.fillWidth: false
                     Layout.alignment: Qt.AlignTop
+                    Layout.minimumWidth: panelWidth
+                    Layout.preferredWidth: panelWidth
+                    Layout.maximumWidth: panelWidth
                     implicitHeight: infoColumn.implicitHeight + 32
                     radius: 16
                     color: "#dc201f1f"
@@ -305,7 +322,7 @@ Item {
                         anchors.margins: 16
                         spacing: 16
 
-                        Text { text: "Dados do item"; color: Theme.text; font.pixelSize: 20; font.weight: Font.Bold }
+                        UiText { text: "Dados do item"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
 
                     RowLayout {
                         Layout.fillWidth: true
@@ -326,8 +343,9 @@ Item {
                         rowSpacing: 18
                         ColumnLayout {
                             Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
                             spacing: 10
-                            Text { text: "Identificação"; color: Theme.accent; font.pixelSize: 12; font.weight: Font.Black }
+                            UiText { text: "Identificação"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
                             DetailRow { label: "Plataforma"; value: detail.item ? (detail.item.platform_name || "") : "" }
                             DetailRow { label: "Tipo"; value: detail.item ? (detail.item.item_type_name || "") : "" }
                             DetailRow { label: "Condição"; value: detail.item ? (detail.item.conservation_state_name || "") : "" }
@@ -336,16 +354,18 @@ Item {
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
                             spacing: 10
-                            Text { text: "Aquisição"; color: Theme.accent; font.pixelSize: 12; font.weight: Font.Black }
+                            UiText { text: "Aquisição"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
                             DetailRow { label: "Data"; value: detail.item ? (detail.formatDate(detail.item.acquisition_date) || "") : "" }
                             DetailRow { label: "Valor pago"; value: detail.item ? (detail.formatCurrency(detail.item.value) || "") : "" }
                             DetailRow { label: "Origem"; value: detail.item ? (detail.formatUrlLabel(detail.item.acquisition_url) || "") : "" }
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
                             spacing: 10
-                            Text { text: "Controle físico"; color: Theme.accent; font.pixelSize: 12; font.weight: Font.Black }
+                            UiText { text: "Controle físico"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
                             DetailRow { label: "Número de série"; value: detail.item ? (detail.item.serial_number || "") : "" }
                             DetailRow { label: "Local"; value: detail.item ? (detail.item.storage_location || "") : "" }
                             DetailRow { label: "Emprestado para"; value: detail.item ? (detail.item.loan_to || "") : "" }
@@ -356,8 +376,8 @@ Item {
                             Layout.fillWidth: true
                             spacing: 10
                             visible: detail.item && String(detail.item.description || "").trim().length > 0
-                            Text { text: "Descrição"; color: Theme.accent; font.pixelSize: 12; font.weight: Font.Black }
-                            Text {
+                            UiText { text: "Descrição"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
+                            UiText {
                                 Layout.fillWidth: true
                                 text: detail.item ? (detail.item.description || "") : ""
                                 color: Theme.secondary
@@ -371,10 +391,13 @@ Item {
                 }
 
                 Rectangle {
-                    Layout.fillWidth: detail.width < 1100
-                    Layout.preferredWidth: detail.width < 1100 ? -1 : Math.min(360, detail.width * 0.36)
+                    Layout.fillWidth: detailPanels.columns === 1
+                    objectName: "hardwarePhotoPanel"
+                    Layout.preferredWidth: detailPanels.columns === 1 ? -1 : 320
+                    Layout.minimumWidth: detailPanels.columns === 1 ? inventoryDetailViewport.contentWidth - 48 : 320
+                    Layout.maximumWidth: detailPanels.columns === 1 ? inventoryDetailViewport.contentWidth - 48 : 320
                     Layout.alignment: Qt.AlignTop
-                    implicitHeight: galleryColumn.implicitHeight + 32
+                    implicitHeight: Math.max(171, galleryColumn.implicitHeight + 32)
                     radius: 16
                     color: "#dc201f1f"
                     border.color: Theme.border
@@ -384,8 +407,9 @@ Item {
                         anchors.fill: parent
                         anchors.margins: 16
                         spacing: 12
-                    Text { text: "Fotos"; color: Theme.text; font.pixelSize: 20; font.weight: Font.Bold }
-                    Text { visible: detail.photos.length === 0; text: "Nenhuma foto adicionada"; color: Theme.muted; font.pixelSize: 13 }
+                    UiText { text: "Fotos"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
+                    Image { visible: detail.photos.length === 0; source: "qrc:/icons/cpu.svg"; sourceSize: Qt.size(24, 24); Layout.alignment: Qt.AlignHCenter; Layout.topMargin: 16 }
+                    UiText { visible: detail.photos.length === 0; text: "Nenhuma foto adicionada"; color: Theme.muted; font.pixelSize: 13 }
                     Flow {
                         Layout.fillWidth: true
                         spacing: 10
@@ -419,7 +443,7 @@ Item {
                                         color: Theme.accent
                                         width: coverText2.implicitWidth + 10
                                         height: 18
-                                        Text { id: coverText2; anchors.centerIn: parent; text: "CAPA"; color: "#002022"; font.pixelSize: 9; font.weight: Font.Bold }
+                                        UiText { id: coverText2; anchors.centerIn: parent; text: "CAPA"; color: "#002022"; font.pixelSize: 9; textWeight: Font.Bold }
                                     }
                                     ActionButton {
                                         anchors.right: parent.right
@@ -493,10 +517,10 @@ Item {
         RowLayout {
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottomMargin: 24
+            anchors.bottomMargin: 20
             spacing: 12
             ActionButton { iconName: "chevron-left"; enabled: detail.photos.length > 1; Accessible.name: "Foto anterior"; onClicked: detail.lightboxIndex = (detail.lightboxIndex - 1 + detail.photos.length) % detail.photos.length }
-            Text { text: (detail.lightboxIndex + 1) + " / " + detail.photos.length; color: Theme.secondary; font.pixelSize: 13 }
+            UiText { text: (detail.lightboxIndex + 1) + " / " + detail.photos.length; color: Theme.secondary; font.pixelSize: 13 }
             ActionButton { iconName: "chevron-right"; enabled: detail.photos.length > 1; Accessible.name: "Próxima foto"; onClicked: detail.lightboxIndex = (detail.lightboxIndex + 1) % detail.photos.length }
         }
     }

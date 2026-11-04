@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Botão base com foco visível, estados e geometria compatíveis com o renderer. */
 import QtQuick
 import QtQuick.Controls
@@ -7,6 +8,12 @@ import GameStock
 Button {
     id: control
     property bool primary: false
+    /* scan-button do Electron: ícone de 18 px, altura de 38 px e preenchimento sem borda. */
+    property bool sidebarAction: false
+    property int iconSize: sidebarAction ? 18 : 16
+    /* O fechamento usa o botão vermelho de 26 px definido no renderer. */
+    property bool closeButton: iconName === "x-danger" && text.length === 0
+    property bool wrapLabel: false
     property string iconName: ""
     /* A barra de coleção usa botões compactos e fundo discreto próprios. */
     property bool toolbar: false
@@ -20,52 +27,61 @@ Button {
     property bool link: false
     /* Favorito ativo usa o dourado do renderer. */
     property bool warningFill: false
-    implicitHeight: toolbar || pagination ? 30 : Theme.controlHeight
-    /* Reserva a margem interna e evita cortar rótulos curtos após o layout. */
-    implicitWidth: toolbar || pagination ? 30 : Math.max(34, label.implicitWidth + (iconName ? 20 : 0) + 32)
+    /* Icon-button e text-button têm caixas distintas no CSS, sem padding textual em ícones. */
+    readonly property bool iconOnly: iconName.length > 0 && text.length === 0
+    property bool formAction: false
+    implicitHeight: sidebarAction ? 38 : closeButton ? 26 : toolbar || pagination ? 30 : iconOnly ? 26 : primary ? Theme.controlHeight : 31
+    implicitWidth: closeButton ? 26 : toolbar || pagination ? 30 : iconOnly ? 26 : Math.max(formAction ? Theme.formActionMinWidth : 34, label.implicitWidth + (iconName ? iconSize + 6 : 0) + 22)
     hoverEnabled: true
-    padding: toolbar || pagination ? 6 : 12
+    padding: closeButton || iconOnly ? 0 : 6
+    leftPadding: closeButton || iconOnly ? 0 : toolbar || pagination ? 6 : 10
+    rightPadding: leftPadding
     opacity: pagination && !enabled ? 0.3 : 1
-    font.family: Theme.fontFamily
+    font.family: sidebarAction ? Theme.heavyFontFamily : Theme.fontFamily
     font.pixelSize: Theme.formControlFontSize
-    contentItem: RowLayout {
-        spacing: 4
-        /* Os espaçadores centralizam ícone e rótulo como um único grupo. */
-        Item { Layout.fillWidth: true }
-        Image {
-            visible: control.iconName.length > 0
-            /* As variantes locais preservam a cor ativa sem depender de shader. */
-            source: control.iconName ? "qrc:/icons/" + control.iconName + (((control.toolbar && control.primary) || control.accentOutline || control.link) ? "-active" : (control.iconName === "settings" && control.primary ? "-dark" : "")) + ".svg" : ""
-            sourceSize: Qt.size(16, 16)
-            Layout.alignment: Qt.AlignCenter
+    font.weight: Font.Normal
+    contentItem: Item {
+        /* Centralizar o grupo evita que espaçadores consumam o espaço de ícones compactos. */
+        RowLayout {
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width)
+            spacing: 6
+            Image {
+                visible: control.iconName.length > 0
+                /* As variantes locais preservam a cor ativa sem depender de shader. */
+                source: control.iconName ? "qrc:/icons/" + control.iconName + (((control.toolbar && control.primary) || control.link) ? "-active" : ((control.sidebarAction || control.iconName === "settings") && control.primary ? "-dark" : "")) + ".svg" : ""
+                sourceSize: Qt.size(control.iconSize, control.iconSize)
+                Layout.alignment: Qt.AlignCenter
+            }
+            UiText {
+                id: label
+                visible: text.length > 0
+                text: control.text
+                font: control.font
+                color: (control.successFill || control.warningFill) ? "#ffffff" : control.link ? Theme.accent : control.dangerOutline ? "#fecaca" : (control.primary ? Theme.accentForeground : Theme.text)
+                Behavior on color { ColorAnimation { duration: 150 } }
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: control.wrapLabel ? Text.WordWrap : Text.NoWrap
+                elide: control.wrapLabel ? Text.ElideNone : Text.ElideRight
+                Layout.fillWidth: control.wrapLabel
+                Layout.maximumWidth: Math.max(0, control.availableWidth - (control.iconName ? control.iconSize + 6 : 0))
+            }
         }
-        Text {
-            id: label
-            visible: text.length > 0
-            text: control.text
-            font: control.font
-            color: (control.successFill || control.warningFill) ? "#ffffff" : (control.accentOutline || control.link) ? Theme.accent : control.dangerOutline ? Theme.danger : (control.primary ? Theme.accentForeground : Theme.text)
-            Behavior on color { ColorAnimation { duration: 150 } }
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-            Layout.maximumWidth: Math.max(0, control.availableWidth - (control.iconName ? 20 : 0))
-        }
-        Item { Layout.fillWidth: true }
     }
     background: Rectangle {
         radius: 6
-        color: control.link
+        color: control.closeButton ? (control.hovered ? "#94b91c1c" : "#617f1d1d") : control.link
             ? "transparent"
             : control.warningFill
-            ? (control.hovered ? "#b45309" : "#eab308")
+            ? (control.hovered ? "#b45309" : "#e0713f12")
             : control.successFill
-            ? (control.hovered ? "#15803d" : "#22c55e")
+            ? (control.hovered ? "#15803d" : "#16a34a")
             : control.accentOutline || control.dangerOutline
-            ? (control.hovered ? Theme.controlHover : "transparent")
+            ? (control.dangerOutline ? (control.hovered ? "#80b91c1c" : "#407f1d1d") : Theme.accentSoft)
             : control.toolbar ? ((control.primary || control.hovered) ? Theme.accentSoft : "transparent") : (control.primary ? Theme.accent : (control.hovered ? Theme.controlHover : Theme.control))
-        border.width: control.link ? 0 : (control.toolbar && !control.activeFocus && !control.accentOutline && !control.dangerOutline) ? 0 : 1
-        border.color: control.activeFocus ? Theme.accent
+        border.width: control.sidebarAction ? (control.activeFocus ? 1 : 0) : control.link ? 0 : (control.toolbar && !control.activeFocus && !control.accentOutline && !control.dangerOutline) ? 0 : 1
+        border.color: control.closeButton ? (control.hovered ? "#ccf87171" : "#8cf87171") : control.activeFocus ? Theme.accent
             : control.accentOutline ? Theme.accent
             : control.dangerOutline ? Theme.danger
             : control.warningFill ? "#eab308"

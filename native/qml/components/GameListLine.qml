@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Cabeçalho e linha tabular do protótipo, com medidas da lista Electron. */
 import QtQuick
 import QtQuick.Controls
@@ -8,6 +9,30 @@ AbstractButton {
     property bool header: false
     property var game: ({})
     readonly property real flexible: Math.max(0, width - 20 - 60 - 52 - 64 - 36 - 70)
+    /* Distribui os fr depois de reservar os minimos, inclusive em janelas largas. */
+    readonly property var columnWidths: {
+        const minimums = [160, 90, 110, 110]
+        const weights = [1.5, 1, 1, 1]
+        const result = [0, 0, 0, 0]
+        let space = Math.max(470, flexible)
+        let weight = 4.5
+        const fixed = [false, false, false, false]
+        for (let pass = 0; pass < 4; pass++) {
+            let changed = false
+            for (let i = 0; i < 4; i++) {
+                if (!fixed[i] && space / weight * weights[i] < minimums[i]) {
+                    result[i] = minimums[i]
+                    space -= minimums[i]
+                    weight -= weights[i]
+                    fixed[i] = true
+                    changed = true
+                }
+            }
+            if (!changed) break
+        }
+        for (let i = 0; i < 4; i++) if (!fixed[i]) result[i] = space / weight * weights[i]
+        return result
+    }
     implicitHeight: header ? 32 : 54
     hoverEnabled: !header
     enabled: !header
@@ -35,11 +60,11 @@ AbstractButton {
             }
         }
         /* O título herda 16 px no renderer; as demais colunas usam 13 px. */
-        Text { width: Math.max(160, line.flexible / 4.5 * 1.5); height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Título" : (line.game.title || ""); color: line.header ? Theme.secondary : Theme.text; font.pixelSize: line.header ? 12 : 16; font.weight: line.header ? Font.ExtraBold : Font.Normal }
-        Text { width: Math.max(90, line.flexible / 4.5); height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Plataforma" : (line.game.platform_name || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; font.weight: line.header ? Font.ExtraBold : Font.Normal }
-        Text { width: Math.max(110, line.flexible / 4.5); height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Estilo" : (line.game.genre || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; font.weight: line.header ? Font.ExtraBold : Font.Normal }
-        Text { width: Math.max(110, line.flexible / 4.5); height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Publisher" : (line.game.publisher || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; font.weight: line.header ? Font.ExtraBold : Font.Normal }
-        Text { width: 52; height: line.height; verticalAlignment: Text.AlignVCenter; text: line.header ? "Ano" : (line.game.year || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; font.weight: line.header ? Font.ExtraBold : Font.Normal }
+        UiText { width: line.columnWidths[0]; height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Título" : (line.game.title || ""); color: line.header ? Theme.secondary : Theme.text; font.pixelSize: line.header ? 12 : 16; textWeight: line.header ? Font.ExtraBold : Font.Normal }
+        UiText { width: line.columnWidths[1]; height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Plataforma" : (line.game.platform_name || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; textWeight: line.header ? Font.ExtraBold : Font.Normal }
+        UiText { width: line.columnWidths[2]; height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Estilo" : (line.game.genre || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; textWeight: line.header ? Font.ExtraBold : Font.Normal }
+        UiText { width: line.columnWidths[3]; height: line.height; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; text: line.header ? "Publisher" : (line.game.publisher || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; textWeight: line.header ? Font.ExtraBold : Font.Normal }
+        UiText { width: 52; height: line.height; verticalAlignment: Text.AlignVCenter; text: line.header ? "Ano" : (line.game.year || "—"); color: Theme.secondary; font.pixelSize: line.header ? 12 : 13; textWeight: line.header ? Font.ExtraBold : Font.Normal }
         Item {
             width: 64; height: line.height
             Row {

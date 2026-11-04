@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Centro de notificações de jobs em background; fonte única é o JobManager. */
 import QtQuick
 import QtQuick.Controls
@@ -10,10 +11,10 @@ Item {
     objectName: "notificationCenter"
     required property var jobManager
     required property var romFolderService
-    property int cardWidth: 340
+    property int cardWidth: 360
     visible: jobList.count > 0
     width: cardWidth
-    height: Math.min(parent ? parent.height - 120 : 600, jobList.contentHeight + 24)
+    height: Math.min(parent ? parent.height - 120 : 600, jobList.contentHeight)
 
     /** Texto principal do card, priorizando o resumo persistido. */
     function titleFor(jobId, fallback) {
@@ -70,7 +71,7 @@ Item {
         id: jobList
         objectName: "jobNotificationList"
         anchors.fill: parent
-        spacing: 8
+        spacing: 10
         clip: true
         model: root.jobManager ? root.jobManager.model : null
         delegate: Rectangle {
@@ -97,11 +98,12 @@ Item {
             })
             width: jobList.width
             height: card.implicitHeight + 24
-            radius: 10
+            radius: 12
             color: Theme.glass
             border.color: status === "failed" ? "#66ffb4ab" : Theme.border
             border.width: 1
 
+            Rectangle { width: 3; height: parent.height; radius: 2; color: cardRoot.status === "completed" ? "#22c55e" : cardRoot.status === "failed" ? "#ef4444" : cardRoot.status === "interrupted" ? Theme.warning : Theme.accent }
             ColumnLayout {
                 id: card
                 anchors.fill: parent
@@ -110,11 +112,11 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
-                    Text {
+                    UiText {
                         text: root.titleFor(jobId, cardRoot.jobData)
                         color: Theme.text
                         font.pixelSize: 13
-                        font.weight: Font.DemiBold
+                        textWeight: Font.DemiBold
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
@@ -126,7 +128,7 @@ Item {
                         onClicked: root.jobManager.dismiss(jobId)
                     }
                 }
-                Text {
+                UiText {
                     visible: progressFilename.length > 0 || progressFolderPath.length > 0
                     text: progressFilename.length > 0 ? progressFilename : progressFolderPath
                     color: Theme.secondary
@@ -136,7 +138,7 @@ Item {
                 }
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 6
+                    height: 4
                     radius: 3
                     color: Theme.control
                     Rectangle {
@@ -148,7 +150,7 @@ Item {
                 }
                 RowLayout {
                     Layout.fillWidth: true
-                    Text {
+                    UiText {
                         text: status === "completed" ? "Concluído"
                             : status === "failed" ? "Erro"
                             : status === "interrupted" ? "Interrompido"

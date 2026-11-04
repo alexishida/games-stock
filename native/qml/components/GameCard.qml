@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Card visual de fixture: capa, gradiente e metadados mantêm as medidas do CSS atual. */
 import QtQuick
 import QtQuick.Controls
@@ -46,14 +47,19 @@ AbstractButton {
             id: coverImage
             anchors.fill: parent
             source: card.coverSource
-            fillMode: Image.PreserveAspectCrop
+            /* Capas horizontais conservam a arte inteira, como object-fit: contain. */
+            readonly property bool landscape: implicitWidth > implicitHeight
+            anchors.margins: landscape ? 7 : 1
+            fillMode: landscape ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+            scale: card.hovered ? 1.025 : 1
+            Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             visible: false
             layer.enabled: source.toString().length > 0
             asynchronous: true
         }
         /* O clip retangular do Qt não recorta a imagem nos cantos arredondados. */
         Rectangle { id: coverMask; anchors.fill: parent; radius: 16; visible: false; layer.enabled: coverImage.source.toString().length > 0 }
-        MultiEffect { anchors.fill: parent; source: coverImage; maskSource: coverMask; maskEnabled: true; visible: coverImage.status === Image.Ready }
+        MultiEffect { anchors.fill: parent; source: coverImage; maskSource: coverMask; maskEnabled: true; saturation: card.hovered ? 0 : -0.18; visible: coverImage.status === Image.Ready }
         Rectangle {
             anchors.fill: parent
             visible: card.coverSource.toString().length === 0
@@ -92,7 +98,14 @@ AbstractButton {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
+            /* O gradiente precisa do mesmo recorte da capa para preservar os cantos inferiores. */
             height: parent.height * 0.58
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: gradientMask
+            }
+            Rectangle { id: gradientMask; anchors.fill: parent; radius: 16; visible: false; layer.enabled: true }
             gradient: Gradient {
                 GradientStop { position: 0; color: "#00131313" }
                 GradientStop { position: 0.46; color: "#bd131313" }
@@ -103,10 +116,11 @@ AbstractButton {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: 16
+            /* Borda de 1 px + padding CSS de 16 px; retângulos dos textos medidos no DOM. */
+            anchors.margins: 17
             spacing: 4
-            Text { text: card.platformName.toUpperCase(); color: Theme.accent; font.pixelSize: 9; font.weight: Font.Black; font.letterSpacing: 0.72; width: parent.width; elide: Text.ElideRight }
-            Text { text: card.gameTitle; color: Theme.text; font.pixelSize: 14; font.weight: Font.Bold; width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight }
+            UiText { objectName: "libraryCardPlatform"; text: card.platformName.toUpperCase(); color: Theme.accent; font.pixelSize: Theme.libraryCardLabelFontSize; textWeight: Font.Black; font.letterSpacing: 0.72; lineHeightMode: Text.FixedHeight; lineHeight: 12; width: parent.width; elide: Text.ElideRight }
+            UiText { objectName: "libraryCardTitle"; text: card.gameTitle; color: Theme.text; font.pixelSize: Theme.libraryCardTitleFontSize; textWeight: Font.Bold; lineHeightMode: Text.FixedHeight; lineHeight: Theme.libraryCardTitleFontSize * 1.3; width: parent.width; wrapMode: Text.WordWrap; maximumLineCount: 2; elide: Text.ElideRight }
         }
         Image {
             anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 10
@@ -115,6 +129,6 @@ AbstractButton {
             opacity: card.favorite && !card.hovered ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 160 } }
         }
-        Rectangle { anchors.fill: parent; radius: 16; color: "transparent"; border.width: 1; border.color: card.activeFocus ? Theme.accent : "transparent" }
+        Rectangle { anchors.fill: parent; radius: 16; color: "transparent"; border.width: 1; border.color: card.activeFocus ? Theme.accent : card.hovered ? "#6b00f2ff" : Theme.border }
     }
 }

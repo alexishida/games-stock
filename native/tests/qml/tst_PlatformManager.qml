@@ -199,6 +199,10 @@ Item {
             tryVerify(function() { return form.visible }, 2000)
             wait(200)
             const name = findChild(form, "platformNameField")
+            /* Regressão: o cabeçalho não pode cobrir o primeiro campo do formulário. */
+            verify(form.showHeading)
+            verify(form.topPadding > form.padding)
+            verify(name.mapToItem(form.contentItem, 0, 0).y >= 0)
             compare(name.text, "")
             name.text = "PlayStation 2"
             mouseClick(findChild(form, "savePlatform"))

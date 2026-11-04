@@ -1,3 +1,4 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Linha tabular do inventário; o cabeçalho usa a mesma grade de colunas. */
 import QtQuick
 import QtQuick.Controls
@@ -68,7 +69,7 @@ Item {
             Layout.fillHeight: true
             Image {
                 anchors.centerIn: parent
-                visible: line.header
+                visible: false
                 source: "qrc:/icons/cpu.svg"
                 sourceSize: Qt.size(16, 16)
             }
@@ -89,48 +90,48 @@ Item {
                 Image {
                     anchors.centerIn: parent
                     visible: !line.item || !line.item.coverUrl
-                    source: "qrc:/icons/cpu.svg"
+                    source: "qrc:/icons/cpu-active.svg"
                     sourceSize: Qt.size(20, 20)
                 }
             }
         }
 
-        Text {
+        UiText {
             Layout.fillWidth: true
-            Layout.minimumWidth: 120
+            Layout.minimumWidth: 160
             text: line.header ? "Nome" : line.textOrDash(line.item ? line.item.name : "")
             color: line.header ? Theme.secondary : Theme.text
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.DemiBold
+            textWeight: line.header ? Font.ExtraBold : Font.Bold
             elide: Text.ElideRight
         }
-        Text {
+        UiText {
             Layout.preferredWidth: 110
             text: line.header ? "Plataforma" : line.textOrDash(line.item ? line.item.platform_name : "")
             color: Theme.secondary
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.Normal
+            textWeight: line.header ? Font.ExtraBold : Font.Normal
             elide: Text.ElideRight
         }
-        Text {
+        UiText {
             Layout.preferredWidth: 96
             text: line.header ? "Tipo" : line.textOrDash(line.item ? line.item.item_type_name : "")
             color: Theme.secondary
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.Normal
+            textWeight: line.header ? Font.ExtraBold : Font.Normal
             elide: Text.ElideRight
         }
         Item {
             Layout.preferredWidth: 88
             Layout.fillHeight: true
-            Text {
+            UiText {
                 visible: line.header || !line.item || !line.item.conservation_state_name
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width
                 text: line.header ? "Estado" : "-"
                 color: Theme.secondary
                 font.pixelSize: line.header ? 12 : 13
-                font.weight: line.header ? Font.ExtraBold : Font.Normal
+                textWeight: line.header ? Font.ExtraBold : Font.Normal
             }
             Rectangle {
                 visible: !line.header && line.item && line.item.conservation_state_name
@@ -141,52 +142,52 @@ Item {
                 color: line.item ? Qt.rgba(line.conditionColor(line.item.conservation_state_name).r,
                     line.conditionColor(line.item.conservation_state_name).g,
                     line.conditionColor(line.item.conservation_state_name).b, 0.15) : "transparent"
-                Text {
+                UiText {
                     id: stateLabel
                     anchors.centerIn: parent
                     width: Math.min(parent.width - 12, implicitWidth)
                     text: line.item ? (line.item.conservation_state_name || "") : ""
                     color: line.item ? line.conditionColor(line.item.conservation_state_name) : Theme.secondary
                     font.pixelSize: 10
-                    font.weight: Font.ExtraBold
+                    textWeight: Font.ExtraBold
                     elide: Text.ElideRight
                 }
             }
         }
-        Text {
+        UiText {
             visible: !line.compact
             Layout.preferredWidth: 72
             text: line.header ? "Cor" : line.textOrDash(line.item ? line.item.color : "")
             color: Theme.secondary
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.Normal
+            textWeight: line.header ? Font.ExtraBold : Font.Normal
             elide: Text.ElideRight
         }
-        Text {
+        UiText {
             Layout.fillWidth: !line.compact
             Layout.preferredWidth: 110
             text: line.header ? "Local" : line.textOrDash(line.item ? line.item.storage_location : "")
             color: Theme.secondary
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.Normal
+            textWeight: line.header ? Font.ExtraBold : Font.Normal
             elide: Text.ElideRight
         }
-        Text {
+        UiText {
             visible: !line.compact
             Layout.preferredWidth: 84
             text: line.header ? "Valor" : line.formatValue(line.item ? line.item.value : null)
             color: Theme.secondary
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.Normal
+            textWeight: line.header ? Font.ExtraBold : Font.Normal
             horizontalAlignment: Text.AlignRight
         }
-        Text {
+        UiText {
             visible: !line.compact
             Layout.preferredWidth: 92
             text: line.header ? "Aquisição" : line.formatDate(line.item ? line.item.acquisition_date : null)
             color: Theme.secondary
             font.pixelSize: line.header ? 12 : 13
-            font.weight: line.header ? Font.ExtraBold : Font.Normal
+            textWeight: line.header ? Font.ExtraBold : Font.Normal
             horizontalAlignment: Text.AlignRight
         }
     }

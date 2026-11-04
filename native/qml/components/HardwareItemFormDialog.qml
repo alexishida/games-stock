@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Formulário de criação/edição do inventário, com galeria de fotos e detalhes opcionais. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -9,6 +11,8 @@ import "."
 
 DragDialog {
     id: form
+    cornerRadius: 12
+    panelBorder: Theme.borderStrong
     objectName: "hardwareItemFormDialog"
     property var inventoryService: null
     property var platforms: []
@@ -21,7 +25,11 @@ DragDialog {
     signal saved(var item)
 
     width: Math.min(900, parent.width - 48)
-    height: Math.min(760, parent.height - 48)
+    /* A altura acompanha os campos; 760 é teto, não uma altura fixa com espaço vazio. */
+    height: Math.min(760, bodyContainer.implicitHeight + 176, parent.height - 48)
+    /* Padding assimétrico e colunas de 320 px seguem o formulário Electron. */
+    topPadding: 20
+    bottomPadding: 18
     heading: createMode ? "Novo item de hardware" : "Editar item de hardware"
     onOpened: populate()
     onClosed: formError = ""
@@ -163,17 +171,18 @@ DragDialog {
         property alias fieldObjectName: field.objectName
         property alias fieldItem: field
         Layout.fillWidth: true
-        spacing: 4
-        Text { id: labelText; visible: false }
-        Text {
+        spacing: Theme.formLabelGap
+        UiText { id: labelText; visible: false }
+        UiText {
             text: labelText.text.toUpperCase()
-            color: Theme.muted
-            font.pixelSize: 10
-            font.weight: Font.ExtraBold
+            color: Theme.secondary
+            font.pixelSize: Theme.formLabelFontSize
+            textWeight: Font.ExtraBold
             font.letterSpacing: 0.6
         }
         FormField {
             id: field
+            font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
             Layout.fillWidth: true
             placeholderTextColor: Theme.muted
         }
@@ -186,7 +195,7 @@ DragDialog {
         dangerOutline: true
         anchors.top: parent.top
         anchors.right: parent.right
-        anchors.margins: 16
+        anchors.margins: 0
         z: 10
         Accessible.name: "Fechar"
         onClicked: form.close()
@@ -194,15 +203,15 @@ DragDialog {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 12
+        spacing: 28
 
         RowLayout {
             Layout.fillWidth: true
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 4
-                Text { text: "INVENTÁRIO FÍSICO"; color: Theme.accent; font.pixelSize: 12; font.weight: Font.ExtraBold; font.letterSpacing: 1 }
-                Text { text: form.createMode ? "Novo item de hardware" : "Editar item de hardware"; color: Theme.text; font.pixelSize: 22; font.weight: Font.Black }
+                UiText { text: "INVENTÁRIO FÍSICO"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 1 }
+                UiText { text: form.createMode ? "Novo item de hardware" : "Editar item de hardware"; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black }
             }
         }
 
@@ -214,7 +223,7 @@ DragDialog {
             contentHeight: bodyContainer.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: CollectionScrollBar { policy: ScrollBar.AsNeeded }
 
             ColumnLayout {
                 id: bodyContainer
@@ -229,9 +238,9 @@ DragDialog {
 
                 /* Coluna esquerda: campos centrais em cartão, como o renderer. */
                 Rectangle {
-                    Layout.preferredWidth: Math.max(420, body.width - 314)
-                    Layout.minimumWidth: Math.max(420, body.width - 314)
-                    Layout.maximumWidth: Math.max(420, body.width - 314)
+                    Layout.preferredWidth: Math.max(420, body.width - 334)
+                    Layout.minimumWidth: Math.max(420, body.width - 334)
+                    Layout.maximumWidth: Math.max(420, body.width - 334)
                     Layout.alignment: Qt.AlignTop
                     implicitHeight: fields.implicitHeight + 32
                     radius: 12
@@ -256,37 +265,26 @@ DragDialog {
                         ColumnLayout {
                             Layout.columnSpan: 2
                             Layout.fillWidth: true
-                            spacing: 4
-                            Text { text: "PLATAFORMA *"; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.6 }
-                            ComboBox {
+                            spacing: Theme.formLabelGap
+                            UiText { text: "PLATAFORMA *"; color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
+                            FormSelect {
+                                font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
                                 id: platformBox
                                 objectName: "hardwareItemPlatform"
                                 Layout.fillWidth: true
                                 implicitHeight: Theme.controlHeight
                                 font.pixelSize: Theme.formControlFontSize
-                                leftPadding: 8
-                                rightPadding: 26
                                 model: {
                                     const values = ["Selecione uma plataforma...", form.multiplatformLabel]
                                     for (let index = 0; index < form.platforms.length; index++) values.push(form.platforms[index].name)
                                     return values
                                 }
-                                background: Rectangle {
-                                    radius: 6
-                                    color: platformBox.hovered ? Theme.controlHover : Theme.control
-                                    border.color: platformBox.activeFocus ? Theme.accent : Theme.border
-                                }
-                                contentItem: Text {
+                                contentItem: UiText {
                                     text: platformBox.displayText
                                     font: platformBox.font
                                     color: platformBox.currentIndex > 0 ? Theme.text : Theme.muted
                                     verticalAlignment: Text.AlignVCenter
                                     elide: Text.ElideRight
-                                }
-                                indicator: Text {
-                                    x: platformBox.width - width - 10
-                                    y: (platformBox.height - height) / 2
-                                    text: "▾"; color: Theme.secondary; font.pixelSize: 12
                                 }
                             }
                         }
@@ -307,13 +305,18 @@ DragDialog {
                         ColumnLayout {
                             Layout.columnSpan: 2
                             Layout.fillWidth: true
-                            spacing: 4
-                            Text { text: "DESCRIÇÃO"; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.6 }
+                            spacing: Theme.formLabelGap
+                            UiText { text: "DESCRIÇÃO"; color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                             TextArea {
+                                /* O distance field preserva suavização no campo de descrição. */
+                                renderType: TextEdit.QtRendering
+                                antialiasing: true
+                                font.family: Theme.fontFamily
+                                font.hintingPreference: Font.PreferNoHinting
                                 id: descriptionArea
                                 objectName: "hardwareItemDescription"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 190
+                                Layout.preferredHeight: 180
                                 padding: 8
                                 placeholderText: "Descreva o item, histórico, observações..."
                                 placeholderTextColor: Theme.muted
@@ -328,16 +331,17 @@ DragDialog {
 
                 /* Coluna direita: fotos, alternância e detalhes adicionais. */
                 ColumnLayout {
-                    Layout.preferredWidth: 300
-                    Layout.minimumWidth: 300
-                    Layout.maximumWidth: 300
+                    Layout.preferredWidth: 320
+                    Layout.minimumWidth: 320
+                    Layout.maximumWidth: 320
                     Layout.alignment: Qt.AlignTop
                     spacing: 14
 
                     Rectangle {
                         Layout.fillWidth: true
                         visible: !form.createMode
-                        implicitHeight: photoColumn.implicitHeight
+                        /* O padding pertence à caixa, inclusive quando não existem miniaturas. */
+                        implicitHeight: photoColumn.implicitHeight + 24
                         radius: 12
                         color: "#e61b1b1b"
                         border.color: "#38849495"
@@ -348,17 +352,19 @@ DragDialog {
                             spacing: 8
                             RowLayout {
                                 Layout.fillWidth: true
-                                Text { text: "FOTOS (" + form.photos.length + ")"; color: Theme.secondary; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                                UiText { text: "FOTOS (" + form.photos.length + ")"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                                 Item { Layout.fillWidth: true }
                                 ActionButton {
                                     objectName: "addHardwarePhoto"
+                                    font.pixelSize: 11
+                                    iconSize: 12
+                                    implicitHeight: 28
                                     text: "Adicionar foto"
                                     iconName: "image"
                                     onClicked: form.addPhoto()
                                 }
                             }
-                            Text { visible: form.photoError.length > 0; text: form.photoError; color: "#fca5a5"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                            Text { visible: form.photos.length === 0; text: "Nenhuma foto adicionada"; color: Theme.muted; font.pixelSize: 12; font.italic: true }
+                            UiText { visible: form.photoError.length > 0; text: form.photoError; color: "#fca5a5"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Flow {
                                 Layout.fillWidth: true
                                 spacing: 8
@@ -389,7 +395,7 @@ DragDialog {
                                             color: Theme.accent
                                             width: coverText.implicitWidth + 12
                                             height: 18
-                                            Text { id: coverText; anchors.centerIn: parent; text: "CAPA"; color: Theme.accentForeground; font.pixelSize: 9; font.weight: Font.ExtraBold }
+                                            UiText { id: coverText; anchors.centerIn: parent; text: "CAPA"; color: Theme.accentForeground; font.pixelSize: 9; textWeight: Font.ExtraBold }
                                         }
                                         MouseArea {
                                             anchors.fill: parent
@@ -431,29 +437,50 @@ DragDialog {
                         }
                     }
 
-                    Text { visible: form.createMode; text: "Salve o item primeiro para adicionar fotos."; color: Theme.muted; font.pixelSize: 12; font.italic: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    Rectangle {
+                        visible: form.createMode
+                        Layout.fillWidth: true
+                        implicitHeight: 74
+                        radius: 12
+                        color: Theme.control
+                        border.color: Theme.border
+                        UiText {
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            text: "Salve o item primeiro para adicionar fotos."
+                            color: Theme.muted
+                            font.pixelSize: 12
+                            font.italic: true
+                            wrapMode: Text.WordWrap
+                        }
+                    }
 
                     Rectangle {
                         objectName: "toggleHardwareDetails"
                         Layout.fillWidth: true
-                        implicitHeight: 46
+                        implicitHeight: 42
                         radius: 10
-                        color: extraOpen.checked ? Theme.accentSoft : "#d1121212"
-                        border.color: extraOpen.checked ? Theme.accent : Theme.border
+                        /* O toggle mantém a faixa ciano discreta mesmo antes de expandir. */
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: "#e6121212" }
+                            GradientStop { position: 1; color: "#1400f2ff" }
+                        }
+                        border.color: "#4d00f2ff"
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 12
-                            Text {
+                            UiText {
                                 text: extraOpen.checked ? "⌄" : "›"
                                 color: Theme.accent
                                 font.pixelSize: 16
                                 font.bold: true
                             }
-                            Text {
+                            UiText {
                                 text: "Detalhes adicionais"
                                 color: Theme.text
                                 font.pixelSize: 13
-                                font.weight: Font.Bold
+                                textWeight: Font.Bold
                                 Layout.fillWidth: true
                             }
                         }
@@ -498,7 +525,7 @@ DragDialog {
             }
         }
 
-        Text {
+        UiText {
             objectName: "hardwareFormError"
             visible: form.formError.length > 0
             text: form.formError
@@ -517,15 +544,14 @@ DragDialog {
                 objectName: "saveHardwareItem"
                 text: form.createMode ? "Criar item" : "Salvar alterações"
                 iconName: form.createMode ? "plus" : "save"
-                primary: form.createMode
-                accentOutline: !form.createMode
+                accentOutline: true
                 onClicked: form.save()
             }
         }
     }
 
     /* Estado da seção expansível controlado por um único checkbox invisível. */
-    CheckBox {
+    FormCheckBox {
         id: extraOpen
         visible: false
         checked: false

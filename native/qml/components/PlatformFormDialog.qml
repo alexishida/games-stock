@@ -1,3 +1,6 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Gaps do management-form preservam as medidas originais do Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Criação e edição de plataforma, equivalente ao PlatformFormModal do Electron. */
 import QtQuick
 import QtQuick.Controls
@@ -16,8 +19,11 @@ DragDialog {
 
     signal saved(var platformId)
 
-    width: Math.min(460, parent.width - 48)
-    height: 320
+    /* Medidas do formulário original, com título e fechamento explícitos. */
+    showHeading: true
+    padding: 16
+    width: Math.min(420, parent.width - 48)
+    height: 272
     heading: editMode ? "Editar plataforma" : "Nova plataforma"
     onOpened: populate()
     onClosed: formError = ""
@@ -66,37 +72,36 @@ DragDialog {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 12
+        spacing: Theme.formGroupGap
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 4
-            Text { text: "Nome"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; font.weight: Font.Bold }
-            FormField { id: nameField; objectName: "platformNameField"; Layout.fillWidth: true; placeholderText: "Ex.: PlayStation 2" }
+            spacing: Theme.formLabelGap
+            UiText { text: "Nome"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
+            FormField { font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold); id: nameField; objectName: "platformNameField"; Layout.fillWidth: true; placeholderText: "Ex.: PlayStation 2" }
         }
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 4
-            Text { text: "Categoria"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; font.weight: Font.Bold }
-            ComboBox {
+            spacing: Theme.formLabelGap
+            UiText { text: "Categoria"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
+            FormSelect {
+                font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
                 id: categoryBox
                 objectName: "platformCategoryField"
+                /* O CSS deste modal usa select com altura de 36 px. */
+                implicitHeight: 36
                 Layout.fillWidth: true
-                implicitHeight: 30
-                leftPadding: 10
-                rightPadding: 30
                 font.pixelSize: Theme.formControlFontSize
                 model: form.categories
-                contentItem: Text {
+                contentItem: UiText {
                     text: categoryBox.displayText
                     font: categoryBox.font
                     color: Theme.text
                     verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                 }
-                indicator: Text { x: categoryBox.width - width - 11; y: (categoryBox.height - height) / 2; text: "▾"; color: Theme.secondary; font.pixelSize: 13 }
-                background: Rectangle { radius: 6; color: categoryBox.hovered ? Theme.controlHover : Theme.control; border.color: categoryBox.activeFocus ? Theme.accent : Theme.border }
             }
         }
-        Text {
+        UiText {
             objectName: "platformFormError"
             visible: form.formError.length > 0
             text: form.formError
@@ -108,9 +113,12 @@ DragDialog {
         Item { Layout.fillHeight: true }
         RowLayout {
             Layout.fillWidth: true
+            spacing: Theme.formActionGap
+            /* O espaçador também conta no gap Qt; compensar impede o rodapé de sair do modal. */
+            Layout.topMargin: 4 - Theme.formGroupGap
             Item { Layout.fillWidth: true }
-            ActionButton { objectName: "cancelPlatform"; text: "Cancelar"; onClicked: form.close() }
-            ActionButton { objectName: "savePlatform"; text: "Salvar"; iconName: "save"; primary: true; onClicked: form.save() }
+            ActionButton { objectName: "cancelPlatform"; text: "Cancelar"; formAction: true; iconName: "x-danger"; dangerOutline: true; onClicked: form.close() }
+            ActionButton { objectName: "savePlatform"; text: "Salvar"; formAction: true; iconName: "save"; accentOutline: true; onClicked: form.save() }
         }
     }
 }

@@ -363,6 +363,8 @@ Item {
             const settings = findChild(app, "settingsDialog")
             if (settings && settings.visible) settings.close()
             wait(150)
+            // A importacao continua acessivel pelo menu de contexto da biblioteca.
+            findChild(app, "libraryActionsMenu").open()
             const open = findChild(app, "openMetadataImporter")
             verify(open !== null)
             mouseClick(open)

@@ -148,7 +148,11 @@ qt_add_qml_module(gamestock_native
     RESOURCE_PREFIX /qt/qml
     QML_FILES
         qml/Main.qml qml/Theme.qml
-        qml/components/ActionButton.qml qml/components/FormField.qml qml/components/NavigationButton.qml
+        # Primitivas visuais compartilham métricas CSS e rasterização da fonte no Windows.
+        qml/components/UiText.qml qml/components/SectionIntro.qml qml/components/CollectionScrollBar.qml
+        qml/components/FormCheckBox.qml qml/components/PanelFlickable.qml
+        # O seletor compartilhado preserva métricas e menu escuro em todos os formulários.
+        qml/components/ActionButton.qml qml/components/FormField.qml qml/components/FormSelect.qml qml/components/NavigationButton.qml
         qml/components/DragDialog.qml qml/components/GameCard.qml qml/components/GameListLine.qml
         qml/components/GameDetailPage.qml qml/components/GameFormDialog.qml
         qml/components/GameMetadataEditor.qml

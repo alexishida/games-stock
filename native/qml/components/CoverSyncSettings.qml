@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Seção "Mídia da biblioteca": estatísticas e sincronização LaunchBox. */
 import QtQuick
 import QtQuick.Controls
@@ -50,21 +52,21 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 14
+        spacing: 12
 
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: updatePanel.implicitHeight + 28
-            radius: 12
-            color: "#d1121212"
+            radius: 8
+            color: Theme.control
             border.color: Theme.border
             ColumnLayout {
                 id: updatePanel
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 8
-                Text { text: "Atualizar dados"; color: Theme.text; font.pixelSize: 14; font.weight: Font.Bold }
-                Text {
+                UiText { text: "Atualizar dados"; color: Theme.text; font.pixelSize: 14; textWeight: Font.Bold }
+                UiText {
                     objectName: "metadataDownloadedAt"
                     text: root.metadataService && root.metadataService.metadataReady ? "Metadados prontos no cache local" : "Metadados ainda não baixados"
                     color: Theme.secondary
@@ -82,53 +84,42 @@ Item {
             }
         }
 
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 2
-            Text { text: "Mídia da biblioteca"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-            Text {
-                text: "Situação das capas principais e metadados baixados para os jogos da biblioteca."
-                color: Theme.secondary
-                font.pixelSize: 12
-                wrapMode: Text.WordWrap
+        SectionIntro {
                 Layout.fillWidth: true
+                Layout.topMargin: 12
+                title: "Mídia da biblioteca"
+                description: "Situação das capas principais e metadados baixados para os jogos da biblioteca."
+                bottomGap: 0
             }
-        }
 
         GridLayout {
             columns: 3
-            columnSpacing: 12
-            rowSpacing: 12
+            columnSpacing: 10
             Layout.fillWidth: true
             Repeater {
                 model: [
-                    {key: "downloaded", label: "COVERS", icon: "image"},
-                    {key: "missing", label: "SEM COVERS", icon: "image"},
-                    {key: "total", label: "JOGOS", icon: "gamepad-2"}
+                    {key: "downloaded", label: "Covers", icon: "image-active"},
+                    {key: "missing", label: "Sem Covers", icon: "image"},
+                    {key: "total", label: "Jogos", icon: "gamepad-2-active"}
                 ]
                 delegate: Rectangle {
                     required property var modelData
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 76
-                    radius: 10
-                    color: "#d1121212"
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: 86
+                    radius: 8
+                    color: "#09ffffff"
                     border.color: Theme.border
-                    RowLayout {
+                    ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 12
-                        spacing: 10
-                        Image { source: "qrc:/icons/" + modelData.icon + ".svg"; sourceSize: Qt.size(18, 18) }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Text { text: modelData.label; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.6 }
-                            Text {
-                                text: root.stats && root.stats[modelData.key] !== undefined ? root.stats[modelData.key] : 0
-                                color: Theme.text
-                                font.pixelSize: 22
-                                font.weight: Font.Bold
-                            }
+                        spacing: 6
+                        RowLayout {
+                            spacing: 8
+                            Image { source: "qrc:/icons/" + modelData.icon + ".svg"; sourceSize: Qt.size(18, 18) }
+                            UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold }
                         }
+                        UiText { text: root.stats && root.stats[modelData.key] !== undefined ? root.stats[modelData.key] : 0; color: Theme.text; font.pixelSize: 28; textWeight: Font.Bold; lineHeightMode: Text.FixedHeight; lineHeight: 28 }
                     }
                 }
             }
@@ -137,16 +128,16 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: syncPanel.implicitHeight + 28
-            radius: 12
-            color: "#d1121212"
+            radius: 8
+            color: Theme.control
             border.color: Theme.border
             ColumnLayout {
                 id: syncPanel
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 8
-                Text { text: "Sincronização de mídia"; color: Theme.text; font.pixelSize: 14; font.weight: Font.Bold }
-                Text {
+                UiText { text: "Sincronização de mídia"; color: Theme.text; font.pixelSize: 14; textWeight: Font.Bold }
+                UiText {
                     text: "Completa somente dados e imagens que estão faltando."
                     color: Theme.secondary
                     font.pixelSize: 11
@@ -178,7 +169,7 @@ Item {
                         onClicked: root.startSync()
                     }
                 }
-                Text {
+                UiText {
                     objectName: "mediaSyncError"
                     visible: root.errorText.length > 0
                     text: root.errorText
@@ -187,7 +178,7 @@ Item {
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
-                Text {
+                UiText {
                     visible: root.syncRunning
                     text: "O progresso aparece no centro de notificações e continua ao fechar as configurações."
                     color: Theme.secondary

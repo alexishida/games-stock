@@ -1,6 +1,8 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Card individual do inventário: capa ou placeholder, plataforma, tipo e condição. */
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import GameStock
 
 Item {
@@ -9,7 +11,13 @@ Item {
     signal clicked()
 
     width: 180
-    height: 192
+    /* CSS: capa de 160 px, bordas de 2 px e padding vertical de 12 px no rodapé. */
+    height: 174 + metadataFlow.implicitHeight
+    /* Recorta foto e gradiente nos cantos do card inteiro, como overflow: hidden. */
+    layer.enabled: true
+    layer.effect: MultiEffect { maskEnabled: true; maskSource: cardMask }
+    Rectangle { id: cardMask; anchors.fill: parent; radius: 12; visible: false; layer.enabled: true }
+    transform: Translate { y: hoverArea.containsMouse ? -2 : 0; Behavior on y { NumberAnimation { duration: 180 } } }
 
     /** Cores semânticas declaradas como `color` para permitir transparência nos badges. */
     readonly property color colorNew: "#00dbe7"
@@ -39,7 +47,7 @@ Item {
         id: surface
         anchors.fill: parent
         radius: 12
-        color: Theme.panel
+        color: Theme.card
         border.width: 1
         border.color: hoverArea.containsMouse ? "#6b00dbe7" : Theme.border
         clip: true
@@ -48,9 +56,13 @@ Item {
 
     Item {
         id: cover
+        objectName: "inventoryCardCover"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
+        anchors.leftMargin: 1
+        anchors.rightMargin: 1
+        anchors.topMargin: 1
         height: 160
         clip: true
 
@@ -71,12 +83,14 @@ Item {
                 anchors.centerIn: parent
                 spacing: 6
                 Image { anchors.horizontalCenter: parent.horizontalCenter; source: "qrc:/icons/cpu.svg"; sourceSize: Qt.size(28, 28) }
-                Text {
+                UiText {
                     width: 130
                     text: card.item ? (card.item.item_type_name || "Hardware") : "Hardware"
                     color: Theme.muted
                     opacity: 0.7
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.inventoryCardMetaFontSize
+                    lineHeightMode: Text.FixedHeight
+                    lineHeight: 13
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
                 }
@@ -100,69 +114,79 @@ Item {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: 8
+            anchors.bottomMargin: 6
             spacing: 2
-            Text {
+            UiText {
+                objectName: "inventoryCardPlatform"
                 width: parent.width
                 visible: card.item && card.item.platform_name
                 text: card.item ? (card.item.platform_name || "") : ""
                 color: Theme.accent
                 opacity: 0.85
-                font.pixelSize: 10
+                font.pixelSize: Theme.inventoryCardMetaFontSize
+                lineHeightMode: Text.FixedHeight
+                lineHeight: 14
                 elide: Text.ElideRight
             }
-            Text {
+            UiText {
+                objectName: "inventoryCardTitle"
                 width: parent.width
                 text: card.item ? (card.item.name || "") : ""
                 color: "#ffffff"
-                font.pixelSize: 12
-                font.weight: Font.DemiBold
+                font.pixelSize: Theme.inventoryCardTitleFontSize
+                lineHeightMode: Text.FixedHeight
+                lineHeight: 16
+                textWeight: Font.DemiBold
                 elide: Text.ElideRight
             }
         }
     }
 
-    Row {
+    Flow {
+        id: metadataFlow
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: cover.bottom
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
+        anchors.leftMargin: 9
+        anchors.rightMargin: 9
         anchors.topMargin: 6
         spacing: 6
 
         Rectangle {
-            height: 18
+            height: 16
             width: Math.min(90, typeLabel.implicitWidth + 10)
             visible: card.item && card.item.item_type_name
             radius: 4
             color: "#1c1b1b"
-            Text {
+            UiText {
                 id: typeLabel
                 anchors.centerIn: parent
                 width: Math.min(84, implicitWidth)
                 text: card.item ? (card.item.item_type_name || "") : ""
                 color: Theme.secondary
-                font.pixelSize: 10
+                font.pixelSize: Theme.inventoryCardMetaFontSize
                 elide: Text.ElideRight
             }
         }
 
         Rectangle {
-            height: 18
+            height: 16
             width: conditionLabel.implicitWidth + 10
             visible: card.item && card.item.conservation_state_name
             radius: 4
             color: card.item ? card.conditionBackground(card.item.conservation_state_name) : "transparent"
-            Text {
+            UiText {
                 id: conditionLabel
                 anchors.centerIn: parent
                 text: card.item ? (card.item.conservation_state_name || "") : ""
                 color: card.item ? card.conditionColor(card.item.conservation_state_name) : Theme.secondary
-                font.pixelSize: 10
-                font.weight: Font.DemiBold
+                font.pixelSize: Theme.inventoryCardMetaFontSize
+                textWeight: Font.DemiBold
             }
         }
     }
+
+    Rectangle { anchors.fill: parent; radius: 12; color: "transparent"; border.color: hoverArea.containsMouse ? "#6b00dbe7" : Theme.border }
 
     MouseArea {
         id: hoverArea

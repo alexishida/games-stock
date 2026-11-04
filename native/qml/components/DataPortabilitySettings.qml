@@ -1,4 +1,7 @@
-﻿/* Aba Backup: exportaÃ§Ã£o/importaÃ§Ã£o com preview, avisos e jobs em background. */
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Textos UTF-8 e altura dos cards seguem a referencia de backup. */
+/* Hierarquia das introducoes segue SectionIntro.css do Electron. */
+/* Aba Backup: exportação/importação com preview, avisos e jobs em background. */
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -24,17 +27,17 @@ Item {
         {key: "metadata", title: "Metadados", description: "Jogos, favoritos, status e dados LaunchBox"},
         {key: "images", title: "Imagens", description: "Capas, fundos e screenshots baixados"},
         {key: "platforms", title: "Plataformas", description: "Plataformas, mapeamentos e emuladores"},
-        {key: "romLocations", title: "LocalizaÃ§Ãµes de ROMs", description: "Caminhos de ROM e pastas configuradas"},
-        {key: "inventoryImages", title: "InventÃ¡rio (itens e fotos)", description: "Itens fÃ­sicos de hardware e fotos do inventÃ¡rio"}
+        {key: "romLocations", title: "Localizações de ROMs", description: "Caminhos de ROM e pastas configuradas"},
+        {key: "inventoryImages", title: "Inventário (itens e fotos)", description: "Itens físicos de hardware e fotos do inventário"}
     ]
 
-    /** Categorias padrÃ£o na mesma ordem do renderer. */
+    /** Categorias padrão na mesma ordem do renderer. */
     function allCategories() { return ["metadata", "images", "platforms", "romLocations", "inventoryImages"] }
 
-    /** Verifica presenÃ§a em uma lista JS. */
+    /** Verifica presença em uma lista JS. */
     function includes(list, key) { return list.indexOf(key) >= 0 }
 
-    /** Liga/desliga categoria preservando a ordem canÃ´nica. */
+    /** Liga/desliga categoria preservando a ordem canônica. */
     function toggle(list, key, checked) {
         const next = list.slice()
         const index = next.indexOf(key)
@@ -58,7 +61,7 @@ Item {
         return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value)
     }
 
-    /** Bloqueia importaÃ§Ã£o sem preview vÃ¡lido, com erros ou sem categoria. */
+    /** Bloqueia importação sem preview válido, com erros ou sem categoria. */
     readonly property bool importBlocked: !preview || !preview.success || (preview.errors && preview.errors.length > 0)
         || importCategories.length === 0 || busy
 
@@ -67,95 +70,56 @@ Item {
     Component.onCompleted: if (panel.settingsService) panel.settingsService.refreshStats()
 
     Flickable {
+        id: backupViewport
         anchors.fill: parent
-        contentWidth: width
+        anchors.topMargin: 12
+        /* O scrollbar e o padding direito do CSS ocupam 8 px sem cobrir os cards. */
+        contentWidth: width - (contentHeight > height ? 8 : 0)
         contentHeight: content.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; width: 6 }
+        ScrollBar.vertical: CollectionScrollBar { policy: ScrollBar.AsNeeded; width: 6 }
 
         ColumnLayout {
             id: content
-            width: parent.width
+            width: backupViewport.contentWidth
             spacing: 14
 
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
-                Text { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 11; font.weight: Font.ExtraBold; font.letterSpacing: 0.8 }
-                Text { text: "Backup da biblioteca"; color: Theme.text; font.pixelSize: 28; font.weight: Font.Bold }
+                UiText { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                UiText { text: "Backup da biblioteca"; color: Theme.text; font.pixelSize: 28; textWeight: Font.Black; Layout.bottomMargin: 12 }
             }
 
-            RowLayout {
+            GridLayout {
                 Layout.fillWidth: true
-                spacing: 10
-                readonly property var stats: panel.settingsService
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 64
-                    radius: 12
-                    color: Theme.panel
-                    border.color: Theme.border
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-                        Image { source: "qrc:/icons/library.svg"; sourceSize: Qt.size(18, 18) }
+                columns: 3
+                columnSpacing: 10
+                Repeater {
+                    model: [
+                        {label: "VERSÃO", icon: "scroll-text", value: panel.settingsService ? panel.settingsService.buildLabel : "—"},
+                        {label: "BIBLIOTECA", icon: "grid-2x2", value: panel.settingsService && panel.settingsService.totalGames >= 0 ? panel.settingsService.totalGames + " jogos" : "carregando"},
+                        {label: "DADOS LOCAIS", icon: "database-backup", value: panel.settingsService && panel.settingsService.dataDirSizeMb >= 0 ? panel.settingsService.dataDirSizeMb + " MB" : "carregando"}
+                    ]
+                    delegate: Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 1
+                        implicitHeight: 76
+                        radius: 8
+                        color: "#09ffffff"
+                        border.color: Theme.border
                         ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Text { text: "VersÃ£o"; color: Theme.muted; font.pixelSize: 11 }
-                            Text { text: panel.settingsService ? ("v" + panel.settingsService.buildLabel) : "â€”"; color: Theme.text; font.pixelSize: 14; font.weight: Font.Bold }
-                        }
-                    }
-                }
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 64
-                    radius: 12
-                    color: Theme.panel
-                    border.color: Theme.border
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-                        Image { source: "qrc:/icons/grid-2x2.svg"; sourceSize: Qt.size(18, 18) }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Text { text: "BIBLIOTECA"; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.6 }
-                            Text {
-                                text: panel.settingsService && panel.settingsService.totalGames >= 0
-                                    ? panel.settingsService.totalGames + " jogos" : "carregando"
-                                color: Theme.text
-                                font.pixelSize: 14
-                                font.weight: Font.Bold
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 6
+                            RowLayout {
+                                spacing: 8
+                                Image { source: "qrc:/icons/" + modelData.icon + "-active.svg"; sourceSize: Qt.size(16, 16) }
+                                UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                             }
-                        }
-                    }
-                }
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 64
-                    radius: 12
-                    color: Theme.panel
-                    border.color: Theme.border
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-                        Image { source: "qrc:/icons/save.svg"; sourceSize: Qt.size(18, 18) }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-                            Text { text: "DADOS LOCAIS"; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.6 }
-                            Text {
-                                text: panel.settingsService && panel.settingsService.dataDirSizeMb >= 0
-                                    ? panel.settingsService.dataDirSizeMb + " MB" : "carregando"
-                                color: Theme.text
-                                font.pixelSize: 14
-                                font.weight: Font.Bold
-                            }
+                            UiText { text: modelData.value; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
                         }
                     }
                 }
@@ -164,16 +128,16 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: exportColumn.implicitHeight + 32
-                radius: 16
-                color: "#dc201f1f"
+                radius: 8
+                color: "#08ffffff"
                 border.color: Theme.border
                 ColumnLayout {
                     id: exportColumn
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 10
-                    Text { text: "Exportar backup"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-                    Text { text: "Crie um pacote local com as partes selecionadas da biblioteca."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    UiText { text: "Exportar backup"; color: Theme.accent; font.pixelSize: 16; textWeight: Font.Black }
+                    UiText { text: "Crie um pacote local com as partes selecionadas da biblioteca."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
@@ -185,32 +149,26 @@ Item {
                                 id: exportCard
                                 required property var modelData
                                 Layout.fillWidth: true
-                                implicitHeight: 56
-                                radius: 10
+                                implicitHeight: 72
+                                radius: 8
                                 color: panel.includes(panel.exportCategories, modelData.key) ? Theme.accentSoft : Theme.control
                                 border.color: panel.includes(panel.exportCategories, modelData.key) ? Theme.accent : Theme.border
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.margins: 10
-                                    spacing: 8
-                                    CheckBox {
+                                    spacing: 10
+                                    FormCheckBox {
                                         id: exportCheckbox
+                                        objectName: "exportCategory" + exportCard.modelData.key
                                         checked: panel.includes(panel.exportCategories, modelData.key)
                                         onClicked: panel.exportCategories = panel.toggle(panel.exportCategories, modelData.key, checked)
-                                        indicator: Rectangle {
-                                            implicitWidth: 16
-                                            implicitHeight: 16
-                                            radius: 3
-                                            color: exportCheckbox.checked ? Theme.accent : Theme.control
-                                            border.color: Theme.borderStrong
-                                            Text { anchors.centerIn: parent; text: "âœ“"; color: Theme.accentForeground; font.pixelSize: 12; font.bold: true; visible: exportCheckbox.checked }
-                                        }
+
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 1
-                                        Text { text: exportCard.modelData.title; color: Theme.accent; font.pixelSize: 12; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                        Text { text: exportCard.modelData.description; color: Theme.muted; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        UiText { text: exportCard.modelData.title; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        UiText { text: exportCard.modelData.description; color: Theme.secondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
                                     }
                                 }
                             }
@@ -240,16 +198,16 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: importColumn.implicitHeight + 32
-                radius: 16
-                color: "#dc201f1f"
+                radius: 8
+                color: "#08ffffff"
                 border.color: Theme.border
                 ColumnLayout {
                     id: importColumn
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 10
-                    Text { text: "Importar backup"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-                    Text { text: "PrÃ©-visualize um pacote e restaure somente as categorias escolhidas."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    UiText { text: "Importar backup"; color: Theme.accent; font.pixelSize: 16; textWeight: Font.Black }
+                    UiText { text: "Pré-visualize um pacote e restaure somente as categorias escolhidas."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     ActionButton {
                         objectName: "selectBackupPackage"
                         text: panel.busy ? "Lendo..." : "Selecionar pacote"
@@ -267,10 +225,10 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
-                                Text { text: "Pacote selecionado"; color: Theme.text; font.pixelSize: 13; font.weight: Font.Bold }
-                                Text { text: panel.preview ? panel.preview.packagePath : ""; color: Theme.muted; font.pixelSize: 11; elide: Text.ElideMiddle; Layout.fillWidth: true }
+                                UiText { text: "Pacote selecionado"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
+                                UiText { text: panel.preview ? panel.preview.packagePath : ""; color: Theme.muted; font.pixelSize: 11; elide: Text.ElideMiddle; Layout.fillWidth: true }
                             }
-                            Text { text: panel.preview ? panel.formatDate(panel.preview.manifest.createdAt) : ""; color: Theme.muted; font.pixelSize: 11 }
+                            UiText { text: panel.preview ? panel.formatDate(panel.preview.manifest.createdAt) : ""; color: Theme.muted; font.pixelSize: 11 }
                         }
                         Flow {
                             Layout.fillWidth: true
@@ -281,9 +239,9 @@ Item {
                                     (panel.preview.counts.platforms || 0) + " plataformas",
                                     (panel.preview.counts.images || 0) + " imagens",
                                     (panel.preview.counts.romLocations || 0) + " ROMs",
-                                    (panel.preview.counts.inventoryItems || 0) + " itens de inventÃ¡rio"
+                                    (panel.preview.counts.inventoryItems || 0) + " itens de inventário"
                                 ] : []
-                                delegate: Text {
+                                delegate: UiText {
                                     required property var modelData
                                     text: modelData
                                     color: Theme.secondary
@@ -306,14 +264,14 @@ Item {
                                     Layout.fillWidth: true
                                     implicitHeight: 50
                                     opacity: available ? 1 : 0.4
-                                    radius: 10
+                                    radius: 8
                                     color: available && panel.includes(panel.importCategories, modelData.key) ? Theme.accentSoft : Theme.control
                                     border.color: available && panel.includes(panel.importCategories, modelData.key) ? Theme.accent : Theme.border
                                     RowLayout {
                                         anchors.fill: parent
                                         anchors.margins: 10
                                         spacing: 8
-                                        CheckBox {
+                                        FormCheckBox {
                                             id: importCheckbox
                                             enabled: importCard.available
                                             checked: importCard.available && panel.includes(panel.importCategories, importCard.modelData.key)
@@ -324,10 +282,10 @@ Item {
                                                 radius: 3
                                                 color: importCheckbox.checked ? Theme.accent : Theme.control
                                                 border.color: Theme.borderStrong
-                                                Text { anchors.centerIn: parent; text: "âœ“"; color: Theme.accentForeground; font.pixelSize: 12; font.bold: true; visible: importCheckbox.checked }
+                                                UiText { anchors.centerIn: parent; text: "✓"; color: Theme.accentForeground; font.pixelSize: 12; font.bold: true; visible: importCheckbox.checked }
                                             }
                                         }
-                                        Text { text: importCard.modelData.title; color: Theme.accent; font.pixelSize: 11; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        UiText { text: importCard.modelData.title; color: Theme.accent; font.pixelSize: 11; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                                     }
                                 }
                             }
@@ -336,23 +294,23 @@ Item {
                             Layout.fillWidth: true
                             spacing: 3
                             visible: panel.preview && panel.preview.errors && panel.preview.errors.length > 0
-                            Text { text: "Erros"; color: "#ffb4ab"; font.pixelSize: 11; font.weight: Font.Bold }
+                            UiText { text: "Erros"; color: "#ffb4ab"; font.pixelSize: 11; textWeight: Font.Bold }
                             Repeater {
                                 model: panel.preview && panel.preview.errors ? panel.preview.errors.slice(0, 8) : []
-                                delegate: Text { required property var modelData; text: "â€¢ " + modelData.message; color: "#ffb4ab"; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                delegate: UiText { required property var modelData; text: "• " + modelData.message; color: "#ffb4ab"; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             }
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 3
                             visible: panel.preview && panel.preview.warnings && panel.preview.warnings.length > 0
-                            Text { text: "Avisos"; color: "#fbbf24"; font.pixelSize: 11; font.weight: Font.Bold }
+                            UiText { text: "Avisos"; color: "#fbbf24"; font.pixelSize: 11; textWeight: Font.Bold }
                             Repeater {
                                 model: panel.preview && panel.preview.warnings ? panel.preview.warnings.slice(0, 8) : []
-                                delegate: Text { required property var modelData; text: "â€¢ " + modelData.message; color: Theme.secondary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                delegate: UiText { required property var modelData; text: "• " + modelData.message; color: Theme.secondary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             }
                         }
-                        Text {
+                        UiText {
                             visible: panel.preview && panel.importCategories.length === 0
                             text: "Selecione ao menos uma categoria para importar."
                             color: "#ffb4ab"
@@ -374,7 +332,7 @@ Item {
                 }
             }
 
-            Text {
+            UiText {
                 objectName: "backupMessage"
                 visible: panel.message.length > 0
                 text: panel.message
@@ -383,7 +341,7 @@ Item {
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
-            Text {
+            UiText {
                 objectName: "backupError"
                 visible: panel.error.length > 0
                 text: panel.error
@@ -395,7 +353,7 @@ Item {
         }
     }
 
-    /** Envia a importaÃ§Ã£o validada ao coordenador de jobs. */
+    /** Envia a importação validada ao coordenador de jobs. */
     function startImport() {
         if (!panel.preview || panel.importCategories.length === 0 || !panel.coordinator) return
         panel.busy = true
@@ -406,8 +364,8 @@ Item {
             categories: panel.importCategories
         })
         panel.busy = false
-        if (started) panel.message = "ImportaÃ§Ã£o iniciada em background."
-        else panel.error = panel.coordinator.error || "NÃ£o foi possÃ­vel iniciar a importaÃ§Ã£o."
+        if (started) panel.message = "Importação iniciada em background."
+        else panel.error = panel.coordinator.error || "Não foi possível iniciar a importação."
     }
 
     FileDialog {
@@ -426,8 +384,8 @@ Item {
                 romFolderEntries: []
             })
             panel.busy = false
-            if (started) panel.message = "ExportaÃ§Ã£o iniciada em background."
-            else panel.error = panel.coordinator.error || "NÃ£o foi possÃ­vel iniciar a exportaÃ§Ã£o."
+            if (started) panel.message = "Exportação iniciada em background."
+            else panel.error = panel.coordinator.error || "Não foi possível iniciar a exportação."
         }
     }
 
@@ -445,7 +403,7 @@ Item {
                 ? panel.preview.availableCategories.slice() : []
             panel.busy = false
             if (!panel.preview || !panel.preview.success) {
-                panel.error = panel.preview ? (panel.preview.error || "Pacote invÃ¡lido.") : "Pacote invÃ¡lido."
+                panel.error = panel.preview ? (panel.preview.error || "Pacote inválido.") : "Pacote inválido."
                 panel.preview = null
             }
         }

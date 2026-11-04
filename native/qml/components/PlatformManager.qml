@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Gerenciador de plataformas dentro de Configurações, com vínculos e bloqueios. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -45,14 +47,14 @@ Item {
         spacing: 12
         RowLayout {
             Layout.fillWidth: true
-            ColumnLayout {
+            SectionIntro {
                 Layout.fillWidth: true
-                spacing: 2
-                Text { text: "Plataformas"; color: Theme.accent; font.pixelSize: 22; font.weight: Font.Bold }
-                Text { text: "Plataformas cadastradas para organizar biblioteca, aliases de busca e extensões aceitas no importador."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                title: "Plataformas"
+                description: "Plataformas cadastradas para organizar biblioteca, aliases de busca e extensões aceitas no importador."
+                bottomGap: 0
             }
         }
-        Text {
+        UiText {
             objectName: "platformManagerError"
             visible: manager.serviceMode && manager.platformService && manager.platformService.error.length > 0
             text: manager.platformService ? manager.platformService.error : ""
@@ -61,7 +63,7 @@ Item {
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
-        Flickable {
+        PanelFlickable {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: width
@@ -70,28 +72,29 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             ColumnLayout {
                 id: list
-                width: parent.width
+                width: parent.width - 2
+                x: 1
                 spacing: 0
-                Text { visible: list.rowCount === 0; text: "Nenhuma plataforma cadastrada."; color: Theme.secondary; font.pixelSize: 13 }
+                UiText { visible: list.rowCount === 0; text: "Nenhuma plataforma cadastrada."; color: Theme.secondary; font.pixelSize: 13 }
                 readonly property int rowCount: manager.platformService ? manager.platformService.items.length : 0
                 Repeater {
                     model: manager.platformService ? manager.platformService.items : []
                     delegate: Rectangle {
                         required property var modelData
                         Layout.fillWidth: true
-                        implicitHeight: 58
+                        implicitHeight: 55
                         radius: 0
                         color: "transparent"
                         Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.border }
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: 12
+                            anchors.margins: 10
                             spacing: 8
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: 1
-                                Text { text: modelData.name || ""; color: Theme.text; font.pixelSize: 14; font.weight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Text {
+                                spacing: 2
+                                UiText { text: modelData.name || ""; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                UiText {
                                     text: (modelData.category || "Sem categoria") + " · " + Number(modelData.gameCount || 0) + " jogos"
                                     color: Theme.muted
                                     font.pixelSize: 11
@@ -99,9 +102,9 @@ Item {
                                     Layout.fillWidth: true
                                 }
                             }
-                            ActionButton { objectName: "platformMappings"; iconName: "link-2"; toolbar: true; enabled: manager.serviceMode; Accessible.name: "Editar aliases e extensões"; onClicked: manager.openMappings(modelData) }
-                            ActionButton { objectName: "editPlatform"; iconName: "pencil"; toolbar: true; enabled: manager.serviceMode; Accessible.name: "Editar"; onClicked: manager.openEdit(modelData) }
-                            ActionButton { objectName: "deletePlatform"; iconName: "trash-2-danger"; toolbar: true; dangerOutline: true; enabled: manager.serviceMode && !modelData.isDefault; visible: !modelData.isDefault; Accessible.name: "Remover"; onClicked: manager.deleteRequested(modelData) }
+                            ActionButton { objectName: "platformMappings"; iconName: "link-2"; enabled: manager.serviceMode; Accessible.name: "Editar aliases e extensões"; onClicked: manager.openMappings(modelData) }
+                            ActionButton { objectName: "editPlatform"; iconName: "pencil"; enabled: manager.serviceMode; Accessible.name: "Editar"; onClicked: manager.openEdit(modelData) }
+                            ActionButton { objectName: "deletePlatform"; iconName: "trash-2-danger"; dangerOutline: true; enabled: manager.serviceMode && !modelData.isDefault; visible: !modelData.isDefault; Accessible.name: "Remover"; onClicked: manager.deleteRequested(modelData) }
                         }
                     }
                 }

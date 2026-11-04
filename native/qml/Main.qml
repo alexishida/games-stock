@@ -1,3 +1,5 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Protótipo navegável da biblioteca; apenas dados sintéticos, sem escrita no SQLite. */
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -336,6 +338,20 @@ ApplicationWindow {
         window.gameService.refresh()
     }
 
+    /* Comandos do menu Electron permanecem acessiveis por contexto e atalhos. */
+    Menu {
+        id: libraryActionsMenu
+        objectName: "libraryActionsMenu"
+        MenuItem {
+            objectName: "createGame"
+            action: Action { text: "Novo jogo"; shortcut: StandardKey.New; enabled: window.dbMode; onTriggered: window.openCreateForm() }
+        }
+        MenuItem {
+            objectName: "openMetadataImporter"
+            action: Action { text: "Importar metadados"; shortcut: "Ctrl+I"; enabled: window.dbMode; onTriggered: metadataImporter.openFor("", "") }
+        }
+    }
+
     /* Coordenadas lógicas na janela permitem comparar a captura com o DOM Electron. */
     function geometrySnapshot() {
         function bounds(item) {
@@ -343,35 +359,39 @@ ApplicationWindow {
             const point = item.mapToItem(null, 0, 0)
             return { x: point.x, y: point.y, width: item.width, height: item.height }
         }
-        return { viewport: { width: window.width, height: window.height }, sidebar: bounds(sidebar), topbar: bounds(topbar), search: bounds(search), firstCard: bounds(gameCards.itemAt(0)) }
+        // As caixas de texto permitem comparar fonte e alinhamento com as medidas do DOM Electron.
+        const typography = []
+        const names = ["navigationLabel", "navigationCounter", "libraryCardPlatform", "libraryCardTitle", "inventoryCardCover", "inventoryCardPlatform", "inventoryCardTitle"]
+        function collect(item) {
+            if (!item || !item.visible) return
+            if (names.indexOf(item.objectName) >= 0) {
+                const entry = {role: item.objectName, rect: bounds(item)}
+                if (item.font !== undefined) {
+                    entry.text = item.text
+                    entry.font = {family: item.font.family, size: item.font.pixelSize, weight: item.font.weight}
+                }
+                if (item.objectName === "navigationLabel") entry.row = bounds(item.parent.parent)
+                typography.push(entry)
+            }
+            const children = item.children || []
+            for (let i = 0; i < children.length; ++i) collect(children[i])
+        }
+        collect(window.contentItem)
+        return { viewport: { width: window.width, height: window.height, scale: Screen.devicePixelRatio }, sidebar: bounds(sidebar), topbar: bounds(topbar), search: bounds(search), firstCard: bounds(gameCards.itemAt(0)), typography: typography }
     }
 
     /* Os filtros mantêm o tamanho, contraste e foco dos seletores da biblioteca Electron. */
-    component FilterSelect: ComboBox {
+    component FilterSelect: FormSelect {
         id: select
         implicitHeight: 30
-        leftPadding: 10
-        rightPadding: 30
         font.pixelSize: Theme.formControlFontSize
         font.weight: Font.Bold
-        background: Rectangle {
-            radius: 6
-            color: select.hovered ? Theme.controlHover : Theme.control
-            border.color: select.activeFocus ? Theme.accent : Theme.border
-        }
-        contentItem: Text {
+        contentItem: UiText {
             text: select.displayText
             font: select.font
             color: Theme.text
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
-        }
-        indicator: Text {
-            x: select.width - width - 11
-            y: (select.height - height) / 2
-            text: "▾"
-            color: Theme.secondary
-            font.pixelSize: 13
         }
     }
 
@@ -429,6 +449,8 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 12
+                /* A borda de 1 px da sidebar entra no box-sizing do CSS original. */
+                anchors.rightMargin: 13
                 anchors.topMargin: 10
                 anchors.bottomMargin: 10
                 spacing: 8
@@ -436,12 +458,12 @@ ApplicationWindow {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 4
-                    Image { source: "qrc:/qt/qml/GameStock/assets/logo.png"; fillMode: Image.PreserveAspectFit; Layout.fillWidth: true; Layout.preferredHeight: 117 }
+                    Image { source: "qrc:/qt/qml/GameStock/assets/logo.png"; fillMode: Image.PreserveAspectFit; Layout.fillWidth: true; Layout.preferredHeight: 119 }
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
-                        Text { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; font.weight: Font.ExtraBold; font.letterSpacing: 1.62; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
-                        Text { text: "v" + window.buildLabel; color: Theme.secondary; font.pixelSize: 10; font.weight: Font.Bold; font.letterSpacing: 0.8; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                        UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold; font.letterSpacing: 1.62; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                        UiText { text: "v" + window.buildLabel; color: Theme.secondary; font.pixelSize: 10; textWeight: Font.Bold; font.letterSpacing: 0.8; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
                     }
                 }
                 ColumnLayout {
@@ -464,16 +486,19 @@ ApplicationWindow {
                         onClicked: window.inventoryMode = true
                     }
                 }
-                Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
+                /* Margens do separador seguem o Sidebar.css, sem comprimir as cole??es. */
+                Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; Layout.leftMargin: 10; Layout.rightMargin: 10; Layout.topMargin: 4; Layout.bottomMargin: 4; color: Theme.border }
                 /* A área contextual rola sozinha; as ações do rodapé permanecem acessíveis. */
                 Flickable {
+                    id: sidebarContextViewport
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    contentWidth: width
+                    /* A faixa de rolagem não deve cobrir os contadores da navegação. */
+                    contentWidth: width - (contentHeight > height ? 6 : 0)
                     contentHeight: sidebarContext.implicitHeight
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: CollectionScrollBar {
                         policy: ScrollBar.AsNeeded
                         width: 6
                         background: Rectangle { implicitWidth: 6; color: Theme.sidebar }
@@ -481,7 +506,7 @@ ApplicationWindow {
                     }
                     ColumnLayout {
                         id: sidebarContext
-                        width: parent.width
+                        width: sidebarContextViewport.contentWidth
                         spacing: 3
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -493,19 +518,21 @@ ApplicationWindow {
                             NavigationButton { text: "Jogando"; compact: true; iconName: "gamepad-2"; counter: String(window.libCounts.playing || 0); selected: window.activeCollection === "playing"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("playing") }
                             NavigationButton { text: "Concluído"; compact: true; iconName: "trophy"; counter: String(window.libCounts.completed || 0); selected: window.activeCollection === "completed"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("completed") }
                         }
-                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border; visible: !window.inventoryMode }
+                        /* As margens completam os 9 px medidos entre coleção e árvore de plataformas. */
+                        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; Layout.topMargin: 1; Layout.bottomMargin: 1; color: Theme.border; visible: !window.inventoryMode }
                         ColumnLayout {
                             objectName: "platformTree"
                             Layout.fillWidth: true
                             spacing: 0
                             visible: !window.inventoryMode
                             /* A árvore mostra o total e somente plataformas com jogos, como o PlatformTree. */
-                            NavigationButton { objectName: "allPlatforms"; text: "Todos"; iconName: ""; treeItem: true; counter: ((window.dbMode || window.fixtureLibrary.enabled) ? window.libCounts.all : window.visibleGames.length).toString(); selected: window.activePlatformId === 0; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setPlatformFilter(0) }
+                            NavigationButton { objectName: "allPlatforms"; text: "Todos"; iconName: ""; treeItem: true; platformItem: true; counter: ((window.dbMode || window.fixtureLibrary.enabled) ? window.libCounts.all : window.visibleGames.length).toString(); selected: window.activePlatformId === 0; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setPlatformFilter(0) }
                             Repeater {
                                 model: window.dbMode ? window.sidebarPlatforms : (window.fixtureLibrary.enabled ? [{id: 0, name: "Fixture Console"}] : [])
                                 delegate: NavigationButton {
                                     required property var modelData
                                     objectName: "platformTreeItem"
+                                    platformItem: true
                                     text: modelData.name
                                     iconName: ""
                                     treeItem: true
@@ -521,13 +548,14 @@ ApplicationWindow {
                         ColumnLayout {
                             objectName: "inventoryFilters"
                             Layout.fillWidth: true
-                            spacing: 4
+                            spacing: 0
                             visible: window.inventoryMode
-                            Text { text: "Tipo"; color: Theme.muted; font.pixelSize: 12; font.weight: Font.Bold; Layout.leftMargin: 4 }
+                            UiText { text: "Tipo"; color: Theme.muted; font.pixelSize: Theme.navigationSectionFontSize; textWeight: Font.Black; Layout.leftMargin: 10; Layout.topMargin: 12; Layout.bottomMargin: 2; lineHeightMode: Text.FixedHeight; lineHeight: 12 }
                             NavigationButton {
                                 objectName: "allInventoryTypes"
                                 text: "Todos"
                                 treeItem: true
+                                iconName: ""
                                 counter: window.inventoryAvailable ? String(window.inventoryService.total) : "0"
                                 selected: window.inventoryAvailable && Number(window.inventoryService.itemTypeId) === 0
                                 Layout.fillWidth: true
@@ -539,6 +567,7 @@ ApplicationWindow {
                                     required property var modelData
                                     text: modelData.name
                                     treeItem: true
+                                iconName: ""
                                     counter: String(modelData.count || 0)
                                     selected: window.inventoryAvailable && Number(window.inventoryService.itemTypeId) === Number(modelData.id)
                                     Layout.fillWidth: true
@@ -548,11 +577,12 @@ ApplicationWindow {
                                     }
                                 }
                             }
-                            Text { text: "Condição"; color: Theme.muted; font.pixelSize: 12; font.weight: Font.Bold; Layout.leftMargin: 4; Layout.topMargin: 8 }
+                            UiText { text: "Condição"; color: Theme.muted; font.pixelSize: Theme.navigationSectionFontSize; textWeight: Font.Black; Layout.leftMargin: 10; Layout.topMargin: 14; Layout.bottomMargin: 2; lineHeightMode: Text.FixedHeight; lineHeight: 12 }
                             NavigationButton {
                                 objectName: "allInventoryStates"
                                 text: "Todas"
                                 treeItem: true
+                                iconName: ""
                                 counter: window.inventoryAvailable ? String(window.inventoryService.total) : "0"
                                 selected: window.inventoryAvailable && Number(window.inventoryService.conservationStateId) === 0
                                 Layout.fillWidth: true
@@ -564,6 +594,7 @@ ApplicationWindow {
                                     required property var modelData
                                     text: modelData.name
                                     treeItem: true
+                                iconName: ""
                                     counter: String(modelData.count || 0)
                                     selected: window.inventoryAvailable && Number(window.inventoryService.conservationStateId) === Number(modelData.id)
                                     Layout.fillWidth: true
@@ -573,7 +604,7 @@ ApplicationWindow {
                                     }
                                 }
                             }
-                            Text {
+                            UiText {
                                 visible: !window.inventoryAvailable || (window.inventoryService && window.inventoryService.typeCounts.length === 0)
                                 text: "Nenhum item no inventário ainda."
                                 color: Theme.muted
@@ -588,13 +619,17 @@ ApplicationWindow {
                     objectName: "newHardwareItem"
                     visible: window.inventoryMode
                     text: "Novo item"
+                    sidebarAction: true
+                    Layout.minimumHeight: 38
+                    Layout.preferredHeight: 38
+                    font.weight: Font.Black
                     iconName: "plus"
                     primary: true
                     Layout.fillWidth: true
                     enabled: window.inventoryAvailable
                     onClicked: inventoryPage.openCreate()
                 }
-                ActionButton { objectName: "openSettings"; text: "Configurações"; iconName: "settings"; primary: true; Layout.fillWidth: true; onClicked: settings.open() }
+                ActionButton { objectName: "openSettings"; sidebarAction: true; Layout.minimumHeight: 38; Layout.preferredHeight: 38; font.weight: Font.Black; text: "Configurações"; iconName: "settings"; primary: true; Layout.fillWidth: true; onClicked: settings.open() }
             }
         }
         ColumnLayout {
@@ -682,44 +717,31 @@ ApplicationWindow {
                             ActionButton { objectName: "libraryListView"; iconName: "list"; toolbar: true; primary: window.listView; onClicked: window.setListView(true); Accessible.name: "Lista" }
                         }
                     }
-                    Text {
+                    UiText {
                         visible: window.selectedGame === null
                         text: "Exibindo " + window.filteredTotal + " de " + window.allTotal + " jogos"
-                        color: Theme.secondary; font.pixelSize: 11; font.weight: Font.Bold
+                        color: Theme.secondary; font.pixelSize: 11; textWeight: Font.Bold
                     }
                 }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
+                Layout.leftMargin: window.selectedGame ? 20 : 24
+                Layout.rightMargin: window.selectedGame ? 20 : 24
                 Layout.topMargin: 20
                 Layout.bottomMargin: 20
                 spacing: 12
                 visible: !window.inventoryMode
+                TapHandler { acceptedButtons: Qt.RightButton; onTapped: libraryActionsMenu.popup() }
                 RowLayout {
                     Layout.fillWidth: true
                     visible: window.selectedGame === null
-                    /* Ações que existiam no menu nativo do Electron ficam na área livre à esquerda. */
-                    ActionButton {
-                        objectName: "createGame"
-                        iconName: "pencil"
-                        toolbar: true
-                        visible: window.dbMode
-                        Accessible.name: "Novo jogo"
-                        onClicked: window.openCreateForm()
-                    }
-                    ActionButton {
-                        objectName: "openMetadataImporter"
-                        iconName: "image"
-                        toolbar: true
-                        visible: window.dbMode
-                        Accessible.name: "Metadados"
-                        onClicked: metadataImporter.openFor("", "")
-                    }
+                    /* O renderer reserva a linha aos filtros; comandos ficam no menu de contexto. */
+
+
                     Item { Layout.fillWidth: true }
-                    CheckBox {
+                    FormCheckBox {
                         id: coverVisibility
                         text: "Exibir sem capa"
                         checked: window.activeIncludeMissingCovers
@@ -733,11 +755,11 @@ ApplicationWindow {
                             implicitWidth: 14; implicitHeight: 14
                             x: coverVisibility.leftPadding; y: (coverVisibility.height - height) / 2
                             radius: 2; color: coverVisibility.checked ? Theme.accent : Theme.control
-                            Text { anchors.centerIn: parent; text: "✓"; font.pixelSize: 11; font.bold: true; color: Theme.accentForeground; visible: coverVisibility.checked }
+                            UiText { anchors.centerIn: parent; text: "✓"; font.pixelSize: 11; font.bold: true; color: Theme.accentForeground; visible: coverVisibility.checked }
                         }
-                        contentItem: Text { text: coverVisibility.text; leftPadding: coverVisibility.indicator.width + coverVisibility.spacing; verticalAlignment: Text.AlignVCenter; color: Theme.muted; font: coverVisibility.font }
+                        contentItem: UiText { text: coverVisibility.text; leftPadding: coverVisibility.indicator.width + coverVisibility.spacing; verticalAlignment: Text.AlignVCenter; color: Theme.muted; font: coverVisibility.font }
                     }
-                    Text { text: "CATEGORIA:"; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                    UiText { text: "CATEGORIA:"; color: Theme.muted; font.pixelSize: 10; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                     FilterSelect {
                         objectName: "genreFilter"
                         model: ["Todas"].concat(window.activeGenres)
@@ -746,7 +768,7 @@ ApplicationWindow {
                         currentIndex: Math.max(0, model.indexOf(window.activeGenre))
                         onActivated: window.setGenre(currentIndex === 0 ? "" : model[currentIndex])
                     }
-                    Text { text: "ORDENAR POR:"; color: Theme.muted; font.pixelSize: 10; font.weight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                    UiText { text: "ORDENAR POR:"; color: Theme.muted; font.pixelSize: 10; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                     FilterSelect {
                         objectName: "sortFilter"
                         model: ["A–Z", "Ano", "Recentes", "Mais jogados"]
@@ -767,7 +789,7 @@ ApplicationWindow {
                     contentHeight: gridFlow.height + 2
                     boundsBehavior: Flickable.StopAtBounds
                     /* A referência desenha 6 px, trilho #131313 e polegar #353534. */
-                    ScrollBar.vertical: ScrollBar {
+                    ScrollBar.vertical: CollectionScrollBar {
                         objectName: "libraryVerticalScrollBar"
                         policy: ScrollBar.AsNeeded
                         width: 6
@@ -820,7 +842,7 @@ ApplicationWindow {
                     boundsBehavior: Flickable.StopAtBounds
                     flickableDirection: Flickable.HorizontalFlick
                     clip: true
-                    ScrollBar.horizontal: ScrollBar {
+                    ScrollBar.horizontal: CollectionScrollBar {
                         objectName: "libraryHorizontalScrollBar"
                         policy: ScrollBar.AsNeeded
                         active: true
@@ -852,14 +874,14 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     /* A mensagem ocupa o espaço da coleção, como no estado vazio Electron. */
-                    Text {
+                    UiText {
                         anchors.centerIn: parent
                         text: "Nenhum jogo encontrado"
                         color: Theme.secondary
                         font.pixelSize: 16
                     }
                 }
-                Text {
+                UiText {
                     objectName: "libraryError"
                     visible: window.selectedGame === null && (window.dbMode ? gameService.error.length > 0 : window.fixtureLibrary.error.length > 0)
                     text: window.dbMode ? gameService.error : window.fixtureLibrary.error
@@ -872,12 +894,12 @@ ApplicationWindow {
                     visible: window.selectedGame === null && window.libraryService && window.filteredTotal > 36
                     Layout.alignment: Qt.AlignHCenter
                     spacing: 12
-                    Text { text: ((window.currentPage - 1) * 36 + 1) + "–" + Math.min(window.currentPage * 36, window.filteredTotal) + " de " + window.filteredTotal; color: Theme.secondary; font.pixelSize: 12; Layout.minimumWidth: 100; horizontalAlignment: Text.AlignRight }
+                    UiText { text: ((window.currentPage - 1) * 36 + 1) + "–" + Math.min(window.currentPage * 36, window.filteredTotal) + " de " + window.filteredTotal; color: Theme.secondary; font.pixelSize: 12; Layout.minimumWidth: 100; horizontalAlignment: Text.AlignRight }
                     RowLayout {
                         spacing: 4
                         ActionButton { objectName: "firstLibraryPage"; iconName: "chevrons-left"; pagination: true; enabled: window.currentPage > 1; Accessible.name: "Primeira página"; onClicked: window.goToLibraryPage(1) }
                         ActionButton { objectName: "previousLibraryPage"; iconName: "chevron-left"; pagination: true; enabled: window.currentPage > 1; Accessible.name: "Página anterior"; onClicked: window.goToLibraryPage(window.currentPage - 1) }
-                        Text { text: window.currentPage + " / " + Math.ceil(window.filteredTotal / 36); color: Theme.text; font.pixelSize: 13; Layout.minimumWidth: 56; horizontalAlignment: Text.AlignHCenter }
+                        UiText { text: window.currentPage + " / " + Math.ceil(window.filteredTotal / 36); color: Theme.text; font.pixelSize: 13; Layout.minimumWidth: 56; horizontalAlignment: Text.AlignHCenter }
                         ActionButton { objectName: "nextLibraryPage"; iconName: "chevron-right"; pagination: true; enabled: window.currentPage * 36 < window.filteredTotal; Accessible.name: "Próxima página"; onClicked: window.goToLibraryPage(window.currentPage + 1) }
                         ActionButton { objectName: "lastLibraryPage"; iconName: "chevrons-right"; pagination: true; enabled: window.currentPage * 36 < window.filteredTotal; Accessible.name: "Última página"; onClicked: window.goToLibraryPage(Math.ceil(window.filteredTotal / 36)) }
                     }
@@ -1012,11 +1034,10 @@ ApplicationWindow {
         backdropBlurEnabled: !window.prototypeDisableBlur
         modalShadowBlurMax: window.prototypeModalShadowBlur > 0 ? window.prototypeModalShadowBlur : Theme.shadowModalBlurMax
         onBackdropBlurRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
-        width: Math.min(975, parent.width - 48)
-        height: Math.min(640, parent.height - 48)
-        /* O modal de configurações fica ancorado no canto, como no Electron. */
-        x: Math.max(0, Math.min(parent.width - width, 24 + offsetX))
-        y: Math.max(0, Math.min(parent.height - height, 24 + offsetY))
+        /* Dimensões e centralização do SettingsModal.css, incluindo o espaço da navegação. */
+        width: Math.min(960, parent.width - 48)
+        height: Math.min(680, parent.height - 48)
+        padding: 0
         onClosed: platformManager.closeDialogs()
         ActionButton {
             objectName: "closeSettings"
@@ -1025,23 +1046,40 @@ ApplicationWindow {
             dangerOutline: true
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.margins: 16
+            anchors.margins: 20
             z: 10
             Accessible.name: "Fechar"
             onClicked: settings.close()
         }
+        Rectangle {
+            x: 1; y: 1; width: 199; height: parent.height - 2; radius: 15
+            gradient: Gradient {
+                GradientStop { position: 0; color: "#203334" }
+                GradientStop { position: 0.6; color: "#262525" }
+                GradientStop { position: 1; color: "#262525" }
+            }
+        }
+        Rectangle { x: 200; width: 1; height: parent.height; color: Theme.border }
         RowLayout {
             anchors.fill: parent
-            spacing: 24
+            spacing: 0
             ColumnLayout {
-                Layout.preferredWidth: 200
+                Layout.preferredWidth: 176
                 /* A coluna de navegação não pode absorver o espaço do conteúdo. */
-                Layout.minimumWidth: 200
-                Layout.maximumWidth: 200
+                Layout.minimumWidth: 176
+                Layout.maximumWidth: 176
+                Layout.leftMargin: 12
+                Layout.rightMargin: 12
+                Layout.topMargin: 20
+                Layout.bottomMargin: 20
+                Layout.fillHeight: true
+                spacing: 2
                 RowLayout {
+                    Layout.leftMargin: 8
+                    Layout.bottomMargin: 12
                     spacing: 8
-                    Image { source: "qrc:/icons/settings-active.svg"; sourceSize: Qt.size(18, 18) }
-                    Text { text: "CONFIGURAÇÕES"; color: Theme.accent; font.pixelSize: 13; font.weight: Font.Black; Layout.fillWidth: true }
+                    Image { source: "qrc:/icons/settings-active.svg"; sourceSize: Qt.size(15, 15) }
+                    UiText { text: "CONFIGURAÇÕES"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black; Layout.fillWidth: true }
                 }
                 Repeater {
                     model: [
@@ -1054,8 +1092,20 @@ ApplicationWindow {
                         {key: "logs", label: "Logs", icon: "scroll-text", enabled: true},
                         {key: "sobre", label: "Sobre", icon: "info", enabled: true}
                     ]
-                    delegate: NavigationButton {
+                    delegate: ColumnLayout {
                         required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 2
+                        /* Separadores delimitam os mesmos grupos do menu original. */
+                        Rectangle {
+                            visible: ["plataformas", "biblioteca", "backup"].indexOf(modelData.key) >= 0
+                            Layout.fillWidth: true; Layout.preferredHeight: 1
+                            Layout.leftMargin: 8; Layout.rightMargin: 8
+                            Layout.topMargin: 10; Layout.bottomMargin: 10
+                            color: Theme.border
+                        }
+                        NavigationButton {
+                        settingsItem: true
                         text: modelData.label
                         iconName: modelData.icon
                         Layout.fillWidth: true
@@ -1070,6 +1120,7 @@ ApplicationWindow {
                             if (modelData.key === "sobre" && window.settingsService) window.settingsService.refreshStats()
                             if (modelData.key === "backup" && window.settingsService) window.settingsService.refreshStats()
                         }
+                        }
                     }
                 }
                 Item { Layout.fillHeight: true }
@@ -1077,12 +1128,20 @@ ApplicationWindow {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Text {
+                Layout.leftMargin: 24
+                Layout.rightMargin: 24
+                Layout.topMargin: 20
+                Layout.bottomMargin: 20
+                spacing: 28
+                UiText {
                     visible: window.settingsHeader(window.settingsSection).length > 0
                     text: window.settingsHeader(window.settingsSection)
                     color: Theme.text
-                    font.pixelSize: 24
-                    font.weight: Font.Bold
+                    font.pixelSize: 28
+                    textWeight: Font.Black
+                    /* O header CSS usa line-height: 1; a métrica Qt padrão acrescentava 6 px. */
+                    lineHeightMode: Text.FixedHeight
+                    lineHeight: 28
                     Layout.fillWidth: true
                 }
                 Item {
@@ -1155,6 +1214,7 @@ ApplicationWindow {
                     }
                     AboutSettings {
                         anchors.fill: parent
+                        anchors.topMargin: 42
                         visible: window.settingsSection === "sobre"
                         settingsService: window.settingsService
                         updateService: window.updateService
@@ -1168,9 +1228,9 @@ ApplicationWindow {
     NotificationCenter {
         id: notifications
         anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.rightMargin: 20
-        anchors.topMargin: 88
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: 18
+        anchors.bottomMargin: 18
         z: 30
         jobManager: window.jobManager
         romFolderService: window.romFolderService
@@ -1243,7 +1303,7 @@ ApplicationWindow {
             platformManager.openEdit(platformManager.platformService.items[0])
         if (prototypePlatformMappings && platformManager.platformService && platformManager.platformService.items.length > 0)
             platformManager.openMappings(platformManager.platformService.items[0])
-        var emulators = window.emulatorService ? window.emulatorService.items : []
+        var emulators = emulatorManager.orderedEmulators
         if (prototypeEmulatorNew) emulatorManager.openCreate()
         if (prototypeEmulatorEdit && emulators.length > 0) emulatorManager.openEdit(emulators[0])
         if (prototypeEmulatorLinks && emulators.length > 0) emulatorManager.toggle(emulators[0])

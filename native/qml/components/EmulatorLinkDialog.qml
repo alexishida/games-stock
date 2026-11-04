@@ -1,3 +1,6 @@
+/* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
+/* Gaps do management-form preservam as medidas originais do Electron. */
+/* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Vincula um emulador a uma plataforma, com core opcional para RetroArch. */
 import QtQuick
 import QtQuick.Controls
@@ -18,9 +21,13 @@ DragDialog {
 
     signal saved()
 
-    width: Math.min(560, parent.width - 48)
-    height: isRetroArch ? 420 : 300
+    padding: 16
+    width: Math.min(460, parent.width - 48)
+    /* O modal acompanha os campos visiveis e nao cria uma faixa vazia acima do footer. */
+    height: Math.min(parent.height - 48, linkBody.implicitHeight + topPadding + bottomPadding)
     heading: "Vincular a plataforma"
+    /* Mantém o título e o fechamento visíveis no modal empilhado. */
+    showHeading: true
     onOpened: populate()
     onClosed: formError = ""
 
@@ -78,54 +85,52 @@ DragDialog {
     }
 
     ColumnLayout {
+        id: linkBody
         anchors.fill: parent
-        spacing: 12
+        spacing: Theme.formGroupGap
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 4
-            Text { text: "Plataforma"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; font.weight: Font.Bold }
-            ComboBox {
+            spacing: Theme.formLabelGap
+            UiText { text: "PLATAFORMA"; color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
+            FormSelect {
+                font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
                 id: platformBox
                 objectName: "linkPlatformField"
                 Layout.fillWidth: true
-                implicitHeight: 30
                 font.pixelSize: Theme.formControlFontSize
                 model: linkDialog.platforms
                 textRole: "name"
                 onActivated: linkDialog.refreshCoreOptions()
-                contentItem: Text {
+                contentItem: UiText {
                     text: platformBox.currentIndex >= 0 ? platformBox.displayText : "Selecione"
                     font: platformBox.font
                     color: platformBox.currentIndex >= 0 ? Theme.text : Theme.muted
                     verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                 }
-                indicator: Text { x: platformBox.width - width - 11; y: (platformBox.height - height) / 2; text: "▾"; color: Theme.secondary; font.pixelSize: 13 }
-                background: Rectangle { radius: 6; color: platformBox.hovered ? Theme.controlHover : Theme.control; border.color: platformBox.activeFocus ? Theme.accent : Theme.border }
             }
         }
         ColumnLayout {
             visible: linkDialog.isRetroArch
             Layout.fillWidth: true
-            spacing: 4
-            Text { text: "Core"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; font.weight: Font.Bold }
-            ComboBox {
+            spacing: Theme.formLabelGap
+            UiText { text: "CORE"; color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
+            FormSelect {
+                font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
                 id: coreBox
                 objectName: "linkCoreField"
                 Layout.fillWidth: true
-                implicitHeight: 30
                 font.pixelSize: Theme.formControlFontSize
                 model: linkDialog.coreOptions
-                contentItem: Text {
+                contentItem: UiText {
                     text: coreBox.currentIndex >= 0 ? coreBox.displayText : "Selecione um core"
                     font: coreBox.font
                     color: coreBox.currentIndex >= 0 ? Theme.text : Theme.muted
                     verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight
                 }
-                indicator: Text { x: coreBox.width - width - 11; y: (coreBox.height - height) / 2; text: "▾"; color: Theme.secondary; font.pixelSize: 13 }
-                background: Rectangle { radius: 6; color: coreBox.hovered ? Theme.controlHover : Theme.control; border.color: coreBox.activeFocus ? Theme.accent : Theme.border }
             }
-            Text {
+            UiText {
                 visible: linkDialog.inventory.executableConfigured === false
                 text: "Configure o executável do RetroArch para carregar o inventário de cores."
                 color: "#ffb4ab"
@@ -133,7 +138,7 @@ DragDialog {
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
-            Text {
+            UiText {
                 visible: linkDialog.inventory.executableConfigured === true && linkDialog.inventory.coresDirExists === false
                 text: "Pasta cores/ não encontrada ao lado do RetroArch."
                 color: "#ffb4ab"
@@ -142,7 +147,7 @@ DragDialog {
                 Layout.fillWidth: true
             }
         }
-        CheckBox {
+        FormCheckBox {
             id: defaultBox
             objectName: "linkDefaultField"
             text: "Definir como emulador padrão desta plataforma"
@@ -150,7 +155,7 @@ DragDialog {
             font.pixelSize: Theme.formControlFontSize
             spacing: 8
             leftPadding: 0
-            contentItem: Text {
+            contentItem: UiText {
                 text: defaultBox.text
                 leftPadding: defaultBox.indicator.width + defaultBox.spacing
                 verticalAlignment: Text.AlignVCenter
@@ -158,7 +163,7 @@ DragDialog {
                 font: defaultBox.font
             }
         }
-        Text {
+        UiText {
             objectName: "emulatorLinkError"
             visible: linkDialog.formError.length > 0
             text: linkDialog.formError
@@ -167,12 +172,13 @@ DragDialog {
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
-        Item { Layout.fillHeight: true }
         RowLayout {
             Layout.fillWidth: true
+            spacing: Theme.formActionGap
+            Layout.topMargin: 4
             Item { Layout.fillWidth: true }
-            ActionButton { objectName: "cancelEmulatorLink"; text: "Cancelar"; onClicked: linkDialog.close() }
-            ActionButton { objectName: "saveEmulatorLink"; text: "Vincular"; iconName: "link"; primary: true; onClicked: linkDialog.save() }
+            ActionButton { objectName: "cancelEmulatorLink"; text: "Cancelar"; formAction: true; iconName: "x-danger"; dangerOutline: true; onClicked: linkDialog.close() }
+            ActionButton { objectName: "saveEmulatorLink"; text: "Vincular"; iconName: "link"; accentOutline: true; onClicked: linkDialog.save() }
         }
     }
 }

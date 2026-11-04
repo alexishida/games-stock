@@ -379,6 +379,15 @@ Item {
             verify(detail.visible)
             compare(detail.item.name, "Super Nintendo")
             compare(detail.photos.length, 1)
+            // Os paineis devem manter caixas positivas e o gutter, sem sobrepor dados e fotos.
+            const infoPanel = findChild(detail, "hardwareInfoPanel")
+            const photoPanel = findChild(detail, "hardwarePhotoPanel")
+            verify(infoPanel !== null && photoPanel !== null)
+            tryVerify(function() {
+                return infoPanel.width > 0 && photoPanel.width > 0
+                    && (photoPanel.x >= infoPanel.x + infoPanel.width + 15
+                        || photoPanel.y >= infoPanel.y + infoPanel.height + 15)
+            })
             const backButton = findChild(detail, "backToInventory")
             verify(backButton !== null)
             backButton.clicked()
@@ -439,6 +448,9 @@ Item {
 
             app.settingsSection = "sobre"
             wait(200)
+            /* Regressão: configurações deve abrir ao centro, sem a antiga âncora no canto. */
+            verify(Math.abs(dialog.x - (app.width - dialog.width) / 2) <= 1)
+            verify(Math.abs(dialog.y - (app.height - dialog.height) / 2) <= 1)
             const about = findChild(app, "aboutSettings")
             verify(about !== null)
             verify(about.visible)
@@ -487,6 +499,17 @@ Item {
             verify(panel.visible)
             const exportButton = findChild(app, "exportBackup")
             verify(exportButton !== null)
+            // Todas as categorias devem continuar clicaveis depois de alterar o layout do resumo.
+            const categoryKeys = panel.allCategories()
+            for (let i = 0; i < categoryKeys.length; ++i) {
+                const category = findChild(panel, "exportCategory" + categoryKeys[i])
+                verify(category !== null)
+                verify(category.visible)
+                mouseClick(category)
+                compare(panel.exportCategories.length, 4)
+                mouseClick(category)
+                compare(panel.exportCategories.length, 5)
+            }
             verify(exportButton.enabled)
             panel.exportCategories = []
             verify(!exportButton.enabled)
