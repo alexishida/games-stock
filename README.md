@@ -5,7 +5,7 @@ ROMs, capas, metadados e inventário físico. O runtime oficial é **C++20 + Qt 
 SQLite local via QSQLITE. O runtime Electron/React foi retirado do repositório no corte; o backend
 congelado em `tools/legacy-runtime/` existe apenas para fixtures e compatibilidade de dados.
 
-Versão atual: **1.1.4**.
+Versão atual: **1.1.5**.
 
 ## Capturas de tela
 

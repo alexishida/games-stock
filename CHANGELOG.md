@@ -2,6 +2,15 @@
 
 Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
+## [1.1.5] - 2026-11-03
+
+### Alterado
+
+- Runtime desktop migrado de Electron para C++20 + Qt 6 Quick/QML, sem dependencias de Node, Chromium ou WebView no executavel final.
+- Tipografia, espacamentos e layout calibrados contra as medidas do DOM do renderer Electron de referencia (biblioteca, inventario, configuracoes, formularios e dialogos).
+- Painel de detalhe do jogo alinhado ao CSS original: espacamento dos titulos, altura de linha da descricao e largura da lista de arquivos encontrados.
+- Icones dos cards de status do backup com 18 px, conforme o DOM de referencia.
+
 ## [1.1.4] - 2026-09-28
 
 ### Adicionado
