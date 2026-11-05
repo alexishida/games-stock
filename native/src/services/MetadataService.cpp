@@ -208,9 +208,22 @@ QVariantMap MetadataService::startJob(const QString& kind, const QString& title,
 }
 
 QVariantMap MetadataService::ensureMetadata() {
+    return startMetadataJob(QStringLiteral("Preparando metadados"));
+}
+
+QVariantMap MetadataService::ensureMetadataAtStartup() {
+    return startMetadataJob(QStringLiteral("Baixando base de dados"));
+}
+
+bool MetadataService::metadataExists() const {
+    return !cacheDir_.isEmpty()
+        && QFileInfo::exists(QDir(cacheDir_).filePath(QStringLiteral("Metadata.xml")));
+}
+
+QVariantMap MetadataService::startMetadataJob(const QString& title) {
     // O cache é compartilhado: o índice de ~300 MB é carregado uma vez por sessão.
     const auto cache = sharedCache();
-    return startJob(QStringLiteral("metadata-cache"), QStringLiteral("Preparando metadados"),
+    return startJob(QStringLiteral("metadata-cache"), title,
         QStringLiteral("LaunchBox"), {},
         [cache](JobWorker* worker) {
             const auto progress = [worker](const LaunchBoxProgress& update) {

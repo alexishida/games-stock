@@ -40,6 +40,9 @@ Caminhos padrão dentro de `launchbox_cache/` (abaixo do perfil do usuário):
 - `MetadataService` e `MediaSyncService` mantêm um `LaunchBoxCache` compartilhado por sessão
   (`std::shared_ptr`): o índice de ~300 MB é lido do disco uma única vez e reutilizado nas buscas e
   importações seguintes, como o `memoryIndex` do Electron.
+- No bootstrap, `metadataExists()` decide sem baixar: se o `Metadata.xml` estiver ausente,
+  `ensureMetadataAtStartup()` inicia o job "Baixando base de dados" em segundo plano, sem bloquear
+  a janela — o mesmo comportamento do renderer Electron.
 - `7za/7z/7zz` segue a mesma busca do launch (`GAMESTOCK_7Z_PATH`, app, `tools/`, `PATH`).
 
 ## Evidências

@@ -42,7 +42,9 @@ DragDialog {
         selectedGame = null
         errorText = ""
         open()
-        if (metadataService && !metadataService.metadataReady) metadataService.ensureMetadata()
+        // O bootstrap pode já estar baixando a base; não inicia um segundo job.
+        if (metadataService && !metadataService.metadataReady && !metadataService.busy)
+            metadataService.ensureMetadata()
     }
 
     /** Executa a busca com os filtros atuais. */

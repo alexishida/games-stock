@@ -36,6 +36,10 @@ public:
     void setJobManager(JobManager* manager);
     void setMetadataUrl(const QString& url);
     void setImagesBaseUrl(const QString& url) { imagesBaseUrl_ = url; }
+    /** Indica se o Metadata.xml já existe no cache, sem baixar nada. */
+    bool metadataExists() const;
+    /** Prepara a base no bootstrap, com o mesmo título usado pelo Electron. */
+    QVariantMap ensureMetadataAtStartup();
 
 public slots:
     /** Garante o Metadata.xml e o índice antes da primeira busca. */
@@ -51,6 +55,8 @@ signals:
     void imported(qint64 gameId);
 
 private:
+    /** Inicia o job de preparação com o título adequado ao contexto. */
+    QVariantMap startMetadataJob(const QString& title);
     /** Inicia um job de metadados e guarda seu ID para correlacionar o resultado. */
     QVariantMap startJob(const QString& kind, const QString& title, const QString& subtitle,
         const QVariantMap& payload, JobManager::Work work);

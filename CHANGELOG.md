@@ -7,6 +7,7 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
 ### Adicionado
 
+- Verificação da base LaunchBox no bootstrap: se o `Metadata.xml` não existir, o download inicia em segundo plano com o job "Baixando base de dados", como no Electron.
 - Consultas da biblioteca em thread própria (`LibraryQueryWorker`) com conexão somente leitura e descarte de respostas obsoletas por geração.
 - Cache de gêneros, partidas e capas até a próxima mutação; a abertura carrega a primeira página antes dos agregados.
 - Coluna `title_normalized` com índice e migration de backfill, cobrindo acentos e maiúsculas Unicode na busca.

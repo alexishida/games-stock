@@ -89,11 +89,13 @@ private slots:
         });
         gamestock::JobManager manager(&registry);
         service.setJobManager(&manager);
+        QVERIFY(!service.metadataExists());
 
         const QVariantMap ensure = service.ensureMetadata();
         QVERIFY2(!ensure.isEmpty(), qPrintable(service.error()));
         QTRY_VERIFY_WITH_TIMEOUT(service.metadataReady(), 30000);
         QVERIFY(!service.busy());
+        QVERIFY(service.metadataExists());
 
         // A plataforma restrita aceita o jogo correto e recusa outro sistema.
         const QVariantMap filtered = service.search(QStringLiteral("Game"), QStringLiteral("Sega Mega Drive"));
