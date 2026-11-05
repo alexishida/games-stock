@@ -248,6 +248,25 @@ private slots:
         QVERIFY(!QFileInfo::exists(cache.indexFile()));
     }
 
+    /** Valida o parser contra um Metadata.xml real quando o caminho é informado. */
+    void realMetadataIfProvided() {
+        const QString xmlPath = qEnvironmentVariable("GAMESTOCK_TEST_LAUNCHBOX_XML");
+        if (xmlPath.isEmpty()) QSKIP("Metadata.xml real não informado.");
+        QTemporaryDir work;
+        QVERIFY(work.isValid());
+        const QString cacheDir = work.filePath("launchbox_cache");
+        QVERIFY(QDir().mkpath(cacheDir));
+        const QString target = QDir(cacheDir).filePath(QStringLiteral("Metadata.xml"));
+        // Hard link evita copiar centenas de MB no teste opt-in.
+        QVERIFY2(QFile::link(xmlPath, target), "Não foi possível ligar o Metadata.xml ao cache de teste.");
+        gamestock::LaunchBoxCache cache(cacheDir, {}, {});
+        QJsonObject index;
+        QString error;
+        QVERIFY2(cache.buildIndex(&index, &error), qPrintable(error));
+        QVERIFY(index.size() > 10000);
+        QVERIFY(QFileInfo::exists(cache.indexFile()));
+    }
+
     /** Índice inválido é descartado e reconstruído a partir do XML. */
     void corruptIndexRebuilds() {
         const QString sevenZip = qEnvironmentVariable("GAMESTOCK_7Z_PATH");

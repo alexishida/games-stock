@@ -56,6 +56,8 @@ ctest --test-dir native/build/windows-msvc -C Release -R launchbox-cache --outpu
 - `Metadata.xml` recente com dataset errado rejeitado e baixado de novo;
 - XML válido sem `<Game>` falhando sem gravar índice vazio;
 - `index.json` corrompido/antigo reconstruído a partir do XML e regravado;
+- teste opt-in `realMetadataIfProvided` (`GAMESTOCK_TEST_LAUNCHBOX_XML`) validou o `Metadata.xml`
+  real de 518 MB (>10.000 jogos, ~38 s);
 - XML inválido falhando sem escrever índice;
 - HTTP 500 preservando o `Metadata.xml` anterior e removendo o `.part`;
 - dois `buildIndex` simultâneos no mesmo objeto resultando em um único request e dois índices
