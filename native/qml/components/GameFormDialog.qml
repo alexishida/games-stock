@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Gaps do management-form preservam as medidas originais do Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
@@ -346,7 +347,7 @@ DragDialog {
                         UiText {
                             anchors.centerIn: parent
                             text: "✓"
-                            font.pixelSize: 12
+                            font.pixelSize: 13
                             font.bold: true
                             color: Theme.accentForeground
                             visible: favoriteBox.checked
@@ -436,7 +437,7 @@ DragDialog {
                         Layout.fillWidth: true
                         ColumnLayout {
                             spacing: 2
-                            UiText { text: "METADADOS"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.Black; font.letterSpacing: 1 }
+                            UiText { text: "METADADOS"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black; font.letterSpacing: 1 }
                             UiText {
                                 text: form.hasMetadata() ? "Dados vinculados" : "Buscar na base"
                                 color: Theme.text
@@ -455,11 +456,11 @@ DragDialog {
                                 id: badgeRow
                                 anchors.centerIn: parent
                                 spacing: 6
-                                UiText { text: form.hasMetadata() ? "✓" : "!"; color: form.hasMetadata() ? Theme.success : Theme.warning; font.pixelSize: 12; font.bold: true }
+                                UiText { text: form.hasMetadata() ? "✓" : "!"; color: form.hasMetadata() ? Theme.success : Theme.warning; font.pixelSize: 13; font.bold: true }
                                 UiText {
                                     text: form.hasMetadata() ? "Metadados ativos" : "Sem metadados"
                                     color: form.hasMetadata() ? "#bbf7d0" : "#fde68a"
-                                    font.pixelSize: 11
+                                    font.pixelSize: 12
                                     textWeight: Font.Black
                                 }
                             }
@@ -489,11 +490,11 @@ DragDialog {
                                     anchors.fill: parent
                                     anchors.margins: 10
                                     spacing: 2
-                                    UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
+                                    UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
                                     UiText {
                                         text: form.metadataValue(modelData.key)
                                         color: form.metadataValue(modelData.key).indexOf("Não ") === 0 ? Theme.muted : Theme.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: 13
                                         textWeight: Font.Bold
                                         elide: Text.ElideRight
                                         Layout.fillWidth: true
@@ -541,7 +542,7 @@ DragDialog {
                                 UiText { text: "Complete o cadastro com a base de metadados"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
                                 UiText {
                                     text: "Capa e campos como publisher, gênero e descrição entram quando disponíveis na fonte selecionada."
-                                    color: Theme.secondary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true
+                                    color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true
                                 }
                             }
                         }
@@ -587,7 +588,7 @@ DragDialog {
                     spacing: 14
                     ColumnLayout {
                         spacing: 2
-                        UiText { text: "ARQUIVOS"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.Black; font.letterSpacing: 1 }
+                        UiText { text: "ARQUIVOS"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black; font.letterSpacing: 1 }
                         UiText { text: "ROM e mídia local"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
                     }
                     RowLayout {
@@ -609,7 +610,7 @@ DragDialog {
                                     UiText { text: "Associar ROM"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
                                     UiText {
                                         text: form.draft.rom_path ? String(form.draft.rom_path).split(/[\\/]/).pop() : "Nenhuma ROM associada"
-                                        color: Theme.secondary; font.pixelSize: 11; elide: Text.ElideMiddle; Layout.fillWidth: true
+                                        color: Theme.secondary; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true
                                     }
                                 }
                             }
@@ -632,7 +633,7 @@ DragDialog {
                                     UiText { text: "Remover ROM"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
                                     UiText {
                                         text: form.draft.rom_path ? "Desvincular arquivo atual" : "Sem ROM para remover"
-                                        color: Theme.secondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true
+                                        color: Theme.secondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true
                                     }
                                 }
                             }
@@ -659,7 +660,7 @@ DragDialog {
                                     UiText { text: "Box art"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
                                     UiText {
                                         text: form.draft.box_art_path ? "Capa associada" : "Adicionar capa local"
-                                        color: Theme.secondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true
+                                        color: Theme.secondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true
                                     }
                                 }
                             }
@@ -677,7 +678,7 @@ DragDialog {
         visible: form.formError.length > 0
         text: form.formError
         color: "#ffb4ab"
-        font.pixelSize: 12
+        font.pixelSize: 13
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
     }

@@ -1,4 +1,4 @@
-/* Texto com suavização por distance field e métricas da referência Electron. */
+/* Texto com rasterização adequada à plataforma e métricas compartilhadas. */
 import QtQuick
 import GameStock
 
@@ -7,7 +7,7 @@ Text {
     property int textWeight: Font.Normal
     font.weight: Theme.cssFontWeight(textWeight)
     font.family: Theme.fontFamily
-    /* A rasterização nativa deixou traços pequenos irregulares; Qt mantém cobertura subpixel. */
+    /* Distance field em alta qualidade suaviza os glifos pequenos sem franjas coloridas. */
     renderType: Text.QtRendering
     renderTypeQuality: Text.HighRenderTypeQuality
     antialiasing: true

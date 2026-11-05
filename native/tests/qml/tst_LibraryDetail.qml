@@ -147,6 +147,9 @@ Item {
         }
 
         function cleanup() {
+            // Restaura a janela após verificar os limites do cabeçalho responsivo.
+            app.width = 1122
+            app.height = 957
             app.closeGameDetail()
             const form = findChild(app, "gameFormDialog")
             if (form) form.close()
@@ -154,6 +157,26 @@ Item {
             if (confirm) confirm.close()
             const versions = findChild(app, "gameVersionDialog")
             if (versions) versions.close()
+        }
+
+        /** O título curto aproveita a lateral da capa sem disputar largura com os botões. */
+        function test_titleUsesAvailableWidth() {
+            resetGame()
+            service.update(1, {title: "Jogo sintético 000142"})
+            app.width = 1024
+            app.height = 768
+            app.openGame(service.items[0])
+            const detail = findChild(app, "gameDetailPage")
+            const title = findChild(detail, "gameDetailTitle")
+            const actions = findChild(detail, "gameDetailActions")
+            tryVerify(function() { return detail.visible && title.width > 0 }, 2000)
+            wait(250)
+            compare(title.lineCount, 1)
+            const titleBottom = title.mapToItem(detail, 0, title.height)
+            const actionsTop = actions.mapToItem(detail, 0, 0)
+            verify(actionsTop.y >= titleBottom.y)
+            const remove = findChild(detail, "deleteGame")
+            verify(remove.mapToItem(detail, remove.width, 0).x <= detail.width - 12)
         }
 
         /** Abre o detalhe e confere que o painel é opaco como os demais modais. */

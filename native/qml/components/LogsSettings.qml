@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Aba Logs: histórico local com atualização, abertura da pasta e limpeza. */
@@ -35,13 +36,13 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
-            UiText { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+            UiText { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
             UiText { text: "Logs"; color: Theme.text; font.pixelSize: 28; textWeight: Font.Black; Layout.bottomMargin: 24 }
             UiText { text: "Logs do aplicativo"; color: Theme.accent; font.pixelSize: 16; textWeight: Font.Black }
             UiText {
                 text: "Histórico local de eventos, avisos e erros. Mostra até 500 registros recentes."
                 color: Theme.secondary
-                font.pixelSize: 12
+                font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -59,7 +60,7 @@ Item {
             visible: logs.settingsService && logs.settingsService.error.length > 0
             text: logs.settingsService ? logs.settingsService.error : ""
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -79,7 +80,7 @@ Item {
                     visible: !logs.settingsService || logs.settingsService.logEntries.length === 0
                     text: logs.settingsService ? "Nenhum registro disponível." : "Serviço de logs indisponível."
                     color: Theme.secondary
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                 }
                 Repeater {
                     model: logs.settingsService ? logs.settingsService.logEntries : []
@@ -99,16 +100,16 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
-                                UiText { text: logs.formatTimestamp(modelData.timestamp); color: Theme.muted; font.pixelSize: 11 }
-                                UiText { text: modelData.source || "GameStock"; color: Theme.secondary; font.pixelSize: 11 }
-                                UiText { text: String(modelData.level || "info").toUpperCase(); color: logs.levelColor(modelData.level); font.pixelSize: 10; textWeight: Font.ExtraBold }
+                                UiText { text: logs.formatTimestamp(modelData.timestamp); color: Theme.muted; font.pixelSize: 12 }
+                                UiText { text: modelData.source || "GameStock"; color: Theme.secondary; font.pixelSize: 12 }
+                                UiText { text: String(modelData.level || "info").toUpperCase(); color: logs.levelColor(modelData.level); font.pixelSize: 12; textWeight: Font.ExtraBold }
                                 Item { Layout.fillWidth: true }
                             }
                             UiText {
                                 Layout.fillWidth: true
                                 text: modelData.message || ""
                                 color: Theme.text
-                                font.pixelSize: 12
+                                font.pixelSize: 13
                                 font.family: "Consolas"
                                 textWeight: Font.Bold
                                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere

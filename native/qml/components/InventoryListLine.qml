@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Linha tabular do inventário; o cabeçalho usa a mesma grade de colunas. */
 import QtQuick
@@ -148,7 +149,7 @@ Item {
                     width: Math.min(parent.width - 12, implicitWidth)
                     text: line.item ? (line.item.conservation_state_name || "") : ""
                     color: line.item ? line.conditionColor(line.item.conservation_state_name) : Theme.secondary
-                    font.pixelSize: 10
+                    font.pixelSize: 12
                     textWeight: Font.ExtraBold
                     elide: Text.ElideRight
                 }

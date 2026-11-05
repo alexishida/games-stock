@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Cores do RetroArch por plataforma, salvando o lote em uma transação. */
@@ -140,7 +141,7 @@ DragDialog {
                 Layout.fillWidth: true
                 spacing: 8
                 UiText { text: cores.heading; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black; lineHeightMode: Text.FixedHeight; lineHeight: 22 }
-                UiText { text: "Escolha cores recomendados ou DLLs instaladas e salve tudo de uma vez."; color: Theme.secondary; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                UiText { text: "Escolha cores recomendados ou DLLs instaladas e salve tudo de uma vez."; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             }
             ActionButton { iconName: "x-danger"; Accessible.name: "Fechar"; onClicked: cores.close() }
         }
@@ -151,7 +152,7 @@ DragDialog {
                 Layout.fillWidth: true
                 Layout.maximumWidth: 360
                 spacing: 8
-                UiText { text: "BUSCAR"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
+                UiText { text: "BUSCAR"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                 FormField { Layout.fillWidth: true; placeholderText: "Plataforma ou core"; onTextChanged: cores.search = text }
             }
             Item { Layout.fillWidth: true }
@@ -188,11 +189,11 @@ DragDialog {
                                 Layout.fillWidth: true
                                 spacing: 2
                                 UiText { text: coreRow.modelData.name || ""; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
-                                UiText { text: "Defina o core usado pelo RetroArch nesta plataforma."; color: Theme.secondary; font.pixelSize: 11 }
+                                UiText { text: "Defina o core usado pelo RetroArch nesta plataforma."; color: Theme.secondary; font.pixelSize: 12 }
                                 UiText {
                                     visible: coreRow.draft.length > 0 && (cores.inventory.installedCores || []).indexOf(coreRow.draft) < 0
                                     text: "Core recomendado " + coreRow.draft + ", não instalado. Baixe no RetroArch."
-                                    color: "#ff7b7b"; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                    color: "#ff7b7b"; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap
                                 }
                             }
                             ColumnLayout {
@@ -200,8 +201,8 @@ DragDialog {
                                 spacing: 6
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    UiText { text: "CORE"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; Layout.fillWidth: true }
-                                    UiText { visible: coreRow.draft.length > 0; text: "Sugestão: " + coreRow.draft; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.Bold }
+                                    UiText { text: "CORE"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; Layout.fillWidth: true }
+                                    UiText { visible: coreRow.draft.length > 0; text: "Sugestão: " + coreRow.draft; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold }
                                 }
                                 FormSelect {
                                     id: corePicker
@@ -226,7 +227,7 @@ DragDialog {
                 objectName: "retroArchCoresError"
                 Layout.fillWidth: true
                 text: cores.formError.length ? cores.formError : cores.inventory.executableConfigured === false ? "Configure o executável do RetroArch antes de selecionar cores." : cores.inventory.coresDirExists === false ? "Pasta cores/ não encontrada ao lado do RetroArch." : ""
-                color: "#ff7b7b"; font.pixelSize: 11; textWeight: Font.Bold; wrapMode: Text.WordWrap
+                color: "#ff7b7b"; font.pixelSize: 12; textWeight: Font.Bold; wrapMode: Text.WordWrap
             }
             ActionButton { objectName: "cancelCores"; text: "Fechar"; iconName: "x-danger"; dangerOutline: true; formAction: true; onClicked: cores.close() }
             ActionButton { objectName: "saveCores"; text: "Salvar"; iconName: "save"; accentOutline: true; formAction: true; onClicked: cores.save() }

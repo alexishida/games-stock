@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Gerenciador de plataformas dentro de Configurações, com vínculos e bloqueios. */
@@ -51,7 +52,8 @@ Item {
                 Layout.fillWidth: true
                 title: "Plataformas"
                 description: "Plataformas cadastradas para organizar biblioteca, aliases de busca e extensões aceitas no importador."
-                bottomGap: 0
+                /* A margem inferior de 12 px pertence ao parágrafo no Electron. */
+                bottomGap: 12
             }
         }
         UiText {
@@ -59,7 +61,7 @@ Item {
             visible: manager.serviceMode && manager.platformService && manager.platformService.error.length > 0
             text: manager.platformService ? manager.platformService.error : ""
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -72,7 +74,8 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             ColumnLayout {
                 id: list
-                width: parent.width - 2
+                /* O scrollbar CSS ocupa espaço dentro da borda, sem cobrir as ações. */
+                width: parent.width - 2 - (parent.contentHeight > parent.height ? 6 : 0)
                 x: 1
                 spacing: 0
                 UiText { visible: list.rowCount === 0; text: "Nenhuma plataforma cadastrada."; color: Theme.secondary; font.pixelSize: 13 }
@@ -89,15 +92,19 @@ Item {
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 10
-                            spacing: 8
+                            /* O CSS usa padding horizontal de 12 px e ações com gap de 4 px. */
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 12
+                            spacing: 4
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 2
-                                UiText { text: modelData.name || ""; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                /* A lista precisa ser legível sem ampliação do sistema. */
+                                UiText { text: modelData.name || ""; color: Theme.text; font.pixelSize: 14; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                                 UiText {
                                     text: (modelData.category || "Sem categoria") + " · " + Number(modelData.gameCount || 0) + " jogos"
-                                    color: Theme.muted
-                                    font.pixelSize: 11
+                                    color: Theme.secondary
+                                    font.pixelSize: 13
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }

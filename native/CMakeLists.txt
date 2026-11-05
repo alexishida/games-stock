@@ -124,8 +124,8 @@ target_sources(gamestock_native PRIVATE src/app/MediaReader.cpp src/app/MediaRea
 target_compile_features(gamestock_native PRIVATE cxx_std_20)
 target_link_libraries(gamestock_native PRIVATE gamestock_core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Svg Qt6::QuickDialogs2)
 if(WIN32)
-    # Leitura da memória residente para o relatório de inicialização (11.2).
-    target_link_libraries(gamestock_native PRIVATE psapi)
+    # Psapi mede memória; DWM aplica a barra de título escura da janela nativa.
+    target_link_libraries(gamestock_native PRIVATE psapi dwmapi)
 endif()
 # O identificador de commit é opcional para builds a partir de arquivos sem Git.
 find_package(Git QUIET)
@@ -169,12 +169,17 @@ qt_add_qml_module(gamestock_native
         qml/components/LogsSettings.qml qml/components/AboutSettings.qml
         qml/components/DataPortabilitySettings.qml
         qml/components/SplashOverlay.qml
-    RESOURCES assets/logo.png
+    # Ícones em tamanhos nativos mantêm nitidez na barra de título e na barra de tarefas.
+    RESOURCES assets/logo.png assets/favicon-16x16.png assets/favicon-32x32.png assets/favicon-96x96.png
 )
 
 # Ícones locais são dados de desenho, sem componente React no runtime nativo.
 file(GLOB icon_files CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/*.svg")
 qt_add_resources(gamestock_native icons PREFIX /icons BASE assets FILES ${icon_files})
+
+# Fontes Inter locais permitem usar a mesma tipografia mesmo sem conexão à internet.
+file(GLOB inter_font_files CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/*.ttf")
+qt_add_resources(gamestock_native fonts PREFIX /fonts BASE assets/fonts FILES ${inter_font_files})
 
 # Avisos por target respeitam as diferenças entre MSVC e GCC/Clang.
 foreach(target IN ITEMS gamestock_core gamestock_native)

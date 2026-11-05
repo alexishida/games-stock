@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Histórico agregado de partidas e limpeza manual dos contadores. */
@@ -45,7 +46,7 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 8
-                    UiText { text: "TOTAL ACUMULADO"; color: Theme.muted; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
+                    UiText { text: "TOTAL ACUMULADO"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
                     UiText {
                         objectName: "totalLaunchesLabel"
                         text: history.serviceMode ? history.launchLabel(history.gameService.totalLaunches) : "Modo fixture"
@@ -65,7 +66,7 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 8
-                    UiText { text: "JOGOS ALCANÇADOS"; color: Theme.muted; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
+                    UiText { text: "JOGOS ALCANÇADOS"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
                     UiText {
                         objectName: "playedGamesLabel"
                         text: history.serviceMode ? history.gameLabel(history.gameService.playedGames) : "Modo fixture"
@@ -80,7 +81,7 @@ Item {
             visible: history.serviceMode && history.gameService.error.length > 0
             text: history.gameService ? history.gameService.error : ""
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }

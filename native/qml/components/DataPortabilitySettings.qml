@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Textos UTF-8 e altura dos cards seguem a referencia de backup. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
@@ -88,7 +89,7 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
-                UiText { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                UiText { text: "APLICATIVO"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                 UiText { text: "Backup da biblioteca"; color: Theme.text; font.pixelSize: 28; textWeight: Font.Black; Layout.bottomMargin: 12 }
             }
 
@@ -118,7 +119,7 @@ Item {
                                 spacing: 8
                                 /* O DOM de referência usa ícones lucide de 18 px nos cards de status. */
                                 Image { source: "qrc:/icons/" + modelData.icon + "-active.svg"; sourceSize: Qt.size(18, 18) }
-                                UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
+                                UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                             }
                             UiText { text: modelData.value; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
                         }
@@ -138,7 +139,7 @@ Item {
                     anchors.margins: 16
                     spacing: 10
                     UiText { text: "Exportar backup"; color: Theme.accent; font.pixelSize: 16; textWeight: Font.Black }
-                    UiText { text: "Crie um pacote local com as partes selecionadas da biblioteca."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    UiText { text: "Crie um pacote local com as partes selecionadas da biblioteca."; color: Theme.secondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
@@ -168,8 +169,8 @@ Item {
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 1
-                                        UiText { text: exportCard.modelData.title; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                        UiText { text: exportCard.modelData.description; color: Theme.secondary; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        UiText { text: exportCard.modelData.title; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        UiText { text: exportCard.modelData.description; color: Theme.secondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
                                     }
                                 }
                             }
@@ -208,7 +209,7 @@ Item {
                     anchors.margins: 16
                     spacing: 10
                     UiText { text: "Importar backup"; color: Theme.accent; font.pixelSize: 16; textWeight: Font.Black }
-                    UiText { text: "Pré-visualize um pacote e restaure somente as categorias escolhidas."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    UiText { text: "Pré-visualize um pacote e restaure somente as categorias escolhidas."; color: Theme.secondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     ActionButton {
                         objectName: "selectBackupPackage"
                         text: panel.busy ? "Lendo..." : "Selecionar pacote"
@@ -227,9 +228,9 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: 2
                                 UiText { text: "Pacote selecionado"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
-                                UiText { text: panel.preview ? panel.preview.packagePath : ""; color: Theme.muted; font.pixelSize: 11; elide: Text.ElideMiddle; Layout.fillWidth: true }
+                                UiText { text: panel.preview ? panel.preview.packagePath : ""; color: Theme.muted; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
                             }
-                            UiText { text: panel.preview ? panel.formatDate(panel.preview.manifest.createdAt) : ""; color: Theme.muted; font.pixelSize: 11 }
+                            UiText { text: panel.preview ? panel.formatDate(panel.preview.manifest.createdAt) : ""; color: Theme.muted; font.pixelSize: 12 }
                         }
                         Flow {
                             Layout.fillWidth: true
@@ -246,7 +247,7 @@ Item {
                                     required property var modelData
                                     text: modelData
                                     color: Theme.secondary
-                                    font.pixelSize: 11
+                                    font.pixelSize: 12
                                 }
                             }
                         }
@@ -283,10 +284,10 @@ Item {
                                                 radius: 3
                                                 color: importCheckbox.checked ? Theme.accent : Theme.control
                                                 border.color: Theme.borderStrong
-                                                UiText { anchors.centerIn: parent; text: "✓"; color: Theme.accentForeground; font.pixelSize: 12; font.bold: true; visible: importCheckbox.checked }
+                                                UiText { anchors.centerIn: parent; text: "✓"; color: Theme.accentForeground; font.pixelSize: 13; font.bold: true; visible: importCheckbox.checked }
                                             }
                                         }
-                                        UiText { text: importCard.modelData.title; color: Theme.accent; font.pixelSize: 11; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        UiText { text: importCard.modelData.title; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                                     }
                                 }
                             }
@@ -295,27 +296,27 @@ Item {
                             Layout.fillWidth: true
                             spacing: 3
                             visible: panel.preview && panel.preview.errors && panel.preview.errors.length > 0
-                            UiText { text: "Erros"; color: "#ffb4ab"; font.pixelSize: 11; textWeight: Font.Bold }
+                            UiText { text: "Erros"; color: "#ffb4ab"; font.pixelSize: 12; textWeight: Font.Bold }
                             Repeater {
                                 model: panel.preview && panel.preview.errors ? panel.preview.errors.slice(0, 8) : []
-                                delegate: UiText { required property var modelData; text: "• " + modelData.message; color: "#ffb4ab"; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                delegate: UiText { required property var modelData; text: "• " + modelData.message; color: "#ffb4ab"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             }
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: 3
                             visible: panel.preview && panel.preview.warnings && panel.preview.warnings.length > 0
-                            UiText { text: "Avisos"; color: "#fbbf24"; font.pixelSize: 11; textWeight: Font.Bold }
+                            UiText { text: "Avisos"; color: "#fbbf24"; font.pixelSize: 12; textWeight: Font.Bold }
                             Repeater {
                                 model: panel.preview && panel.preview.warnings ? panel.preview.warnings.slice(0, 8) : []
-                                delegate: UiText { required property var modelData; text: "• " + modelData.message; color: Theme.secondary; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                                delegate: UiText { required property var modelData; text: "• " + modelData.message; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             }
                         }
                         UiText {
                             visible: panel.preview && panel.importCategories.length === 0
                             text: "Selecione ao menos uma categoria para importar."
                             color: "#ffb4ab"
-                            font.pixelSize: 11
+                            font.pixelSize: 12
                         }
                         RowLayout {
                             Layout.fillWidth: true
@@ -338,7 +339,7 @@ Item {
                 visible: panel.message.length > 0
                 text: panel.message
                 color: Theme.accent
-                font.pixelSize: 12
+                font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -347,7 +348,7 @@ Item {
                 visible: panel.error.length > 0
                 text: panel.error
                 color: "#ffb4ab"
-                font.pixelSize: 12
+                font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }

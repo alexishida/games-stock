@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Formulário de criação/edição do inventário, com galeria de fotos e detalhes opcionais. */
@@ -26,10 +27,13 @@ DragDialog {
 
     width: Math.min(900, parent.width - 48)
     /* A altura acompanha os campos; 760 é teto, não uma altura fixa com espaço vazio. */
-    height: Math.min(760, bodyContainer.implicitHeight + 176, parent.height - 48)
+    height: Math.min(760, bodyContainer.implicitHeight + 178, parent.height - 48)
     /* Padding assimétrico e colunas de 320 px seguem o formulário Electron. */
-    topPadding: 20
-    bottomPadding: 18
+    /* A borda de 1 px integra a caixa CSS, fora do padding de conteúdo. */
+    topPadding: 21
+    bottomPadding: 19
+    leftPadding: 25
+    rightPadding: 25
     heading: createMode ? "Novo item de hardware" : "Editar item de hardware"
     onOpened: populate()
     onClosed: formError = ""
@@ -184,7 +188,8 @@ DragDialog {
             id: field
             font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
             Layout.fillWidth: true
-            placeholderTextColor: Theme.muted
+            /* O placeholder original é cinza neutro, sem o matiz azul dos metadados. */
+            placeholderTextColor: "#757575"
         }
     }
 
@@ -196,6 +201,8 @@ DragDialog {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 0
+        /* O botão acompanha o centro vertical do cabeçalho de duas linhas da referência. */
+        anchors.topMargin: 8
         z: 10
         Accessible.name: "Fechar"
         onClicked: form.close()
@@ -210,8 +217,9 @@ DragDialog {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 4
-                UiText { text: "INVENTÁRIO FÍSICO"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 1 }
-                UiText { text: form.createMode ? "Novo item de hardware" : "Editar item de hardware"; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black }
+                UiText { text: "INVENTÁRIO FÍSICO"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.ExtraBold; font.letterSpacing: 1 }
+                /* O título CSS reserva exatamente uma linha de 22 px. */
+                UiText { text: form.createMode ? "Novo item de hardware" : "Editar item de hardware"; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black; Layout.preferredHeight: 22; Layout.minimumHeight: 22; Layout.maximumHeight: 22; verticalAlignment: Text.AlignVCenter }
             }
         }
 
@@ -227,7 +235,8 @@ DragDialog {
 
             ColumnLayout {
                 id: bodyContainer
-                width: bodyFlick.width
+                /* Reserva os 2 px de padding-right da área rolável original. */
+                width: bodyFlick.width - 2
                 spacing: 14
                 RowLayout {
                     id: body
@@ -244,13 +253,20 @@ DragDialog {
                     Layout.alignment: Qt.AlignTop
                     implicitHeight: fields.implicitHeight + 32
                     radius: 12
-                    color: "#e61b1b1b"
+                    /* Gradiente branco sobre a base #1b1b1be6 presente no CSS original. */
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: "#202020" }
+                        GradientStop { position: 1; color: "#1f1f1f" }
+                    }
                     border.color: "#38849495"
 
                     GridLayout {
                         id: fields
                         anchors.fill: parent
                         anchors.margins: 16
+                        /* A borda CSS de 1 px fica além dos 16 px de padding. */
+                        anchors.leftMargin: 17
+                        anchors.rightMargin: 17
                         columns: 2
                         columnSpacing: 14
                         rowSpacing: 14
@@ -282,7 +298,8 @@ DragDialog {
                                 contentItem: UiText {
                                     text: platformBox.displayText
                                     font: platformBox.font
-                                    color: platformBox.currentIndex > 0 ? Theme.text : Theme.muted
+                                    /* O select original mantém texto claro na opção inicial. */
+                                    color: Theme.text
                                     verticalAlignment: Text.AlignVCenter
                                     elide: Text.ElideRight
                                 }
@@ -319,7 +336,8 @@ DragDialog {
                                 Layout.preferredHeight: 180
                                 padding: 8
                                 placeholderText: "Descreva o item, histórico, observações..."
-                                placeholderTextColor: Theme.muted
+                                /* Chromium usa cinza neutro nos placeholders do formulário. */
+                                placeholderTextColor: "#757575"
                                 color: Theme.text
                                 font.pixelSize: Theme.formControlFontSize
                                 wrapMode: TextArea.Wrap
@@ -352,11 +370,11 @@ DragDialog {
                             spacing: 8
                             RowLayout {
                                 Layout.fillWidth: true
-                                UiText { text: "FOTOS (" + form.photos.length + ")"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                                UiText { text: "FOTOS (" + form.photos.length + ")"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                                 Item { Layout.fillWidth: true }
                                 ActionButton {
                                     objectName: "addHardwarePhoto"
-                                    font.pixelSize: 11
+                                    font.pixelSize: 12
                                     iconSize: 12
                                     implicitHeight: 28
                                     text: "Adicionar foto"
@@ -364,7 +382,7 @@ DragDialog {
                                     onClicked: form.addPhoto()
                                 }
                             }
-                            UiText { visible: form.photoError.length > 0; text: form.photoError; color: "#fca5a5"; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            UiText { visible: form.photoError.length > 0; text: form.photoError; color: "#fca5a5"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                             Flow {
                                 Layout.fillWidth: true
                                 spacing: 8
@@ -395,7 +413,7 @@ DragDialog {
                                             color: Theme.accent
                                             width: coverText.implicitWidth + 12
                                             height: 18
-                                            UiText { id: coverText; anchors.centerIn: parent; text: "CAPA"; color: Theme.accentForeground; font.pixelSize: 9; textWeight: Font.ExtraBold }
+                                            UiText { id: coverText; anchors.centerIn: parent; text: "CAPA"; color: Theme.accentForeground; font.pixelSize: 12; textWeight: Font.ExtraBold }
                                         }
                                         MouseArea {
                                             anchors.fill: parent
@@ -442,14 +460,18 @@ DragDialog {
                         Layout.fillWidth: true
                         implicitHeight: 74
                         radius: 12
-                        color: Theme.control
+                        /* O aviso de fotos compartilha o gradiente do cartão de campos. */
+                        gradient: Gradient {
+                            GradientStop { position: 0; color: "#202020" }
+                            GradientStop { position: 1; color: "#1f1f1f" }
+                        }
                         border.color: Theme.border
                         UiText {
                             anchors.fill: parent
                             anchors.margins: 16
                             text: "Salve o item primeiro para adicionar fotos."
                             color: Theme.muted
-                            font.pixelSize: 12
+                            font.pixelSize: 13
                             font.italic: true
                             wrapMode: Text.WordWrap
                         }
@@ -470,11 +492,13 @@ DragDialog {
                         RowLayout {
                             anchors.fill: parent
                             anchors.margins: 12
-                            UiText {
-                                text: extraOpen.checked ? "⌄" : "›"
-                                color: Theme.accent
-                                font.pixelSize: 16
-                                font.bold: true
+                            /* Lucide substitui o glifo tipográfico e preserva a seta do Electron. */
+                            Image {
+                                source: "qrc:/icons/chevron-right.svg"
+                                sourceSize: Qt.size(14, 14)
+                                Layout.preferredWidth: 14
+                                Layout.preferredHeight: 14
+                                rotation: extraOpen.checked ? -90 : 90
                             }
                             UiText {
                                 text: "Detalhes adicionais"
@@ -530,7 +554,7 @@ DragDialog {
             visible: form.formError.length > 0
             text: form.formError
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }

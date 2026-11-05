@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Splash condicional do updater: fases, progresso, arraste e modo offline. */
 import QtQuick
@@ -59,9 +60,9 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 2
-                    UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold; font.letterSpacing: 1.2 }
+                    UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 1.2 }
                     UiText { text: "GameStock"; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black }
-                    UiText { text: "v" + (splash.updateService ? splash.updateService.appVersion : ""); color: Theme.secondary; font.pixelSize: 11 }
+                    UiText { text: "v" + (splash.updateService ? splash.updateService.appVersion : ""); color: Theme.secondary; font.pixelSize: 12 }
                 }
             }
 
@@ -81,7 +82,7 @@ Item {
                 visible: splash.updateService && splash.updateService.error.length > 0
                 text: splash.updateService ? splash.updateService.error : ""
                 color: "#ffb4ab"
-                font.pixelSize: 11
+                font.pixelSize: 12
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
             }
             Rectangle {
@@ -103,14 +104,14 @@ Item {
                 text: splash.updateService ? ("Disponível: v" + splash.updateService.version
                     + (splash.updateService.releaseDate.length > 0 ? " · " + splash.updateService.releaseDate : "")) : ""
                 color: Theme.secondary
-                font.pixelSize: 11
+                font.pixelSize: 12
             }
             UiText {
                 Layout.fillWidth: true
                 visible: splash.updateService && splash.updateService.notes.length > 0
                 text: splash.updateService ? splash.updateService.notes : ""
                 color: Theme.muted
-                font.pixelSize: 11
+                font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 maximumLineCount: 3
                 elide: Text.ElideRight

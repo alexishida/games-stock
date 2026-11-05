@@ -33,6 +33,11 @@ node scripts/native-geometry-check.cjs artifacts/native-migration/electron-refer
 
 ## Revisão de suavização das fontes
 
+<!-- A cobertura cinza aproxima as bordas da referência sem mudar métricas ou dados. -->
+O bootstrap agora define `QSG_DISTANCEFIELD_ANTIALIASING=gray` antes de criar a aplicação. A cobertura neutra elimina as franjas RGB do padrão subpixel do Qt em textos e campos com `QtRendering`, mantendo família, pesos e tamanhos existentes. O ajuste é apenas visual e também se aplica a perfis populados, sem migrations.
+
+Build Release e 52 testes QML passaram. As novas capturas ficam em `artifacts/native-migration/grayscale-final-100` e `grayscale-final-125`. A verificação de geometria confirma sidebar, TopBar e primeiro card sem diferenças; a busca conserva o arredondamento vertical de 0,5/0,4 px. Isso não comprova identidade pixel a pixel de todas as telas.
+
 A rasterização nativa foi substituída por `QtRendering` com antialiasing explícito e alta qualidade nos textos. Inputs e textareas também usam `QtRendering`. Os tamanhos em pixels permanecem os da referência; o peso CSS 800 é normalizado para o estilo Black no Windows, pois o matching padrão do Qt escolhia Bold. O teste de fonte verifica os pesos 800 e 900 pela família e pelo estilo efetivamente usados.
 
 Biblioteca, plataformas e cadastro de inventário foram recapturados em 100% e 125%, nas pastas `font-smoothing-100` e `font-smoothing-125`. A comparação ampliada fica em `font-smoothing-100/font-comparison.png`.
@@ -58,3 +63,17 @@ Os relatórios de origem estão em `artifacts/native-migration/electron-referenc
 A comparação passou para 13 elementos da biblioteca e 23 do inventário em `exact-typography/qt-100/*-comparison.json`, sem diferenças de família, tamanho ou peso. As caixas dos textos dos cards do inventário coincidem; na biblioteca a diferença de coordenada é inferior a 0,013 px. As linhas do menu diferem somente em 0,5 px no eixo vertical, pelo arredondamento do layout Qt.
 
 A confer?ncia adicional em 125% est? registrada em `exact-typography/qt-125`. As fam?lias, tamanhos e pesos continuam iguais, mas o comparador detecta diferen?as de altura de linha e arredondamento que se acumulam at? 6,7 px nos filtros. Essa escala ainda n?o atende ? toler?ncia de meio pixel; os resultados de 100% n?o devem ser apresentados como igualdade em todas as escalas. O CDP confirmou as fontes efetivamente renderizadas pelo Electron em `electron-reference-48ZHSB/*-typography.json` (`resolvedFonts`), incluindo Segoe UI Bold e Semibold.
+
+<!-- Medidas extraídas do CSS no app.asar da distribuição Electron preservada. -->
+## Ajustes de caixas e alinhamentos
+
+A revisão seguinte usa as regras CSS do Electron empacotado como referência. O cabeçalho das configurações reserva 28 px e as introduções reservam 19,2 px, evitando a entrelinha implícita adicional do Qt. O menu mantém o espaçamento de letras de .08em. As listas respeitam padding horizontal de 12 px, ações separadas por 4 px e trilho de rolagem de 6 px.
+
+O formulário de inventário preserva a borda externa no cálculo do padding, o título de 22 px, o recuo de 2 px da área rolável e as colunas de tipo/condição com larguras iguais. Os placeholders usam cinza neutro; a seta de detalhes usa o SVG Lucide local. As superfícies dos campos e do aviso de fotos seguem o gradiente escuro da referência.
+
+Validação: build Release, 52 testes QML e 14 estados capturados por escala em `electron-match-100` e `electron-match-125`. Os últimos ajustes de cabeçalho e inventário foram recapturados em `electron-match-100-final` e `electron-match-125-final`. As verificações de geometria da biblioteca passaram nas duas escalas. Nenhum banco ou formato de persistência foi alterado.
+
+<!-- MSAA negociado com o backend real, sem depender apenas do valor solicitado. -->
+## Antialiasing da janela na GPU
+
+O bootstrap solicita MSAA 4x por QSurfaceFormat antes da criação da aplicação. A execução de verificação confirmou Direct3D 11 na NVIDIA GeForce RTX 3080 e `MSAA sample count for the swapchain is 4`; anteriormente eram 1 amostra. O Qt negocia o suporte do dispositivo. O MSAA suaviza geometria na janela; textos e texturas mantêm suas técnicas próprias de suavização. Build Release e captura de configurações concluídos em perfil sintético (`gpu-msaa-profile`, imagem `gpu-msaa4.png`).

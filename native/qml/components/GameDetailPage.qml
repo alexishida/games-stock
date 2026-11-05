@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hero e paineis usam a composicao lateral do GameDetail.css. */
 /* Página de detalhe do jogo, equivalente ao GameDetail do renderer Electron. */
@@ -123,8 +124,8 @@ Item {
     Flickable {
         id: detailViewport
         anchors.fill: parent
-        /* O scrollbar CSS ocupa 6 px; reservar a faixa mantém colunas e ações alinhadas. */
-        contentWidth: width - (contentHeight > height ? 6 : 0)
+        /* Reserva o trilho de 6 px e 12 px de respiro para ações e cartões não encostarem nele. */
+        contentWidth: Math.max(0, width - (contentHeight > height ? 18 : 0))
         contentHeight: body.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
@@ -158,18 +159,19 @@ Item {
                 anchors.top: parent.top; anchors.right: parent.right; z: 2
                 spacing: 8
                 Item { Layout.fillWidth: true }
-                ActionButton { objectName: "detailBack"; font.pixelSize: 12; font.weight: Theme.cssFontWeight(Font.ExtraBold); font.family: Theme.heavyFontFamily; text: "Biblioteca"; iconName: "library"; onClicked: page.closeRequested() }
+                ActionButton { objectName: "detailBack"; font.pixelSize: 13; font.weight: Theme.cssFontWeight(Font.ExtraBold); font.family: Theme.heavyFontFamily; text: "Biblioteca"; iconName: "library"; onClicked: page.closeRequested() }
                 ActionButton { objectName: "previousGame"; iconName: "chevron-left"; implicitWidth: 40; visible: page.hasPrevious; enabled: page.hasPrevious; Accessible.name: "Jogo anterior"; onClicked: page.previousRequested() }
                 ActionButton { objectName: "nextGame"; iconName: "chevron-right"; implicitWidth: 40; visible: page.hasNext; enabled: page.hasNext; Accessible.name: "Próximo jogo"; onClicked: page.nextRequested() }
             }
             RowLayout {
                 anchors.fill: parent
                 anchors.bottomMargin: 20
-                spacing: 28
+                /* Na janela mínima, a capa cede espaço para preservar toda a linha de ações. */
+                spacing: body.width < 780 ? 16 : 28
                 Rectangle {
-                    Layout.preferredWidth: 195
-                    Layout.minimumWidth: 195
-                    Layout.maximumWidth: 195
+                    Layout.preferredWidth: body.width < 780 ? 150 : 195
+                    Layout.minimumWidth: body.width < 780 ? 150 : 195
+                    Layout.maximumWidth: body.width < 780 ? 150 : 195
                     Layout.preferredHeight: 280
                     Layout.alignment: Qt.AlignBottom
                     rotation: -1
@@ -195,6 +197,7 @@ Item {
                     Rectangle { anchors.fill: parent; radius: 16; color: "transparent"; border.color: Theme.border }
                 }
                 ColumnLayout {
+                    /* Título e metadados ocupam toda a lateral da capa; ações ficam na linha seguinte. */
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignBottom
                     Layout.bottomMargin: 8
@@ -217,13 +220,15 @@ Item {
                                     anchors.centerIn: parent
                                     text: modelData.toUpperCase()
                                     color: Theme.accent
-                                    font.pixelSize: 10
+                                    /* Rótulos de metadados precisam continuar legíveis em escala normal. */
+                                    font.pixelSize: 13
                                     textWeight: Font.Black
                                 }
                             }
                         }
                     }
                     UiText {
+                        objectName: "gameDetailTitle"
                         text: page.game.title || ""
                         color: Theme.text
                         font.pixelSize: 28
@@ -245,19 +250,19 @@ Item {
                         visible: page.actionError.length > 0
                         text: page.actionError
                         color: "#ffb4ab"
-                        font.pixelSize: 12
+                        font.pixelSize: 13
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
-                }
                     RowLayout {
                         objectName: "gameDetailActions"
-                        Layout.alignment: Qt.AlignBottom
-                        Layout.bottomMargin: 8
+                        Layout.alignment: Qt.AlignRight
+                        /* O respiro sobe os metadados, preservando os botões alinhados à base da capa. */
+                        Layout.topMargin: 24
                         spacing: 8
                         ActionButton {
                             objectName: "launchGame"
-                            font.pixelSize: 12
+                            font.pixelSize: 13
                             font.weight: Font.Black
                             font.family: Theme.heavyFontFamily
                             text: "Jogar"
@@ -275,6 +280,7 @@ Item {
                         ActionButton { objectName: "editGame"; implicitWidth: 38; implicitHeight: 38; iconName: "pencil"; enabled: page.serviceMode; Accessible.name: "Editar"; onClicked: page.editRequested(page.game) }
                         ActionButton { objectName: "deleteGame"; implicitWidth: 38; implicitHeight: 38; iconName: "trash-2-danger"; dangerOutline: true; enabled: page.serviceMode; Accessible.name: "Excluir"; onClicked: page.deleteRequested(page.game) }
                     }
+                }
             }
             }
             RowLayout {
@@ -404,7 +410,7 @@ Item {
                                     anchors.margins: 5
                                     text: modelData.label
                                     color: Theme.secondary
-                                    font.pixelSize: 10
+                                    font.pixelSize: 12
                                     elide: Text.ElideRight
                                 }
                             }

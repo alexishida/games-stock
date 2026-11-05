@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Centro de notificações de jobs em background; fonte única é o JobManager. */
 import QtQuick
@@ -132,7 +133,7 @@ Item {
                     visible: progressFilename.length > 0 || progressFolderPath.length > 0
                     text: progressFilename.length > 0 ? progressFilename : progressFolderPath
                     color: Theme.secondary
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                     elide: Text.ElideMiddle
                     Layout.fillWidth: true
                 }
@@ -156,7 +157,7 @@ Item {
                             : status === "interrupted" ? "Interrompido"
                             : (progressCurrent + " de " + progressTotal + " - " + root.stageLabel(progressStage))
                         color: Theme.muted
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         Layout.fillWidth: true
                     }
                     ActionButton {

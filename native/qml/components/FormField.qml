@@ -15,7 +15,7 @@ TextField {
     font.family: Theme.fontFamily
     font.pixelSize: Theme.formControlFontSize
     font.weight: Font.Normal
-    /* A edição usa a mesma suavização dos rótulos, inclusive em escala fracionária. */
+    /* Os campos compartilham a suavização sem franjas coloridas dos rótulos. */
     renderType: TextInput.QtRendering
     antialiasing: true
     font.hintingPreference: Font.PreferNoHinting

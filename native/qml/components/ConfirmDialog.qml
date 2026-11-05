@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Confirmação interna reutilizada por exclusões e ações destrutivas. */
 import QtQuick
@@ -42,7 +43,7 @@ DragDialog {
             visible: confirm.detail.length > 0
             text: confirm.detail
             color: Theme.secondary
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -51,7 +52,7 @@ DragDialog {
             visible: confirm.error.length > 0
             text: confirm.error
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }

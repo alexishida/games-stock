@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Gaps do management-form preservam as medidas originais do Electron. */
 /* Cadastro e edição de emulador, com seletor nativo de executável. */
@@ -104,16 +105,16 @@ DragDialog {
             spacing: Theme.formLabelGap
             UiText { text: "ARGUMENTOS"; color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
             /* A dica fica em linha própria, sem herdar caixa alta ou peso do rótulo. */
-            UiText { text: "(opcional, separados por espaço)"; color: Theme.secondary; font.pixelSize: 10; Layout.leftMargin: 4 }
+            UiText { text: "(opcional, separados por espaço)"; color: Theme.secondary; font.pixelSize: 12; Layout.leftMargin: 4 }
             FormField { font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold); id: argsField; objectName: "emulatorArgsField"; Layout.fillWidth: true; placeholderText: "Ex.: -fullscreen ou --profile={romFileName}" }
-            UiText { text: "Use {romPath} para o caminho completo ou {romFileName} para somente o arquivo."; color: Theme.muted; font.pixelSize: 10; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            UiText { text: "Use {romPath} para o caminho completo ou {romFileName} para somente o arquivo."; color: Theme.muted; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
         }
         UiText {
             objectName: "emulatorFormError"
             visible: form.formError.length > 0
             text: form.formError
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }

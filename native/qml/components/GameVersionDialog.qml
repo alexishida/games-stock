@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletor de variantes do mesmo jogo-base usado antes do lançamento. */
 pragma ComponentBehavior: Bound
@@ -95,7 +96,7 @@ DragDialog {
             visible: versions.actionError.length > 0
             text: versions.actionError
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -160,7 +161,7 @@ DragDialog {
                                 UiText {
                                     text: modelData.variantLabel || "Versão padrão"
                                     color: Theme.secondary
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
@@ -174,21 +175,21 @@ DragDialog {
                                         Layout.preferredWidth: 1
                                         spacing: 8
                                         Image { source: "qrc:/icons/globe-2.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText { text: modelData.regionLabel || "Região não detectada"; color: Theme.secondary; font.pixelSize: 12 }
+                                        UiText { text: modelData.regionLabel || "Região não detectada"; color: Theme.secondary; font.pixelSize: 13 }
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 1
                                         spacing: 8
                                         Image { source: "qrc:/icons/sparkles.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText { text: modelData.typeLabel || "Sem marcador especial"; color: Theme.secondary; font.pixelSize: 12 }
+                                        UiText { text: modelData.typeLabel || "Sem marcador especial"; color: Theme.secondary; font.pixelSize: 13 }
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 1
                                         spacing: 8
                                         Image { source: "qrc:/icons/scroll-text.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText { text: modelData.romFileName || ""; color: Theme.secondary; font.pixelSize: 12; elide: Text.ElideRight; Layout.maximumWidth: 220 }
+                                        UiText { text: modelData.romFileName || ""; color: Theme.secondary; font.pixelSize: 13; elide: Text.ElideRight; Layout.maximumWidth: 220 }
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -198,7 +199,7 @@ DragDialog {
                                         UiText {
                                             text: Number(modelData.launchCount || 0) + (Number(modelData.launchCount || 0) === 1 ? " jogada" : " jogadas")
                                             color: Theme.secondary
-                                            font.pixelSize: 12
+                                            font.pixelSize: 13
                                         }
                                     }
                                 }

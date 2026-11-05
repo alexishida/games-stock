@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Protótipo navegável da biblioteca; apenas dados sintéticos, sem escrita no SQLite. */
@@ -462,8 +463,9 @@ ApplicationWindow {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
-                        UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold; font.letterSpacing: 1.62; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
-                        UiText { text: "v" + window.buildLabel; color: Theme.secondary; font.pixelSize: 10; textWeight: Font.Bold; font.letterSpacing: 0.8; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                        /* O subtítulo da marca usa tamanho legível sem depender de ampliação do sistema. */
+                        UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 1.2; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                        UiText { text: "v" + window.buildLabel; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold; font.letterSpacing: 0.8; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
                     }
                 }
                 ColumnLayout {
@@ -608,7 +610,7 @@ ApplicationWindow {
                                 visible: !window.inventoryAvailable || (window.inventoryService && window.inventoryService.typeCounts.length === 0)
                                 text: "Nenhum item no inventário ainda."
                                 color: Theme.muted
-                                font.pixelSize: 12
+                                font.pixelSize: 13
                                 wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
                             }
@@ -720,7 +722,7 @@ ApplicationWindow {
                     UiText {
                         visible: window.selectedGame === null
                         text: "Exibindo " + window.filteredTotal + " de " + window.allTotal + " jogos"
-                        color: Theme.secondary; font.pixelSize: 11; textWeight: Font.Bold
+                        color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold
                     }
                 }
             }
@@ -746,7 +748,7 @@ ApplicationWindow {
                         text: "Exibir sem capa"
                         checked: window.activeIncludeMissingCovers
                         palette.windowText: Theme.secondary
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         enabled: window.libraryService
                         onClicked: window.setIncludeMissingCovers(checked)
                         spacing: 6
@@ -755,11 +757,11 @@ ApplicationWindow {
                             implicitWidth: 14; implicitHeight: 14
                             x: coverVisibility.leftPadding; y: (coverVisibility.height - height) / 2
                             radius: 2; color: coverVisibility.checked ? Theme.accent : Theme.control
-                            UiText { anchors.centerIn: parent; text: "✓"; font.pixelSize: 11; font.bold: true; color: Theme.accentForeground; visible: coverVisibility.checked }
+                            UiText { anchors.centerIn: parent; text: "✓"; font.pixelSize: 12; font.bold: true; color: Theme.accentForeground; visible: coverVisibility.checked }
                         }
                         contentItem: UiText { text: coverVisibility.text; leftPadding: coverVisibility.indicator.width + coverVisibility.spacing; verticalAlignment: Text.AlignVCenter; color: Theme.muted; font: coverVisibility.font }
                     }
-                    UiText { text: "CATEGORIA:"; color: Theme.muted; font.pixelSize: 10; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                    UiText { text: "CATEGORIA:"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                     FilterSelect {
                         objectName: "genreFilter"
                         model: ["Todas"].concat(window.activeGenres)
@@ -768,7 +770,7 @@ ApplicationWindow {
                         currentIndex: Math.max(0, model.indexOf(window.activeGenre))
                         onActivated: window.setGenre(currentIndex === 0 ? "" : model[currentIndex])
                     }
-                    UiText { text: "ORDENAR POR:"; color: Theme.muted; font.pixelSize: 10; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
+                    UiText { text: "ORDENAR POR:"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.8 }
                     FilterSelect {
                         objectName: "sortFilter"
                         model: ["A–Z", "Ano", "Recentes", "Mais jogados"]
@@ -894,7 +896,7 @@ ApplicationWindow {
                     visible: window.selectedGame === null && window.libraryService && window.filteredTotal > 36
                     Layout.alignment: Qt.AlignHCenter
                     spacing: 12
-                    UiText { text: ((window.currentPage - 1) * 36 + 1) + "–" + Math.min(window.currentPage * 36, window.filteredTotal) + " de " + window.filteredTotal; color: Theme.secondary; font.pixelSize: 12; Layout.minimumWidth: 100; horizontalAlignment: Text.AlignRight }
+                    UiText { text: ((window.currentPage - 1) * 36 + 1) + "–" + Math.min(window.currentPage * 36, window.filteredTotal) + " de " + window.filteredTotal; color: Theme.secondary; font.pixelSize: 13; Layout.minimumWidth: 100; horizontalAlignment: Text.AlignRight }
                     RowLayout {
                         spacing: 4
                         ActionButton { objectName: "firstLibraryPage"; iconName: "chevrons-left"; pagination: true; enabled: window.currentPage > 1; Accessible.name: "Primeira página"; onClicked: window.goToLibraryPage(1) }
@@ -1046,7 +1048,9 @@ ApplicationWindow {
             dangerOutline: true
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.margins: 20
+            /* Inclui a borda de 1 px do modal e o recuo direito de 24 px do CSS. */
+            anchors.margins: 21
+            anchors.rightMargin: 25
             z: 10
             Accessible.name: "Fechar"
             onClicked: settings.close()
@@ -1062,6 +1066,8 @@ ApplicationWindow {
         Rectangle { x: 200; width: 1; height: parent.height; color: Theme.border }
         RowLayout {
             anchors.fill: parent
+            /* O grid do Electron começa dentro da borda do painel. */
+            anchors.margins: 1
             spacing: 0
             ColumnLayout {
                 Layout.preferredWidth: 176
@@ -1079,7 +1085,8 @@ ApplicationWindow {
                     Layout.bottomMargin: 12
                     spacing: 8
                     Image { source: "qrc:/icons/settings-active.svg"; sourceSize: Qt.size(15, 15) }
-                    UiText { text: "CONFIGURAÇÕES"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black; Layout.fillWidth: true }
+                    /* O rótulo original usa letter-spacing: .08em, inclusive em 125%. */
+                    UiText { text: "CONFIGURAÇÕES"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black; font.letterSpacing: 1.04; Layout.fillWidth: true }
                 }
                 Repeater {
                     model: [
@@ -1142,6 +1149,11 @@ ApplicationWindow {
                     /* O header CSS usa line-height: 1; a métrica Qt padrão acrescentava 6 px. */
                     lineHeightMode: Text.FixedHeight
                     lineHeight: 28
+                    /* O grid CSS reserva 28 px; implicitHeight do Qt inclui a entrelinha da fonte. */
+                    Layout.preferredHeight: 28
+                    Layout.minimumHeight: 28
+                    Layout.maximumHeight: 28
+                    verticalAlignment: Text.AlignVCenter
                     Layout.fillWidth: true
                 }
                 Item {

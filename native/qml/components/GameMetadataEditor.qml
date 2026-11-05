@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Gaps do management-form preservam as medidas originais do Electron. */
 /* Editor manual de metadados, empilhado sobre o formulário de edição do jogo. */
@@ -75,7 +76,7 @@ DragDialog {
             UiText {
                 text: "Dados usados no detalhe do jogo."
                 color: Theme.secondary
-                font.pixelSize: 12
+                font.pixelSize: 13
                 Layout.fillWidth: true
             }
 
@@ -101,8 +102,8 @@ DragDialog {
                             anchors.fill: parent
                             anchors.margins: 9
                             spacing: 1
-                            UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 9; textWeight: Font.ExtraBold }
-                            UiText { text: modelData.value; color: Theme.text; font.pixelSize: 11; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                            UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold }
+                            UiText { text: modelData.value; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                         }
                     }
                 }
@@ -144,7 +145,7 @@ DragDialog {
                 id: errorText
                 visible: text.length > 0
                 color: "#ffb4ab"
-                font.pixelSize: 12
+                font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }

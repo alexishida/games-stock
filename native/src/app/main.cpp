@@ -50,11 +50,14 @@
 #include <QSGRendererInterface>
 #include <QQuickImageProvider>
 #include <QScreen>
+#include <QStyleHints>
+#include <QSurfaceFormat>
 #include <QTimer>
 #include <cstdio>
 #include <memory>
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
+#include <dwmapi.h>
 #include <psapi.h>
 #endif
 
@@ -172,18 +175,35 @@ private:
 
 /** Abre o protótipo com geometria legada e opção de captura reproduzível. */
 int main(int argc, char* argv[]) {
+    // O Electron usa cobertura neutra nas capturas; subpixel RGB criava franjas nas letras.
+    // Definir antes da aplicação mantém a mesma suavização em textos, campos e modais.
+    qputenv("QSG_DISTANCEFIELD_ANTIALIASING", "gray");
+    // Solicita MSAA para toda a janela antes de criar o scene graph, inclusive no Direct3D.
+    // O Qt negocia a quantidade suportada pelo dispositivo; fontes mantêm seu próprio antialiasing.
+    QSurfaceFormat surfaceFormat = QSurfaceFormat::defaultFormat();
+    surfaceFormat.setSamples(4);
+    QSurfaceFormat::setDefaultFormat(surfaceFormat);
     QElapsedTimer startupTimer;
     startupTimer.start();
     QGuiApplication app(argc, argv);
+    // A interface é escura; solicita ao sistema a moldura escura também no tema claro do Windows.
+    QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
     QCoreApplication::setApplicationName("GameStock");
     QCoreApplication::setApplicationVersion(GAMESTOCK_VERSION);
     QQuickStyle::setStyle("Basic");
-    QGuiApplication::setWindowIcon(QIcon("qrc:/qt/qml/GameStock/assets/logo.png"));
-#ifdef Q_OS_WIN
-    QGuiApplication::setFont(QFont("Segoe UI"));
-#else
-    QGuiApplication::setFont(QFontDatabase::systemFont(QFontDatabase::GeneralFont));
-#endif
+    // Usar o ícone quadrado nos tamanhos nativos evita reduzir a logomarca larga a poucos pixels.
+    QIcon applicationIcon;
+    applicationIcon.addFile(QStringLiteral(":/qt/qml/GameStock/assets/favicon-16x16.png"), QSize(16, 16));
+    applicationIcon.addFile(QStringLiteral(":/qt/qml/GameStock/assets/favicon-32x32.png"), QSize(32, 32));
+    applicationIcon.addFile(QStringLiteral(":/qt/qml/GameStock/assets/favicon-96x96.png"), QSize(96, 96));
+    QGuiApplication::setWindowIcon(applicationIcon);
+    // Registra as variantes locais antes de criar a interface, inclusive pesos e itálicos.
+    const QDir fontDirectory(QStringLiteral(":/fonts"));
+    for (const QString& file : fontDirectory.entryList({QStringLiteral("*.ttf")}, QDir::Files)) {
+        if (QFontDatabase::addApplicationFont(fontDirectory.filePath(file)) < 0)
+            qWarning() << "Não foi possível carregar a fonte" << file;
+    }
+    QGuiApplication::setFont(QFont("Inter"));
 
     QCommandLineParser parser;
     parser.setApplicationDescription("Protótipo nativo GameStock — use somente um perfil sintético.");
@@ -546,6 +566,19 @@ int main(int argc, char* argv[]) {
     if (engine.rootObjects().isEmpty()) return 4;
     auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     if (!window) return 4;
+#ifdef Q_OS_WIN
+    // O tema do Qt nem sempre altera a moldura Win32; DWM mantém o título escuro.
+    const HWND nativeWindow = reinterpret_cast<HWND>(window->winId());
+    const BOOL darkTitle = TRUE;
+    HRESULT darkResult = DwmSetWindowAttribute(nativeWindow, 20, &darkTitle, sizeof(darkTitle));
+    if (FAILED(darkResult)) darkResult = DwmSetWindowAttribute(nativeWindow, 19, &darkTitle, sizeof(darkTitle));
+    if (FAILED(darkResult)) qWarning("O Windows não aplicou o tema escuro à barra de título.");
+    // No Windows 11, cores explícitas preservam o contraste mesmo com o sistema em modo claro.
+    const COLORREF captionColor = RGB(28, 27, 27);
+    const COLORREF captionText = RGB(229, 226, 225);
+    DwmSetWindowAttribute(nativeWindow, 35, &captionColor, sizeof(captionColor));
+    DwmSetWindowAttribute(nativeWindow, 36, &captionText, sizeof(captionText));
+#endif
     // O retângulo Electron inclui bordas invisíveis, além da moldura visível do Qt.
     const FrameMetrics metrics = frameMetrics(window);
     window->setMinimumSize(gamestock::contentSizeForFrame(QSize(1024, 768), metrics.legacy));

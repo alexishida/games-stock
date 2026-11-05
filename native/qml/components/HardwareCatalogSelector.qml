@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Seletor de tipo/estado com criação inline, como os seletores do formulário Electron. */
@@ -8,6 +9,9 @@ import GameStock
 
 ColumnLayout {
     id: selector
+    /* As duas colunas CSS têm a mesma largura, independente do texto de cada seletor. */
+    Layout.preferredWidth: 1
+    Layout.minimumWidth: 0
     objectName: selector.mode === "type" ? "hardwareTypeSelector" : "hardwareStateSelector"
     property var service: null
     /* `type` usa item_types; `state` usa conservation_states. */
@@ -64,7 +68,7 @@ ColumnLayout {
         ActionButton {
             objectName: selector.mode === "type" ? "newItemType" : "newConservationState"
             visible: !inline.visible
-            font.pixelSize: 11
+            font.pixelSize: 12
             font.weight: Theme.cssFontWeight(Font.ExtraBold)
             font.family: Theme.heavyFontFamily
             iconSize: 12
@@ -96,7 +100,7 @@ ColumnLayout {
         }
         ActionButton {
             objectName: selector.mode === "type" ? "createItemType" : "createConservationState"
-            font.pixelSize: 11
+            font.pixelSize: 12
             implicitHeight: 30
             text: "Criar"
             enabled: newName.text.trim().length > 0
@@ -104,7 +108,7 @@ ColumnLayout {
         }
         ActionButton {
             text: "Cancelar"
-            font.pixelSize: 11
+            font.pixelSize: 12
             implicitHeight: 30
             onClicked: inline.visible = false
         }
@@ -114,7 +118,7 @@ ColumnLayout {
         id: createError
         visible: text.length > 0
         color: "#ffb4ab"
-        font.pixelSize: 11
+        font.pixelSize: 12
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
     }

@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Modal de importação de metadados e mídia do LaunchBox. */
@@ -116,7 +117,7 @@ DragDialog {
             text: importer.errorText.length > 0 ? importer.errorText
                 : (importer.metadataService ? importer.metadataService.error : "")
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -158,7 +159,7 @@ DragDialog {
                             UiText {
                                 text: modelData.platform + " · "
                                     + (modelData.images ? modelData.images.length : 0) + " imagens"
-                                color: Theme.muted; font.pixelSize: 11
+                                color: Theme.muted; font.pixelSize: 12
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
@@ -173,14 +174,14 @@ DragDialog {
                         visible: resultList.count === 0
                         text: importer.busy ? "Carregando catálogo..." : "Busque um jogo para importar."
                         color: Theme.muted
-                        font.pixelSize: 12
+                        font.pixelSize: 13
                     }
                 }
             }
             ColumnLayout {
                 Layout.preferredWidth: 240
                 spacing: 6
-                UiText { text: "IMAGENS"; color: Theme.accent; font.pixelSize: 11; textWeight: Font.Bold }
+                UiText { text: "IMAGENS"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Bold }
                 Repeater {
                     model: importer.imageTypes
                     delegate: FormCheckBox {
@@ -194,7 +195,7 @@ DragDialog {
                 UiText {
                     visible: importer.selectedGame !== null
                     text: importer.selectedGame ? importer.selectedGame.name : ""
-                    color: Theme.secondary; font.pixelSize: 11
+                    color: Theme.secondary; font.pixelSize: 12
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }

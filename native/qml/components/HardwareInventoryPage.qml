@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Tela do inventário: topo fixo, cards/lista paginados, detalhe e formulário. */
 pragma ComponentBehavior: Bound
@@ -197,7 +198,7 @@ Item {
                     visible: page.selectedItem === null
                     text: page.serviceMode ? "Exibindo " + inventoryService.filtered + " de " + inventoryService.total + " itens" : "Inventário indisponível"
                     color: Theme.secondary
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                     textWeight: Font.Bold
                 }
             }
@@ -317,7 +318,7 @@ Item {
                     visible: page.serviceMode && inventoryService.error.length > 0
                     text: page.serviceMode ? inventoryService.error : ""
                     color: "#ffb4ab"
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -332,7 +333,7 @@ Item {
                             + Math.min(page.currentPage * page.pageSize, page.filteredCount)
                             + " de " + page.filteredCount
                         color: Theme.secondary
-                        font.pixelSize: 12
+                        font.pixelSize: 13
                         Layout.minimumWidth: 100
                         horizontalAlignment: Text.AlignRight
                     }

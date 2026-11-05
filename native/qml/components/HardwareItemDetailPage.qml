@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Composicao do hero e paineis laterais segue HardwareItemDetail.css. */
 /* Detalhe do item físico: hero com foto, chips, dados, galeria e lightbox. */
@@ -66,7 +67,7 @@ Item {
         property string value: ""
         Layout.fillWidth: true
         spacing: 12
-        UiText { text: parent.label; color: Theme.muted; font.pixelSize: 12; Layout.preferredWidth: 112; elide: Text.ElideRight }
+        UiText { text: parent.label; color: Theme.muted; font.pixelSize: 13; Layout.preferredWidth: 112; elide: Text.ElideRight }
         UiText {
             Layout.fillWidth: true
             text: parent.value && parent.value.length ? parent.value : "Não informado"
@@ -83,7 +84,7 @@ Item {
         property string value: ""
         Layout.fillWidth: true
         spacing: 6
-        UiText { text: parent.label; color: Theme.muted; font.pixelSize: 11; textWeight: Font.ExtraBold }
+        UiText { text: parent.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold }
         UiText {
             Layout.fillWidth: true
             text: parent.value && parent.value.length ? parent.value : "Não informado"
@@ -245,7 +246,7 @@ Item {
                                         anchors.centerIn: parent
                                         text: String(modelData || "").toUpperCase()
                                         color: Theme.accent
-                                        font.pixelSize: 10
+                                        font.pixelSize: 12
                                         textWeight: Font.Black
                                     }
                                 }
@@ -345,7 +346,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
                             spacing: 10
-                            UiText { text: "Identificação"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
+                            UiText { text: "Identificação"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black }
                             DetailRow { label: "Plataforma"; value: detail.item ? (detail.item.platform_name || "") : "" }
                             DetailRow { label: "Tipo"; value: detail.item ? (detail.item.item_type_name || "") : "" }
                             DetailRow { label: "Condição"; value: detail.item ? (detail.item.conservation_state_name || "") : "" }
@@ -356,7 +357,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
                             spacing: 10
-                            UiText { text: "Aquisição"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
+                            UiText { text: "Aquisição"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black }
                             DetailRow { label: "Data"; value: detail.item ? (detail.formatDate(detail.item.acquisition_date) || "") : "" }
                             DetailRow { label: "Valor pago"; value: detail.item ? (detail.formatCurrency(detail.item.value) || "") : "" }
                             DetailRow { label: "Origem"; value: detail.item ? (detail.formatUrlLabel(detail.item.acquisition_url) || "") : "" }
@@ -365,7 +366,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
                             spacing: 10
-                            UiText { text: "Controle físico"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
+                            UiText { text: "Controle físico"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black }
                             DetailRow { label: "Número de série"; value: detail.item ? (detail.item.serial_number || "") : "" }
                             DetailRow { label: "Local"; value: detail.item ? (detail.item.storage_location || "") : "" }
                             DetailRow { label: "Emprestado para"; value: detail.item ? (detail.item.loan_to || "") : "" }
@@ -376,7 +377,7 @@ Item {
                             Layout.fillWidth: true
                             spacing: 10
                             visible: detail.item && String(detail.item.description || "").trim().length > 0
-                            UiText { text: "Descrição"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Black }
+                            UiText { text: "Descrição"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Black }
                             UiText {
                                 Layout.fillWidth: true
                                 text: detail.item ? (detail.item.description || "") : ""
@@ -443,7 +444,7 @@ Item {
                                         color: Theme.accent
                                         width: coverText2.implicitWidth + 10
                                         height: 18
-                                        UiText { id: coverText2; anchors.centerIn: parent; text: "CAPA"; color: "#002022"; font.pixelSize: 9; textWeight: Font.Bold }
+                                        UiText { id: coverText2; anchors.centerIn: parent; text: "CAPA"; color: "#002022"; font.pixelSize: 12; textWeight: Font.Bold }
                                     }
                                     ActionButton {
                                         anchors.right: parent.right

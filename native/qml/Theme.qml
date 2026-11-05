@@ -51,17 +51,16 @@ QtObject {
     readonly property int stackedBackdropBlurMax: 32
     readonly property color scrim: "#ad000000"
     readonly property color stackedScrim: "#75000000"
-    /* O CSS efetivo usa Segoe UI no Windows; o tema do SO não deve mudar as métricas. */
-    readonly property string fontFamily: Qt.platform.os === "windows" ? "Segoe UI" : Qt.application.font.family
-    /* FontInfo confirma Black como estilo de Segoe UI; outra família causaria fallback Tahoma. */
+    /* Inter é distribuída no aplicativo para garantir leitura consistente também offline. */
+    readonly property string fontFamily: "Inter"
     readonly property string heavyFontFamily: fontFamily
-    /** O matching CSS escolhe Black para 800; o Qt escolhe Bold se não normalizarmos o peso. */
-    function cssFontWeight(weight) { return Qt.platform.os === "windows" && weight === Font.ExtraBold ? Font.Black : weight }
+    /** Inter oferece variantes para todos os pesos usados pela interface. */
+    function cssFontWeight(weight) { return weight }
     readonly property int sidebarWidth: 240
     readonly property int controlHeight: 34
     readonly property int modalTitleGap: 28
     readonly property int formControlFontSize: 13
-    readonly property int formLabelFontSize: 11
+    readonly property int formLabelFontSize: 12
     /* Medidas de global.css: label/campo 8 px, grupos 16 px e ações com gap 10 px. */
     readonly property int formLabelGap: 8
     readonly property int formGroupGap: 16
@@ -69,14 +68,14 @@ QtObject {
     readonly property int formActionMinWidth: 94
     /* Medidas obtidas por getComputedStyle/getBoundingClientRect no Electron, sem escala extra. */
     readonly property int navigationFontSize: 13
-    readonly property int navigationCompactFontSize: 12
-    readonly property int navigationCounterFontSize: 11
-    readonly property int navigationSectionFontSize: 9
+    readonly property int navigationCompactFontSize: 13
+    readonly property int navigationCounterFontSize: 12
+    readonly property int navigationSectionFontSize: 11
     readonly property int navigationRowHeight: 38
     readonly property int navigationCompactRowHeight: 32
     readonly property int navigationTreeRowHeight: 31
-    readonly property int inventoryCardTitleFontSize: 12
-    readonly property int inventoryCardMetaFontSize: 10
+    readonly property int inventoryCardTitleFontSize: 13
+    readonly property int inventoryCardMetaFontSize: 12
     readonly property int libraryCardTitleFontSize: 14
-    readonly property int libraryCardLabelFontSize: 9
+    readonly property int libraryCardLabelFontSize: 11
 }

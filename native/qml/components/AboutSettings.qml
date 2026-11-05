@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Aba Sobre: identidade, estatísticas do perfil e manutenção local. */
@@ -65,7 +66,7 @@ Item {
                             radius: 11
                             color: Theme.accentSoft
                             border.color: Theme.borderStrong
-                            UiText { id: versionText; anchors.centerIn: parent; text: "v" + (about.buildLabel || "—"); color: Theme.accent; font.pixelSize: 11; textWeight: Font.Bold }
+                            UiText { id: versionText; anchors.centerIn: parent; text: "v" + (about.buildLabel || "—"); color: Theme.accent; font.pixelSize: 12; textWeight: Font.Bold }
                             /* Canal nativo permanece consultável na versão sem alterar a tabela original. */
                             HoverHandler { id: versionHover }
                             ToolTip {
@@ -100,7 +101,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
                         Layout.leftMargin: 14; Layout.rightMargin: 14
-                        UiText { text: "JOGOS NA BIBLIOTECA"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
+                        UiText { text: "JOGOS NA BIBLIOTECA"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
                         UiText {
                             objectName: "aboutTotalGames"
                             text: about.settingsService && about.settingsService.totalGames >= 0 ? about.settingsService.totalGames + " jogos" : (about.settingsService && about.settingsService.statsLoading ? "Carregando..." : "—")
@@ -113,7 +114,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
                         Layout.leftMargin: 14; Layout.rightMargin: 14
-                        UiText { text: "ESPAÇO EM DISCO"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
+                        UiText { text: "ESPAÇO EM DISCO"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
                         UiText {
                             objectName: "aboutDataSize"
                             text: about.settingsService ? about.sizeLabel(about.settingsService.dataDirSizeMb) : "—"
@@ -126,7 +127,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 40
                         Layout.leftMargin: 14; Layout.rightMargin: 14
-                        UiText { text: "CRIADO POR"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
+                        UiText { text: "CRIADO POR"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold;  Layout.fillWidth: true }
                         UiText { text: "Alex Ishida"; color: Theme.accent; font.pixelSize: 13; textWeight: Font.Bold }
                     }
                 }
@@ -183,7 +184,7 @@ Item {
                                 objectName: "aboutUpdateStatus"
                                 text: about.updateService ? about.updateService.message : "Updater indisponível."
                                 color: about.updateService && about.updateService.phase === "error" ? "#ffb4ab" : Theme.secondary
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
                             }
@@ -210,14 +211,14 @@ Item {
                 visible: text.length > 0
                 text: about.settingsService ? about.settingsService.cacheFeedback : ""
                 color: text.indexOf("Não") === 0 ? "#ffb4ab" : Theme.accent
-                font.pixelSize: 12
+                font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
             UiText {
                 text: "O lançamento de arquivos .zip e .7z reaproveita extrações temporárias no cache. Limpar esse cache remove só arquivos temporários, sem apagar suas ROMs originais."
                 color: Theme.muted
-                font.pixelSize: 11
+                font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }

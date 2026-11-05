@@ -7,6 +7,11 @@ import "../../qml/components" as Components
 Item {
     width: 420
     height: 320
+    /* O runner isolado carrega as mesmas variantes locais incorporadas no executável. */
+    FontLoader { source: "../../assets/fonts/Inter-Regular.ttf" }
+    FontLoader { source: "../../assets/fonts/Inter-Bold.ttf" }
+    FontLoader { source: "../../assets/fonts/Inter-ExtraBold.ttf" }
+    FontLoader { source: "../../assets/fonts/Inter-Black.ttf" }
     Components.FormSelect {
         id: select
         x: 20; y: 20; width: 240
@@ -31,7 +36,7 @@ Item {
         font.pixelSize: 22
         textWeight: Font.Black
     }
-    /* O peso CSS 800 deve escolher Black, em vez do Bold mais fino do matching padrão Qt. */
+    /* Pesos fortes devem permanecer na família Inter, sem fallback para outra fonte. */
     Components.UiText {
         id: extraBoldText
         x: 20; y: 180
@@ -46,9 +51,9 @@ Item {
         /* Verifica a fonte efetiva para impedir fallback silencioso de Black para outra família. */
         function test_fontResolution() {
             if (Qt.platform.os !== "windows") skip("Referência tipográfica específica do Windows")
-            compare(strongText.fontInfo.family, "Segoe UI")
+            compare(strongText.fontInfo.family, "Inter")
             compare(strongText.fontInfo.styleName, "Black")
-            compare(extraBoldText.fontInfo.styleName, "Black")
+            compare(extraBoldText.fontInfo.styleName, "ExtraBold")
         }
 
         /* A seleção deve manter os IDs, renderizar delegates e devolver foco ao fechar. */

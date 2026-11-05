@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
@@ -148,7 +149,7 @@ Item {
             visible: errorText.length > 0
             text: errorText
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
@@ -167,9 +168,9 @@ Item {
                     Layout.preferredHeight: 38
                     Layout.leftMargin: 12
                     Layout.rightMargin: 12
-                    UiText { text: "Pasta"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.Bold; Layout.fillWidth: true; Layout.minimumWidth: 80 }
-                    UiText { text: "Plataforma"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.Bold; Layout.preferredWidth: 180 }
-                    UiText { text: "Jogos"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.Bold; Layout.preferredWidth: 72 }
+                    UiText { text: "Pasta"; color: Theme.muted; font.pixelSize: 13; textWeight: Font.Bold; Layout.fillWidth: true; Layout.minimumWidth: 80 }
+                    UiText { text: "Plataforma"; color: Theme.muted; font.pixelSize: 13; textWeight: Font.Bold; Layout.preferredWidth: 180 }
+                    UiText { text: "Jogos"; color: Theme.muted; font.pixelSize: 13; textWeight: Font.Bold; Layout.preferredWidth: 72 }
                     Item { Layout.fillWidth: true }
                 }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
@@ -196,26 +197,26 @@ Item {
                             spacing: 12
                             UiText {
                                 text: modelData.folderPath
-                                color: Theme.text; font.pixelSize: 12
+                                color: Theme.text; font.pixelSize: 13
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 80
                             }
                             UiText {
                                 text: modelData.platformName ? modelData.platformName : "—"
-                                color: Theme.secondary; font.pixelSize: 12
+                                color: Theme.secondary; font.pixelSize: 13
                                 Layout.preferredWidth: 180
                                 elide: Text.ElideRight
                             }
                             UiText {
                                 text: modelData.indexedCount !== undefined ? modelData.indexedCount : 0
-                                color: Theme.accent; font.pixelSize: 12; textWeight: Font.DemiBold
+                                color: Theme.accent; font.pixelSize: 13; textWeight: Font.DemiBold
                                 Layout.preferredWidth: 72
                             }
                             UiText {
                                 visible: modelData.includeSubfolders === true
                                 text: "subpastas"
-                                color: Theme.muted; font.pixelSize: 11
+                                color: Theme.muted; font.pixelSize: 12
                             }
                             Item { Layout.fillWidth: true }
                             ActionButton {
@@ -253,7 +254,7 @@ Item {
                         ? "Nenhuma pasta configurada. Use \"Adicionar pasta\" para começar."
                         : "Abra um perfil com banco para importar ROMs."
                     color: Theme.muted
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     horizontalAlignment: Text.AlignHCenter
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignCenter
@@ -298,7 +299,7 @@ Item {
                 visible: root.step === "configure"
                 Layout.fillWidth: true
                 spacing: 10
-                UiText { text: "Pasta"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold }
+                UiText { text: "Pasta"; color: Theme.secondary; font.pixelSize: 13; textWeight: Font.Bold }
                 RowLayout {
                     Layout.fillWidth: true
                     FormField {
@@ -311,7 +312,7 @@ Item {
                     }
                     ActionButton { objectName: "browseRomFolder"; text: "Procurar"; onClicked: folderDialog.open() }
                 }
-                UiText { text: "Plataforma"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.Bold }
+                UiText { text: "Plataforma"; color: Theme.secondary; font.pixelSize: 13; textWeight: Font.Bold }
                 FormSelect {
                     id: platformPicker
                     objectName: "romFolderPlatform"
@@ -407,7 +408,7 @@ Item {
                                 spacing: 8
                                 UiText {
                                     text: modelData.filename
-                                    color: Theme.text; font.pixelSize: 12
+                                    color: Theme.text; font.pixelSize: 13
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
@@ -416,7 +417,7 @@ Item {
                                         ? (modelData.platformName || "")
                                         : (modelData.reason || "")
                                     color: root.reviewView === "candidates" ? Theme.accentMuted : Theme.muted
-                                    font.pixelSize: 11
+                                    font.pixelSize: 12
                                     elide: Text.ElideRight
                                     Layout.maximumWidth: 340
                                 }
@@ -430,7 +431,7 @@ Item {
                             ? "Nenhuma ROM compatível encontrada."
                             : "Nenhum arquivo ignorado."
                         color: Theme.muted
-                        font.pixelSize: 12
+                        font.pixelSize: 13
                     }
                 }
                 RowLayout {

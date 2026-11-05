@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Gaps do management-form preservam as medidas originais do Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
@@ -106,7 +107,7 @@ DragDialog {
             visible: form.formError.length > 0
             text: form.formError
             color: "#ffb4ab"
-            font.pixelSize: 12
+            font.pixelSize: 13
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }

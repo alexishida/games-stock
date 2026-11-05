@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Aliases LaunchBox e extensões de ROM de uma plataforma, em transação no serviço. */
 pragma ComponentBehavior: Bound
@@ -89,7 +90,7 @@ DragDialog {
                     Layout.fillWidth: true
                     spacing: 6
                     UiText { Layout.fillWidth: true; text: mappings.heading; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black; lineHeightMode: Text.FixedHeight; lineHeight: 22 }
-                    UiText { Layout.fillWidth: true; text: mappings.platform ? mappings.platform.name : ""; color: Theme.secondary; font.pixelSize: 12 }
+                    UiText { Layout.fillWidth: true; text: mappings.platform ? mappings.platform.name : ""; color: Theme.secondary; font.pixelSize: 13 }
                 }
                 ActionButton { iconName: "x-danger"; Accessible.name: "Fechar"; onClicked: mappings.close() }
             }
@@ -110,7 +111,7 @@ DragDialog {
                             Layout.fillWidth: true
                             spacing: 4
                             UiText { text: "Aliases"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
-                            UiText { text: "Nomes equivalentes usados na busca e no casamento automático de metadados."; color: Theme.secondary; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                            UiText { text: "Nomes equivalentes usados na busca e no casamento automático de metadados."; color: Theme.secondary; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                         }
                         ActionButton { objectName: "addAlias"; text: "Alias"; iconName: "plus"; onClicked: aliasModel.append({value: ""}) }
                     }
@@ -144,16 +145,16 @@ DragDialog {
                             Layout.fillWidth: true
                             spacing: 4
                             UiText { Layout.fillWidth: true; text: "Extensões de ROM"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold }
-                            UiText { Layout.fillWidth: true; text: "Definem o filtro do importador de pasta para esta plataforma."; color: Theme.secondary; font.pixelSize: 12 }
+                            UiText { Layout.fillWidth: true; text: "Definem o filtro do importador de pasta para esta plataforma."; color: Theme.secondary; font.pixelSize: 13 }
                         }
                         ActionButton { objectName: "addExtension"; text: "Extensão"; iconName: "plus"; onClicked: extensionModel.append({extension: "", kind: "", primary: true}) }
                     }
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
-                        UiText { text: "EXTENSÃO"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; Layout.preferredWidth: 140 }
-                        UiText { text: "DESCRIÇÃO"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; Layout.fillWidth: true }
-                        UiText { text: "USAR"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignHCenter }
+                        UiText { text: "EXTENSÃO"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; Layout.preferredWidth: 140 }
+                        UiText { text: "DESCRIÇÃO"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; Layout.fillWidth: true }
+                        UiText { text: "USAR"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; Layout.preferredWidth: 88; horizontalAlignment: Text.AlignHCenter }
                         Item { Layout.preferredWidth: 40 }
                     }
                     Repeater {
@@ -171,14 +172,14 @@ DragDialog {
                                 Layout.preferredWidth: 88
                                 spacing: 4
                                 FormCheckBox { Layout.alignment: Qt.AlignHCenter; checked: primary; onToggled: extensionModel.setProperty(index, "primary", checked) }
-                                UiText { Layout.alignment: Qt.AlignHCenter; text: primary ? "SIM" : "NÃO"; color: Theme.secondary; font.pixelSize: 11; textWeight: Font.ExtraBold }
+                                UiText { Layout.alignment: Qt.AlignHCenter; text: primary ? "SIM" : "NÃO"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold }
                             }
                             ActionButton { objectName: "removeExtension"; Layout.preferredWidth: 26; Layout.leftMargin: 7; Layout.rightMargin: 7; iconName: "trash-2-danger"; dangerOutline: true; enabled: extensionModel.count > 1; Accessible.name: "Remover extensão"; onClicked: extensionModel.remove(index) }
                         }
                     }
                 }
             }
-            UiText { objectName: "mappingsError"; visible: mappings.formError.length > 0; text: mappings.formError; color: Theme.danger; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+            UiText { objectName: "mappingsError"; visible: mappings.formError.length > 0; text: mappings.formError; color: Theme.danger; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             RowLayout {
                 Layout.fillWidth: true
                 Layout.topMargin: 4

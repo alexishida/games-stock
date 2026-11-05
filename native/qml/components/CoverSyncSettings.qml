@@ -1,3 +1,4 @@
+/* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Seção "Mídia da biblioteca": estatísticas e sincronização LaunchBox. */
@@ -70,7 +71,7 @@ Item {
                     objectName: "metadataDownloadedAt"
                     text: root.metadataService && root.metadataService.metadataReady ? "Metadados prontos no cache local" : "Metadados ainda não baixados"
                     color: Theme.secondary
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                 }
                 ActionButton {
                     objectName: "updateMetadataBase"
@@ -117,7 +118,7 @@ Item {
                         RowLayout {
                             spacing: 8
                             Image { source: "qrc:/icons/" + modelData.icon + ".svg"; sourceSize: Qt.size(18, 18) }
-                            UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold }
+                            UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 13; textWeight: Font.ExtraBold }
                         }
                         UiText { text: root.stats && root.stats[modelData.key] !== undefined ? root.stats[modelData.key] : 0; color: Theme.text; font.pixelSize: 28; textWeight: Font.Bold; lineHeightMode: Text.FixedHeight; lineHeight: 28 }
                     }
@@ -140,7 +141,7 @@ Item {
                 UiText {
                     text: "Completa somente dados e imagens que estão faltando."
                     color: Theme.secondary
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -174,7 +175,7 @@ Item {
                     visible: root.errorText.length > 0
                     text: root.errorText
                     color: "#ffb4ab"
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }
@@ -182,7 +183,7 @@ Item {
                     visible: root.syncRunning
                     text: "O progresso aparece no centro de notificações e continua ao fechar as configurações."
                     color: Theme.secondary
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                 }

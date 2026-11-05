@@ -16,6 +16,9 @@ ColumnLayout {
         textWeight: Font.ExtraBold
         lineHeightMode: Text.FixedHeight
         lineHeight: 19.2
+        /* A caixa CSS segue line-height, sem a entrelinha implícita adicional do Qt. */
+        Layout.preferredHeight: 19.2
+        verticalAlignment: Text.AlignVCenter
     }
     UiText {
         id: descriptionText
