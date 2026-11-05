@@ -169,12 +169,15 @@ bool LaunchBoxCache::downloadMetadata(const QString& target, QString* error,
     QObject::connect(reply, &QNetworkReply::readyRead, &loop, [&] {
         const QByteArray chunk = reply->readAll();
         if (!chunk.isEmpty()) file.write(chunk);
+        // O limite é de inatividade: um pacote de ~109 MB pode levar mais de 60 s no total.
+        timeout.start(60000);
         if (progress) {
             progress({file.size(), total, QStringLiteral("Metadata.zip"), QStringLiteral("downloading")});
         }
     });
     timeout.start(60000);
     loop.exec();
+    const qint64 downloadedBytes = file.size();
     file.close();
     const QNetworkReply::NetworkError networkError = reply->error();
     const QString networkMessage = reply->errorString();
@@ -187,6 +190,12 @@ bool LaunchBoxCache::downloadMetadata(const QString& target, QString* error,
                 : (status > 0 ? QStringLiteral("HTTP %1 ao baixar Metadata.zip: %2").arg(status).arg(networkMessage)
                               : networkMessage);
         }
+        return false;
+    }
+    // Content-Length conhecido permite recusar um ZIP truncado antes de extrair.
+    if (total > 0 && downloadedBytes != total) {
+        if (error) *error = QStringLiteral("Download de Metadata.zip incompleto (%1 de %2 bytes).")
+            .arg(downloadedBytes).arg(total);
         return false;
     }
     if (progress) progress({file.size(), total, QStringLiteral("Metadata.zip"), QStringLiteral("downloaded")});
