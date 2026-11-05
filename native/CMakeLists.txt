@@ -1,6 +1,6 @@
 # Projeto oficial C++20/Qt Quick; dependências de extração são locais, sem npm.
 cmake_minimum_required(VERSION 3.25)
-project(GameStockNative VERSION 1.1.5 LANGUAGES CXX)
+project(GameStockNative VERSION 1.1.6 LANGUAGES CXX)
 
 find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Svg Test QuickDialogs2 Concurrent)
 qt_standard_project_setup(REQUIRES 6.8)

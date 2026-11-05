@@ -78,8 +78,8 @@ void UpdateService::showStartupPreview() {
     startupVisible_ = true;
     requiresAction_ = false;
     percent_ = 35;
-    version_ = QStringLiteral("1.1.5");
-    message_ = QStringLiteral("Baixando atualização v1.1.5...");
+    version_ = QStringLiteral("1.1.6");
+    message_ = QStringLiteral("Baixando atualização v1.1.6...");
     phase_ = QStringLiteral("downloading");
     emit changed();
 }

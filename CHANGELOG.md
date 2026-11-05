@@ -3,16 +3,30 @@
 
 Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
-## Não publicado
+## [1.1.6] - 2026-11-05
 
-- Verificada a compatibilidade do perfil existente em cópia, preservando dados e caminhos.
-- Retirados backend de referência Electron, dependências npm e ferramentas legadas; fixtures
-  SQL/backups congelados mantêm os testes de compatibilidade sem o runtime antigo.
+### Adicionado
+
+- Consultas da biblioteca em thread própria (`LibraryQueryWorker`) com conexão somente leitura e descarte de respostas obsoletas por geração.
+- Cache de gêneros, partidas e capas até a próxima mutação; a abertura carrega a primeira página antes dos agregados.
+- Coluna `title_normalized` com índice e migration de backfill, cobrindo acentos e maiúsculas Unicode na busca.
+- Cache de capas já decodificadas no tamanho exibido pelo provider de mídia.
+- Teste assíncrono de biblioteca e benchmark de consultas após importação grande.
+
+### Alterado
+
+- SQLite passa a usar WAL e `synchronous=NORMAL` em todas as conexões.
+- Inventário, formulário de jogo, página de detalhe e abas de Configurações são criados sob demanda.
+- Estatísticas do perfil são calculadas em segundo plano, descartando varreduras antigas.
 - Execução pelo workspace passa a abrir o perfil existente por padrão; testes usam perfil explícito.
 - Build/deploy usam 7-Zip local com licenças; instalador e portátil são gerados da mesma build em release/.
+- Retirados backend de referência Electron, dependências npm e ferramentas legadas; fixtures SQL/backups congelados mantêm os testes de compatibilidade sem o runtime antigo.
+
+### Corrigido
+
+- Verificada a compatibilidade do perfil existente em cópia, preservando dados e caminhos.
 - Corrigida a orientação de capas reais sem ciclo de binding ou mudança de layout.
-- Restaurados ampliação, navegação e salvamento da galeria; seleção de capa passa a copiá-la
-  para o perfil e caminhos de ROM preservam espaços e acentos.
+- Restaurados ampliação, navegação e salvamento da galeria; seleção de capa passa a copiá-la para o perfil e caminhos de ROM preservam espaços e acentos.
 
 ## [1.1.5] - 2026-11-03
 
