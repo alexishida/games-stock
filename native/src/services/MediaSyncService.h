@@ -2,9 +2,12 @@
 #pragma once
 
 #include "db/WriteConnection.h"
+#include "launchbox/LaunchBoxCache.h"
 
 #include <QObject>
 #include <QVariantMap>
+
+#include <memory>
 
 namespace gamestock {
 class JobManager;
@@ -23,7 +26,7 @@ public:
     QString error() const { return error_; }
     void setJobManager(JobManager* manager) { jobManager_ = manager; }
     /** Overrides determinísticos para testes com servidor local. */
-    void setMetadataUrl(const QString& url) { metadataUrl_ = url; }
+    void setMetadataUrl(const QString& url) { if (metadataUrl_ == url) return; metadataUrl_ = url; cache_.reset(); }
     void setImagesBaseUrl(const QString& url) { imagesBaseUrl_ = url; }
     void setLibretroBaseUrl(const QString& url) { libretroBaseUrl_ = url; }
 
@@ -37,8 +40,12 @@ signals:
     void changed();
 
 private:
+    /** Instância compartilhada entre jobs: o índice de ~300 MB fica em memória. */
+    std::shared_ptr<LaunchBoxCache> sharedCache();
+
     WriteConnection connection_;
     JobManager* jobManager_ = nullptr;
+    std::shared_ptr<LaunchBoxCache> cache_;
     QString databasePath_;
     QString cacheDir_;
     QString imagesDir_;

@@ -1,5 +1,6 @@
 /** Verifica download, extração, índice incremental e concorrência do cache. */
 #include "launchbox/LaunchBoxCache.h"
+#include "launchbox/LaunchBoxSearch.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -265,6 +266,27 @@ private slots:
         QVERIFY2(cache.buildIndex(&index, &error), qPrintable(error));
         QVERIFY(index.size() > 10000);
         QVERIFY(QFileInfo::exists(cache.indexFile()));
+    }
+
+    /** Consulta um cache real já indexado quando o diretório/consulta são informados. */
+    void searchRealCacheIfProvided() {
+        const QString cacheDir = qEnvironmentVariable("GAMESTOCK_TEST_LAUNCHBOX_CACHE");
+        const QString query = qEnvironmentVariable("GAMESTOCK_TEST_LAUNCHBOX_QUERY");
+        if (cacheDir.isEmpty() || query.isEmpty()) QSKIP("Cache/consulta reais não informados.");
+        gamestock::LaunchBoxCache cache(cacheDir, {}, {});
+        QJsonObject index;
+        QString error;
+        QVERIFY2(cache.buildIndex(&index, &error), qPrintable(error));
+        QVERIFY(index.size() > 10000);
+        gamestock::LaunchBoxSearchOptions options;
+        options.query = query;
+        options.limit = 20;
+        const QList<QVariantMap> results = gamestock::searchLaunchBoxIndex(index, options);
+        for (const QVariantMap& result : results) {
+            qInfo() << result.value(QStringLiteral("name")).toString()
+                    << result.value(QStringLiteral("platform")).toString();
+        }
+        QVERIFY(!results.isEmpty());
     }
 
     /** Índice inválido é descartado e reconstruído a partir do XML. */

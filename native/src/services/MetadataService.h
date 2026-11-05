@@ -3,12 +3,15 @@
 
 #include "db/WriteConnection.h"
 #include "jobs/JobManager.h"
+#include "launchbox/LaunchBoxCache.h"
 
 #include <QJsonObject>
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
+
+#include <memory>
 
 namespace gamestock {
 class JobManager;
@@ -31,7 +34,7 @@ public:
     QString error() const { return error_; }
     QVariantList results() const { return results_; }
     void setJobManager(JobManager* manager);
-    void setMetadataUrl(const QString& url) { metadataUrl_ = url; }
+    void setMetadataUrl(const QString& url);
     void setImagesBaseUrl(const QString& url) { imagesBaseUrl_ = url; }
 
 public slots:
@@ -52,9 +55,12 @@ private:
     QVariantMap startJob(const QString& kind, const QString& title, const QString& subtitle,
         const QVariantMap& payload, JobManager::Work work);
     void onJobFinished(const QString& id, const QJsonObject& job);
+    /** Instância compartilhada entre jobs: o índice de ~300 MB fica em memória. */
+    std::shared_ptr<LaunchBoxCache> sharedCache();
 
     WriteConnection connection_;
     JobManager* jobManager_ = nullptr;
+    std::shared_ptr<LaunchBoxCache> cache_;
     QVariantList results_;
     QString databasePath_;
     QString cacheDir_;

@@ -169,13 +169,13 @@ DragDialog {
                             onClicked: importer.selectedGame = modelData
                         }
                     }
-                    UiText {
-                        anchors.centerIn: parent
-                        visible: resultList.count === 0
-                        text: importer.busy ? "Carregando catálogo..." : "Busque um jogo para importar."
-                        color: Theme.muted
-                        font.pixelSize: 13
-                    }
+                }
+                UiText {
+                    anchors.centerIn: parent
+                    visible: resultList.count === 0
+                    text: importer.busy ? "Carregando catálogo..." : "Busque um jogo para importar."
+                    color: Theme.muted
+                    font.pixelSize: 13
                 }
             }
             ColumnLayout {
@@ -201,7 +201,7 @@ DragDialog {
                 }
                 ActionButton {
                     objectName: "launchBoxImport"
-                    text: importer.busy ? "Importando..." : "Importar selecionado"
+                    text: (importer.busy && importer.selectedGame !== null) ? "Importando..." : "Importar selecionado"
                     primary: true
                     Layout.fillWidth: true
                     enabled: importer.serviceMode && !importer.busy && importer.selectedGame !== null

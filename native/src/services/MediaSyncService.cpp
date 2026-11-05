@@ -48,6 +48,11 @@ QString findByFragment(const QStringList& files, const QString& fragment) {
 
 MediaSyncService::MediaSyncService(QObject* parent) : QObject(parent) {}
 
+std::shared_ptr<LaunchBoxCache> MediaSyncService::sharedCache() {
+    if (!cache_) cache_ = std::make_shared<LaunchBoxCache>(cacheDir_, metadataUrl_);
+    return cache_;
+}
+
 bool MediaSyncService::open(const QString& databasePath, const QString& cacheDir,
     const QString& imagesDir, QString* error) {
     QString localError;
@@ -61,6 +66,8 @@ bool MediaSyncService::open(const QString& databasePath, const QString& cacheDir
     databasePath_ = databasePath;
     cacheDir_ = QFileInfo(cacheDir).absoluteFilePath();
     imagesDir_ = QFileInfo(imagesDir).absoluteFilePath();
+    // Um perfil/cache novo invalida o índice em memória da sessão anterior.
+    cache_.reset();
     QDir().mkpath(cacheDir_);
     QDir().mkpath(imagesDir_);
     open_ = true;
@@ -119,12 +126,12 @@ QVariantMap MediaSyncService::startSync(bool refreshAll) {
             {QStringLiteral("message"), QStringLiteral("Preparando catálogo LaunchBox")}}},
     };
     const QString databasePath = databasePath_;
-    const QString cacheDir = cacheDir_;
     const QString imagesDir = imagesDir_;
-    const QString metadataUrl = metadataUrl_;
     const QString imagesBaseUrl = imagesBaseUrl_;
     const QString libretroBaseUrl = libretroBaseUrl_;
-    const JobManager::Work work = [databasePath, cacheDir, imagesDir, metadataUrl, imagesBaseUrl,
+    // O índice LaunchBox é compartilhado entre sincronizações da mesma sessão.
+    const auto cache = sharedCache();
+    const JobManager::Work work = [databasePath, cache, imagesDir, imagesBaseUrl,
         libretroBaseUrl, refreshAll](JobWorker* worker) {
         WriteConnection connection;
         QString error;
@@ -133,19 +140,32 @@ QVariantMap MediaSyncService::startSync(bool refreshAll) {
         QList<GameReadDao::LinkedGame> games;
         if (!reader.listLinkedGames(&games, &error)) throw std::runtime_error(error.toStdString());
 
-        LaunchBoxCache cache(cacheDir, metadataUrl);
         const auto metadataProgress = [worker](const LaunchBoxProgress& progress) {
+            const QString stage = progress.status == QLatin1String("error") ? QStringLiteral("error")
+                : progress.status == QLatin1String("indexing") ? QStringLiteral("indexing")
+                : progress.status == QLatin1String("loading_index") ? QStringLiteral("loading_index")
+                : progress.status == QLatin1String("extracting") ? QStringLiteral("extracting")
+                : progress.status == QLatin1String("done") ? QStringLiteral("done")
+                : progress.status == QLatin1String("downloading") ? QStringLiteral("downloading")
+                : QStringLiteral("preparing_metadata");
+            QString message = progress.filename;
+            if (message.isEmpty()) {
+                if (stage == QLatin1String("indexing"))
+                    message = QStringLiteral("Construindo índice (%1 jogos)").arg(progress.current);
+                else if (stage == QLatin1String("loading_index"))
+                    message = QStringLiteral("Carregando índice LaunchBox");
+                else if (stage == QLatin1String("extracting"))
+                    message = QStringLiteral("Extraindo Metadata.xml");
+                else
+                    message = QStringLiteral("Preparando catálogo LaunchBox");
+            }
             worker->reportProgress(mediaProgress(progress.current, progress.total, progress.filename,
-                progress.status == QLatin1String("error") ? QStringLiteral("error")
-                                                          : QStringLiteral("preparing_metadata"),
-                progress.filename.isEmpty() ? QStringLiteral("Preparando catálogo LaunchBox")
-                                            : progress.filename,
-                {}, progress.total <= 0));
+                stage, message, {}, progress.total <= 0));
         };
-        const auto ensured = cache.ensureMetadata(false, metadataProgress);
+        const auto ensured = cache->ensureMetadata(false, metadataProgress);
         if (!ensured.ok()) throw std::runtime_error(ensured.error.toStdString());
         QJsonObject index;
-        if (!cache.buildIndex(&index, &error, metadataProgress)) throw std::runtime_error(error.toStdString());
+        if (!cache->buildIndex(&index, &error, metadataProgress)) throw std::runtime_error(error.toStdString());
 
         GameWriteDao writer(connection.database());
         LaunchBoxMedia media(imagesBaseUrl);

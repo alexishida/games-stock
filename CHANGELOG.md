@@ -25,6 +25,7 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 ### Corrigido
 
 - Importador LaunchBox volta a buscar: o pacote atual traz `Metadata.xml`, `Mame.xml`, `Files.xml` e `Platforms.xml`, e a extração passa a escolher o `Metadata.xml` em vez do primeiro XML. Cache com dataset errado ou vazio é rejeitado e o cache volta para `<perfil>/launchbox_cache`.
+- Índice LaunchBox passa a ficar em memória entre buscas/importações da mesma sessão, como no Electron; a primeira preparação carrega os ~300 MB uma vez e as buscas seguintes são imediatas.
 - Instalador passa a criar atalho na Área de Trabalho e o executável embute o ícone do aplicativo, usado por Explorer, barra de tarefas e atalhos.
 - Verificada a compatibilidade do perfil existente em cópia, preservando dados e caminhos.
 - Corrigida a orientação de capas reais sem ciclo de binding ou mudança de layout.

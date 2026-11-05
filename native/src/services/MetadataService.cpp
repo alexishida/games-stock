@@ -85,6 +85,34 @@ QVariantMap indexGame(LaunchBoxCache& cache, const QString& launchBoxId, JobWork
     Q_UNUSED(worker);
     return game.toVariantMap();
 }
+
+/** Converte o progresso do cache em payload do JobManager, preservando a etapa real. */
+QJsonObject metadataProgressPayload(const LaunchBoxProgress& update) {
+    const QString stage = update.status == QLatin1String("error") ? QStringLiteral("error")
+        : update.status == QLatin1String("indexing") ? QStringLiteral("indexing")
+        : update.status == QLatin1String("loading_index") ? QStringLiteral("loading_index")
+        : update.status == QLatin1String("extracting") ? QStringLiteral("extracting")
+        : update.status == QLatin1String("done") ? QStringLiteral("done")
+        : update.status == QLatin1String("downloading") ? QStringLiteral("downloading")
+        : QStringLiteral("preparing_metadata");
+    QString message = update.filename;
+    if (message.isEmpty()) {
+        if (stage == QLatin1String("indexing"))
+            message = QStringLiteral("Construindo índice (%1 jogos)").arg(update.current);
+        else if (stage == QLatin1String("loading_index"))
+            message = QStringLiteral("Carregando índice LaunchBox");
+        else if (stage == QLatin1String("extracting"))
+            message = QStringLiteral("Extraindo Metadata.xml");
+        else
+            message = QStringLiteral("Preparando catálogo LaunchBox");
+    }
+    return QJsonObject{
+        {QStringLiteral("current"), update.current},
+        {QStringLiteral("total"), update.total},
+        {QStringLiteral("indeterminate"), update.total <= 0},
+        {QStringLiteral("stage"), stage},
+        {QStringLiteral("message"), message}};
+}
 } // namespace
 
 MetadataService::MetadataService(QObject* parent) : QObject(parent) {}
@@ -102,6 +130,8 @@ bool MetadataService::open(const QString& databasePath, const QString& cacheDir,
     databasePath_ = databasePath;
     cacheDir_ = QFileInfo(cacheDir).absoluteFilePath();
     imagesDir_ = QFileInfo(imagesDir).absoluteFilePath();
+    // Um perfil/cache novo invalida o índice em memória da sessão anterior.
+    cache_.reset();
     QDir().mkpath(cacheDir_);
     QDir().mkpath(imagesDir_);
     open_ = true;
@@ -119,6 +149,18 @@ void MetadataService::setJobManager(JobManager* manager) {
         connect(jobManager_, &JobManager::jobFinished, this,
             [this](const QString& id, const QJsonObject& job) { onJobFinished(id, job); });
     }
+}
+
+void MetadataService::setMetadataUrl(const QString& url) {
+    if (metadataUrl_ == url) return;
+    metadataUrl_ = url;
+    // O cache em memória foi criado com a URL anterior.
+    cache_.reset();
+}
+
+std::shared_ptr<LaunchBoxCache> MetadataService::sharedCache() {
+    if (!cache_) cache_ = std::make_shared<LaunchBoxCache>(cacheDir_, metadataUrl_);
+    return cache_;
 }
 
 QVariantMap MetadataService::startJob(const QString& kind, const QString& title,
@@ -166,54 +208,39 @@ QVariantMap MetadataService::startJob(const QString& kind, const QString& title,
 }
 
 QVariantMap MetadataService::ensureMetadata() {
-    const QString cacheDir = cacheDir_;
-    const QString metadataUrl = metadataUrl_;
+    // O cache é compartilhado: o índice de ~300 MB é carregado uma vez por sessão.
+    const auto cache = sharedCache();
     return startJob(QStringLiteral("metadata-cache"), QStringLiteral("Preparando metadados"),
         QStringLiteral("LaunchBox"), {},
-        [cacheDir, metadataUrl](JobWorker* worker) {
-            LaunchBoxCache cache(cacheDir, metadataUrl);
+        [cache](JobWorker* worker) {
             const auto progress = [worker](const LaunchBoxProgress& update) {
-                worker->reportProgress(QJsonObject{
-                    {QStringLiteral("current"), update.current},
-                    {QStringLiteral("total"), update.total},
-                    {QStringLiteral("indeterminate"), update.total <= 0},
-                    {QStringLiteral("stage"), update.status == QLatin1String("error")
-                        ? QStringLiteral("error") : QStringLiteral("preparing_metadata")},
-                    {QStringLiteral("message"), update.filename.isEmpty()
-                        ? QStringLiteral("Preparando catálogo LaunchBox") : update.filename}});
+                worker->reportProgress(metadataProgressPayload(update));
             };
-            const auto ensured = cache.ensureMetadata(false, progress);
+            const auto ensured = cache->ensureMetadata(false, progress);
             if (!ensured.ok()) throw std::runtime_error(ensured.error.toStdString());
             QJsonObject index;
             QString error;
-            if (!cache.buildIndex(&index, &error, progress)) throw std::runtime_error(error.toStdString());
+            if (!cache->buildIndex(&index, &error, progress)) throw std::runtime_error(error.toStdString());
         });
 }
 
 QVariantMap MetadataService::search(const QString& query, const QString& platformName) {
-    const QString cacheDir = cacheDir_;
-    const QString metadataUrl = metadataUrl_;
+    const auto cache = sharedCache();
     const QString trimmedQuery = query.trimmed();
     const QString filterPlatform = platformName.trimmed();
     return startJob(QStringLiteral("metadata-search"),
         QStringLiteral("Buscando \"%1\"").arg(trimmedQuery),
         filterPlatform.isEmpty() ? QStringLiteral("Todas as plataformas") : filterPlatform,
         {{QStringLiteral("query"), trimmedQuery}, {QStringLiteral("platformName"), filterPlatform}},
-        [cacheDir, metadataUrl, trimmedQuery, filterPlatform](JobWorker* worker) {
-            LaunchBoxCache cache(cacheDir, metadataUrl);
+        [cache, trimmedQuery, filterPlatform](JobWorker* worker) {
             const auto progress = [worker](const LaunchBoxProgress& update) {
-                worker->reportProgress(QJsonObject{
-                    {QStringLiteral("current"), update.current}, {QStringLiteral("total"), update.total},
-                    {QStringLiteral("indeterminate"), update.total <= 0},
-                    {QStringLiteral("stage"), QStringLiteral("preparing_metadata")},
-                    {QStringLiteral("message"), update.filename.isEmpty()
-                        ? QStringLiteral("Preparando catálogo LaunchBox") : update.filename}});
+                worker->reportProgress(metadataProgressPayload(update));
             };
-            const auto ensured = cache.ensureMetadata(false, progress);
+            const auto ensured = cache->ensureMetadata(false, progress);
             if (!ensured.ok()) throw std::runtime_error(ensured.error.toStdString());
             QJsonObject index;
             QString error;
-            if (!cache.buildIndex(&index, &error, progress)) throw std::runtime_error(error.toStdString());
+            if (!cache->buildIndex(&index, &error, progress)) throw std::runtime_error(error.toStdString());
             LaunchBoxSearchOptions options;
             options.query = trimmedQuery;
             options.limit = 100;
@@ -229,8 +256,7 @@ QVariantMap MetadataService::search(const QString& query, const QString& platfor
 }
 
 QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringList& imageTypes) {
-    const QString cacheDir = cacheDir_;
-    const QString metadataUrl = metadataUrl_;
+    const auto cache = sharedCache();
     const QString imagesDir = imagesDir_;
     const QString imagesBaseUrl = imagesBaseUrl_;
     const QString launchBoxId = game.value(QStringLiteral("id")).toString();
@@ -243,21 +269,14 @@ QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringLi
         QStringLiteral("Importando %1").arg(game.value(QStringLiteral("name")).toString()),
         game.value(QStringLiteral("platform")).toString(),
         {{QStringLiteral("launchboxId"), launchBoxId}},
-        [databasePath, cacheDir, metadataUrl, imagesDir, imagesBaseUrl, launchBoxId, types](JobWorker* worker) {
+        [databasePath, cache, imagesDir, imagesBaseUrl, launchBoxId, types](JobWorker* worker) {
             WriteConnection connection;
             QString error;
             if (!connection.open(databasePath, &error)) throw std::runtime_error(error.toStdString());
-            LaunchBoxCache cache(cacheDir, metadataUrl);
             const auto progress = [worker](const LaunchBoxProgress& update) {
-                worker->reportProgress(QJsonObject{
-                    {QStringLiteral("current"), update.current}, {QStringLiteral("total"), update.total},
-                    {QStringLiteral("indeterminate"), update.total <= 0},
-                    {QStringLiteral("stage"), update.status == QLatin1String("error")
-                        ? QStringLiteral("error") : QStringLiteral("preparing_metadata")},
-                    {QStringLiteral("message"), update.filename.isEmpty()
-                        ? QStringLiteral("Preparando catálogo LaunchBox") : update.filename}});
+                worker->reportProgress(metadataProgressPayload(update));
             };
-            const QVariantMap launchBoxGame = indexGame(cache, launchBoxId, worker, progress);
+            const QVariantMap launchBoxGame = indexGame(*cache, launchBoxId, worker, progress);
             const qint64 platformId = resolvePlatform(connection.database(),
                 launchBoxGame.value(QStringLiteral("platform")).toString(), &error);
             if (platformId <= 0) throw std::runtime_error(error.toStdString());

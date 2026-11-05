@@ -297,6 +297,8 @@ bool LaunchBoxCache::buildIndex(QJsonObject* index, QString* error,
     }
     const QFileInfo indexInfo(indexFile());
     if (indexInfo.exists() && indexInfo.lastModified() >= metadataInfo.lastModified()) {
+        // A leitura do índice pode levar dezenas de segundos; o card mostra a etapa real.
+        if (progress) progress({0, 0, QStringLiteral("Carregando índice LaunchBox"), QStringLiteral("loading_index")});
         QJsonObject cached;
         QString ignored;
         if (loadIndex(indexFile(), &cached, &ignored)) {

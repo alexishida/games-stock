@@ -40,12 +40,15 @@ Item {
         return Math.max(0, Math.min(100, Math.round(job.progressCurrent / total * 100)))
     }
 
-    /** Etapa legível do importador de ROMs. */
+    /** Etapa legível do importador de ROMs e do catálogo. */
     function stageLabel(stage) {
         return {
             preparing_metadata: "preparando dados",
+            indexing: "construindo índice",
+            loading_index: "carregando índice",
+            extracting: "extraindo catálogo",
             matching: "fazendo match",
-            downloading: "baixando mídia",
+            downloading: "baixando",
             skipped: "pulando",
             saving: "salvando",
             done: "concluído",
@@ -152,10 +155,16 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     UiText {
-                        text: status === "completed" ? "Concluído"
-                            : status === "failed" ? "Erro"
-                            : status === "interrupted" ? "Interrompido"
-                            : (progressCurrent + " de " + progressTotal + " - " + root.stageLabel(progressStage))
+                        text: {
+                            if (status === "completed") return "Concluído"
+                            if (status === "failed") return "Erro"
+                            if (status === "interrupted") return "Interrompido"
+                            const label = root.stageLabel(progressStage)
+                            const amount = progressTotal > 0 ? (progressCurrent + " de " + progressTotal)
+                                : (progressCurrent > 0 ? progressCurrent + " itens" : "")
+                            if (amount.length > 0 && label.length > 0) return amount + " - " + label
+                            return label.length > 0 ? label : amount
+                        }
                         color: Theme.muted
                         font.pixelSize: 12
                         Layout.fillWidth: true
