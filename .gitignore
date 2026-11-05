@@ -13,3 +13,7 @@ artifacts/native-migration/
 .vscode/settings.json
 aqtinstall.log
 native/CMakeUserPresets.json
+
+# Cache local das ferramentas de fixtures em Python stdlib.
+__pycache__/
+*.pyc

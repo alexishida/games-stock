@@ -25,3 +25,10 @@ de entrada são validados antes de extrair para impedir `../` e unidades absolut
 1. Baixar a nova versão e conferir o SHA-256 acima.
 2. Substituir a pasta correspondente e atualizar esta tabela.
 3. Rodar `ctest -R portable-archive` e o teste opt-in `GAMESTOCK_ZIP64_LARGE_TEST=1`.
+
+## Extração de ROMs e metadados
+
+O executável externo 7-Zip Windows fica em [7zip/](7zip/README.md), sem npm.
+Seu README registra checksum, origem e licenças. É distribuído em tools/,
+separadamente das bibliotecas estáticas ZIP/ZIP64 acima. Linux requer ferramenta do sistema
+quando sua implementação/validação for retomada.

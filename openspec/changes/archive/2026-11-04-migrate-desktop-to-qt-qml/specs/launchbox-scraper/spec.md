@@ -1,0 +1,176 @@
+<!-- Delta sincronizado com o estado nativo consolidado; não implica arquivamento. -->
+# Spec Delta
+
+## MODIFIED Requirements
+
+### Requirement: Download e cache do banco de metadados LaunchBox
+O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Metadata.zip` e extrair `Metadata.xml` para `<data-dir>/launchbox_cache/`. O download SHALL ocorrer apenas se o cache tiver mais de 24 horas ou se for explicitamente forçado.
+
+#### Scenario: Primeiro uso sem cache
+- **WHEN** `launchbox:ensureMetadata` é chamado sem cache local
+- **THEN** o sistema baixa `Metadata.zip`, extrai `Metadata.xml` e retorna `{ status: 'downloaded' }`
+
+#### Scenario: Cache recente
+- **WHEN** `launchbox:ensureMetadata` é chamado e o cache tem menos de 24 horas
+- **THEN** nenhum download ocorre e retorna `{ status: 'cached' }`
+
+#### Scenario: Forçar atualização
+- **WHEN** `launchbox:ensureMetadata` é chamado com `force: true`
+- **THEN** o `Metadata.zip` é baixado independentemente da idade do cache
+
+#### Scenario: Progresso de download
+- **WHEN** o download está em andamento
+- **THEN** a interface recebe eventos `launchbox:progress` com `{ current, total, status: 'downloading' }`
+
+### Requirement: Construção e cache do índice de jogos
+O sistema SHALL parsear `Metadata.xml` com processamento XML nativo e construir um índice em memória de todos os jogos. O índice SHALL ser persistido em `<data-dir>/launchbox_cache/index.json` para evitar reparse entre sessões.
+
+#### Scenario: Construir índice do XML
+- **WHEN** `buildIndex()` é chamado após metadata disponível
+- **THEN** retorna objeto indexado por game ID com `id`, `name`, `platform`, `release`, `developer`, `publisher`, `genres`, `overview`, `players`, `rating`, `cooperative` e `images[]`
+
+#### Scenario: Cada imagem no índice
+- **WHEN** o índice é construído
+- **THEN** cada imagem contém `filename`, `type` e `region`
+
+#### Scenario: Cache do índice em disco
+- **WHEN** o índice é construído com sucesso
+- **THEN** ele é salvo em `index.json` e recarregado em sessões posteriores sem reparse do XML
+
+#### Scenario: Cache em memória
+- **WHEN** o índice já foi carregado na sessão atual
+- **THEN** `buildIndex()` reutiliza o índice em memória sem ler disco novamente
+
+### Requirement: Busca de jogos no índice LaunchBox
+O sistema SHALL permitir busca por nome no índice LaunchBox, com filtragem opcional por plataforma via `platformKey`. A busca SHALL ser case-insensitive, por correspondência parcial e limitada a 100 resultados.
+
+#### Scenario: Busca por nome
+- **WHEN** `launchbox:searchGames` é chamado com `{ query: "batman", platformKey: null }`
+- **THEN** retorna até 100 jogos cujo `name` contém "batman", ordenados por nome
+
+#### Scenario: Busca com filtro de plataforma
+- **WHEN** `launchbox:searchGames` é chamado com `{ query: "sonic", platformKey: "megadrive" }`
+- **THEN** retorna apenas jogos da plataforma Sega Mega Drive/Genesis que contêm "sonic" no nome
+
+#### Scenario: Busca sem resultados
+- **WHEN** a query não corresponde a nenhum jogo
+- **THEN** retorna array vazio
+
+### Requirement: Plataformas suportadas com aliases
+O sistema SHALL manter um mapeamento interno de `platformKey` para os nomes de plataforma usados na LaunchBox, incluindo pelo menos: `megadrive`, `snes`, `n64`, `nes`, `gb`, `gba`, `gbc`, `saturn`, `psx`, `ps2`, `dreamcast`, `gg`, `sms`, `32x`, `tgfx16`, `msx`, `arcade`.
+
+#### Scenario: Filtrar por platformKey
+- **WHEN** `platformKey: "snes"` é usado na busca
+- **THEN** apenas jogos cujo `platform` no índice inclua "Super Nintendo" são retornados
+
+### Requirement: Download de imagens por tipo
+O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.launchbox-app.com/<filename>`. As imagens SHALL ser salvas em `<data-dir>/images/<platform>/<game>/`. Imagens existentes SHALL ser puladas.
+
+Os nomes de arquivo SHALL seguir o padrão: para tipos "Box -" → `{slug(type)}-{slug(region)}-{index_padded}.ext`; para demais tipos → `{slug(type)}-{slug(region)}.ext`. Após o download, um arquivo `metadata.json` com os dados do jogo é sempre gravado no diretório.
+
+#### Scenario: Download de tipos específicos
+- **WHEN** `launchbox:downloadImages` é chamado com tipos selecionados
+- **THEN** baixa apenas imagens dos tipos solicitados e retorna `{ success, skipped, failed, files }`
+
+#### Scenario: Imagem já existente
+- **WHEN** o arquivo de imagem já existe no diretório de destino
+- **THEN** o download é pulado e contabilizado em `skipped`
+
+#### Scenario: Progresso por imagem
+- **WHEN** cada imagem é baixada
+- **THEN** a interface recebe `launchbox:progress` com `{ current, total, filename, status }`
+
+### Requirement: Geração de preview de capa (cover.jpg)
+Após cada download, o sistema SHALL gerar um `cover.jpg` no diretório do jogo a partir da melhor imagem "Box - Front" disponível, usando processamento nativo de imagens. O tamanho SHALL ser 195×280 para capas portrait ou 280×195 para capas landscape, com `fit: inside`, sem ampliação e qualidade JPEG 85. O `cover.jpg` gerado SHALL ser incluído no início do array `files` retornado.
+
+#### Scenario: Capa portrait gerada
+- **WHEN** o download inclui ao menos uma imagem "Box - Front" com altura maior que largura
+- **THEN** `cover.jpg` é gerado com dimensões máximas 195×280 e adicionado em `files[0]`
+
+#### Scenario: Capa landscape gerada
+- **WHEN** a imagem "Box - Front" selecionada tem largura maior que altura
+- **THEN** `cover.jpg` é gerado com dimensões máximas 280×195
+
+#### Scenario: Sem Box - Front disponível
+- **WHEN** nenhuma imagem "Box - Front" foi baixada
+- **THEN** `cover.jpg` não é gerado e `files` não é alterado
+
+### Requirement: Importação completa de jogo individual
+O sistema SHALL oferecer `launchbox:importGame` que busca o jogo pelo ID LaunchBox, baixa imagens selecionadas e cria ou atualiza o registro no SQLite com metadados e `box_art_path`.
+
+#### Scenario: Importar jogo novo
+- **WHEN** `launchbox:importGame` é chamado para um jogo sem correspondência no banco
+- **THEN** um novo registro é criado em `games` com metadados LaunchBox, `launchbox_id` preenchido, `box_art_path` apontando para `cover.jpg` (ou primeiro arquivo Box - Front), `background_path` para o primeiro arquivo "fanart-background" e `screenshot_path` para o primeiro "screenshot-gameplay"
+
+#### Scenario: Atualizar jogo existente
+- **WHEN** `launchbox:importGame` é chamado para jogo já existente (mesmo `launchbox_id` e plataforma)
+- **THEN** o registro é atualizado com os novos metadados e imagens
+
+#### Scenario: Plataforma resolvida automaticamente
+- **WHEN** `platformId` não é fornecido na chamada
+- **THEN** o sistema mapeia a plataforma LaunchBox para uma plataforma existente no banco ou cria uma nova
+
+### Requirement: UI de importação LaunchBox (LaunchBoxImporter)
+O sistema SHALL fornecer um modal de importação acessível pela ação de navegação para importar metadados e pelo botão "Metadados" no GameDetail, com busca, filtro de plataforma por `platformKey`, lista de resultados, seleção de tipos de imagem e barra de progresso.
+
+#### Scenario: Abrir importador
+- **WHEN** a ação de navegação para importar metadados é acionada ou o usuário clica em "Metadados" no GameDetail
+- **THEN** o modal LaunchBoxImporter é exibido e inicia download de metadata automaticamente se necessário
+
+#### Scenario: Selecionar e importar jogo
+- **WHEN** o usuário seleciona um jogo nos resultados, escolhe tipos de imagem e clica em "Importar"
+- **THEN** a barra de progresso exibe cada download e o jogo aparece na biblioteca ao concluir
+
+#### Scenario: Importar múltiplos jogos
+- **WHEN** o usuário importa um jogo e o modal permanece aberto
+- **THEN** pode buscar e importar outro jogo sem fechar o modal
+
+### Requirement: Correspondência em lote por título e plataforma
+O sistema SHALL fornecer lógica de match que recebe candidatos de título de ROM e uma plataforma selecionada, retornando o melhor match LaunchBox com base em score de similaridade. O threshold de match SHALL ser 0.72. Todos os resultados de match incluem um campo `alternatives` com até 5 jogos candidatos próximos.
+
+#### Scenario: Match exato por título normalizado
+- **WHEN** o título normalizado do candidato corresponde exatamente ao nome LaunchBox normalizado na plataforma selecionada
+- **THEN** o score é 1.0, o candidato é marcado como "matched" e `alternatives` contém o jogo correspondente
+
+#### Scenario: Match por substring
+- **WHEN** um dos títulos contém o outro após normalização
+- **THEN** o score é 0.86 e o candidato é marcado como "matched" se não houver ambiguidade
+
+#### Scenario: Match por sobreposição de tokens
+- **WHEN** títulos compartilham tokens comuns após normalização
+- **THEN** o score é calculado como overlap/max(tokens) e o candidato é matched apenas se score >= 0.72
+
+#### Scenario: Ambiguidade de match
+- **WHEN** múltiplos jogos LaunchBox atingem o mesmo score máximo
+- **THEN** o candidato é marcado como "ambiguous", `match` é null e `alternatives` lista os candidatos empatados (até 5)
+
+#### Scenario: Sem match
+- **WHEN** nenhum jogo LaunchBox atinge score >= 0.72 para a plataforma selecionada
+- **THEN** o candidato é marcado como "unmatched", `match` é null e `alternatives` lista os 5 primeiros jogos da plataforma
+
+#### Scenario: Reutilizar contexto em lotes grandes
+- **WHEN** uma pasta contém centenas de candidatos para a mesma plataforma
+- **THEN** o sistema constrói o contexto filtrado por plataforma uma vez e reutiliza para todos os candidatos do lote
+
+### Requirement: Download do conjunto padrão de mídia para importação por pasta
+O sistema SHALL baixar para cada jogo com match os tipos "Box - Back", "Box - Front", "Cart - Front", "Fanart - Background" e "Screenshot - Gameplay" (cinco tipos padrão).
+
+#### Scenario: Baixar tipos padrão
+- **WHEN** um candidato de lote tem match LaunchBox
+- **THEN** o sistema baixa as imagens disponíveis dos cinco tipos padrão
+
+#### Scenario: Reutilizar mídia já baixada
+- **WHEN** uma imagem solicitada já existe localmente
+- **THEN** o sistema pula o download e reporta como `skipped`
+
+#### Scenario: Disponibilidade parcial de mídia
+- **WHEN** apenas parte dos tipos padrão está disponível para um jogo
+- **THEN** o sistema baixa os arquivos disponíveis e reporta mídia ausente sem falhar a importação
+
+### Requirement: Prioridade regional da capa
+
+A imagem de origem SHALL ser selecionada por prioridade de região: brazil → north-america → europe → world → united-states → no_region → primeiro arquivo.
+
+#### Scenario: Várias regiões disponíveis
+- **WHEN** há imagens Box - Front de várias regiões
+- **THEN** a capa usa a primeira região disponível nessa ordem

@@ -48,7 +48,8 @@ AbstractButton {
             anchors.fill: parent
             source: card.coverSource
             /* Capas horizontais conservam a arte inteira, como object-fit: contain. */
-            readonly property bool landscape: implicitWidth > implicitHeight
+            /* As dimensões decodificadas não dependem de fillMode/margens, evitando ciclo com capas reais. */
+            readonly property bool landscape: sourceSize.width > sourceSize.height
             anchors.margins: landscape ? 7 : 1
             fillMode: landscape ? Image.PreserveAspectFit : Image.PreserveAspectCrop
             scale: card.hovered ? 1.025 : 1

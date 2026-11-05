@@ -148,6 +148,8 @@ private slots:
         QCOMPARE(persisted.toArray().size(), 1);
         QCOMPARE(persisted.toArray().first().toObject().value(QStringLiteral("status")).toString(),
             QStringLiteral("completed"));
+        // O status persiste antes de a thread emitir finished; aguarda o cleanup antes da dispensa.
+        QTRY_COMPARE(manager.activeCount(), 0);
         QVERIFY(manager.dismiss(jobId));
         QVERIFY2(reader.get(QStringLiteral("gamestock.media.lastMediaSyncJobs"), &persisted, &error),
             qPrintable(error));

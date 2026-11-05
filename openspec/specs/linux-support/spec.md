@@ -1,7 +1,10 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # linux-support Specification
 
 ## Purpose
 Definir o suporte oficial do GameStock em Linux com build Qt, execucao desktop e atualizacao externa; a validacao Linux permanece adiada por decisao do usuario.
+
+> Estado atual: os requisitos Linux abaixo são alvos de suporte. Implementação, empacotamento e validação Linux permanecem adiados conforme docs/native-migration/linux-deferred.md; evidências Windows não comprovam esses requisitos.
 
 ## Requirements
 ### Requirement: Artefatos oficiais Linux
@@ -33,9 +36,9 @@ Builds Linux SHALL usar atualizacao externa ao app.
 
 ### Requirement: Documentacao operacional
 
-O README SHALL documentar instalacao, build, limitacoes de update e o workaround opcional de GPU para Linux.
+O README SHALL documentar instalação, build CMake/Qt, dependências Linux, limitações de update e diagnóstico ou fallback gráfico validado para o runtime nativo.
 
 #### Scenario: Consulta de Linux no README
 
 - **WHEN** um usuario ou colaborador abre a documentacao
-- **THEN** encontra os formatos distribuidos, comandos relevantes e a orientacao sobre `GAMESTOCK_DISABLE_GPU` quando necessario
+- **THEN** encontra os formatos distribuidos, comandos relevantes e a orientação gráfica válida para Qt, sem recomendar flags exclusivas do Electron como solução nativa

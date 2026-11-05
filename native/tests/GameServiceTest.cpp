@@ -236,6 +236,61 @@ private slots:
         QCOMPARE(collections.value("favorites").toLongLong(), static_cast<qint64>(0));
     }
 
+    /** A exportação restringe a origem ao perfil e preserva bytes/destino em falhas. */
+    void saveProfileImage() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString profile = dir.filePath("perfil");
+        QVERIFY(QDir().mkpath(profile));
+        const QByteArray png = QByteArray::fromBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+        const QString source = QDir(profile).filePath("origem.png");
+        QFile input(source);
+        QVERIFY(input.open(QIODevice::WriteOnly));
+        QCOMPARE(input.write(png), png.size());
+        input.close();
+        gamestock::GameService service;
+        service.setMediaRoot(profile);
+        const QString target = dir.filePath("imagem salva.png");
+        QVERIFY(service.saveImage(source, QUrl::fromLocalFile(target)).value("success").toBool());
+        QFile saved(target);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(saved.readAll(), png);
+        saved.close();
+        // Um arquivo fora do perfil não pode ser exportado, mesmo que seja imagem válida.
+        QVERIFY(!service.saveImage(target, QUrl::fromLocalFile(source)).value("success").toBool());
+        QVERIFY(!service.saveImage(source, QUrl("https://example.invalid/image.png")).value("success").toBool());
+        const QString textPath = QDir(profile).filePath("arquivo.png");
+        QFile text(textPath);
+        QVERIFY(text.open(QIODevice::WriteOnly));
+        text.write("não é imagem");
+        text.close();
+        QVERIFY(!service.saveImage(textPath, QUrl::fromLocalFile(target)).value("success").toBool());
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(saved.readAll(), png);
+        saved.close();
+        QVERIFY(service.saveImage(source, QUrl::fromLocalFile(source)).value("success").toBool());
+        // Uma capa externa selecionada é copiada para dentro do perfil, sem mudar a origem.
+        const QVariantMap imported = service.importImage(QUrl::fromLocalFile(target));
+        QVERIFY(imported.value("success").toBool());
+        QVERIFY(imported.value("path").toString().startsWith(profile));
+        QFile importedImage(imported.value("path").toString());
+        QVERIFY(importedImage.open(QIODevice::ReadOnly));
+        QCOMPARE(importedImage.readAll(), png);
+        QVERIFY(!service.importImage(QUrl::fromLocalFile(textPath)).value("success").toBool());
+        const QString rom = dir.filePath(QString::fromUtf8("ROM com ação.nes"));
+        QCOMPARE(service.localFilePath(QUrl::fromLocalFile(rom)), rom);
+        // O cadastro por caminho também internaliza a capa, como o seletor do Electron.
+        gamestock::Database database;
+        QString error;
+        const QString databasePath = QDir(profile).filePath("gamestock.db");
+        QVERIFY2(database.open(databasePath, QDir(profile).filePath("images"), &error), qPrintable(error));
+        QVERIFY2(service.open(databasePath, &error), qPrintable(error));
+        const QVariantMap game = service.create({{"title", "Capa local"},
+            {"platform_id", platformId(database.handle(), "Super Nintendo")}, {"box_art_path", target}});
+        QVERIFY2(!game.isEmpty(), qPrintable(service.error()));
+        QVERIFY(game.value("box_art_path").toString().startsWith(profile));
+    }
+
     /** A massa de 5.000 jogos mantém total e primeira página iguais aos do Electron. */
     void electronFixture() {
         const QString path = qEnvironmentVariable("GAMESTOCK_TEST_DATABASE");

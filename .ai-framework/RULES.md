@@ -7,10 +7,10 @@
 - Serviços `QObject` tipados e modelos `QAbstractListModel`; QML não contém SQL.
 - libarchive + zlib vendorizados para ZIP/ZIP64 de backup.
 - O runtime distribuído **não** depende de Electron, React, Node ou WebView.
-- O código-fonte Electron/React foi retirado no corte (tarefa 11.5). O backend congelado em
-  `tools/legacy-runtime/` existe apenas para fixtures/compatibilidade e não deve receber
-  funcionalidades novas. Ferramentas Node em `scripts/` servem apenas a fixtures, comparação e
-  assinatura local.
+- O projeto Electron/React e seu backend congelado foram removidos após verificação de paridade.
+  A compatibilidade usa fixtures SQL e backups sintéticos em `native/tests/fixtures/`.
+  O build/testes/deploy não dependem de Node/npm. Python stdlib serve apenas às fixtures.
+
 
 ## Convenções de UI
 
@@ -32,7 +32,8 @@ Biblioteca e inventário usam o mesmo padrão:
 
 ### Janelas e modais
 
-- Fluxos de UI são overlays dentro da janela principal (`DragDialog`/QML), nunca janelas extras.
+- Fluxos de UI são overlays dentro da janela principal (`DragDialog`/QML). A única exceção é a
+  splash transitória de bootstrap, anterior ao banco/serviços e ocultada no primeiro quadro da principal.
 - Todo modal é arrastável pelo corpo, limitado à área visível, centralizado ao abrir.
 - Controles interativos não iniciam arraste.
 - Modal empilhado escurece a camada inferior (`Theme.stackedScrim`).

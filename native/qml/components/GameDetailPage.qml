@@ -7,6 +7,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Effects
+import QtQuick.Dialogs
+import QtCore
 import GameStock
 import "."
 
@@ -23,6 +25,23 @@ Item {
     property var versions: []
     property var gallery: []
     property string actionError: ""
+    /* O visualizador reutiliza a galeria existente e não interfere no layout do detalhe. */
+    property int imageIndex: -1
+    readonly property var selectedImage: imageIndex >= 0 && imageIndex < gallery.length ? gallery[imageIndex] : null
+
+    /** Abre a mídia escolhida, mantendo navegação circular e Escape no overlay compartilhado. */
+    function openImage(path) {
+        for (let index = 0; index < gallery.length; index++) {
+            if (gallery[index].path === path) {
+                imageIndex = index
+                imageViewer.open()
+                return
+            }
+        }
+    }
+    function stepImage(direction) {
+        if (gallery.length) imageIndex = (imageIndex + direction + gallery.length) % gallery.length
+    }
     /* A página tem fundo próprio; o brilho da biblioteca não atravessa o detalhe. */
     Rectangle { anchors.fill: parent; color: Theme.background }
     readonly property string gameTitle: game.title || ""
@@ -40,6 +59,8 @@ Item {
 
     /** Recarrega dados completos, variantes e galeria do jogo selecionado. */
     function reload() {
+        imageViewer.close()
+        imageIndex = -1
         actionError = ""
         if (!libraryGame) {
             game = ({})
@@ -182,6 +203,7 @@ Item {
                     layer.enabled: true
                     layer.effect: MultiEffect { maskEnabled: true; maskSource: detailCoverMask }
                     Rectangle { id: detailCoverMask; anchors.fill: parent; radius: 16; visible: false; layer.enabled: true }
+                    TapHandler { enabled: !!page.game.box_art_path; onTapped: page.openImage(page.game.box_art_path) }
                     Image {
                         anchors.fill: parent
                         source: page.game.coverUrl || ""
@@ -391,12 +413,14 @@ Item {
                         Repeater {
                             model: page.gallery
                             delegate: Rectangle {
+                                id: galleryTile
                                 required property var modelData
                                 width: (galleryContent.width - (Math.max(1, Math.min(page.gallery.length, Math.floor((galleryContent.width + 10) / 230))) - 1) * 10) / Math.max(1, Math.min(page.gallery.length, Math.floor((galleryContent.width + 10) / 230)))
                                 height: 240
                                 radius: 8
                                 color: Theme.card
                                 clip: true
+                                TapHandler { onTapped: page.openImage(galleryTile.modelData.path) }
                                 Image {
                                     anchors.fill: parent
                                     anchors.bottomMargin: 20
@@ -419,6 +443,58 @@ Item {
                 }
             }
             Item { Layout.preferredHeight: 4 }
+        }
+    }
+    /* A ampliação é um overlay arrastável, com a mesma gestão de foco e blur dos outros fluxos. */
+    DragDialog {
+        id: imageViewer
+        objectName: "gameImageViewer"
+        heading: page.selectedImage ? page.selectedImage.label : "Imagem"
+        showHeading: true
+        width: Math.min(960, parent.width - 48)
+        height: Math.min(740, parent.height - 48)
+        property string saveError: ""
+        onAboutToShow: saveError = ""
+        onBackdropBlurRequested: function(active) {
+            const host = page.Window.window
+            if (host && host.blurDepth !== undefined) host.blurDepth = Math.max(0, host.blurDepth + (active ? 1 : -1))
+        }
+        contentItem: ColumnLayout {
+            spacing: 12
+            Image {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                source: page.selectedImage && page.gameService ? page.gameService.mediaUrl(page.selectedImage.path) : ""
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                TapHandler { onTapped: page.stepImage(1) }
+                Accessible.name: page.selectedImage ? page.selectedImage.label : "Imagem"
+            }
+            UiText { visible: imageViewer.saveError.length > 0; text: imageViewer.saveError; color: Theme.danger; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            RowLayout {
+                Layout.fillWidth: true
+                ActionButton { objectName: "previousGameImage"; text: "Anterior"; visible: page.gallery.length > 1; onClicked: page.stepImage(-1) }
+                UiText { text: page.selectedImage ? String(page.imageIndex + 1) + " / " + page.gallery.length : ""; color: Theme.secondary }
+                ActionButton { objectName: "nextGameImage"; text: "Próxima"; visible: page.gallery.length > 1; onClicked: page.stepImage(1) }
+                Item { Layout.fillWidth: true }
+                ActionButton { objectName: "closeGameImage"; text: "Fechar"; onClicked: imageViewer.close() }
+                ActionButton { objectName: "saveGameImage"; text: "Salvar imagem"; enabled: page.selectedImage !== null && page.gameService !== null; onClicked: saveImageDialog.open() }
+            }
+        }
+        Shortcut { sequence: "Left"; enabled: imageViewer.opened; onActivated: page.stepImage(-1) }
+        Shortcut { sequence: "Right"; enabled: imageViewer.opened; onActivated: page.stepImage(1) }
+    }
+    FileDialog {
+        id: saveImageDialog
+        title: "Salvar imagem"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Imagens (*.jpg *.jpeg *.png *.webp)"]
+        /* StandardPaths em QML retorna URL; codificar só o nome preserva espaços e #. */
+        currentFile: page.selectedImage ? String(StandardPaths.writableLocation(StandardPaths.PicturesLocation)) + "/" + encodeURIComponent(page.fileName(page.selectedImage.path)) : ""
+        onAccepted: {
+            if (!page.selectedImage || !page.gameService) return
+            const result = page.gameService.saveImage(page.selectedImage.path, selectedFile)
+            imageViewer.saveError = result.success ? "" : (result.error || "Não foi possível salvar a imagem.")
         }
     }
 }

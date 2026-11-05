@@ -266,6 +266,28 @@ Item {
             tryVerify(function() { return !form.visible }, 2000)
         }
 
+        /** Ampliação preserva a navegação circular e oferece fechamento explícito. */
+        function test_galleryViewer() {
+            resetGame()
+            app.openGame(service.items[0])
+            const detail = findChild(app, "gameDetailPage")
+            detail.gallery = [{path: "cover.png", label: "Capa"}, {path: "screen.png", label: "Screenshot"}]
+            detail.openImage("cover.png")
+            const viewer = findChild(detail, "gameImageViewer")
+            tryVerify(function() { return viewer.opened }, 2000)
+            compare(detail.imageIndex, 0)
+            verify(findChild(viewer, "saveGameImage").enabled)
+            mouseClick(findChild(viewer, "nextGameImage"))
+            compare(detail.imageIndex, 1)
+            mouseClick(findChild(viewer, "nextGameImage"))
+            compare(detail.imageIndex, 0)
+            mouseClick(findChild(viewer, "previousGameImage"))
+            compare(detail.imageIndex, 1)
+            mouseClick(findChild(viewer, "closeGameImage"))
+            tryVerify(function() { return !viewer.visible }, 2000)
+            app.closeGameDetail()
+        }
+
         /** Exclusão pede confirmação, remove no serviço e fecha o detalhe vazio. */
         function test_deleteConfirmation() {
             resetGame()

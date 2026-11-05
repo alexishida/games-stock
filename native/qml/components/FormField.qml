@@ -15,10 +15,9 @@ TextField {
     font.family: Theme.fontFamily
     font.pixelSize: Theme.formControlFontSize
     font.weight: Font.Normal
-    /* Os campos compartilham a suavização sem franjas coloridas dos rótulos. */
+    /* Antialiasing padrão do rasterizador da plataforma, sem no-hinting que serrilha glifos. */
     renderType: TextInput.QtRendering
     antialiasing: true
-    font.hintingPreference: Font.PreferNoHinting
     color: Theme.text
     placeholderTextColor: Theme.muted
     selectByMouse: true

@@ -1,9 +1,38 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # game-library Specification
 
 ## Purpose
 Definir a persistencia e as operacoes da biblioteca de jogos, incluindo metadados, filtros, ordenacao, historico de partidas, agrupamento de variantes e importacao sem duplicidade indevida.
 
 ## Requirements
+
+### Requirement: Visualizador de midia e exportacao local
+
+O sistema SHALL permitir ampliar capas e mídias da galeria do detalhe em overlay interno, navegar entre imagens e salvar uma cópia por diálogo nativo. A exportação SHALL aceitar somente imagens válidas do perfil, preservar os bytes e substituir atomicamente o destino escolhido, sem alterar a origem.
+
+#### Scenario: Ampliar e navegar
+- **WHEN** o usuário seleciona uma imagem da galeria ou a capa do detalhe
+- **THEN** o visualizador abre com navegação anterior/próxima circular e opção de fechar, preservando o layout da página
+
+#### Scenario: Salvar imagem
+- **WHEN** o usuário escolhe Salvar imagem e confirma um destino local
+- **THEN** o app copia a imagem autorizada ao destino e apresenta erro acionável se a cópia falhar
+
+#### Scenario: Origem indevida
+- **WHEN** uma exportação tenta ler arquivo fora do perfil ou conteúdo que não é imagem
+- **THEN** a operação é recusada sem modificar um destino existente
+
+### Requirement: Internalizacao de capa local
+
+O sistema SHALL copiar uma imagem local selecionada para o diretório de imagens do perfil antes de associá-la ao jogo, preservando a origem. URLs de seleção SHALL ser decodificadas sem perder espaços, acentos ou caminhos de rede. Referências legadas indisponíveis SHALL permanecer preservadas durante edições de outros campos.
+
+#### Scenario: Associar capa externa
+- **WHEN** o usuário escolhe uma capa PNG, JPEG ou WebP fora do perfil
+- **THEN** o app guarda uma cópia interna e associa seu caminho ao cadastro, tornando-a acessível ao provider autorizado
+
+#### Scenario: Selecionar ROM com espaços e acentos
+- **WHEN** o diálogo retorna a URL de uma ROM com esses caracteres
+- **THEN** o cadastro recebe o caminho local decodificado, sem sequências percentuais introduzidas pela URL
 ### Requirement: Modelo de dados de jogo
 
 O sistema SHALL persistir jogos com metadados de biblioteca, referencias de midia, `rom_path`, `launchbox_id`, status de colecao e `launch_count`.
@@ -18,9 +47,9 @@ O sistema SHALL persistir jogos com metadados de biblioteca, referencias de midi
 - **WHEN** o usuario tenta criar um jogo sem `title`
 - **THEN** o sistema retorna erro de validacao
 
-### Requirement: CRUD e consultas via IPC
+### Requirement: CRUD e consultas do desktop
 
-O namespace `window.gameStockAPI.games` SHALL expor `list`, `listGenres`, `get`, `create`, `update`, `delete`, `listMedia`, `listVersions`, `collectionCounts`, `launchStats`, `coverStats`, `syncCovers`, `resetLaunchStats` e `launch`.
+O serviço desktop de jogos SHALL oferecer as operações `list`, `listGenres`, `get`, `create`, `update`, `delete`, `listMedia`, `listVersions`, `collectionCounts`, `launchStats`, `coverStats`, `syncCovers`, `resetLaunchStats` e `launch`.
 
 #### Scenario: Listar por filtros
 

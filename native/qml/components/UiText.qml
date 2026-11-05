@@ -7,9 +7,8 @@ Text {
     property int textWeight: Font.Normal
     font.weight: Theme.cssFontWeight(textWeight)
     font.family: Theme.fontFamily
-    /* Distance field em alta qualidade suaviza os glifos pequenos sem franjas coloridas. */
+    /* QtRendering usa o rasterizador da plataforma com antialiasing em tons de cinza. */
+    /* O distance field (renderTypeQuality) e o no-hinting deixavam os glifos serrilhados em 100%. */
     renderType: Text.QtRendering
-    renderTypeQuality: Text.HighRenderTypeQuality
     antialiasing: true
-    font.hintingPreference: Font.PreferNoHinting
 }

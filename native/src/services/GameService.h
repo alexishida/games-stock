@@ -6,6 +6,7 @@
 #include "models/GameListModel.h"
 
 #include <QObject>
+#include <QUrl>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -105,6 +106,12 @@ public slots:
     QVariantList listMedia(qint64 id);
     /** Converte caminho local no identificador do provider de mídia. */
     QString mediaUrl(const QString& path) const;
+    /** Exporta somente imagem válida do perfil para o destino escolhido no diálogo nativo. */
+    QVariantMap saveImage(const QString& sourcePath, const QUrl& destination);
+    /** Copia a capa escolhida pelo usuário para o perfil, sem expor arquivos externos ao provider. */
+    QVariantMap importImage(const QUrl& source);
+    /** Decodifica URLs locais sem perder espaços, acentos ou caminhos UNC. */
+    QString localFilePath(const QUrl& file) const { return file.toLocalFile(); }
     /** Variantes do mesmo grupo visual, já ordenadas para o seletor. */
     QVariantList listVersions(qint64 id);
     /** Contadores agregados por coleção, iguais aos da sidebar. */

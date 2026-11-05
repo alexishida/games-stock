@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # emulator-management Specification
 
 ## Purpose
@@ -18,9 +19,9 @@ O sistema SHALL persistir emuladores com `id`, `name`, `executable`, `args`, `is
 - **WHEN** um vinculo e salvo com `is_default = 1`
 - **THEN** qualquer outro vinculo default da mesma plataforma perde essa flag
 
-### Requirement: CRUD de emuladores via IPC
+### Requirement: CRUD de emuladores do desktop
 
-O sistema SHALL expor `list()`, `create()`, `update()` e `delete()` em `window.gameStockAPI.emulators`. O campo `executable` SHALL aceitar caminho absoluto, relativo ou nome resolvivel via `PATH`.
+O sistema SHALL expor `list()`, `create()`, `update()` e `delete()` no serviço desktop de emuladores. O campo `executable` SHALL aceitar caminho absoluto, relativo ou nome resolvivel via `PATH`.
 
 #### Scenario: Criar emulador com nome duplicado
 

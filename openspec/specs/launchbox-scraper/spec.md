@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # launchbox-scraper - Especificação
 
 ## Purpose
@@ -5,7 +6,7 @@ Define a integração com a base pública da LaunchBox para baixar metadados, co
 
 ## Requirements
 ### Requirement: Download e cache do banco de metadados LaunchBox
-O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Metadata.zip` e extrair `Metadata.xml` para `%APPDATA%/gamestock/launchbox_cache/`. O download SHALL ocorrer apenas se o cache tiver mais de 24 horas ou se for explicitamente forçado.
+O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Metadata.zip` e extrair `Metadata.xml` para `<data-dir>/launchbox_cache/`. O download SHALL ocorrer apenas se o cache tiver mais de 24 horas ou se for explicitamente forçado.
 
 #### Scenario: Primeiro uso sem cache
 - **WHEN** `launchbox:ensureMetadata` é chamado sem cache local
@@ -21,10 +22,10 @@ O sistema SHALL baixar `Metadata.zip` de `https://gamesdb.launchbox-app.com/Meta
 
 #### Scenario: Progresso de download
 - **WHEN** o download está em andamento
-- **THEN** o renderer recebe eventos `launchbox:progress` com `{ current, total, status: 'downloading' }`
+- **THEN** a interface recebe eventos `launchbox:progress` com `{ current, total, status: 'downloading' }`
 
 ### Requirement: Construção e cache do índice de jogos
-O sistema SHALL parsear `Metadata.xml` com `xml2js` e construir um índice em memória de todos os jogos. O índice SHALL ser persistido em `%APPDATA%/gamestock/launchbox_cache/index.json` para evitar reparse entre sessões.
+O sistema SHALL parsear `Metadata.xml` com processamento XML nativo e construir um índice em memória de todos os jogos. O índice SHALL ser persistido em `<data-dir>/launchbox_cache/index.json` para evitar reparse entre sessões.
 
 #### Scenario: Construir índice do XML
 - **WHEN** `buildIndex()` é chamado após metadata disponível
@@ -65,7 +66,7 @@ O sistema SHALL manter um mapeamento interno de `platformKey` para os nomes de p
 - **THEN** apenas jogos cujo `platform` no índice inclua "Super Nintendo" são retornados
 
 ### Requirement: Download de imagens por tipo
-O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.launchbox-app.com/<filename>`. As imagens SHALL ser salvas em `%APPDATA%/gamestock/images/<platform>/<game>/`. Imagens existentes SHALL ser puladas.
+O sistema SHALL baixar imagens da LaunchBox a partir do CDN `https://images.launchbox-app.com/<filename>`. As imagens SHALL ser salvas em `<data-dir>/images/<platform>/<game>/`. Imagens existentes SHALL ser puladas.
 
 Os nomes de arquivo SHALL seguir o padrão: para tipos "Box -" → `{slug(type)}-{slug(region)}-{index_padded}.ext`; para demais tipos → `{slug(type)}-{slug(region)}.ext`. Após o download, um arquivo `metadata.json` com os dados do jogo é sempre gravado no diretório.
 
@@ -79,10 +80,10 @@ Os nomes de arquivo SHALL seguir o padrão: para tipos "Box -" → `{slug(type)}
 
 #### Scenario: Progresso por imagem
 - **WHEN** cada imagem é baixada
-- **THEN** o renderer recebe `launchbox:progress` com `{ current, total, filename, status }`
+- **THEN** a interface recebe `launchbox:progress` com `{ current, total, filename, status }`
 
 ### Requirement: Geração de preview de capa (cover.jpg)
-Após cada download, o sistema SHALL gerar um `cover.jpg` no diretório do jogo a partir da melhor imagem "Box - Front" disponível, usando `sharp`. A imagem de origem SHALL ser selecionada por prioridade de região: brazil → north-america → europe → world → united-states → no_region → primeiro arquivo. O tamanho SHALL ser 195×280 para capas portrait ou 280×195 para capas landscape, com `fit: inside`, sem ampliação e qualidade JPEG 85. O `cover.jpg` gerado SHALL ser incluído no início do array `files` retornado.
+Após cada download, o sistema SHALL gerar um `cover.jpg` no diretório do jogo a partir da melhor imagem "Box - Front" disponível, usando processamento nativo de imagens. O tamanho SHALL ser 195×280 para capas portrait ou 280×195 para capas landscape, com `fit: inside`, sem ampliação e qualidade JPEG 85. O `cover.jpg` gerado SHALL ser incluído no início do array `files` retornado.
 
 #### Scenario: Capa portrait gerada
 - **WHEN** o download inclui ao menos uma imagem "Box - Front" com altura maior que largura
@@ -112,10 +113,10 @@ O sistema SHALL oferecer `launchbox:importGame` que busca o jogo pelo ID LaunchB
 - **THEN** o sistema mapeia a plataforma LaunchBox para uma plataforma existente no banco ou cria uma nova
 
 ### Requirement: UI de importação LaunchBox (LaunchBoxImporter)
-O sistema SHALL fornecer um modal de importação acessível pelo canal `launchbox:openImporter` e pelo botão "Metadados" no GameDetail, com busca, filtro de plataforma por `platformKey`, lista de resultados, seleção de tipos de imagem e barra de progresso.
+O sistema SHALL fornecer um modal de importação acessível pela ação de navegação para importar metadados e pelo botão "Metadados" no GameDetail, com busca, filtro de plataforma por `platformKey`, lista de resultados, seleção de tipos de imagem e barra de progresso.
 
 #### Scenario: Abrir importador
-- **WHEN** o canal `launchbox:openImporter` é recebido ou o usuário clica em "Metadados" no GameDetail
+- **WHEN** a ação de navegação para importar metadados é acionada ou o usuário clica em "Metadados" no GameDetail
 - **THEN** o modal LaunchBoxImporter é exibido e inicia download de metadata automaticamente se necessário
 
 #### Scenario: Selecionar e importar jogo
@@ -167,3 +168,11 @@ O sistema SHALL baixar para cada jogo com match os tipos "Box - Back", "Box - Fr
 #### Scenario: Disponibilidade parcial de mídia
 - **WHEN** apenas parte dos tipos padrão está disponível para um jogo
 - **THEN** o sistema baixa os arquivos disponíveis e reporta mídia ausente sem falhar a importação
+
+### Requirement: Prioridade regional da capa
+
+A imagem de origem SHALL ser selecionada por prioridade de região: brazil → north-america → europe → world → united-states → no_region → primeiro arquivo.
+
+#### Scenario: Várias regiões disponíveis
+- **WHEN** há imagens Box - Front de várias regiões
+- **THEN** a capa usa a primeira região disponível nessa ordem

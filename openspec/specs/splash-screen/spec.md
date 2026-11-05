@@ -1,75 +1,80 @@
+<!-- Contrato atual das duas splash nativas, sem dependência de IPC Electron. -->
 # splash-screen Specification
 
 ## Purpose
-Exibir a splash de inicializacao do updater Qt antes da janela principal, com progresso, arraste, fallback offline e erro diagnosticavel.
+
+Definir a splash imediata de bootstrap e o overlay de atualização do GameStock nativo, preservando a identidade visual atual.
 
 ## Requirements
-### Requirement: Splash condicional do updater
 
-A splash SHALL existir apenas no fluxo automatico de update suportado. A janela SHALL ser fixa em `640x400`, sem frame, centralizada, nao redimensionavel, `alwaysOnTop`, `skipTaskbar` e carregada antes da principal.
+### Requirement: Splash imediata de abertura
 
-#### Scenario: Splash e usada
+O sistema SHALL apresentar StartupSplash.qml antes de abrir o banco e inicializar os serviços de domínio. A janela transitória SHALL ter 480x300 pixels lógicos, sem moldura, centralizada, com logomarca local, versão, mensagem de inicialização e indicador indeterminado, reutilizando SplashOverlay e Theme.qml.
 
-- **WHEN** o app Windows empacotado inicia com updater automatico habilitado
-- **THEN** a splash abre antes da janela principal
+#### Scenario: Abertura normal
+- **WHEN** o aplicativo inicia em desenvolvimento, instalação Windows ou modo Portátil
+- **THEN** a splash aparece antes do bootstrap do banco, independentemente da rede ou de atualização disponível
 
-#### Scenario: Splash nao e usada
+#### Scenario: Primeiro quadro da principal
+- **WHEN** a janela principal apresenta seu primeiro quadro
+- **THEN** a janela transitória é ocultada sem impor um tempo artificial de permanência
 
-- **WHEN** o app inicia em desenvolvimento ou em plataforma sem self-update automatico
-- **THEN** a splash nao e criada
+#### Scenario: Captura reproduzível
+- **WHEN** a execução usa --startup-splash-preview --capture com perfil sintético
+- **THEN** a splash permanece para captura e a execução encerra sem consultar o feed
+
+### Requirement: Splash de atualização interna
+
+O sistema SHALL apresentar a atualização automática em SplashOverlay dentro da janela principal. A checagem SHALL começar antes da primeira apresentação da biblioteca em instalação Windows, evitando um flash sem overlay. Capturas SHALL permanecer sem acesso ao feed.
+
+#### Scenario: verificação automática habilitada
+- **WHEN** uma instalação Windows NSIS inicia normalmente
+- **THEN** o serviço inicia a verificação e o overlay mostra a fase atual
+
+#### Scenario: Canal sem atualização automática
+- **WHEN** uma build de desenvolvimento ou Portátil inicia
+- **THEN** a splash de bootstrap aparece sem iniciar atualização automática de instalador
 
 ### Requirement: Exibicao de build e fases do updater
 
-A splash SHALL mostrar versao e build instaladas, alem da fase atual recebida pelo canal `updater:status`.
+O overlay SHALL consumir o serviço nativo de atualização e mostrar versão/build instalada, fase, release alvo e progresso disponível com a identidade visual da abertura.
 
 #### Scenario: Fase de checking
-
-- **WHEN** o updater inicia a verificacao remota
-- **THEN** a splash mostra mensagem equivalente a "Verificando atualizacoes..."
+- **WHEN** o updater verifica o manifesto remoto
+- **THEN** o overlay mostra mensagem de verificação e indicador indeterminado
 
 #### Scenario: Fase de downloading
-
-- **WHEN** o updater entra em download
-- **THEN** a splash mostra a release alvo e uma barra de progresso percentual
+- **WHEN** o updater baixa o instalador
+- **THEN** o overlay mostra versão alvo e barra com o percentual informado pelo serviço
 
 #### Scenario: Fase de applying
+- **WHEN** o serviço prepara a execução do instalador
+- **THEN** o overlay atualiza a mensagem sem criar outra janela de atualização
 
-- **WHEN** o staging esta sendo preparado
-- **THEN** a splash troca a mensagem para a etapa de aplicacao sem reabrir a janela
+### Requirement: Erro e continuação offline
 
-### Requirement: Overlay de erro e modo offline
+O overlay SHALL mostrar mensagem e detalhe de erro do serviço. Quando requiresAction estiver ativo, SHALL oferecer Continuar offline, acionando skip() para liberar a versão instalada.
 
-A splash SHALL tratar erros de rede e falhas de update com overlays distintos. Quando houver log local disponivel, o caminho SHALL poder ser exibido ao usuario.
+#### Scenario: Sem conexão
+- **WHEN** a verificação falha por indisponibilidade de rede e requer ação
+- **THEN** o usuário vê o motivo e pode continuar offline
 
-#### Scenario: Sem conexao
+#### Scenario: Falha de atualização
+- **WHEN** download ou validação falha
+- **THEN** o erro é apresentado e nenhum pacote recusado é executado
 
-- **WHEN** o updater emite `phase: "no-connection"` com `requiresAction`
-- **THEN** a splash mostra um estado offline com botao para continuar a abertura do app
+### Requirement: Interação com o overlay
 
-#### Scenario: Falha ao baixar ou aplicar
+O overlay SHALL bloquear cliques e rolagem na biblioteca enquanto visível. Seu painel SHALL permitir arraste pelo corpo limitado à área visível, preservando o botão de continuação.
 
-- **WHEN** o updater emite `phase: "error"`
-- **THEN** a splash mostra falha de update e, se `requiresAction` vier marcado, aguarda a confirmacao do usuario antes de abrir a principal
+#### Scenario: Arraste do painel
+- **WHEN** o usuário arrasta o corpo do painel de atualização
+- **THEN** o painel se desloca dentro dos limites da janela principal
 
-#### Scenario: Falha herdada do boot anterior
+### Requirement: Limite de espera por verificação
 
-- **WHEN** a aplicacao do staging falhou antes mesmo da splash existir
-- **THEN** a splash recebe esse erro pendente no proximo boot e o exibe como falha de update
+O serviço SHALL limitar a verificação automática a 30 segundos e apresentar falha com continuação offline quando o limite for atingido.
 
-### Requirement: Splash arrastavel
-
-O corpo da splash SHALL ser arrastavel.
-
-#### Scenario: Usuario arrasta a splash
-
-- **WHEN** o usuario segura e move a area principal da janela
-- **THEN** a splash acompanha o cursor como uma janela arrastavel
-
-### Requirement: Timeout maximo de boot
-
-A splash SHALL deixar o app seguir para a janela principal em no maximo 30 segundos.
-
-#### Scenario: Timeout atingido
-
-- **WHEN** o updater excede o limite de 30 segundos
-- **THEN** o fluxo automatico e abortado e a janela principal e liberada com a versao atualmente instalada
+#### Scenario: Timeout da verificação
+- **WHEN** a consulta automática excede o limite
+- **THEN** o serviço aborta a operação, informa falta de conexão e permite continuar com a versão instalada

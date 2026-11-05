@@ -1,4 +1,4 @@
-<#
+﻿<#
 Captura todas as telas comparáveis nas nove combinações de resolução/escala da referência Electron.
 Cada captura usa uma cópia sintética limpa; o perfil real nunca é aberto.
 #>
@@ -13,7 +13,10 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $qtRoot = Join-Path $projectRoot '.native-tools/Qt/6.8.3/msvc2022_64'
 $exe = Join-Path $projectRoot 'native/build/windows-msvc/Release/gamestock_native.exe'
-$fixture = Join-Path $projectRoot 'artifacts/native-migration/fixtures-H6UzzV/legacy-populated'
+$fixtureRun = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'artifacts/native-migration') -Directory -Filter 'fixtures-*' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $fixtureRun) { throw 'Gere fixtures com python scripts/native-fixtures.py.' }
+# A fixture é isolada e independente do runtime removido.
+$fixture = Join-Path $fixtureRun.FullName 'legacy-populated'
 $fixtureDb = Join-Path $fixture 'gamestock.db'
 if (-not (Test-Path -LiteralPath $exe)) { throw 'Compile o runtime Qt antes de gerar a matriz.' }
 if (-not (Test-Path -LiteralPath $fixtureDb)) { throw 'Fixture sintética ausente.' }
@@ -22,9 +25,9 @@ $baseDir = Join-Path $projectRoot (Join-Path $OutputRoot 'base')
 New-Item -ItemType Directory -Force -Path $baseDir | Out-Null
 $cleanDb = Join-Path $baseDir 'clean.db'
 $jobsDb = Join-Path $baseDir 'jobs.db'
-& node (Join-Path $PSScriptRoot 'native-profile-db.cjs') $fixtureDb $cleanDb clean
+& python (Join-Path $PSScriptRoot 'native-profile-db.py') $fixtureDb $cleanDb clean
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar o banco limpo.' }
-& node (Join-Path $PSScriptRoot 'native-profile-db.cjs') $fixtureDb $jobsDb jobs
+& python (Join-Path $PSScriptRoot 'native-profile-db.py') $fixtureDb $jobsDb jobs
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar o banco com jobs.' }
 
 # Estados reproduzíveis pela UI e pelas flags de captura do runtime nativo.
@@ -33,6 +36,8 @@ $screens = @(
     [pscustomobject]@{ name = 'biblioteca-lista'; flags = @('--view-list') },
     [pscustomobject]@{ name = 'biblioteca-vazia'; flags = @('--search=zzz-sem-correspondencia') },
     [pscustomobject]@{ name = 'jogo-detalhe'; flags = @('--open-detail') },
+    # O visualizador foi restaurado na auditoria de paridade; inclui navegação e exportação.
+    [pscustomobject]@{ name = 'jogo-galeria'; flags = @('--open-gallery') },
     [pscustomobject]@{ name = 'jogo-edicao'; flags = @('--open-detail-edit') },
     [pscustomobject]@{ name = 'jogo-versao'; flags = @('--open-detail-versions') },
     [pscustomobject]@{ name = 'inventario'; flags = @('--open-inventory') },
@@ -63,16 +68,33 @@ $screens = @(
 )
 
 $previousPath = $env:PATH
+$previousImports = $env:QML_IMPORT_PATH
 $previousScale = $env:QT_SCALE_FACTOR
 Push-Location $projectRoot
 try {
     $env:PATH = "$qtRoot/bin;$env:PATH"
+    # Os testes usam os módulos da mesma instalação Qt do build.
+    $env:QML_IMPORT_PATH = "$qtRoot/qml;$env:QML_IMPORT_PATH"
     $manifest = @()
-    foreach ($reference in Get-ChildItem -LiteralPath $ReferenceRoot -Directory -Filter 'electron-reference-*') {
+    # Aproveita referências históricas, ou verifica a matriz desktop nativa quando ausentes.
+    $captureCases = @()
+    foreach ($referenceDirectory in Get-ChildItem -LiteralPath $ReferenceRoot -Directory -Filter 'electron-reference-*') {
+        $environmentPath = Join-Path $referenceDirectory.FullName 'environment.json'
+        if (Test-Path -LiteralPath $environmentPath) {
+            $referenceEnvironment = Get-Content -LiteralPath $environmentPath -Raw | ConvertFrom-Json
+            if ($referenceEnvironment.page) { $captureCases += [pscustomobject]@{ Name=$referenceDirectory.Name; Environment=$referenceEnvironment } }
+        }
+    }
+    if ($captureCases.Count -eq 0) {
+        foreach ($size in @(@(1024,768), @(1122,957), @(1920,1080))) {
+            foreach ($factor in @(1.0,1.25,1.5)) {
+                $captureCases += [pscustomobject]@{ Name="native-$($size[0])x$($size[1])-$factor"; Environment=[pscustomobject]@{page=[pscustomobject]@{width=$size[0];height=$size[1];scale=$factor}} }
+            }
+        }
+    }
+    foreach ($reference in $captureCases) {
         if ($Only -and $reference.Name -notlike "*$Only*") { continue }
-        $environmentPath = Join-Path $reference.FullName 'environment.json'
-        if (-not (Test-Path -LiteralPath $environmentPath)) { continue }
-        $environment = Get-Content -LiteralPath $environmentPath -Raw | ConvertFrom-Json
+        $environment = $reference.Environment
         if (-not $environment.page) { continue }
         $width = [int]$environment.page.width
         $height = [int]$environment.page.height
@@ -111,6 +133,7 @@ try {
     $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $projectRoot (Join-Path $OutputRoot 'matrix.json'))
 } finally {
     $env:PATH = $previousPath
+    $env:QML_IMPORT_PATH = $previousImports
     $env:QT_SCALE_FACTOR = $previousScale
     Pop-Location
 }

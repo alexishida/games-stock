@@ -128,7 +128,6 @@ DragDialog {
                     /* Mantém o texto editável suave como os demais controles. */
                     renderType: TextEdit.QtRendering
                     antialiasing: true
-                    font.hintingPreference: Font.PreferNoHinting
                     id: notesField
                     objectName: "gameMetadataNotesField"
                     Layout.fillWidth: true

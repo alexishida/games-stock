@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # rom-folder-import - Especificacao
 
 ## Purpose
@@ -5,7 +6,7 @@ Define o assistente de importacao em lote por pastas de ROMs, com resumo de past
 
 ## Requirements
 ### Requirement: Resumo de pastas configuradas (SummaryStep)
-O sistema SHALL exibir na tela inicial do RomFolderImporter uma tabela com todas as pastas ja configuradas, mostrando caminho, plataforma associada, quantidade de jogos indexados e se aquela entrada inclui busca em subpastas. As entradas SHALL ser persistidas no estado de app via `window.gameStockAPI.appState` e armazenadas no SQLite local.
+O sistema SHALL exibir na tela inicial do RomFolderImporter uma tabela com todas as pastas ja configuradas, mostrando caminho, plataforma associada, quantidade de jogos indexados e se aquela entrada inclui busca em subpastas. As entradas SHALL ser persistidas no estado de app via `serviço persistente de estado do app` e armazenadas no SQLite local.
 
 #### Scenario: Abrir com pastas configuradas
 - **WHEN** o usuario abre o RomFolderImporter com entradas salvas
@@ -116,15 +117,15 @@ O sistema SHALL permitir escanear uma pasta em modo automatico, usando as extens
 - **THEN** cada ROM e criada ou atualizada usando o `platformId` detectado no proprio candidato
 
 ### Requirement: Execucao em background e progresso
-O sistema SHALL executar o job de importacao de forma assincrona no processo main, emitindo eventos de progresso e conclusao ao renderer via IPC. Ao dispensar uma notificacao de job concluido, falhado ou interrompido, o sistema SHALL remover o job do estado persistido do app (SQLite), garantindo que a notificacao nao reaparea no proximo startup.
+O sistema SHALL executar o job de importacao de forma assincrona fora da thread da interface, emitindo eventos de progresso e conclusao à interface por atualizações observáveis. Ao dispensar uma notificacao de job concluido, falhado ou interrompido, o sistema SHALL remover o job do estado persistido do app (SQLite), garantindo que a notificacao nao reaparea no proximo startup.
 
 #### Scenario: Progresso durante importacao
 - **WHEN** um job esta rodando
-- **THEN** o renderer recebe eventos `romFolderImport:progress` com `jobId`, `current`, `total`, `folderPath`, `filename`, `imageFilename`, `stage` e `message`
+- **THEN** a interface recebe eventos `romFolderImport:progress` com `jobId`, `current`, `total`, `folderPath`, `filename`, `imageFilename`, `stage` e `message`
 
 #### Scenario: Conclusao do job
 - **WHEN** o job termina
-- **THEN** o renderer recebe `romFolderImport:completed` com o resultado incluindo `summary` (`created`, `updated`, `skipped`, `unmatched`, `failedDownloads`, `processed`) e o mesmo `includeSubfolders` usado no scan/import
+- **THEN** a interface recebe `romFolderImport:completed` com o resultado incluindo `summary` (`created`, `updated`, `skipped`, `unmatched`, `failedDownloads`, `processed`) e o mesmo `includeSubfolders` usado no scan/import
 
 #### Scenario: Stage de importacao
 - **WHEN** o job avanca entre etapas
@@ -135,7 +136,7 @@ O sistema SHALL executar o job de importacao de forma assincrona no processo mai
 - **THEN** o job e removido do estado persistido do app e nao reaparece na proxima inicializacao do app
 
 ### Requirement: Persistencia de entradas do importador
-O sistema SHALL salvar e carregar as entradas de pasta configuradas do estado persistido do app via `appState`, com migracao de formatos legados vindos do `localStorage`.
+O sistema SHALL salvar e carregar as entradas de pasta configuradas do estado persistido do app em SQLite/app_state por serviços nativos, com leitura tolerante dos formatos legados já persistidos.
 
 #### Scenario: Salvar nova entrada
 - **WHEN** o usuario inicia uma importacao com sucesso
@@ -150,5 +151,5 @@ O sistema SHALL salvar e carregar as entradas de pasta configuradas do estado pe
 - **THEN** as entradas sao carregadas do estado persistido e exibidas na tabela
 
 #### Scenario: Migrar entradas legadas
-- **WHEN** o app encontra entradas antigas do importador salvas em `localStorage`
-- **THEN** elas sao migradas para `appState`, assumindo `includeSubfolders = false` quando essa informacao nao existir
+- **WHEN** o app encontra entradas antigas do importador salvas em SQLite/app_state
+- **THEN** elas sao normalizadas pelo serviço nativo, assumindo `includeSubfolders = false` quando essa informacao nao existir

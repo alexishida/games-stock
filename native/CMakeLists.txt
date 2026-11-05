@@ -1,10 +1,14 @@
-# Projeto nativo isolado: a distribuição Electron permanece disponível durante a migração.
+# Projeto oficial C++20/Qt Quick; dependências de extração são locais, sem npm.
 cmake_minimum_required(VERSION 3.25)
 project(GameStockNative VERSION 1.1.5 LANGUAGES CXX)
 
 find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Svg Test QuickDialogs2)
 qt_standard_project_setup(REQUIRES 6.8)
 include(CTest)
+# Linux usa ferramenta do sistema quando retomado; o pacote Windows é vendorizado.
+if(NOT WIN32)
+    find_program(GAMESTOCK_7Z_EXECUTABLE NAMES 7za 7z 7zz)
+endif()
 
 # ── Dependências fixas de portabilidade ─────────────────────────────────────
 # zlib e libarchive ficam vendorizados em native/third_party com versões e hashes
@@ -148,6 +152,8 @@ qt_add_qml_module(gamestock_native
     RESOURCE_PREFIX /qt/qml
     QML_FILES
         qml/Main.qml qml/Theme.qml
+        # A abertura é carregada antes do banco, sem depender da janela principal.
+        qml/StartupSplash.qml
         # Primitivas visuais compartilham métricas CSS e rasterização da fonte no Windows.
         qml/components/UiText.qml qml/components/SectionIntro.qml qml/components/CollectionScrollBar.qml
         qml/components/FormCheckBox.qml qml/components/PanelFlickable.qml
@@ -235,10 +241,10 @@ if(BUILD_TESTING)
     add_test(NAME libretro-media COMMAND libretro_media_tests)
     if(WIN32)
         set_tests_properties(launchbox-cache metadata-search PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/win/x64/7za.exe")
+            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/third_party/7zip/win/x64/7za.exe")
     else()
         set_tests_properties(launchbox-cache metadata-search PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/linux/x64/7za")
+            "GAMESTOCK_7Z_PATH=${GAMESTOCK_7Z_EXECUTABLE}")
     endif()
     # O teste de migrations usa apenas bancos temporários e a fixture via variável de ambiente.
     qt_add_executable(migrations_tests tests/MigrationsTest.cpp)
@@ -270,20 +276,20 @@ if(BUILD_TESTING)
     add_test(NAME media-sync COMMAND media_sync_tests)
     if(WIN32)
         set_tests_properties(media-sync PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/win/x64/7za.exe")
+            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/third_party/7zip/win/x64/7za.exe")
     else()
         set_tests_properties(media-sync PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/linux/x64/7za")
+            "GAMESTOCK_7Z_PATH=${GAMESTOCK_7Z_EXECUTABLE}")
     endif()
     qt_add_executable(metadata_service_tests tests/MetadataServiceTest.cpp)
     target_link_libraries(metadata_service_tests PRIVATE gamestock_core Qt6::Test Qt6::Network Qt6::Gui)
     add_test(NAME metadata-service COMMAND metadata_service_tests)
     if(WIN32)
         set_tests_properties(metadata-service PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/win/x64/7za.exe")
+            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/third_party/7zip/win/x64/7za.exe")
     else()
         set_tests_properties(metadata-service PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/linux/x64/7za")
+            "GAMESTOCK_7Z_PATH=${GAMESTOCK_7Z_EXECUTABLE}")
     endif()
     qt_add_executable(view_state_tests tests/ViewStateTest.cpp)
     target_link_libraries(view_state_tests PRIVATE gamestock_core Qt6::Test)
@@ -332,10 +338,10 @@ if(BUILD_TESTING)
     add_test(NAME launch-service COMMAND launch_service_tests)
     if(WIN32)
         set_tests_properties(launch-service PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/win/x64/7za.exe")
+            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/third_party/7zip/win/x64/7za.exe")
     else()
         set_tests_properties(launch-service PROPERTIES ENVIRONMENT
-            "GAMESTOCK_7Z_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/7zip-bin/linux/x64/7za")
+            "GAMESTOCK_7Z_PATH=${GAMESTOCK_7Z_EXECUTABLE}")
     endif()
 endif()
 

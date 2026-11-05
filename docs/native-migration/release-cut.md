@@ -43,8 +43,8 @@ implementação.
 ## O que permanece
 
 - Linux (build, capturas, `.deb`/AppImage) segue adiado por decisão do usuário.
-- O backend compilado congelado em `tools/legacy-runtime/` permanece apenas para fixtures e
-  compatibilidade; não entra no instalador.
+- O backend congelado foi retirado após a auditoria atual. Fixtures SQL e backups sintéticos
+  preservam a compatibilidade; ver [current-project-audit.md](current-project-audit.md).
 - A publicação/distribuição externa continua manual e separada da implementação.
 
 ## Publicação manual (quando decidir publicar)

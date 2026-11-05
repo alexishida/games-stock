@@ -1,4 +1,4 @@
-<#
+﻿<#
 Compila e verifica o protótipo Qt local com dados sintéticos.
 O modo de captura nunca consulta o perfil real; offscreen registra fontes do SO sem copiá-las.
 #>
@@ -16,12 +16,15 @@ $cmakeExecutable = if ($cmakeCommand) { $cmakeCommand.Source } else { 'C:/Progra
 if (-not (Test-Path -LiteralPath $cmakeExecutable)) { throw 'CMake não encontrado.' }
 $ctestExecutable = Join-Path (Split-Path -Parent $cmakeExecutable) 'ctest.exe'
 $previousPath = $env:PATH
+$previousImports = $env:QML_IMPORT_PATH
 $previousPlatform = $env:QT_QPA_PLATFORM
 $previousBackend = $env:QT_QUICK_BACKEND
 $previousFonts = $env:QT_QPA_FONTDIR
 Push-Location $projectRoot
 try {
     $env:PATH = "$qtRoot/bin;$env:PATH"
+    # Os testes usam os módulos da mesma instalação Qt do build.
+    $env:QML_IMPORT_PATH = "$qtRoot/qml;$env:QML_IMPORT_PATH"
     if ($Build) {
         & $cmakeExecutable --preset windows-msvc -S native
         if ($LASTEXITCODE -ne 0) { throw 'Falha no configure Qt.' }
@@ -34,7 +37,7 @@ try {
     & (Join-Path $PSScriptRoot 'native-qml-test.ps1')
     if ($Capture) {
         $fixtureRun = Get-ChildItem -LiteralPath artifacts/native-migration -Directory -Filter fixtures-* | Sort-Object LastWriteTime -Descending | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'catalog.json') } | Select-Object -First 1
-        if (-not $fixtureRun) { throw 'Gere fixtures com node scripts/native-fixtures.cjs primeiro.' }
+        if (-not $fixtureRun) { throw 'Gere fixtures com python scripts/native-fixtures.py primeiro.' }
         if ($Offscreen) {
             $env:QT_QPA_PLATFORM = 'offscreen'
             $env:QT_QUICK_BACKEND = 'software'
@@ -51,6 +54,7 @@ try {
     }
 } finally {
     $env:PATH = $previousPath
+    $env:QML_IMPORT_PATH = $previousImports
     $env:QT_QPA_PLATFORM = $previousPlatform
     $env:QT_QUICK_BACKEND = $previousBackend
     $env:QT_QPA_FONTDIR = $previousFonts

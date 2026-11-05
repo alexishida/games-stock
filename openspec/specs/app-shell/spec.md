@@ -1,46 +1,41 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # app-shell Specification
 
 ## Purpose
 Definir a base do aplicativo desktop GameStock em Qt: bootstrap, janela principal, servicos tipados, inicializacao do banco local e provider de midia.
 
 ## Requirements
-### Requirement: Janela principal Electron
+### Requirement: Janela principal desktop
 
-O sistema SHALL criar uma janela principal Electron com `minWidth = 1024`, `minHeight = 768`, titulo `GameStock v<build>`, icone do app e persistencia de posicao/tamanho em `window-bounds.json`. Na primeira execucao, a janela SHALL usar `1225x818` como dimensao padrao.
+O sistema SHALL abrir uma janela principal com tamanho inicial 1122x957, mínimo 1024x768, título `GameStock v<build>`, ícone e persistência em `window-bounds.json`. A geometria restaurada SHALL permanecer acessível nos monitores conectados.
 
-#### Scenario: Boot direto sem splash
-
-- **WHEN** o app inicia em desenvolvimento ou em plataforma sem self-update in-place
-- **THEN** a janela principal abre diretamente sem passar pela splash
+#### Scenario: Boot com splash de abertura
+- **WHEN** o app inicia normalmente, inclusive em desenvolvimento ou modo portátil
+- **THEN** uma splash transitória aparece antes de abrir o banco e é ocultada após o primeiro quadro da principal
 
 #### Scenario: Boot com splash antes da principal
-
-- **WHEN** o app empacotado para Windows inicia com updater habilitado
-- **THEN** a janela principal so e criada depois que o fluxo de splash/update libera a abertura
+- **WHEN** o app instalado Windows inicia com updater habilitado
+- **THEN** a verificação começa antes da primeira apresentação e o overlay interno acompanha o estado do updater
 
 #### Scenario: Restaurar bounds anteriores
+- **WHEN** o usuário fecha e reabre o app com geometria persistida pela implementação anterior
+- **THEN** a janela reutiliza posição e tamanho, ajustando os limites se um monitor foi desconectado
 
-- **WHEN** o usuario fecha e reabre o app
-- **THEN** a janela reutiliza os bounds persistidos da sessao anterior
+### Requirement: Fronteira controlada de servicos desktop
 
-### Requirement: Isolamento de processo com contextBridge
+A interface SHALL acessar jogos, plataformas, emuladores, diálogos, shell, app, updater, estado, portabilidade, metadados, importação de ROMs, navegação e inventário por serviços controlados. O runtime distribuído SHALL funcionar sem Electron, Node.js, React ou WebView.
 
-O sistema SHALL usar `contextIsolation: true` e `nodeIntegration: false`. O preload SHALL expor `window.gameStockAPI` com os namespaces `games`, `platforms`, `emulators`, `dialogs`, `shell`, `app`, `updater`, `appState`, `dataPortability`, `launchbox`, `romFolderImport`, `library`, `view` e `hardwareInventory`.
+#### Scenario: Acesso seguro aos serviços
+- **WHEN** a interface solicita jogos com filtros
+- **THEN** o serviço valida parâmetros e retorna resultados sem expor objetos de banco ou execução arbitrária de comandos
 
-#### Scenario: Acesso seguro ao IPC
-
-- **WHEN** o renderer invoca `window.gameStockAPI.games.list()`
-- **THEN** o preload encaminha a chamada ao canal IPC correspondente e retorna apenas o resultado serializado
-
-#### Scenario: Node.js inacessivel no renderer
-
-- **WHEN** codigo do renderer tenta usar `require` ou outras APIs Node diretamente
-- **THEN** o isolamento de contexto impede esse acesso fora da API exposta
+#### Scenario: Execução arbitrária indisponível na interface
+- **WHEN** uma entrada externa tenta carregar código ou acionar um comando fora dos serviços permitidos
+- **THEN** o sistema rejeita a operação e não executa código arbitrário
 
 #### Scenario: Namespace de updater disponivel
-
-- **WHEN** a splash ou a tela Sobre invocam `window.gameStockAPI.updater`
-- **THEN** o preload oferece os metodos de status, check manual, skip e informacoes da build sem expor objetos Electron crus
+- **WHEN** a splash ou a tela Sobre consulta o updater
+- **THEN** estão disponíveis status, busca manual, continuação sem atualizar e informações da build
 
 ### Requirement: Banco SQLite inicializado no startup
 
@@ -58,23 +53,20 @@ O sistema SHALL criar ou abrir `gamestock.db` dentro do diretorio de dados do us
 
 ### Requirement: Shell sem menu nativo
 
-O sistema SHALL remover o menu nativo padrao do Electron em runtime.
+O sistema SHALL manter a navegação pela interface principal, sem adicionar menu nativo padrão ao aplicativo.
 
 #### Scenario: Aplicacao inicia
-
-- **WHEN** o bootstrap conclui `app.whenReady()`
-- **THEN** `Menu.setApplicationMenu(null)` e aplicado e a navegacao principal passa a depender apenas da UI do renderer e dos canais IPC dedicados
+- **WHEN** o bootstrap conclui
+- **THEN** biblioteca, inventário e configurações são acessíveis pela interface principal
 
 ### Requirement: Protocolo seguro de midia local
 
-O sistema SHALL registrar o protocolo customizado `gamestock-media://` como `secure` e restrito ao diretorio `userData` do app.
+O sistema SHALL carregar mídias locais por uma fronteira restrita ao diretório de dados do app, sem depender de protocolo de navegador. Caminhos SHALL ser validados após resolução canônica, incluindo symlinks.
 
 #### Scenario: Arquivo permitido
-
-- **WHEN** o renderer solicita `gamestock-media://?path=<arquivo dentro de userData>`
-- **THEN** o processo main serve o arquivo local
+- **WHEN** a interface solicita uma imagem dentro do perfil ativo
+- **THEN** o sistema apresenta a mídia existente sem mover ou reimportar o arquivo
 
 #### Scenario: Tentativa de escapar do userData
-
-- **WHEN** a URL aponta para um caminho fora do diretorio de dados do app
-- **THEN** o processo main responde `403 Forbidden`
+- **WHEN** o caminho solicitado resolve para fora do perfil ativo
+- **THEN** o carregamento é recusado sem expor o arquivo

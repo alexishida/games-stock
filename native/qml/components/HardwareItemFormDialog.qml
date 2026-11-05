@@ -325,11 +325,10 @@ DragDialog {
                             spacing: Theme.formLabelGap
                             UiText { text: "DESCRIÇÃO"; color: Theme.secondary; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                             TextArea {
-                                /* O distance field preserva suavização no campo de descrição. */
+                                /* Antialiasing padrão no campo de descrição, sem franjas nem serrilhado. */
                                 renderType: TextEdit.QtRendering
                                 antialiasing: true
                                 font.family: Theme.fontFamily
-                                font.hintingPreference: Font.PreferNoHinting
                                 id: descriptionArea
                                 objectName: "hardwareItemDescription"
                                 Layout.fillWidth: true

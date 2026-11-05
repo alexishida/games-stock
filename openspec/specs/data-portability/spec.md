@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # data-portability Specification
 
 ## Purpose
@@ -76,7 +77,7 @@ A categoria `romLocations` SHALL incluir `rom_path` dos jogos e as entradas pers
 #### Scenario: Importar localizacoes
 
 - **WHEN** o usuario importa `romLocations`
-- **THEN** os `rom_path` sao restaurados nos jogos correspondentes e as entradas de pastas retornam ao renderer para persistencia de estado
+- **THEN** os `rom_path` sao restaurados nos jogos correspondentes e as entradas de pastas sao persistidas pelo servico de estado do app no SQLite
 
 ### Requirement: Categoria inventoryImages
 
@@ -122,7 +123,7 @@ O sistema SHALL aplicar as escritas do SQLite em transacao e tambem limpar arqui
 
 ### Requirement: Jobs em background com progresso
 
-O sistema SHALL executar exportacao e importacao em background, emitindo eventos de progresso e conclusao por IPC para o renderer.
+O sistema SHALL executar exportacao e importacao em background, emitindo eventos de progresso e conclusao ao modelo observável da interface nativa.
 
 #### Scenario: Job de portabilidade em andamento
 

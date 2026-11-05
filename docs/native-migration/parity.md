@@ -2,10 +2,10 @@
 # Matriz de paridade do runtime desktop
 
 A matriz foi gerada pela AST antes da remoção do runtime legado e permanece como registro do corte.
-O gerador histórico está em `tools/legacy-runtime/scripts/native-parity.cjs` e exige o código-fonte
-anterior do Electron; não faz parte do fluxo oficial.
+O gerador histórico e o backend Electron foram retirados do workspace após a auditoria atual.
+A matriz permanece congelada; veja [current-project-audit.md](current-project-audit.md).
 
-Inventário: **100 operações/listeners**, **14 domínios**. Todos os destinos abaixo são propostos; a seção de evidências registra o que já tem implementação e teste nativo.
+Inventário: **100 operações/listeners**, **14 domínios**. Os nomes abaixo registram o mapeamento original da migração; a implementação atual e suas verificações estão no relatório de auditoria.
 
 ## Operações e eventos
 

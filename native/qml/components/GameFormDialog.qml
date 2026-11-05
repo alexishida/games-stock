@@ -302,7 +302,6 @@ DragDialog {
                     /* Evita alternar a rasterização ao entrar em um campo multilinha. */
                     renderType: TextEdit.QtRendering
                     antialiasing: true
-                    font.hintingPreference: Font.PreferNoHinting
                     id: notesField
                     objectName: "gameNotesField"
                     Layout.fillWidth: true
@@ -710,14 +709,22 @@ DragDialog {
         id: romDialog
         title: "Selecionar ROM"
         fileMode: FileDialog.OpenFile
-        onAccepted: form.setDraft("rom_path", selectedFile.toString().replace("file:///", ""))
+        /* QUrl no serviço preserva espaços, acentos e caminhos de rede. */
+        onAccepted: if (form.gameService) form.setDraft("rom_path", form.gameService.localFilePath(selectedFile))
     }
     FileDialog {
         id: boxArtDialog
         title: "Selecionar capa"
         fileMode: FileDialog.OpenFile
         nameFilters: ["Imagens (*.png *.jpg *.jpeg *.webp)"]
-        onAccepted: form.setDraft("box_art_path", selectedFile.toString().replace("file:///", ""))
+        onAccepted: {
+            if (!form.gameService) return
+            const imported = form.gameService.importImage(selectedFile)
+            if (imported.success) {
+                form.setDraft("box_art_path", imported.path)
+                form.formError = ""
+            } else form.formError = imported.error || "Não foi possível importar a capa."
+        }
     }
     GameMetadataEditor {
         id: metadataEditor

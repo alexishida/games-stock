@@ -1,12 +1,13 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # game-launch Specification
 
 ## Purpose
 Lancar jogos da biblioteca diretamente no emulador configurado para a plataforma, com suporte a variantes, RetroArch e ROMs compactadas.
 
 ## Requirements
-### Requirement: Launch via IPC
+### Requirement: Launch pelo servico desktop
 
-O metodo `window.gameStockAPI.games.launch(gameId)` SHALL resolver o emulador padrao da plataforma, preparar o caminho real da ROM e iniciar o processo do emulador.
+A operação de launch por gameId SHALL resolver o emulador padrao da plataforma, preparar o caminho real da ROM e iniciar o processo do emulador.
 
 #### Scenario: Launch com emulador standalone
 

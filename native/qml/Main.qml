@@ -44,6 +44,8 @@ ApplicationWindow {
     required property bool prototypeSettingsOpen
     required property bool prototypeStackedOpen
     required property bool prototypeDetailOpen
+    /* Captura reproduzível do fluxo de ampliação e exportação de imagens. */
+    property bool prototypeGalleryOpen: false
     property bool prototypeDetailEdit: false
     property bool prototypeDetailVersions: false
     required property bool prototypePlatformsOpen
@@ -1250,6 +1252,8 @@ ApplicationWindow {
     SplashOverlay {
         anchors.fill: parent
         updateService: window.updateService
+        /* A atualização identifica o mesmo build exibido na navegação principal. */
+        buildLabel: window.buildLabel
     }
     /* A flag é exclusiva da captura reproduzível do protótipo. */
     Component.onCompleted: {        if (prototypeListView) window.setListView(true)
@@ -1293,8 +1297,11 @@ ApplicationWindow {
             settings.open()
         }
         if (window.prototypeUpdateSplash && window.updateService) window.updateService.showStartupPreview()
-        if ((prototypeDetailOpen || prototypeDetailEdit || prototypeDetailVersions) && catalog.length > 0)
+        if ((prototypeDetailOpen || prototypeDetailEdit || prototypeDetailVersions || prototypeGalleryOpen) && catalog.length > 0)
             window.openGame(catalog[0])
+        if (prototypeGalleryOpen) Qt.callLater(function() {
+            if (detail.gallery.length > 0) detail.openImage(detail.gallery[0].path)
+        })
         // A camada secundária reproduz o backdrop de 4 px sobre o primeiro modal.
         if (prototypeStackedOpen) {
             if (!settings.visible) settings.open()

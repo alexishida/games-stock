@@ -30,7 +30,8 @@ public:
     QAbstractItemModel* model();
     int activeCount() const { return static_cast<int>(running_.size()); }
     QString error() const { return error_; }
-    QJsonArray jobs() const;
+    /* Q_INVOKABLE permite ao QML consultar o registro sem expor mutação. */
+    Q_INVOKABLE QJsonArray jobs() const;
     /** Retrato completo de um job, usado pela retomada no NotificationCenter. */
     Q_INVOKABLE QVariantMap job(const QString& id) const;
 

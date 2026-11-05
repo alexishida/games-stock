@@ -1,6 +1,18 @@
+<!-- Registrar mudanças de produto e manutenção sem publicar releases automaticamente. -->
 # Changelog
 
 Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
+
+## Não publicado
+
+- Verificada a compatibilidade do perfil existente em cópia, preservando dados e caminhos.
+- Retirados backend de referência Electron, dependências npm e ferramentas legadas; fixtures
+  SQL/backups congelados mantêm os testes de compatibilidade sem o runtime antigo.
+- Execução pelo workspace passa a abrir o perfil existente por padrão; testes usam perfil explícito.
+- Build/deploy usam 7-Zip local com licenças; instalador e portátil são gerados da mesma build em release/.
+- Corrigida a orientação de capas reais sem ciclo de binding ou mudança de layout.
+- Restaurados ampliação, navegação e salvamento da galeria; seleção de capa passa a copiá-la
+  para o perfil e caminhos de ROM preservam espaços e acentos.
 
 ## [1.1.5] - 2026-11-03
 

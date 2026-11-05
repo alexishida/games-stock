@@ -1,20 +1,36 @@
+# Contexto atual: preservar a interface aprovada e os dados existentes.
 schema: spec-driven
 
-# Contexto do projeto (opcional)
-# Isto é mostrado à IA ao criar artefatos.
-# Adicione stack técnica, convenções, guias de estilo, conhecimento de domínio etc.
-# Exemplo:
-#   context: |
-#     Stack técnica: TypeScript, React, Node.js
-#     Usamos conventional commits
-#     Domínio: plataforma de e-commerce
+context: |
+  GameStock 1.1.5: biblioteca de jogos retrô, ROMs, emuladores, metadados e inventário.
+  Runtime oficial C++20 + Qt 6.8.3 Quick/QML, CMake em native/, SQLite via QSQLITE.
+  serviços QObject, modelos tipados e DAOs; QML não executa SQL ou comandos genéricos.
+  Electron/React e tools/legacy-runtime foram retirados. Fixtures SQL e backups sintéticos
+  em native/tests/fixtures preservam a compatibilidade sem runtime Node/npm.
+  Windows é o escopo validado. Linux está adiado: docs/native-migration/linux-deferred.md.
+  O usuário aprovou o design e layout atuais: são a referência a preservar.
+  Seguir .ai-framework/RULES.md, .ai-framework/DESIGN.md e native/qml/Theme.qml.
+  Preservar tema escuro, acento ciano, Inter local, SVGs Lucide, densidade e efeitos.
+  Sidebar de 240 px; busca de 34 px com máximo 480 px; cards/lista e preferências
+  independentes para biblioteca e inventário. Modais internos arrastáveis, limitados
+  à janela, com escurecimento empilhado e ações à direita. Splash de bootstrap é
+  uma janela transitória anterior à principal; atualização usa overlay interno.
+  Jobs usam JobManager/JobRegistry. Preservar perfis populados, IDs, mídias e backups
+  ZIP64 das cinco categorias, sem reset ou reimportação. Testes usam perfis sintéticos.
+  Updater automático apenas Windows NSIS, com manifesto assinado e hash/tamanho.
+  Portátil/Linux usam atualização externa. Publicação de releases é manual.
 
-# Regras por artefato (opcional)
-# Adicione regras customizadas para artefatos específicos.
-# Exemplo:
-#   rules:
-#     proposal:
-#       - Manter proposals com menos de 500 palavras
-#       - Sempre incluir uma seção "Fora de Escopo"
-#     tasks:
-#       - Dividir tasks em blocos de no máximo 2 horas
+rules:
+  proposal:
+    - Redigir em português e delimitar escopo e exclusões.
+    - Preservar o design/layout atual; redesenho exige pedido específico do usuário.
+    - Considerar instalação limpa e perfil populado, sem alegar validação Linux não executada.
+  design:
+    - Reutilizar Theme.qml e componentes existentes, descrevendo apenas mudanças necessárias.
+    - Distinguir implementação atual, restrições e pendências com evidências locais.
+  specs:
+    - Usar SHALL e cenários WHEN/THEN verificáveis no formato OpenSpec.
+    - Descrever serviços nativos sem exigir IPC Electron.
+  tasks:
+    - Prever validação proporcional e comparação visual quando houver mudança de UI.
+    - não concluir tarefas Linux ou Publicação externa com base em evidência Windows.

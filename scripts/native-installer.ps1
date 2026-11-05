@@ -1,6 +1,6 @@
 <#
 Gera instalador NSIS e pacote portátil Windows localmente.
-Não publica nada; os artefatos ficam em artifacts/native-migration.
+Não publica nada; os artefatos ficam em release/windows.
 Uso:
   powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1
   powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1 -Version 1.1.4 -SkipDeploy
@@ -21,20 +21,25 @@ if (-not $Version) {
     if ($cmakeFile -match 'project\(GameStockNative VERSION ([0-9.]+)') { $Version = $matches[1] }
 }
 if (-not $Version) { throw 'Informe -Version.' }
-if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root 'artifacts/native-migration/dist-installer' }
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root 'release/windows' }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
-$appSource = Join-Path $root 'artifacts/native-migration/dist-installer-app'
+$appSource = Join-Path $root 'native/build/package-staging/windows'
 if (-not $SkipDeploy) {
+    # A limpeza fica limitada ao staging conhecido dentro do workspace.
+    $stagingRoot = [System.IO.Path]::GetFullPath((Join-Path $root 'native/build')) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not ([System.IO.Path]::GetFullPath($appSource)).StartsWith($stagingRoot)) { throw 'Staging fora do build.' }
     if (Test-Path -LiteralPath $appSource) { Remove-Item -LiteralPath $appSource -Recurse -Force }
     powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'native-deploy.ps1') `
         -SkipBuild -OutputDirectory $appSource | Out-Host
 }
 $nativeExe = Join-Path $appSource 'gamestock_native.exe'
-if (-not (Test-Path -LiteralPath $nativeExe)) { throw "Executável deployado ausente: $nativeExe" }
+if (-not (Test-Path -LiteralPath $nativeExe) -and -not (Test-Path -LiteralPath (Join-Path $appSource 'GameStock.exe'))) { throw "Executável deployado ausente: $nativeExe" }
 # A identidade visível continua GameStock.exe, como na distribuição Electron.
-Copy-Item -LiteralPath $nativeExe -Destination (Join-Path $appSource 'GameStock.exe') -Force
-Remove-Item -LiteralPath $nativeExe -Force
+if (Test-Path -LiteralPath $nativeExe) {
+    Copy-Item -LiteralPath $nativeExe -Destination (Join-Path $appSource 'GameStock.exe') -Force
+    Remove-Item -LiteralPath $nativeExe -Force
+}
 # O build instalado não deve carregar o marcador portátil do deploy.
 Remove-Item -LiteralPath (Join-Path $appSource 'portable.marker') -ErrorAction SilentlyContinue
 
@@ -116,11 +121,15 @@ Set-Content -LiteralPath $scriptPath -Value $content -Encoding utf8
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar o instalador NSIS.' }
 
 $portableZip = Join-Path $OutputDirectory "GameStock-$Version-Portable.zip"
-$portableSource = Join-Path $root 'artifacts/native-migration/dist-portable'
-if (Test-Path -LiteralPath $portableSource) {
-    if (Test-Path -LiteralPath $portableZip) { Remove-Item -LiteralPath $portableZip -Force }
-    Compress-Archive -Path (Join-Path $portableSource '*') -DestinationPath $portableZip -Force
-}
+# Portátil e instalador usam a mesma build; o marcador impede auto-update no portátil.
+$portableSource = Join-Path $root 'release/windows-portable'
+$releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $root 'release')) + [System.IO.Path]::DirectorySeparatorChar
+if (-not ([System.IO.Path]::GetFullPath($portableSource)).StartsWith($releaseRoot)) { throw 'Portátil fora de release.' }
+if (Test-Path -LiteralPath $portableSource) { Remove-Item -LiteralPath $portableSource -Recurse -Force }
+Copy-Item -LiteralPath $appSource -Destination $portableSource -Recurse
+Set-Content -LiteralPath (Join-Path $portableSource 'portable.marker') -Value 'portable=1' -Encoding ascii
+Remove-Item -LiteralPath (Join-Path $portableSource 'install.marker') -ErrorAction SilentlyContinue
+Compress-Archive -Path (Join-Path $portableSource '*') -DestinationPath $portableZip -Force
 
 Get-FileHash -LiteralPath $outFile -Algorithm SHA256 | ForEach-Object { "instalador: $outFile`nsha256: $($_.Hash)" }
 if (Test-Path -LiteralPath $portableZip) { Get-FileHash -LiteralPath $portableZip -Algorithm SHA256 | ForEach-Object { "portátil: $portableZip`nsha256: $($_.Hash)" } }

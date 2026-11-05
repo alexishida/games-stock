@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # library-ui Specification
 
 ## Purpose
@@ -13,19 +14,19 @@ No modo `library`, o sistema SHALL exibir uma TopBar com busca, alternancia de v
 - **WHEN** o usuario clica no icone de ordenar da TopBar
 - **THEN** a ordenacao cicla entre `title`, `year` e `recent`
 
-#### Scenario: TopBar oculta no detalhe
+#### Scenario: Busca preservada no detalhe
 
 - **WHEN** um jogo esta selecionado ou o app esta no modo inventario
-- **THEN** a TopBar da biblioteca nao e exibida
+- **THEN** o detalhe pode manter apenas a busca; o inventário usa sua própria barra com o mesmo padrão visual
 
 ### Requirement: Header principal da biblioteca
 
-Quando nenhum jogo esta selecionado, a area principal SHALL exibir abas de colecao, seletor de categoria por genero e seletor de ordenacao completa.
+Quando nenhum jogo esta selecionado, a area principal SHALL exibir seletor de categoria por genero e ordenacao completa; as colecoes ficam na sidebar.
 
 #### Scenario: Abas de colecao disponiveis
 
 - **WHEN** a biblioteca principal esta aberta
-- **THEN** o usuario ve as abas `Todos os jogos`, `Mais Jogados`, `Favoritos`, `Jogando` e `Concluido`
+- **THEN** o usuario encontra na sidebar as colecoes `Todos os jogos`, `Mais Jogados`, `Favoritos`, `Jogando` e `Concluido`
 
 #### Scenario: Ordenacao completa
 
@@ -49,7 +50,7 @@ A sidebar SHALL alternar entre `library` e `inventory`, mantendo branding no top
 #### Scenario: Abrir configuracoes pela sidebar
 
 - **WHEN** o usuario clica em `Configuracoes`
-- **THEN** o SettingsModal abre na secao `biblioteca`
+- **THEN** o modal abre na secao `sobre`
 
 ### Requirement: Visualizacoes da biblioteca
 
@@ -76,16 +77,16 @@ A busca SHALL filtrar por titulo e combinar com plataforma, genero, colecao, ord
 
 ### Requirement: SettingsModal
 
-O modal de configuracoes SHALL navegar entre as secoes `plataformas`, `emuladores`, `biblioteca`, `covers`, `partidas`, `backup` e `sobre`.
+O modal de configuracoes SHALL navegar entre as secoes `plataformas`, `emuladores`, `biblioteca`, `covers`, `partidas`, `backup`, `logs` e `sobre`.
 
 #### Scenario: Abrir importador de pastas
 
-- **WHEN** o canal `romFolderImport:openImporter` e recebido
+- **WHEN** a ação de navegação para o importador é acionada
 - **THEN** o modal abre na secao `biblioteca`
 
 #### Scenario: Abrir gerenciador de plataformas
 
-- **WHEN** o canal `library:openPlatformManager` e recebido
+- **WHEN** a ação de navegação para plataformas é acionada
 - **THEN** o modal abre na secao `plataformas`
 
 #### Scenario: Secao de backup
@@ -106,3 +107,55 @@ O NotificationCenter SHALL consolidar jobs em background de importacao de ROMs, 
 
 - **WHEN** um job termina com sucesso ou falha
 - **THEN** o card correspondente passa a mostrar o resumo final e pode ser descartado pelo usuario
+
+### Requirement: Fidelidade visual entre runtimes
+
+O sistema SHALL preservar a identidade do aplicativo atual, incluindo cores, tipografia efetiva da referência por SO, ícones Lucide, layouts, imagens, espaçamentos, estados e efeitos. Capturas comparativas SHALL usar os mesmos dados, resolução e escala, sem redesenho implícito durante a migração.
+
+#### Scenario: Comparação da biblioteca
+- **WHEN** biblioteca, lista, detalhe, inventário e configurações são comparados com a referência Electron
+- **THEN** os tokens visuais coincidem, a geometria estática difere no máximo 2 pixels lógicos e não há cortes, sobreposição indevida ou controles inacessíveis
+
+#### Scenario: Variação de tamanho e escala
+- **WHEN** o app é usado em 1024x768, 1122x957 e 1920x1080, nas escalas 100%, 125% e 150%
+- **THEN** os fluxos continuam utilizáveis e diferenças de rasterização são registradas separadamente das diferenças de layout
+
+#### Scenario: Efeitos do tema
+- **WHEN** overlays, cards e navegação exibem gradientes, sombras, transparência e desfoque
+- **THEN** a composição mantém o efeito visual de referência nos sistemas suportados, sem substituição silenciosa por outro estilo
+
+### Requirement: Modais internos e interacoes preservadas
+
+O sistema SHALL manter formulários, confirmações e assistentes como overlays arrastáveis na janela principal, com escurecimento por camada e ações à direita. Controles interativos SHALL preservar clique, seleção e foco sem iniciar drag.
+
+#### Scenario: Arrastar modal empilhado
+- **WHEN** o usuário arrasta o corpo de um modal sobre outro
+- **THEN** o modal superior se move dentro da área visível, a camada inferior fica escurecida e seus controles não recebem interação indevida
+
+#### Scenario: Teclado e controles
+- **WHEN** o usuário navega por Tab, usa Escape ou interage com um campo de formulário
+- **THEN** foco e fechamento seguem o fluxo existente, sem iniciar arraste ou perder dados indevidamente
+
+### Requirement: Controles independentes de colecoes
+
+Biblioteca e inventário SHALL oferecer busca, ordenação, contador e visualizações cards/lista, mantendo suas preferências independentes e os padrões de altura e alinhamento da barra de busca atual.
+
+#### Scenario: Alternar visualização do inventário
+- **WHEN** o usuário muda o inventário de cards para lista
+- **THEN** a biblioteca conserva sua própria visualização e os contadores refletem o conjunto filtrado de cada coleção
+
+### Requirement: Preservação do design e layout aprovados
+
+O sistema SHALL tratar a interface Qt/QML atual como referência visual aprovada pelo usuário. Correções e funcionalidades SHALL reutilizar Theme.qml e componentes existentes, preservando identidade, hierarquia, densidade, geometria, efeitos e organização das telas. Redesenho SHALL depender de solicitação explícita.
+
+#### Scenario: Manutenção de uma tela existente
+- **WHEN** uma correção ou funcionalidade é adicionada
+- **THEN** cores, Inter local, ícones Lucide locais, espaçamentos, cards/lista e navegação permanecem consistentes com a interface aprovada
+
+#### Scenario: Divergência entre guia e implementação aprovada
+- **WHEN** uma descrição histórica difere da geometria atual
+- **THEN** a implementação nativa e Theme.qml são a referência efetiva, incluindo sidebar de 240 px, fundo #131313 e busca de 34 px com máximo 480 px, sem redesenho implícito
+
+#### Scenario: Verificação visual de mudança
+- **WHEN** uma alteração afeta a interface
+- **THEN** capturas com perfil sintético, mesma resolução e escala são comparadas com artifacts/native-migration, verificando ausência de cortes, sobreposições e perda de acesso aos controles

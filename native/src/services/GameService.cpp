@@ -1,5 +1,8 @@
 /** Implementação da fachada da biblioteca; toda a SQL fica nos DAOs. */
 #include "GameService.h"
+#include <QImageReader>
+#include <QSaveFile>
+#include <QUuid>
 
 #include "app/DataPaths.h"
 #include "db/LibraryFilterState.h"
@@ -67,6 +70,21 @@ QString allowedDirectory(const QString& root, const QString& directory) {
     if (canonicalRoot.isEmpty() || canonicalDirectory.isEmpty()) return {};
     const QString prefix = canonicalRoot.endsWith(QLatin1Char('/')) ? canonicalRoot : canonicalRoot + QLatin1Char('/');
     return canonicalDirectory.startsWith(prefix, Qt::CaseSensitive) ? canonicalDirectory : QString();
+}
+/** Copia imagens locais selecionadas por caminho, preservando referências legadas ausentes. */
+bool importExternalGameImages(GameService* service, const QString& root, QVariantMap* values, QString* error) {
+    for (const QString& key : {QStringLiteral("box_art_path"), QStringLiteral("background_path"), QStringLiteral("screenshot_path")}) {
+        const QString path = values->value(key).toString();
+        // Campos ausentes ou caminhos antigos indisponíveis não devem bloquear outras edições.
+        if (path.isEmpty() || !QFileInfo(path).isFile() || !validatedMediaPath(root, path).isEmpty()) continue;
+        const QVariantMap imported = service->importImage(QUrl::fromLocalFile(QFileInfo(path).absoluteFilePath()));
+        if (!imported.value("success").toBool()) {
+            if (error) *error = imported.value("error").toString();
+            return false;
+        }
+        values->insert(key, imported.value("path"));
+    }
+    return true;
 }
 } // namespace
 
@@ -299,7 +317,8 @@ QVariantMap GameService::create(const QVariantMap& input) {
     GameWriteDao dao(connection_.database());
     qint64 id = 0;
     QString error;
-    if (!dao.create(input, &id, &error)) {
+    QVariantMap values = input;
+    if (!importExternalGameImages(this, mediaRoot_, &values, &error) || !dao.create(values, &id, &error)) {
         error_ = error;
         emit changed();
         return {};
@@ -317,7 +336,8 @@ bool GameService::update(qint64 id, const QVariantMap& changes) {
     }
     GameWriteDao dao(connection_.database());
     QString error;
-    if (!dao.update(id, changes, &error)) {
+    QVariantMap values = changes;
+    if (!importExternalGameImages(this, mediaRoot_, &values, &error) || !dao.update(id, values, &error)) {
         error_ = error;
         emit changed();
         return false;
@@ -394,6 +414,54 @@ QVariantList GameService::listMedia(qint64 id) {
 
 QString GameService::mediaUrl(const QString& path) const {
     return GameListModel::coverUrl(path);
+}
+
+QVariantMap GameService::importImage(const QUrl& source) {
+    // Seleção explícita permite ler a origem externa; somente a cópia interna é exposta ao QML.
+    const QString path = source.toLocalFile();
+    QImageReader reader(path);
+    reader.setDecideFormatFromContent(true);
+    const QByteArray format = reader.format().toLower();
+    if (!source.isLocalFile() || mediaRoot_.isEmpty() || !reader.canRead()
+        || !QList<QByteArray>{"png", "jpg", "jpeg", "webp"}.contains(format))
+        return {{"success", false}, {"error", QStringLiteral("Selecione uma imagem PNG, JPEG ou WebP válida.")}};
+    const QString existing = validatedMediaPath(mediaRoot_, path);
+    if (!existing.isEmpty()) return {{"success", true}, {"path", path}};
+    const QString directory = QDir(mediaRoot_).filePath(QStringLiteral("images/manual"));
+    const QString target = QDir(directory).filePath(QUuid::createUuid().toString(QUuid::WithoutBraces)
+        + QLatin1Char('.') + QString::fromLatin1(format));
+    if (!QDir().mkpath(directory) || !QFile::copy(path, target))
+        return {{"success", false}, {"error", QStringLiteral("Não foi possível copiar a capa para o perfil.")}};
+    return {{"success", true}, {"path", target}};
+}
+
+QVariantMap GameService::saveImage(const QString& sourcePath, const QUrl& destination) {
+    // A origem é canônica e restrita ao perfil; o destino vem da escolha explícita do usuário.
+    const auto failure = [](const QString& message) {
+        return QVariantMap{{"success", false}, {"error", message}};
+    };
+    const QString source = validatedMediaPath(mediaRoot_, sourcePath);
+    if (source.isEmpty() || !QImageReader(source).canRead())
+        return failure(QStringLiteral("Imagem de origem inválida ou fora do perfil."));
+    const QString target = destination.toLocalFile();
+    if (!destination.isLocalFile() || !QDir::isAbsolutePath(target))
+        return failure(QStringLiteral("Escolha um arquivo local para salvar a imagem."));
+    if (QFileInfo(source).canonicalFilePath() == QFileInfo(target).canonicalFilePath())
+        return {{"success", true}, {"path", target}};
+    QFile input(source);
+    QSaveFile output(target);
+    if (!input.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly))
+        return failure(QStringLiteral("Não foi possível abrir o arquivo para salvar a imagem."));
+    // A substituição atômica preserva um destino existente se ocorrer falha durante a cópia.
+    while (!input.atEnd()) {
+        const QByteArray block = input.read(64 * 1024);
+        if (input.error() != QFileDevice::NoError || output.write(block) != block.size()) {
+            output.cancelWriting();
+            return failure(QStringLiteral("Falha ao copiar a imagem; o destino anterior foi preservado."));
+        }
+    }
+    if (!output.commit()) return failure(QStringLiteral("Não foi possível concluir o salvamento da imagem."));
+    return {{"success", true}, {"path", target}};
 }
 
 QVariantList GameService::listVersions(qint64 id) {

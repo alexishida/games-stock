@@ -224,6 +224,8 @@ int main(int argc, char* argv[]) {
     parser.addOption(QCommandLineOption("open-settings", "Abre configurações no início para captura visual."));
     parser.addOption(QCommandLineOption("open-stacked", "Abre um segundo modal sobre configurações para comparar o backdrop empilhado."));
     parser.addOption(QCommandLineOption("open-detail", "Abre o detalhe do primeiro jogo para captura visual."));
+    // A galeria tem captura própria para validar ampliação sem usar dados pessoais.
+    parser.addOption(QCommandLineOption("open-gallery", "Abre o visualizador de imagens do primeiro jogo para captura."));
     parser.addOption(QCommandLineOption("open-detail-edit", "Abre o detalhe e o formulário de edição do primeiro jogo."));
     parser.addOption(QCommandLineOption("open-detail-versions", "Abre o detalhe e o seletor de versões do primeiro jogo."));
     parser.addOption(QCommandLineOption("open-platforms", "Abre Configurações na seção de plataformas."));
@@ -249,6 +251,8 @@ int main(int argc, char* argv[]) {
     parser.addOption(QCommandLineOption("open-logs", "Abre Configurações na seção de logs."));
     parser.addOption(QCommandLineOption("open-backup", "Abre Configurações na seção de backup."));
     parser.addOption(QCommandLineOption("update-splash-preview", "Mostra a splash de atualização para captura."));
+    // A prévia de abertura não consulta a rede nem exige um perfil populado.
+    parser.addOption(QCommandLineOption("startup-splash-preview", "Mantém a splash de abertura visível para captura."));
     parser.addOption(QCommandLineOption("no-backdrop-blur", "Desativa o blur somente para comparação de diagnóstico."));
     parser.addOption(QCommandLineOption("backdrop-blur", "Sobrescreve o raio do desfoque para medição reproduzível.", "radius"));
     parser.addOption(QCommandLineOption("shadow-blur", "Sobrescreve o raio da sombra dos cards para medição reproduzível.", "radius"));
@@ -300,6 +304,20 @@ int main(int argc, char* argv[]) {
     for (const auto* screen : QGuiApplication::screens()) screens.append(screen->availableGeometry());
     const QString boundsFile = QDir(profile).filePath("window-bounds.json");
     const QRect bounds = gamestock::loadWindowGeometry(boundsFile, screens);
+    // A splash tem engine próprio para aparecer antes de qualquer leitura do banco.
+    // Capturas normais continuam reproduzíveis; a prévia usa apenas o perfil sintético.
+    QQmlApplicationEngine splashEngine;
+    QQuickWindow* startupSplash = nullptr;
+    if ((!parser.isSet("capture") && !parser.isSet("startup-report")
+            && !parser.isSet("effect-benchmark")) || parser.isSet("startup-splash-preview")) {
+        splashEngine.setInitialProperties({{"buildLabel", QCoreApplication::applicationVersion()}});
+        splashEngine.loadFromModule("GameStock", "StartupSplash");
+        if (!splashEngine.rootObjects().isEmpty())
+            startupSplash = qobject_cast<QQuickWindow*>(splashEngine.rootObjects().first());
+        // Entrega a exposição ao sistema antes do bootstrap síncrono dos serviços.
+        app.processEvents();
+        if (startupSplash) startupSplash->grabWindow();
+    }
     gamestock::FixtureLibrary fixtureLibrary;
     // O serviço deve sobreviver ao engine que guarda sua referência de contexto.
     QQmlApplicationEngine engine;
@@ -528,6 +546,7 @@ int main(int argc, char* argv[]) {
         {"prototypeSettingsOpen", parser.isSet("open-settings")},
         {"prototypeStackedOpen", parser.isSet("open-stacked")},
         {"prototypeDetailOpen", parser.isSet("open-detail")},
+        {"prototypeGalleryOpen", parser.isSet("open-gallery")},
         {"prototypeDetailEdit", parser.isSet("open-detail-edit")},
         {"prototypeDetailVersions", parser.isSet("open-detail-versions")},
         {"prototypePlatformsOpen", parser.isSet("open-platforms")},
@@ -561,11 +580,31 @@ int main(int argc, char* argv[]) {
         {"prototypeShadowBlur", parser.value("shadow-blur").toInt()},
         {"prototypeModalShadowBlur", parser.value("modal-shadow-blur").toInt()},
         {"buildLabel", buildLabel}});
+    // Inicia a verificação antes da primeira apresentação para evitar um flash da biblioteca.
+    if (!parser.isSet("capture") && !parser.isSet("startup-splash-preview")
+            && channelInfo.channel == QLatin1String("installed")) updateService.startupCheck();
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(4); }, Qt::QueuedConnection);
     engine.loadFromModule("GameStock", "Main");
     if (engine.rootObjects().isEmpty()) return 4;
     auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     if (!window) return 4;
+    // A janela principal só substitui a abertura depois de apresentar seu primeiro quadro.
+    if (startupSplash) {
+        if (parser.isSet("startup-splash-preview")) {
+            window->hide();
+            const QString previewCapture = parser.value("capture");
+            if (!previewCapture.isEmpty()) {
+                QTimer::singleShot(300, startupSplash, [startupSplash, previewCapture] {
+                    const QImage image = startupSplash->grabWindow();
+                    QCoreApplication::exit(!image.isNull() && image.save(previewCapture) ? 0 : 5);
+                });
+            }
+        } else {
+            QObject::connect(window, &QQuickWindow::frameSwapped, startupSplash,
+                [startupSplash] { startupSplash->hide(); },
+                static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
+        }
+    }
 #ifdef Q_OS_WIN
     // O tema do Qt nem sempre altera a moldura Win32; DWM mantém o título escuro.
     const HWND nativeWindow = reinterpret_cast<HWND>(window->winId());
@@ -620,10 +659,6 @@ int main(int argc, char* argv[]) {
                     file.write(QJsonDocument(output).toJson(QJsonDocument::Compact));
                 QCoreApplication::quit();
             }, Qt::SingleShotConnection);
-    }
-    // A verificação automática pertence à instalação Windows; capturas não acessam a rede.
-    if (capture.isEmpty() && channelInfo.channel == QLatin1String("installed")) {
-        QTimer::singleShot(300, &updateService, &gamestock::UpdateService::startupCheck);
     }
     if (!geometryReport.isEmpty() && capture.isEmpty()) {
         qCritical("--geometry-report exige --capture.");

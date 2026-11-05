@@ -18,7 +18,7 @@ autoriza apagar dados do usuário: o retorno sempre parte de um snapshot explíc
 | Snapshots | `<perfil>/backups/pre-migration-<UTC>.db` |
 | Geometria da janela | `<perfil>/window-bounds.json` |
 | Lock | `<perfil>/gamestock.lock` |
-| Log do protótipo | `<perfil>/native-prototype.log` |
+| Log da aplicação | `<perfil>/native-prototype.log` |
 
 O caminho é resolvido por `DataPaths` (nunca por `QStandardPaths`), porque o usuário pode ter o
 aplicativo instalado em modo portátil e apontado por override.
@@ -40,14 +40,14 @@ O arquivo `gamestock.lock` é JSON compacto, criado com `QIODevice::NewOnly` (O_
   release atrasado não apaga um lock retomado por outro processo.
 - Lock ilegível (processo caiu durante a escrita) é descartado e recriado.
 
-O lado Electron precisa executar o mesmo protocolo antes de tocar no perfil. Essa ponte é a tarefa
-10.4; até ela existir, a detecção de um Electron antigo depende de o Electron respeitar o arquivo —
-por isso o corte continua bloqueado.
+O C++ mantém o lock entre instâncias nativas. Um Electron antigo que não implementa esse
+protocolo não é bloqueado pelo arquivo; feche-o antes de abrir o novo aplicativo. A ponte
+Electron não integra a distribuição atual, e o backend de referência foi removido.
 
 `ProfileLock::processAlive` usa `OpenProcess`/`GetExitCodeProcess` no Windows e `kill(pid, 0)` no
 Linux/macOS. Reutilização de PID é aceitável: o processo vivo apenas mantém o lock.
 
-No protótipo, `main.cpp` adquire o lock (`runtime = "qt"`) antes de abrir qualquer banco e o libera
+No aplicativo, `main.cpp` adquire o lock (`runtime = "qt"`) antes de abrir qualquer banco e o libera
 no encerramento; um segundo processo recebe erro e código 8.
 
 ## Política de migration

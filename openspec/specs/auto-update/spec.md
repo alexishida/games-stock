@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # auto-update Specification
 
 ## Purpose
@@ -6,42 +7,45 @@ Atualizar instalacoes Windows via manifesto assinado publicado em GitHub Release
 
 ## Requirements
 
-### Requirement: Fonte padrao electron-builder no GitHub
+### Requirement: Distribuicao nativa e transicao de instalacoes existentes
 
-O sistema SHALL usar `electron-updater` com provider GitHub configurado para `alexishida/games-stock`. O build Windows SHALL gerar `app-update.yml`, `latest.yml`, instalador NSIS e arquivo `.blockmap` sem empacotamento customizado de ZIP.
+O sistema SHALL distribuir instalador NSIS e pacote portátil Windows nativos por releases de `alexishida/games-stock`, sem dependência de runtime Node/Electron. O Qt é distribuído como instalação nova; ponte electron-updater, latest.yml e blockmap não são requisitos da distribuição atual. Atualizações SHALL preservar o perfil existente.
 
-#### Scenario: Release publicada
+#### Scenario: Pacotes locais
+- **WHEN** o mantenedor gera os pacotes Windows
+- **THEN** instalador e portátil ficam em release/ sem publicação automática
 
-- **WHEN** mantenedor executa `npm run dist:windows`
-- **THEN** arquivos padrao do electron-builder sao escritos em `release/` e podem ser enviados sem renomear para GitHub Release publica
+#### Scenario: Manifesto disponível
+- **WHEN** a instalação NSIS consulta o feed
+- **THEN** o updater nativo lê latest.json assinado e valida versão, assinatura e integridade antes de executar o instalador
 
-#### Scenario: Metadados disponiveis
-
-- **WHEN** instalacao NSIS verifica atualizacao
-- **THEN** electron-updater le `latest.yml` da ultima GitHub Release e usa instalador correspondente
+#### Scenario: Continuidade dos dados
+- **WHEN** uma versão nativa é instalada sobre uma instalação existente
+- **THEN** o banco, mídias e preferências do perfil são preservados
 
 ### Requirement: Atualizacao automatica somente para NSIS Windows
 
-O sistema SHALL verificar, baixar e instalar atualizacao somente em instalacao Windows empacotada por NSIS. Build portatil e plataformas Linux SHALL informar atualizacao externa.
+O sistema SHALL verificar, baixar e instalar atualização somente em instalação Windows empacotada por NSIS. Build portátil e plataformas Linux SHALL informar atualização externa.
 
 #### Scenario: Nova versao NSIS
-
-- **WHEN** `latest.yml` descreve versao mais nova que a instalada
-- **THEN** updater baixa instalador, emite progresso, encerra app e executa instalacao padrao
+- **WHEN** o manifesto nativo validado descreve versão mais nova que a instalada
+- **THEN** o updater baixa o instalador, emite progresso e solicita encerramento controlado para aplicar a instalação
 
 #### Scenario: Build portatil ou Linux
-
-- **WHEN** usuario busca atualizacao fora de instalacao NSIS Windows
-- **THEN** app nao baixa nem executa instalador e informa distribuicao manual pela release
+- **WHEN** o usuário busca atualização fora de instalação NSIS Windows
+- **THEN** o app informa versão e release disponíveis sem baixar ou executar instalador
 
 ### Requirement: Integridade de artefatos
 
-O sistema SHALL confiar em SHA-512 e blockmaps contidos nos metadados gerados pelo electron-builder. `latest.yml`, instalador e `.blockmap` SHALL pertencer a mesma build.
+O sistema SHALL validar assinatura do manifesto nativo com chave confiável e hash/tamanho do instalador antes de executá-lo. Falhas SHALL manter instalação e dados atuais.
 
 #### Scenario: Asset inconsistente
+- **WHEN** assinatura, hash, tamanho ou identidade de plataforma não correspondem ao pacote
+- **THEN** a instalação é recusada e um erro local é registrado sem substituir a versão atual
 
-- **WHEN** checksum ou metadados de release nao correspondem ao instalador
-- **THEN** electron-updater falha sem substituir instalacao atual e app registra erro local
+#### Scenario: Download interrompido
+- **WHEN** a transferência do instalador não termina
+- **THEN** o arquivo incompleto não é executado e o aplicativo permanece utilizável
 
 ### Requirement: Disponibilidade do aplicativo
 

@@ -1,3 +1,4 @@
+<!-- Contrato atual consolidado da implementação nativa; histórico preservado em changes/. -->
 # platform-manager Specification
 
 ## Purpose
@@ -18,9 +19,9 @@ O sistema SHALL persistir plataformas com `id`, `name`, `category`, `is_default`
 - **WHEN** o usuario tenta criar plataforma com nome ja existente
 - **THEN** o sistema retorna erro de duplicidade
 
-### Requirement: CRUD via IPC
+### Requirement: CRUD do desktop
 
-O namespace `window.gameStockAPI.platforms` SHALL expor `list`, `create`, `update`, `delete`, `getMappings` e `saveMappings`.
+O serviço desktop de plataformas SHALL oferecer as operações `list`, `create`, `update`, `delete`, `getMappings` e `saveMappings`.
 
 #### Scenario: Listagem com contagem
 

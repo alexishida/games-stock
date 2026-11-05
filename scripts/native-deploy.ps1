@@ -1,4 +1,4 @@
-<#
+﻿<#
 Publica as dependências do Qt ao lado do executável e copia o 7-Zip.
 Uso:
   powershell -ExecutionPolicy Bypass -File scripts/native-deploy.ps1
@@ -49,15 +49,17 @@ Write-Host "Deployando Qt para $target ..."
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao executar windeployqt.' }
 
 # O 7-Zip não faz parte do Qt e precisa ser distribuído junto do executável.
-$sevenZip = Join-Path $root 'node_modules/7zip-bin/win/x64/7za.exe'
-$sevenZipLicense = Join-Path $root 'node_modules/7zip-bin/LICENSE.txt'
+$sevenZip = Join-Path $root 'native/third_party/7zip/win/x64/7za.exe'
+$sevenZipLicense = Join-Path $root 'native/third_party/7zip/LICENSE-7zip.txt'
 if (-not (Test-Path -LiteralPath $sevenZip)) {
-    throw '7za.exe não encontrado em node_modules/7zip-bin.'
+    throw '7za.exe não encontrado em native/third_party/7zip.'
 }
 $tools = Join-Path $target 'tools'
 New-Item -ItemType Directory -Force -Path $tools | Out-Null
 Copy-Item -LiteralPath $sevenZip -Destination (Join-Path $tools '7za.exe') -Force
 Copy-Item -LiteralPath $sevenZipLicense -Destination (Join-Path $tools 'LICENSE-7zip.txt') -Force
+# O binário LGPL leva também o texto integral da licença.
+Copy-Item -LiteralPath (Join-Path $root 'native/third_party/7zip/COPYING-LGPL.txt') -Destination $tools -Force
 
 # O windeployqt não copia o runtime C++ quando o terminal não está no Developer Prompt.
 $vcRoots = @(

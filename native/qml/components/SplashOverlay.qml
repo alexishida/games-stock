@@ -10,13 +10,18 @@ Item {
     id: splash
     objectName: "updateSplash"
     property var updateService: null
+    /* A abertura independe do updater, inclusive no canal portátil e sem rede. */
+    property bool starting: false
+    property string buildLabel: ""
     property real offsetX: 0
     property real offsetY: 0
     anchors.fill: parent
     z: 100
-    visible: updateService !== null && updateService !== undefined && updateService.startupVisible
+    visible: starting || (updateService !== null && updateService !== undefined && updateService.startupVisible)
 
-    Rectangle { anchors.fill: parent; color: Theme.scrim }
+    Rectangle { anchors.fill: parent; color: splash.starting ? Theme.background : Theme.scrim }
+    /* A splash bloqueia a biblioteca enquanto a apresentação inicial está visível. */
+    MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: function(wheel) { wheel.accepted = true } }
 
     Rectangle {
         id: card
@@ -62,7 +67,7 @@ Item {
                     spacing: 2
                     UiText { text: "GAMES MANAGEMENT"; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 1.2 }
                     UiText { text: "GameStock"; color: Theme.text; font.pixelSize: 22; textWeight: Font.Black }
-                    UiText { text: "v" + (splash.updateService ? splash.updateService.appVersion : ""); color: Theme.secondary; font.pixelSize: 12 }
+                    UiText { text: "v" + (splash.buildLabel || (splash.updateService ? splash.updateService.appVersion : "")); color: Theme.secondary; font.pixelSize: 12 }
                 }
             }
 
@@ -71,10 +76,19 @@ Item {
             UiText {
                 objectName: "updateSplashMessage"
                 Layout.fillWidth: true
-                text: splash.updateService ? splash.updateService.message : ""
+                text: splash.starting ? "Iniciando GameStock…" : (splash.updateService ? splash.updateService.message : "")
                 color: Theme.text
                 font.pixelSize: 13
                 wrapMode: Text.WordWrap
+            }
+            ProgressBar {
+                Layout.fillWidth: true
+                /* A verificação não informa percentual; o download usa a barra real abaixo. */
+                visible: splash.starting || (splash.updateService && splash.updateService.phase === "checking")
+                indeterminate: visible
+                Accessible.name: splash.starting ? "Iniciando GameStock" : "Verificando atualizações"
+                background: Rectangle { implicitHeight: 4; color: Theme.control; radius: 2 }
+                palette.highlight: Theme.accent
             }
             UiText {
                 objectName: "updateSplashDetail"

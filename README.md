@@ -1,9 +1,10 @@
+<!-- Projeto oficial nativo; os relatórios da migração são referências históricas. -->
 # GameStock
 
 GameStock é um aplicativo desktop para Windows e Linux que organiza bibliotecas de jogos retrô,
 ROMs, capas, metadados e inventário físico. O runtime oficial é **C++20 + Qt 6 Quick/QML**, com
-SQLite local via QSQLITE. O runtime Electron/React foi retirado do repositório no corte; o backend
-congelado em `tools/legacy-runtime/` existe apenas para fixtures e compatibilidade de dados.
+SQLite local via QSQLITE. Electron/React e seu backend de referência foram removidos. A compatibilidade é verificada por
+fixtures SQL e backups sintéticos congelados, sem manter o projeto antigo.
 
 Versão atual: **1.1.5**.
 
@@ -52,8 +53,8 @@ desinstalação. Não é necessário Node.js, Qt ou Visual Studio para executar.
 ## Desenvolvimento
 
 Requisitos: Windows 11 + MSVC 2022 x64, CMake 3.25+, Qt 6.8.3 local em
-`.native-tools/Qt/6.8.3/msvc2022_64`. Node/npm são usados apenas por ferramentas de fixture,
-comparação e assinatura local.
+`.native-tools/Qt/6.8.3/msvc2022_64`. Python 3 com biblioteca padrão é usado apenas pelas ferramentas de fixtures.
+Não há dependência de Node, npm ou Electron no build, nos testes ou na distribuição.
 
 ```powershell
 cmake --preset windows-msvc -S native
@@ -67,13 +68,34 @@ Deploy local, instalador e assinatura:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/native-deploy.ps1 -SkipBuild
-powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1 -SkipDeploy
+powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1
 powershell -ExecutionPolicy Bypass -File scripts/native-sign-update.ps1 `
   -PayloadPath update-payload.json -OutputPath latest.json
 ```
 
 O app abre o perfil real por padrão. Para testes use `--profile-dir` e `--fixture-db` com uma cópia
-sintética. O script `scripts/native-run.cmd` inicia o perfil de desenvolvimento.
+sintética. O atalho `scripts/native-run.cmd` abre o mesmo perfil existente do usuário; não cria uma biblioteca de teste silenciosamente.
+
+## Reaproveitar os dados existentes
+
+O aplicativo resolve o mesmo caminho do Electron: `%APPDATA%/gamestock` no Windows,
+ou `GAMESTOCK_USER_DATA_DIR` quando definido. Jogos, IDs, mídias, emuladores, pastas e
+preferências permanecem nesse perfil. Não é preciso mover a pasta, exportar ou reimportar.
+Feche o aplicativo antigo antes de abrir o novo.
+
+A abertura foi validada em cópia do perfil existente, com comparação das 12 tabelas, sem
+alterar o banco original. Veja o [relatório](docs/native-migration/current-project-audit.md).
+Para abrir pelo workspace: `scripts/native-run.cmd`. Para uma cópia de teste, use
+`--profile-dir <diretorio>`. Não use fixtures para testar sobre seu perfil pessoal.
+
+## Organização
+
+- `native/`: aplicativo C++/QML, testes, assets e dependências vendorizadas.
+- `scripts/`: execução, testes, fixtures e distribuição; [guia de comandos](scripts/README.md).
+- `docs/`: documentação e evidências; [índice](docs/README.md).
+- `openspec/`: contratos atuais e histórico das mudanças.
+- `screenshot/` e `materiais/`: capturas publicáveis e materiais da marca.
+- `.native-tools/`, `native/build/`, `release/` e `artifacts/`: ferramentas e saídas locais ignoradas pelo Git.
 
 ## Atualizações
 
