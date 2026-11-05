@@ -27,7 +27,8 @@ Item {
     }
 
     onVisibleChanged: if (visible && logs.settingsService) logs.settingsService.refreshLogs()
-    Component.onCompleted: if (logs.settingsService) logs.settingsService.refreshLogs()
+    /* O log pode ser grande; a biblioteca não precisa lê-lo durante o boot. */
+    Component.onCompleted: if (visible && logs.settingsService) logs.settingsService.refreshLogs()
 
     ColumnLayout {
         anchors.fill: parent

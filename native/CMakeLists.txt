@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.25)
 project(GameStockNative VERSION 1.1.5 LANGUAGES CXX)
 
-find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Svg Test QuickDialogs2)
+find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Svg Test QuickDialogs2 Concurrent)
 qt_standard_project_setup(REQUIRES 6.8)
 include(CTest)
 # Linux usa ferramenta do sistema quando retomado; o pacote Windows é vendorizado.
@@ -99,6 +99,7 @@ qt_add_library(gamestock_core STATIC
     src/models/HardwareItemListModel.cpp src/models/HardwareItemListModel.h
     src/models/JobListModel.cpp src/models/JobListModel.h
     src/services/GameService.cpp src/services/GameService.h
+    src/services/LibraryQueryWorker.cpp src/services/LibraryQueryWorker.h
     src/services/PlatformService.cpp src/services/PlatformService.h
     src/services/EmulatorService.cpp src/services/EmulatorService.h
     src/services/LaunchService.cpp src/services/LaunchService.h
@@ -117,7 +118,7 @@ qt_add_library(gamestock_core STATIC
 target_compile_features(gamestock_core PUBLIC cxx_std_20)
 target_include_directories(gamestock_core PUBLIC src)
 target_compile_definitions(gamestock_core PRIVATE LIBARCHIVE_STATIC)
-target_link_libraries(gamestock_core PUBLIC Qt6::Core Qt6::Sql Qt6::Network Qt6::Gui archive_static)
+target_link_libraries(gamestock_core PUBLIC Qt6::Core Qt6::Sql Qt6::Network Qt6::Gui Qt6::Concurrent archive_static)
 if(WIN32)
     # BCrypt valida a assinatura ECDSA P-256 do manifesto de atualização.
     target_link_libraries(gamestock_core PRIVATE bcrypt)
@@ -128,6 +129,8 @@ target_sources(gamestock_native PRIVATE src/app/MediaReader.cpp src/app/MediaRea
 target_compile_features(gamestock_native PRIVATE cxx_std_20)
 target_link_libraries(gamestock_native PRIVATE gamestock_core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Svg Qt6::QuickDialogs2)
 if(WIN32)
+    # Abre o aplicativo gráfico sem criar uma janela de console no Windows.
+    set_target_properties(gamestock_native PROPERTIES WIN32_EXECUTABLE TRUE)
     # Psapi mede memória; DWM aplica a barra de título escura da janela nativa.
     target_link_libraries(gamestock_native PRIVATE psapi dwmapi)
 endif()
@@ -175,8 +178,10 @@ qt_add_qml_module(gamestock_native
         qml/components/LogsSettings.qml qml/components/AboutSettings.qml
         qml/components/DataPortabilitySettings.qml
         qml/components/SplashOverlay.qml
+        qml/components/StartupArtwork.qml
     # Ícones em tamanhos nativos mantêm nitidez na barra de título e na barra de tarefas.
-    RESOURCES assets/logo.png assets/favicon-16x16.png assets/favicon-32x32.png assets/favicon-96x96.png
+    # A mesma arte WebP local usada pela splash original do Electron.
+    RESOURCES assets/logo.png assets/gamestock-splash.webp assets/favicon-16x16.png assets/favicon-32x32.png assets/favicon-96x96.png
 )
 
 # Ícones locais são dados de desenho, sem componente React no runtime nativo.

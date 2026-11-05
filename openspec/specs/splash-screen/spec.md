@@ -9,7 +9,8 @@ Definir a splash imediata de bootstrap e o overlay de atualização do GameStock
 
 ### Requirement: Splash imediata de abertura
 
-O sistema SHALL apresentar StartupSplash.qml antes de abrir o banco e inicializar os serviços de domínio. A janela transitória SHALL ter 480x300 pixels lógicos, sem moldura, centralizada, com logomarca local, versão, mensagem de inicialização e indicador indeterminado, reutilizando SplashOverlay e Theme.qml.
+<!-- A abertura recupera a composição original do Electron sem depender de seu runtime. -->
+O sistema SHALL apresentar StartupSplash.qml antes de abrir o banco e inicializar os serviços de domínio. A janela transitória SHALL ter 640x400 pixels lógicos, sem moldura, centralizada, com a arte local gamestock-splash.webp preenchendo a janela, versão no canto superior direito e mensagem de inicialização no rodapé sobre gradiente escuro. StartupArtwork SHALL usar Theme.qml e o ícone local de atividade, sem um cartão adicional sobre a arte.
 
 #### Scenario: Abertura normal
 - **WHEN** o aplicativo inicia em desenvolvimento, instalação Windows ou modo Portátil

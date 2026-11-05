@@ -21,6 +21,8 @@ ApplicationWindow {
     required property var inventoryPreferences
     property var inventoryService: null
     property bool inventoryMode: false
+    /* A primeira entrada no inventário carrega os dados que a abertura adiou. */
+    onInventoryModeChanged: if (inventoryMode && inventoryService && typeof inventoryService.ensureLoaded === "function") inventoryService.ensureLoaded()
     property bool prototypeInventoryOpen: false
     property bool prototypeInventoryForm: false
     property bool prototypeInventoryNewType: false
@@ -92,7 +94,13 @@ ApplicationWindow {
     property var selectedGame: null
     /* Nulo cria um jogo; um mapa de catálogo abre a edição. */
     property var formGame: null
+    /* O formulário só é instanciado na primeira abertura. */
+    property bool formDialogLoaded: false
     property string settingsSection: "sobre"
+    /* As abas são criadas na primeira abertura e preservadas ao fechar o modal. */
+    readonly property var platformManager: settingsPages.item && settingsPages.item.platformsPanelLoader ? settingsPages.item.platformsPanelLoader.item : null
+    readonly property var emulatorManager: settingsPages.item && settingsPages.item.emulatorsPanelLoader ? settingsPages.item.emulatorsPanelLoader.item : null
+    readonly property var coverSettings: settingsPages.item && settingsPages.item.mediaPanelLoader ? settingsPages.item.mediaPanelLoader.item : null
     /* Modo banco usa a página do serviço nativo; a fixture continua servindo às capturas. */
     readonly property bool dbMode: gameService !== null && gameService !== undefined && gameService.available === true
     readonly property bool libraryService: dbMode || window.fixtureLibrary.enabled
@@ -130,16 +138,20 @@ ApplicationWindow {
         return ordered
     }
     property var catalog: dbMode ? window.gameService.items : (window.fixtureLibrary.enabled ? window.fixtureLibrary.games : prototypeCatalog)
-    /* Filtro de fixture serve à comparação visual; consultas SQL terão modelo C++ paginado. */
-    readonly property var visibleGames: catalog.filter(function(game) {
-        return window.dbMode || window.fixtureLibrary.enabled || !search.text || game.title.toLowerCase().includes(search.text.toLowerCase())
+    /* Filtro de fixture serve à comparação visual; em banco e fixture o catálogo já é a página. */
+    readonly property var visibleGames: (window.dbMode || window.fixtureLibrary.enabled) ? catalog : catalog.filter(function(game) {
+        return !search.text || game.title.toLowerCase().includes(search.text.toLowerCase())
     })
+    /* Índice por id evita varrer o catálogo a cada avaliação de selectedIndex/hasNext. */
+    readonly property var catalogIndexById: {
+        const map = ({})
+        for (let index = 0; index < window.catalog.length; index++) map[window.catalog[index].id] = index
+        return map
+    }
     readonly property int selectedIndex: {
         if (!window.selectedGame) return -1
-        for (let index = 0; index < window.catalog.length; index++) {
-            if (window.catalog[index].id === window.selectedGame.id) return index
-        }
-        return -1
+        const index = window.catalogIndexById[window.selectedGame.id]
+        return index === undefined ? -1 : index
     }
     readonly property bool hasPreviousGame: window.selectedIndex > 0 || window.currentPage > 1
     readonly property bool hasNextGame: window.selectedIndex >= 0
@@ -181,11 +193,11 @@ ApplicationWindow {
         listBody.positionViewAtBeginning()
     }
 
-    /* Abre o detalhe do jogo; a página reage à troca de `libraryGame`. */
+    /* O jogo aberto no detalhe; a página é criada junto com o primeiro detalhe. */
     function openGame(game) {
         if (!game) return
         window.selectedGame = game
-        detail.reload()
+        if (detailLoader.item) detailLoader.item.reload()
     }
 
     function closeGameDetail() {
@@ -222,12 +234,14 @@ ApplicationWindow {
 
     function openCreateForm() {
         window.formGame = null
-        gameForm.open()
+        window.formDialogLoaded = true
+        if (gameFormLoader.item) gameFormLoader.item.open()
     }
 
     function openEditForm(game) {
         window.formGame = game
-        gameForm.open()
+        window.formDialogLoaded = true
+        if (gameFormLoader.item) gameFormLoader.item.open()
     }
 
     /* Seleciona o jogo recém-salvo mesmo quando ele não está na página filtrada. */
@@ -236,7 +250,7 @@ ApplicationWindow {
         const saved = window.gameService.get(gameId)
         if (saved && saved.id) {
             window.selectedGame = saved
-            detail.reload()
+            if (detailLoader.item) detailLoader.item.reload()
         }
     }
 
@@ -631,7 +645,7 @@ ApplicationWindow {
                     primary: true
                     Layout.fillWidth: true
                     enabled: window.inventoryAvailable
-                    onClicked: inventoryPage.openCreate()
+                    onClicked: if (inventoryLoader.item) inventoryLoader.item.openCreate()
                 }
                 ActionButton { objectName: "openSettings"; sidebarAction: true; Layout.minimumHeight: 38; Layout.preferredHeight: 38; font.weight: Font.Black; text: "Configurações"; iconName: "settings"; primary: true; Layout.fillWidth: true; onClicked: settings.open() }
             }
@@ -908,19 +922,23 @@ ApplicationWindow {
                         ActionButton { objectName: "lastLibraryPage"; iconName: "chevrons-right"; pagination: true; enabled: window.currentPage * 36 < window.filteredTotal; Accessible.name: "Última página"; onClicked: window.goToLibraryPage(Math.ceil(window.filteredTotal / 36)) }
                     }
                 }
-                /* O detalhe substitui a coleção dentro da área principal, como no Electron. */
-                GameDetailPage {
-                    id: detail
+                /* O detalhe substitui a coleção e só é construído quando há jogo selecionado. */
+                Loader {
+                    id: detailLoader
                     visible: window.selectedGame !== null
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    active: window.selectedGame !== null
+                    sourceComponent: GameDetailPage {
+                    anchors.fill: parent
                     gameService: window.gameService
                     serviceMode: window.dbMode
                     launchService: window.launchService
                     libraryGame: window.selectedGame
                     hasPrevious: window.hasPreviousGame
                     hasNext: window.hasNextGame
-                    onCloseRequested: window.closeGameDetail()
+                    /* Fechar destrói o próprio Loader; o callLater evita apagar o item durante o sinal. */
+                    onCloseRequested: Qt.callLater(window.closeGameDetail)
                     onPreviousRequested: window.selectAdjacent(-1)
                     onNextRequested: window.selectAdjacent(1)
                     onEditRequested: function(game) { window.openEditForm(game) }
@@ -932,20 +950,26 @@ ApplicationWindow {
                         versions.options = window.gameService.listVersions(game.id)
                         versions.open()
                     }
+                    }
                 }
             }
-            /* O inventário ocupa a mesma coluna da biblioteca, com TopBar própria fixa. */
-            HardwareInventoryPage {
-                id: inventoryPage
+            /* O inventário só é construído ao entrar na seção; a carga de dados acompanha. */
+            Loader {
+                id: inventoryLoader
                 visible: window.inventoryMode
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                inventoryService: window.inventoryService
-                preferences: window.inventoryPreferences
-                platforms: window.platformCatalog
-                blurEnabled: !window.prototypeDisableBlur
-                modalShadowBlurMax: window.prototypeModalShadowBlur > 0 ? window.prototypeModalShadowBlur : Theme.shadowModalBlurMax
-                onBackdropBlurRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
+                active: window.inventoryMode
+                sourceComponent: HardwareInventoryPage {
+                    anchors.fill: parent
+                    visible: window.inventoryMode
+                    inventoryService: window.inventoryService
+                    preferences: window.inventoryPreferences
+                    platforms: window.platformCatalog
+                    blurEnabled: !window.prototypeDisableBlur
+                    modalShadowBlurMax: window.prototypeModalShadowBlur > 0 ? window.prototypeModalShadowBlur : Theme.shadowModalBlurMax
+                    onBackdropBlurRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
+                }
             }
         }
     }
@@ -956,8 +980,10 @@ ApplicationWindow {
         onTriggered: window.benchmarkPulse = !window.benchmarkPulse
     }
     /* O formulário cobre criação manual e edição com o mesmo serviço tipado. */
-    GameFormDialog {
-        id: gameForm
+    Loader {
+        id: gameFormLoader
+        active: window.formDialogLoaded
+        sourceComponent: GameFormDialog {
         gameService: window.gameService
         serviceMode: window.dbMode
         platforms: window.platformCatalog
@@ -968,8 +994,9 @@ ApplicationWindow {
         onClosed: window.formGame = null
         onSaved: function(gameId) { window.afterGameSaved(gameId) }
         onMetadataRequested: function(title, platformName) {
-            gameForm.close()
+            close()
             metadataImporter.openFor(title, platformName)
+        }
         }
     }
     ConfirmDialog {
@@ -1017,7 +1044,7 @@ ApplicationWindow {
             const selected = window.gameService.get(versionId)
             if (selected && selected.id) {
                 window.selectedGame = selected
-                detail.reload()
+                if (detailLoader.item) detailLoader.item.reload()
             }
         }
     }
@@ -1042,7 +1069,8 @@ ApplicationWindow {
         width: Math.min(960, parent.width - 48)
         height: Math.min(680, parent.height - 48)
         padding: 0
-        onClosed: platformManager.closeDialogs()
+        onAboutToShow: settingsPages.initialized = true
+        onClosed: if (window.platformManager) window.platformManager.closeDialogs()
         ActionButton {
             objectName: "closeSettings"
             iconName: "x-danger"
@@ -1124,7 +1152,7 @@ ApplicationWindow {
                             window.settingsSection = modelData.key
                             if (modelData.key === "emuladores" && window.emulatorService) window.emulatorService.refresh()
                             if (modelData.key === "partidas" && window.dbMode) window.gameService.refresh()
-                            if (modelData.key === "covers") coverSettings.refreshStats()
+                            if (modelData.key === "covers" && window.coverSettings) window.coverSettings.refreshStats()
                             if (modelData.key === "logs" && window.settingsService) window.settingsService.refreshLogs()
                             if (modelData.key === "sobre" && window.settingsService) window.settingsService.refreshStats()
                             if (modelData.key === "backup" && window.settingsService) window.settingsService.refreshStats()
@@ -1158,11 +1186,26 @@ ApplicationWindow {
                     verticalAlignment: Text.AlignVCenter
                     Layout.fillWidth: true
                 }
-                Item {
+                Loader {
+                    id: settingsPages
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    PlatformManager {
-                        id: platformManager
+                    /* Não instancia todas as telas de configuração antes do primeiro quadro. */
+                    property bool initialized: false
+                    active: initialized
+                    sourceComponent: Item {
+                    id: settingsContent
+                    /* Cada aba é criada na primeira visita e permanece ativa para preservar o estado. */
+                    property var visited: ({})
+                    property alias platformsPanelLoader: platformsPanelLoader
+                    property alias emulatorsPanelLoader: emulatorsPanelLoader
+                    property alias mediaPanelLoader: mediaPanelLoader
+                    Loader {
+                        id: platformsPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "plataformas" || settingsContent.visited["plataformas"] === true
+                        onActiveChanged: if (active) settingsContent.visited["plataformas"] = true
+                        sourceComponent: PlatformManager {
                         anchors.fill: parent
                         visible: window.settingsSection === "plataformas"
                         platformService: window.platformService
@@ -1170,9 +1213,14 @@ ApplicationWindow {
                         blurEnabled: !window.prototypeDisableBlur
                         onBackdropRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
                         onDeleteRequested: function(platform) { window.requestPlatformDelete(platform) }
+                        }
                     }
-                    EmulatorManager {
-                        id: emulatorManager
+                    Loader {
+                        id: emulatorsPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "emuladores" || settingsContent.visited["emuladores"] === true
+                        onActiveChanged: if (active) settingsContent.visited["emuladores"] = true
+                        sourceComponent: EmulatorManager {
                         anchors.fill: parent
                         visible: window.settingsSection === "emuladores"
                         emulatorService: window.emulatorService
@@ -1181,15 +1229,27 @@ ApplicationWindow {
                         blurEnabled: !window.prototypeDisableBlur
                         onBackdropRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
                         onDeleteRequested: function(emulator) { window.requestEmulatorDelete(emulator) }
+                        }
                     }
-                    PlayHistorySettings {
+                    Loader {
+                        id: playHistoryLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "partidas" || settingsContent.visited["partidas"] === true
+                        onActiveChanged: if (active) settingsContent.visited["partidas"] = true
+                        sourceComponent: PlayHistorySettings {
                         anchors.fill: parent
                         visible: window.settingsSection === "partidas"
                         gameService: window.gameService
                         serviceMode: window.dbMode
                         onResetRequested: window.requestResetStats()
+                        }
                     }
-                    RomFolderImporter {
+                    Loader {
+                        id: libraryPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "biblioteca" || settingsContent.visited["biblioteca"] === true
+                        onActiveChanged: if (active) settingsContent.visited["biblioteca"] = true
+                        sourceComponent: RomFolderImporter {
                         anchors.fill: parent
                         visible: window.settingsSection === "biblioteca"
                         romFolderService: window.romFolderService
@@ -1202,9 +1262,14 @@ ApplicationWindow {
                                 window.platformService.refresh()
                             }
                         }
+                        }
                     }
-                    CoverSyncSettings {
-                        id: coverSettings
+                    Loader {
+                        id: mediaPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "covers" || settingsContent.visited["covers"] === true
+                        onActiveChanged: if (active) settingsContent.visited["covers"] = true
+                        sourceComponent: CoverSyncSettings {
                         anchors.fill: parent
                         visible: window.settingsSection === "covers"
                         mediaSyncService: window.mediaSyncService
@@ -1212,27 +1277,47 @@ ApplicationWindow {
                         jobManager: window.jobManager
                         metadataService: window.metadataService
                         serviceMode: window.dbMode && window.mediaSyncService !== null && window.mediaSyncService !== undefined
+                        }
                     }
-                    DataPortabilitySettings {
+                    Loader {
+                        id: backupPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "backup" || settingsContent.visited["backup"] === true
+                        onActiveChanged: if (active) settingsContent.visited["backup"] = true
+                        sourceComponent: DataPortabilitySettings {
                         anchors.fill: parent
                         visible: window.settingsSection === "backup"
                         coordinator: window.backupCoordinator
                         settingsService: window.settingsService
                         serviceMode: window.backupCoordinator !== null && window.backupCoordinator !== undefined
                         blurEnabled: !window.prototypeDisableBlur
+                        }
                     }
-                    LogsSettings {
+                    Loader {
+                        id: logsPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "logs" || settingsContent.visited["logs"] === true
+                        onActiveChanged: if (active) settingsContent.visited["logs"] = true
+                        sourceComponent: LogsSettings {
                         anchors.fill: parent
                         visible: window.settingsSection === "logs"
                         settingsService: window.settingsService
+                        }
                     }
-                    AboutSettings {
+                    Loader {
+                        id: aboutPanelLoader
+                        anchors.fill: parent
+                        active: window.settingsSection === "sobre" || settingsContent.visited["sobre"] === true
+                        onActiveChanged: if (active) settingsContent.visited["sobre"] = true
+                        sourceComponent: AboutSettings {
                         anchors.fill: parent
                         anchors.topMargin: 42
                         visible: window.settingsSection === "sobre"
                         settingsService: window.settingsService
                         updateService: window.updateService
                         buildLabel: window.buildLabel
+                        }
+                    }
                     }
                 }
             }
@@ -1283,8 +1368,8 @@ ApplicationWindow {
         }
         if (prototypeCoversOpen) {
             window.settingsSection = "covers"
-            coverSettings.refreshStats()
             settings.open()
+            if (window.coverSettings) window.coverSettings.refreshStats()
         }
         if (window.prototypeLogsOpen) {
             window.settingsSection = "logs"
@@ -1300,7 +1385,8 @@ ApplicationWindow {
         if ((prototypeDetailOpen || prototypeDetailEdit || prototypeDetailVersions || prototypeGalleryOpen) && catalog.length > 0)
             window.openGame(catalog[0])
         if (prototypeGalleryOpen) Qt.callLater(function() {
-            if (detail.gallery.length > 0) detail.openImage(detail.gallery[0].path)
+            if (detailLoader.item && detailLoader.item.gallery.length > 0)
+                detailLoader.item.openImage(detailLoader.item.gallery[0].path)
         })
         // A camada secundária reproduz o backdrop de 4 px sobre o primeiro modal.
         if (prototypeStackedOpen) {
@@ -1317,27 +1403,38 @@ ApplicationWindow {
             versions.open()
         }
         // Estados de captura das telas de plataformas e emuladores usam o primeiro registro da fixture.
-        if (prototypePlatformNew) platformManager.openCreate()
-        if (prototypePlatformEdit && platformManager.platformService && platformManager.platformService.items.length > 0)
-            platformManager.openEdit(platformManager.platformService.items[0])
-        if (prototypePlatformMappings && platformManager.platformService && platformManager.platformService.items.length > 0)
-            platformManager.openMappings(platformManager.platformService.items[0])
-        var emulators = emulatorManager.orderedEmulators
-        if (prototypeEmulatorNew) emulatorManager.openCreate()
-        if (prototypeEmulatorEdit && emulators.length > 0) emulatorManager.openEdit(emulators[0])
-        if (prototypeEmulatorLinks && emulators.length > 0) emulatorManager.toggle(emulators[0])
-        if (prototypeEmulatorLink && emulators.length > 0) emulatorManager.openLink(emulators[0])
-        if (prototypeEmulatorCores && emulators.length > 0) emulatorManager.openCores(emulators[0])
-        if (window.prototypeInventoryForm) inventoryPage.openCreate()
-        if (window.prototypeInventoryNewType) {
-            inventoryPage.openCreate()
-            inventoryPage.showTypeInline()
-        }
-        if ((window.prototypeInventoryDetail || window.prototypeInventoryEdit || window.prototypeInventoryDelete)
-                && window.inventoryAvailable && window.inventoryService.items.length > 0) {
-            inventoryPage.openItem(window.inventoryService.items[0])
-            if (window.prototypeInventoryEdit) inventoryPage.openEdit(window.inventoryService.items[0])
-            if (window.prototypeInventoryDelete) inventoryPage.openDelete(window.inventoryService.items[0])
-        }
+        // A aba correspondente é criada ao abrir o modal; o callLater garante que o Loader já entregou o item.
+        Qt.callLater(function() {
+            if (window.platformManager) {
+                if (prototypePlatformNew) window.platformManager.openCreate()
+                if (prototypePlatformEdit && window.platformManager.platformService && window.platformManager.platformService.items.length > 0)
+                    window.platformManager.openEdit(window.platformManager.platformService.items[0])
+                if (prototypePlatformMappings && window.platformManager.platformService && window.platformManager.platformService.items.length > 0)
+                    window.platformManager.openMappings(window.platformManager.platformService.items[0])
+            }
+            if (window.emulatorManager) {
+                var emulators = window.emulatorManager.orderedEmulators || []
+                if (prototypeEmulatorNew) window.emulatorManager.openCreate()
+                if (prototypeEmulatorEdit && emulators.length > 0) window.emulatorManager.openEdit(emulators[0])
+                if (prototypeEmulatorLinks && emulators.length > 0) window.emulatorManager.toggle(emulators[0])
+                if (prototypeEmulatorLink && emulators.length > 0) window.emulatorManager.openLink(emulators[0])
+                if (prototypeEmulatorCores && emulators.length > 0) window.emulatorManager.openCores(emulators[0])
+            }
+        })
+        // A página do inventário só existe depois de entrar na seção; o prototype pode abri-la no mesmo quadro.
+        Qt.callLater(function() {
+            if (!inventoryLoader.item) return
+            if (window.prototypeInventoryForm) inventoryLoader.item.openCreate()
+            if (window.prototypeInventoryNewType) {
+                inventoryLoader.item.openCreate()
+                inventoryLoader.item.showTypeInline()
+            }
+            if ((window.prototypeInventoryDetail || window.prototypeInventoryEdit || window.prototypeInventoryDelete)
+                    && window.inventoryAvailable && window.inventoryService.items.length > 0) {
+                inventoryLoader.item.openItem(window.inventoryService.items[0])
+                if (window.prototypeInventoryEdit) inventoryLoader.item.openEdit(window.inventoryService.items[0])
+                if (window.prototypeInventoryDelete) inventoryLoader.item.openDelete(window.inventoryService.items[0])
+            }
+        })
     }
 }

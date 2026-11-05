@@ -17,7 +17,7 @@ QVariant GameListModel::data(const QModelIndex& index, int role) const {
     case GameIdRole: return game.value(QStringLiteral("id"));
     case TitleRole: return game.value(QStringLiteral("title"));
     case PlatformNameRole: return game.value(QStringLiteral("platform_name"));
-    case CoverUrlRole: return coverUrl(game.value(QStringLiteral("box_art_path")).toString());
+    case CoverUrlRole: return game.value(QStringLiteral("coverUrl"));
     case FavoriteRole: return game.value(QStringLiteral("favorite")).toBool();
     case PlayStatusRole: return game.value(QStringLiteral("play_status"));
     case LaunchCountRole: return game.value(QStringLiteral("launch_count"));
@@ -36,6 +36,11 @@ QHash<int, QByteArray> GameListModel::roleNames() const {
 void GameListModel::setGames(const QList<QVariantMap>& games) {
     beginResetModel();
     games_ = games;
+    // A URL do provider é derivada uma vez por página; data() não repete a conversão base64.
+    for (QVariantMap& game : games_) {
+        game.insert(QStringLiteral("coverUrl"),
+            coverUrl(game.value(QStringLiteral("box_art_path")).toString()));
+    }
     endResetModel();
 }
 

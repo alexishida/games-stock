@@ -148,9 +148,13 @@ bool GameReadDao::listGenres(QStringList* result, QString* error) const {
         }
     }
     // A ordenação usa o locale da interface; a comparação de seleção continua exata por token.
-    QCollator collator(QLocale(QLocale::Portuguese, QLocale::Brazil));
-    collator.setCaseSensitivity(Qt::CaseInsensitive);
-    std::stable_sort(genres.begin(), genres.end(), [&collator](const QString& a, const QString& b) { return collator.compare(a, b) < 0; });
+    // O collator é estático porque construir um QCollator por chamada custa caro em listas grandes.
+    static const QCollator collator = [] {
+        QCollator value(QLocale(QLocale::Portuguese, QLocale::Brazil));
+        value.setCaseSensitivity(Qt::CaseInsensitive);
+        return value;
+    }();
+    std::stable_sort(genres.begin(), genres.end(), [](const QString& a, const QString& b) { return collator.compare(a, b) < 0; });
     *result = genres;
     if (error) error->clear();
     return true;
@@ -252,8 +256,9 @@ bool GameReadDao::sidebarCounts(const GameListFilters& filters, SidebarCounts* r
             parameters->append(filters.platformId);
         }
         if (!filters.search.trimmed().isEmpty()) {
-            parts << QStringLiteral("LOWER(games.title) LIKE ?");
-            parameters->append(QStringLiteral("%") + filters.search.trimmed().toLower() + QStringLiteral("%"));
+            // A coluna normalizada evita LOWER() por linha e mantém a comparação Unicode correta.
+            parts << QStringLiteral("games.title_normalized LIKE ?");
+            parameters->append(QStringLiteral("%") + filters.search.trimmed().toCaseFolded() + QStringLiteral("%"));
         }
         if (!genreCondition.isEmpty()) parts << genreCondition;
         const QString collection = forceAllCollections ? QStringLiteral("all") : filters.collection;
@@ -368,13 +373,13 @@ bool GameReadDao::listVersions(qint64 id, QList<QVariantMap>* result, QString* e
             "SELECT games.id, games.title, games.rom_path, games.launch_count, games.box_art_path, "
             "games.background_path, games.screenshot_path, platforms.name, games.platform_id "
             "FROM games JOIN platforms ON platforms.id = games.platform_id "
-            "WHERE games.platform_id = ? AND LOWER(games.title) = LOWER(?) "
+            "WHERE games.platform_id = ? AND games.title_normalized = ? "
             "AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''"))) {
         if (error) *error = candidates.lastError().text();
         return false;
     }
     candidates.addBindValue(current.value(2));
-    candidates.addBindValue(currentTitle);
+    candidates.addBindValue(currentTitle.toCaseFolded());
     if (!candidates.exec()) {
         if (error) *error = candidates.lastError().text();
         return false;
@@ -492,8 +497,8 @@ bool GameReadDao::list(int page, int pageSize, GamePage* result, QString* error,
     TemporaryGenres matchingGenres(database_);
     if (filters.platformId > 0) { conditions << QStringLiteral("games.platform_id = ?"); parameters << filters.platformId; }
     if (!filters.search.trimmed().isEmpty()) {
-        conditions << QStringLiteral("LOWER(games.title) LIKE ?");
-        parameters << (QStringLiteral("%") + filters.search.trimmed().toLower() + QStringLiteral("%"));
+        conditions << QStringLiteral("games.title_normalized LIKE ?");
+        parameters << (QStringLiteral("%") + filters.search.trimmed().toCaseFolded() + QStringLiteral("%"));
     }
     if (!filters.genre.trimmed().isEmpty()) {
         // Lê somente gêneros distintos; evita carregar a biblioteca inteira e preserva comparação por token.

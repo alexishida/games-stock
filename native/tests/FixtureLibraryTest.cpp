@@ -18,7 +18,7 @@ private slots:
             QVERIFY(db.open());
             QSqlQuery query(db);
             QVERIFY(query.exec("CREATE TABLE platforms (id INTEGER PRIMARY KEY, name TEXT)"));
-            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, platform_id INTEGER, rom_path TEXT, library_group_key TEXT, year INTEGER, created_at TEXT, launch_count INTEGER, box_art_path TEXT, genre TEXT, favorite INTEGER DEFAULT 0, play_status TEXT DEFAULT 'unplayed')"));
+            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, title_normalized TEXT, platform_id INTEGER, rom_path TEXT, library_group_key TEXT, year INTEGER, created_at TEXT, launch_count INTEGER, box_art_path TEXT, genre TEXT, favorite INTEGER DEFAULT 0, play_status TEXT DEFAULT 'unplayed')"));
             QVERIFY(query.exec("INSERT INTO platforms VALUES (1,'Fixture')"));
             QVERIFY(query.prepare("INSERT INTO games (id,title,platform_id,launch_count) VALUES (?, ?, 1, 0)"));
             for (int index = 1; index <= 80; ++index) {
@@ -26,6 +26,8 @@ private slots:
                 query.bindValue(1, QStringLiteral("Jogo %1").arg(index, 3, 10, QLatin1Char('0')));
                 QVERIFY(query.exec());
             }
+            // A busca usa a coluna derivada; a fixture minimalista a preenche como o DAO faria.
+            QVERIFY(query.exec("UPDATE games SET title_normalized = lower(title)"));
             QVERIFY(query.exec("UPDATE games SET genre='Ação; Plataforma', favorite=1, box_art_path='capa' WHERE id=80"));
         }
         QSqlDatabase::removeDatabase("service-fixture");

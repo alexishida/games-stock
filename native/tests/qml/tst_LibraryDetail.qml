@@ -182,9 +182,10 @@ Item {
         /** Abre o detalhe e confere que o painel é opaco como os demais modais. */
         function test_detailAndFavorite() {
             resetGame()
+            // A página do detalhe é criada no primeiro openGame; a busca vem depois.
+            app.openGame(service.items[0])
             const dialog = findChild(app, "gameDetailPage")
             verify(dialog !== null)
-            app.openGame(service.items[0])
             tryVerify(function() { return dialog.visible }, 2000)
             wait(250)
             compare(dialog.gameTitle, "Jogo Teste")

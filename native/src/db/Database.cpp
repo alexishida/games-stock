@@ -149,6 +149,20 @@ bool Database::open(const QString& path, const QString& imagesDir, QString* erro
         database_.close();
         return false;
     }
+    // WAL permite leitura concorrente com a escrita curta dos jobs e reduz o custo de commit.
+    // A mudança fica gravada no arquivo; sistemas de arquivos que não suportam WAL seguem no journal padrão.
+    // O escopo finaliza as consultas de PRAGMA antes das transações de schema/migration.
+    {
+        QSqlQuery journal(database_);
+        if (journal.exec(QStringLiteral("PRAGMA journal_mode = WAL"))) {
+            // synchronous=NORMAL é seguro com WAL e evita um fsync extra por transação.
+            QSqlQuery sync(database_);
+            if (!sync.exec(QStringLiteral("PRAGMA synchronous = NORMAL")))
+                qWarning("Não foi possível ajustar synchronous: %s", qPrintable(sync.lastError().text()));
+        } else {
+            qWarning("Não foi possível ativar WAL: %s", qPrintable(journal.lastError().text()));
+        }
+    }
     if (!initializeDatabase(database_, imagesDir, error)) {
         database_.close();
         return false;

@@ -20,9 +20,11 @@ private slots:
             QVERIFY(db.open());
             QSqlQuery query(db);
             QVERIFY(query.exec("CREATE TABLE platforms (id INTEGER PRIMARY KEY, name TEXT)"));
-            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, platform_id INTEGER, rom_path TEXT, library_group_key TEXT, year INTEGER, created_at TEXT, launch_count INTEGER DEFAULT 0, favorite INTEGER DEFAULT 0, play_status TEXT DEFAULT 'unplayed', box_art_path TEXT, genre TEXT)"));
+            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, title_normalized TEXT, platform_id INTEGER, rom_path TEXT, library_group_key TEXT, year INTEGER, created_at TEXT, launch_count INTEGER DEFAULT 0, favorite INTEGER DEFAULT 0, play_status TEXT DEFAULT 'unplayed', box_art_path TEXT, genre TEXT)"));
             QVERIFY(query.exec("INSERT INTO platforms VALUES (1, 'Console'), (2, 'Outro')"));
             QVERIFY(query.exec("INSERT INTO games (id,title,platform_id,rom_path,library_group_key) VALUES (1,'Alpha',1,'a.rom','alpha'), (2,'Alpha',1,'b.rom','alpha'), (3,'Beta',1,NULL,NULL), (4,'Beta',1,NULL,NULL), (5,'Gamma',1,'g.rom',NULL), (6,'Gamma',1,'h.rom',NULL), (7,'Alpha',2,'x.rom','alpha')"));
+            // A busca usa a coluna derivada; o teste minimalista a preenche como o DAO de escrita faria.
+            QVERIFY(query.exec("UPDATE games SET title_normalized = lower(title)"));
             QVERIFY(query.exec("UPDATE games SET favorite=1, box_art_path='capa', year=2000 WHERE id IN (2,3)"));
             QVERIFY(query.exec("UPDATE games SET genre='Ação; Plataforma / RPG' WHERE id IN (2,3)"));
             gamestock::GameReadDao dao(db);
@@ -64,7 +66,7 @@ private slots:
             QVERIFY(db.open());
             QSqlQuery query(db);
             QVERIFY(query.exec("CREATE TABLE platforms (id INTEGER PRIMARY KEY, name TEXT)"));
-            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, platform_id INTEGER, "
+            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, title_normalized TEXT, platform_id INTEGER, "
                 "rom_path TEXT, library_group_key TEXT, genre TEXT, favorite INTEGER DEFAULT 0, "
                 "play_status TEXT DEFAULT 'unplayed', launch_count INTEGER DEFAULT 0, box_art_path TEXT)"));
             QVERIFY(query.exec("INSERT INTO platforms VALUES (1, 'Console'), (2, 'Portátil')"));
@@ -122,7 +124,7 @@ private slots:
             QVERIFY(db.open());
             QSqlQuery query(db);
             QVERIFY(query.exec("CREATE TABLE platforms (id INTEGER PRIMARY KEY, name TEXT)"));
-            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, platform_id INTEGER, "
+            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, title_normalized TEXT, platform_id INTEGER, "
                 "rom_path TEXT, library_group_key TEXT, favorite INTEGER DEFAULT 0, play_status TEXT DEFAULT 'unplayed', "
                 "launch_count INTEGER DEFAULT 0, box_art_path TEXT, background_path TEXT, screenshot_path TEXT)"));
             QVERIFY(query.exec("INSERT INTO platforms VALUES (1, 'Console')"));
@@ -132,6 +134,7 @@ private slots:
                 "(12,'Aventura Legada',1,'C:/roms/Aventura (Europe).nes',9),"
                 "(13,'Outro Jogo',1,'C:/roms/Outro.sfc',0),"
                 "(14,'Sem ROM',1,NULL,0)"));
+            QVERIFY(query.exec("UPDATE games SET title_normalized = lower(title)"));
             gamestock::GameReadDao dao(db);
             QList<QVariantMap> versions;
             QString error;

@@ -52,6 +52,21 @@ QJsonObject measure(gamestock::GameService& service, const QJsonObject& filters)
         {QStringLiteral("total"), static_cast<double>(service.total())},
         {QStringLiteral("filtered"), static_cast<double>(service.filtered())}};
 }
+/** Filtros reproduzíveis usados tanto no banco existente quanto na massa recém-importada. */
+QJsonArray benchmarkFilters() {
+    return QJsonArray{
+        QJsonObject{{QStringLiteral("page"), 1}},
+        QJsonObject{{QStringLiteral("page"), 2}},
+        QJsonObject{{QStringLiteral("page"), 10}},
+        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("search"), QStringLiteral("sint\u00e9tico 00001")},
+            {QStringLiteral("collection"), QStringLiteral("favorites")}},
+        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("sortBy"), QStringLiteral("mostPlayed")}},
+        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("genre"), QStringLiteral("A\u00c7\u00c3O")},
+            {QStringLiteral("collection"), QStringLiteral("favorites")}},
+        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("genre"), QStringLiteral("\u03c2")}},
+        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("genre"), QStringLiteral("\u0130")}}};
+}
+
 /** Cria um lote sintético e mede a importação completa em banco temporário. */
 int runImportBenchmark(int argc, char** argv) {
     Q_UNUSED(argc);
@@ -100,10 +115,22 @@ int runImportBenchmark(int argc, char** argv) {
     QTimer::singleShot(180000, &loop, &QEventLoop::quit);
     loop.exec();
     const double elapsed = static_cast<double>(timer.nsecsElapsed()) / 1'000'000.0;
+    // A mesma massa mede as consultas de biblioteca que a UI dispara após a importação.
+    QJsonArray results;
+    {
+        gamestock::GameService library;
+        QString libraryError;
+        if (library.open(databasePath, &libraryError)) {
+            for (const QJsonValue& filter : benchmarkFilters()) results.append(measure(library, filter.toObject()));
+        } else {
+            QTextStream(stderr) << libraryError << "\n";
+        }
+    }
     const QJsonObject output{{QStringLiteral("importMs"), elapsed},
         {QStringLiteral("total"), total},
         {QStringLiteral("status"), finishedStatus},
-        {QStringLiteral("records"), static_cast<double>(service.countFolderRecords(roms.absolutePath()))}};
+        {QStringLiteral("records"), static_cast<double>(service.countFolderRecords(roms.absolutePath()))},
+        {QStringLiteral("pagination"), results}};
     QTextStream(stdout) << QJsonDocument(output).toJson(QJsonDocument::Compact) << "\n";
     return finishedStatus == QLatin1String("completed") ? 0 : 14;
 }
@@ -126,18 +153,7 @@ int main(int argc, char** argv) {
     }
     const double openMs = static_cast<double>(openTimer.nsecsElapsed()) / 1'000'000.0;
     QJsonArray results;
-    const QJsonArray filters{
-        QJsonObject{{QStringLiteral("page"), 1}},
-        QJsonObject{{QStringLiteral("page"), 2}},
-        QJsonObject{{QStringLiteral("page"), 10}},
-        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("search"), QStringLiteral("sint\u00e9tico 00001")},
-            {QStringLiteral("collection"), QStringLiteral("favorites")}},
-        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("sortBy"), QStringLiteral("mostPlayed")}},
-        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("genre"), QStringLiteral("A\u00c7\u00c3O")},
-            {QStringLiteral("collection"), QStringLiteral("favorites")}},
-        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("genre"), QStringLiteral("\u03c2")}},
-        QJsonObject{{QStringLiteral("page"), 1}, {QStringLiteral("genre"), QStringLiteral("\u0130")}}};
-    for (const QJsonValue& filter : filters) results.append(measure(service, filter.toObject()));
+    for (const QJsonValue& filter : benchmarkFilters()) results.append(measure(service, filter.toObject()));
     const QJsonObject output{{QStringLiteral("openMs"), openMs},
         {QStringLiteral("workingSetBytes"), static_cast<double>(workingSetBytes())},
         {QStringLiteral("pagination"), results}};

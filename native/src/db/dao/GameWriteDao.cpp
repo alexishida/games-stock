@@ -76,6 +76,8 @@ bool GameWriteDao::create(const QVariantMap& input, qint64* newId, QString* erro
 
     QStringList columns = writeColumns();
     columns.append(QStringLiteral("library_group_key"));
+    // Coluna derivada do título, mantida na mesma escrita para a busca usar índice.
+    columns.append(QStringLiteral("title_normalized"));
     QStringList placeholders;
     for (qsizetype index = 0; index < columns.size(); ++index) placeholders.append(QStringLiteral("?"));
     QSqlQuery query(database_);
@@ -88,6 +90,7 @@ bool GameWriteDao::create(const QVariantMap& input, qint64* newId, QString* erro
     const QString groupKey = buildStoredLibraryGroupKey(title, romPath);
     // Jogos manuais guardam NULL, como no Electron; a chave só existe quando há ROM.
     query.addBindValue(groupKey.isEmpty() ? QVariant(QMetaType(QMetaType::QString)) : QVariant(groupKey));
+    query.addBindValue(title.toCaseFolded());
     if (!query.exec()) return fail(query, QStringLiteral("Criação do jogo"), error);
     if (newId) *newId = query.lastInsertId().toLongLong();
     if (error) error->clear();
@@ -136,6 +139,11 @@ bool GameWriteDao::update(qint64 id, const QVariantMap& changes, QString* error)
         const QString nextRom = changes.contains(QStringLiteral("rom_path")) ? columnValue(QStringLiteral("rom_path"), changes.value(QStringLiteral("rom_path"))).toString() : current.value(1).toString();
         columns.append(QStringLiteral("library_group_key"));
         values.append(buildStoredLibraryGroupKey(nextTitle, nextRom));
+        // A busca depende da coluna derivada; ela acompanha toda alteração de título.
+        if (changes.contains(QStringLiteral("title"))) {
+            columns.append(QStringLiteral("title_normalized"));
+            values.append(nextTitle.toCaseFolded());
+        }
     }
 
     QStringList assignments;

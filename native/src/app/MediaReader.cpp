@@ -39,7 +39,16 @@ QString finalPath(HANDLE handle) {
 #endif
 
 namespace gamestock {
-QImage readProfileImage(const QString& profile, const QString& requested) {
+namespace {
+/** Aplica a redução no próprio decodificador; o cabeçalho do arquivo informa as dimensões originais. */
+void applyScaledSize(QImageReader& reader, const QSize& targetSize) {
+    if (targetSize.width() <= 0 || targetSize.height() <= 0) return;
+    const QSize sourceSize = reader.size();
+    reader.setScaledSize(sourceSize.isValid() ? sourceSize.scaled(targetSize, Qt::KeepAspectRatio) : targetSize);
+}
+} // namespace
+
+QImage readProfileImage(const QString& profile, const QString& requested, const QSize& targetSize) {
 #ifdef Q_OS_WIN
     if (profile.isEmpty() || !QDir::isAbsolutePath(requested)) return {};
     const QString rootNative = QDir::toNativeSeparators(profile);
@@ -67,6 +76,8 @@ QImage readProfileImage(const QString& profile, const QString& requested) {
     if (!buffer.open(QIODevice::ReadOnly)) return {};
     QImageReader reader(&buffer);
     reader.setAutoTransform(true);
+    // Decodificar já no tamanho do card evita alocar a resolução total da capa.
+    applyScaledSize(reader, targetSize);
     return reader.read();
 #elif defined(Q_OS_LINUX)
     if (profile.isEmpty() || !QDir::isAbsolutePath(requested)) return {};
@@ -97,6 +108,8 @@ QImage readProfileImage(const QString& profile, const QString& requested) {
     if (!buffer.open(QIODevice::ReadOnly)) return {};
     QImageReader reader(&buffer);
     reader.setAutoTransform(true);
+    // Mesmo contrato de redução do ramo Windows.
+    applyScaledSize(reader, targetSize);
     return reader.read();
 #else
     Q_UNUSED(profile);

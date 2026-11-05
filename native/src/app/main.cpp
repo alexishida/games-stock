@@ -27,6 +27,7 @@
 
 #include <QCommandLineParser>
 #include <QCommandLineOption>
+#include <QCache>
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QDebug>
@@ -157,19 +158,44 @@ QVariantList loadCatalog(const QString& filePath) {
 /** Decodifica identificadores de mídia e delega a leitura à fronteira do perfil. */
 class ProfileMediaProvider final : public QQuickImageProvider {
 public:
-    explicit ProfileMediaProvider(QString profile) : QQuickImageProvider(QQuickImageProvider::Image), profile_(std::move(profile)) {}
+    explicit ProfileMediaProvider(QString profile)
+        : QQuickImageProvider(QQuickImageProvider::Image), profile_(std::move(profile)) {
+        // O cache guarda as miniaturas já decodificadas em KB e evita repetir o trabalho ao rolar.
+        cache_.setMaxCost(64 * 1024);
+    }
     QImage requestImage(const QString& id, QSize* size, const QSize& requestedSize) override {
+        // O tamanho pedido faz parte da chave: capas da grade e do detalhe não compartilham textura.
+        const QString key = id + QLatin1Char('@') + QString::number(requestedSize.width())
+            + QLatin1Char('x') + QString::number(requestedSize.height());
+        {
+            QMutexLocker locker(&mutex_);
+            if (const QImage* cached = cache_.object(key)) {
+                if (size) *size = cached->size();
+                return *cached;
+            }
+        }
         const QString path = QString::fromUtf8(QByteArray::fromBase64(id.toLatin1(), QByteArray::Base64UrlEncoding));
-        QImage image = gamestock::readProfileImage(profile_, path);
+        QImage image = gamestock::readProfileImage(profile_, path, requestedSize);
         if (image.isNull()) qWarning("Provider não carregou a capa sintética.");
-        if (size) *size = image.size();
         // Uma textura de um pixel pode ser filtrada pelo atlas; preserve a cor ao apresentá-la.
         if (!image.isNull() && image.width() == 1 && image.height() == 1) image = image.scaled(2, 2);
-        if (!image.isNull() && requestedSize.isValid()) image = image.scaled(requestedSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        // Formatos sem dimensões no cabeçalho ainda passam pela escala única de fallback.
+        if (!image.isNull() && requestedSize.width() > 0 && requestedSize.height() > 0
+            && (image.width() > requestedSize.width() || image.height() > requestedSize.height())) {
+            image = image.scaled(requestedSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        }
+        if (size) *size = image.size();
+        if (!image.isNull()) {
+            const int cost = qMax(1, static_cast<int>(image.sizeInBytes() / 1024));
+            QMutexLocker locker(&mutex_);
+            cache_.insert(key, new QImage(image), cost);
+        }
         return image;
     }
 private:
     QString profile_;
+    QCache<QString, QImage> cache_;
+    QMutex mutex_;
 };
 } // namespace
 
@@ -310,7 +336,10 @@ int main(int argc, char* argv[]) {
     QQuickWindow* startupSplash = nullptr;
     if ((!parser.isSet("capture") && !parser.isSet("startup-report")
             && !parser.isSet("effect-benchmark")) || parser.isSet("startup-splash-preview")) {
-        splashEngine.setInitialProperties({{"buildLabel", QCoreApplication::applicationVersion()}});
+        // Mantém a identificação da build visível antes da criação dos serviços.
+        const QString splashCommit = QStringLiteral(GAMESTOCK_BUILD_COMMIT);
+        splashEngine.setInitialProperties({{"buildLabel", QCoreApplication::applicationVersion()},
+            {"buildNumber", splashCommit.isEmpty() ? QStringLiteral("local") : splashCommit}});
         splashEngine.loadFromModule("GameStock", "StartupSplash");
         if (!splashEngine.rootObjects().isEmpty())
             startupSplash = qobject_cast<QQuickWindow*>(splashEngine.rootObjects().first());
@@ -318,11 +347,15 @@ int main(int argc, char* argv[]) {
         app.processEvents();
         if (startupSplash) startupSplash->grabWindow();
     }
+    // Tempos por etapa permitem distinguir abertura do banco, serviços e criação da UI.
+    const qint64 splashReadyMs = startupTimer.elapsed();
     gamestock::FixtureLibrary fixtureLibrary;
     // O serviço deve sobreviver ao engine que guarda sua referência de contexto.
     QQmlApplicationEngine engine;
     // O serviço de biblioteca lê o mesmo banco sintético e alimenta a grade no modo banco.
     gamestock::GameService gameService;
+    // Filtros e busca passam a consultar em thread própria; a abertura continua síncrona.
+    gameService.setAsyncQueries(true);
     gamestock::PlatformService platformService;
     gamestock::EmulatorService emulatorService;
     gamestock::LaunchService launchService;
@@ -373,10 +406,13 @@ int main(int argc, char* argv[]) {
         }
     }
     settingsService.setChannel(channelInfo.channel);
+    const qint64 databaseReadyMs = startupTimer.elapsed();
+    qInfo("Inicialização: banco pronto em %lld ms.", static_cast<long long>(databaseReadyMs));
     settingsService.setExecutableDir(channelInfo.executableDir);
     if (!servicePath.isEmpty()) {
         QString serviceError;
-        if (!servicePath.isEmpty() && gameService.open(servicePath, &serviceError)) gameServiceObject = &gameService;
+        // A página aparece primeiro; gêneros e estatísticas são carregados após o primeiro quadro.
+        if (!servicePath.isEmpty() && gameService.open(servicePath, &serviceError, true)) gameServiceObject = &gameService;
         else qWarning("Serviço de biblioteca indisponível: %s", qPrintable(serviceError));
         QString platformError;
         if (!servicePath.isEmpty() && platformService.open(servicePath, &platformError)) platformServiceObject = &platformService;
@@ -405,7 +441,7 @@ int main(int argc, char* argv[]) {
             qWarning("Importador de metadados indisponível: %s", qPrintable(metadataServiceError));
         }
         QString inventoryServiceError;
-        if (!servicePath.isEmpty() && inventoryService.open(servicePath, profile, &inventoryServiceError)) {
+        if (!servicePath.isEmpty() && inventoryService.open(servicePath, profile, &inventoryServiceError, true)) {
             inventoryServiceObject = &inventoryService;
         } else {
             qWarning("Inventário indisponível: %s", qPrintable(inventoryServiceError));
@@ -584,7 +620,11 @@ int main(int argc, char* argv[]) {
     if (!parser.isSet("capture") && !parser.isSet("startup-splash-preview")
             && channelInfo.channel == QLatin1String("installed")) updateService.startupCheck();
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(4); }, Qt::QueuedConnection);
+    const qint64 servicesReadyMs = startupTimer.elapsed();
     engine.loadFromModule("GameStock", "Main");
+    const qint64 qmlReadyMs = startupTimer.elapsed();
+    qInfo("Inicialização: serviços em %lld ms; QML em %lld ms.",
+        static_cast<long long>(servicesReadyMs), static_cast<long long>(qmlReadyMs));
     if (engine.rootObjects().isEmpty()) return 4;
     auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
     if (!window) return 4;
@@ -605,6 +645,10 @@ int main(int argc, char* argv[]) {
                 static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
         }
     }
+    // Os agregados adiados rodam depois do primeiro quadro, sem atrasar a janela principal.
+    QObject::connect(window, &QQuickWindow::frameSwapped, &gameService,
+        [&gameService] { gameService.loadAggregates(); },
+        static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::SingleShotConnection));
 #ifdef Q_OS_WIN
     // O tema do Qt nem sempre altera a moldura Win32; DWM mantém o título escuro.
     const HWND nativeWindow = reinterpret_cast<HWND>(window->winId());
@@ -651,8 +695,12 @@ int main(int argc, char* argv[]) {
     if (!startupReport.isEmpty()) {
         // Mede o primeiro quadro apresentado e encerra, sem alterar o perfil.
         QObject::connect(window, &QQuickWindow::frameSwapped, &app,
-            [&startupTimer, startupReport] {
+            [&startupTimer, startupReport, splashReadyMs, databaseReadyMs, servicesReadyMs, qmlReadyMs] {
                 const QJsonObject output{{QStringLiteral("startupMs"), static_cast<double>(startupTimer.nsecsElapsed()) / 1'000'000.0},
+                    {QStringLiteral("splashReadyMs"), splashReadyMs},
+                    {QStringLiteral("databaseReadyMs"), databaseReadyMs},
+                    {QStringLiteral("servicesReadyMs"), servicesReadyMs},
+                    {QStringLiteral("qmlReadyMs"), qmlReadyMs},
                     {QStringLiteral("workingSetBytes"), static_cast<double>(workingSetBytes())}};
                 QFile file(startupReport);
                 if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))

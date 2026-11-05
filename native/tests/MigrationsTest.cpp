@@ -100,8 +100,8 @@ private slots:
             QVERIFY(countRows(handle, QStringLiteral("platform_rom_extensions")) > 34);
             // TeknoParrot recebe vínculo padrão porque a plataforma ainda não tinha emulador.
             QCOMPARE(scalar(handle, "SELECT COUNT(*) FROM platform_emulators WHERE is_default = 1"), QString("1"));
-            // Os sete marcadores do Electron ficam registrados uma única vez.
-            QCOMPARE(countRows(handle, QStringLiteral("schema_migrations")), 7);
+            // Os marcadores do Electron mais a normalização de título ficam registrados uma única vez.
+            QCOMPARE(countRows(handle, QStringLiteral("schema_migrations")), 8);
             // A lista pública precisa refletir exatamente o que foi registrado.
             QSqlQuery applied(handle);
             QVERIFY(applied.exec(QStringLiteral("SELECT name FROM schema_migrations ORDER BY name")));
@@ -116,7 +116,8 @@ private slots:
             QString error;
             QVERIFY2(reopened.open(path, images, &error), qPrintable(error));
             QCOMPARE(countRows(reopened.handle(), QStringLiteral("platforms")), platformCount);
-            QCOMPARE(countRows(reopened.handle(), QStringLiteral("schema_migrations")), 7);
+            // Reabrir não reaplica migrations já registradas.
+            QCOMPARE(countRows(reopened.handle(), QStringLiteral("schema_migrations")), 8);
             QCOMPARE(countRows(reopened.handle(), QStringLiteral("emulators")), 2);
         }
         QVERIFY(QFileInfo(images).isDir());

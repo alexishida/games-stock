@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QElapsedTimer>
+#include <QFutureWatcher>
 #include <QVariantList>
 #include <QString>
 
@@ -54,7 +55,7 @@ public slots:
     bool openLogsFolder();
     /** Abre a pasta de dados do perfil. */
     bool openDataDir();
-    /** Calcula jogos, itens e tamanho do perfil; a varredura é síncrona e cacheada pela UI. */
+    /** Calcula jogos, itens e tamanho do perfil; a varredura roda fora da thread gráfica. */
     void refreshStats();
     /** Remove apenas o cache temporário de ROMs extraídas. */
     bool clearRomCache();
@@ -66,6 +67,17 @@ signals:
     void cacheFeedbackChanged();
 
 private:
+    /** Resultado imutável produzido pela varredura em segundo plano. */
+    struct StatsResult {
+        qint64 totalGames = -1;
+        qint64 totalInventoryItems = -1;
+        double dataDirSizeMb = -1;
+        QString error;
+        quint64 generation = 0;
+    };
+    /** Aplica no objeto o resultado da última geração válida. */
+    void applyStatsResult();
+
     QVariantList entries_;
     QString profileRoot_;
     QString logFile_;
@@ -80,5 +92,10 @@ private:
     double dataDirSizeMb_ = -1;
     bool statsLoading_ = false;
     QElapsedTimer statsTimer_;
+    // A varredura de disco roda em pool próprio; configure() invalida resultados em voo.
+    QFutureWatcher<StatsResult> statsWatcher_;
+    quint64 statsGeneration_ = 0;
+    bool statsRunning_ = false;
+    bool statsRestart_ = false;
 };
 } // namespace gamestock

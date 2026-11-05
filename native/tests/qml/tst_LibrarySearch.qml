@@ -72,6 +72,32 @@ App.Main {
     name: "LibrarySearch"
     when: windowShown
 
+    /* A biblioteca abre sem as abas; a primeira visita cria só a seção escolhida. */
+    function test_00_lazySettings() {
+        compare(app.platformManager, null)
+        compare(app.emulatorManager, null)
+        const dialog = findChild(app, "settingsDialog")
+        const openButton = findChild(app, "openSettings")
+        mouseClick(openButton)
+        // A abertura padrão cai em "sobre"; nenhuma aba pesada é criada antes de ser visitada.
+        tryVerify(function() { return dialog.visible }, 2000)
+        compare(app.platformManager, null)
+        compare(app.emulatorManager, null)
+        app.settingsSection = "plataformas"
+        tryVerify(function() { return app.platformManager !== null }, 2000)
+        const manager = app.platformManager
+        // Visitar outra aba não recria a anterior.
+        app.settingsSection = "sobre"
+        wait(100)
+        compare(app.platformManager, manager)
+        dialog.close()
+        tryVerify(function() { return !dialog.visible }, 2000)
+        compare(app.platformManager, manager)
+        mouseClick(openButton)
+        tryVerify(function() { return dialog.visible }, 2000)
+        compare(app.platformManager, manager)
+    }
+
     /* Garante isolamento mesmo quando uma verificação de modal falha. */
     function cleanup() {
         const dialog = findChild(app, "settingsDialog")

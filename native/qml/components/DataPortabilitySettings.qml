@@ -68,7 +68,8 @@ Item {
 
     onVisibleChanged: if (visible && panel.settingsService) panel.settingsService.refreshStats()
 
-    Component.onCompleted: if (panel.settingsService) panel.settingsService.refreshStats()
+    /* Não percorre o perfil inteiro na abertura da biblioteca com esta aba oculta. */
+    Component.onCompleted: if (visible && panel.settingsService) panel.settingsService.refreshStats()
 
     Flickable {
         id: backupViewport

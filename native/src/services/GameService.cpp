@@ -88,9 +88,30 @@ bool importExternalGameImages(GameService* service, const QString& root, QVarian
 }
 } // namespace
 
-GameService::GameService(QObject* parent) : QObject(parent) {}
+GameService::GameService(QObject* parent) : QObject(parent) {
+    // As estruturas do worker atravessam conexões enfileiradas entre threads.
+    qRegisterMetaType<LibraryQueryWorker::Request>("LibraryQueryWorker::Request");
+    qRegisterMetaType<LibraryQueryWorker::Response>("LibraryQueryWorker::Response");
+}
 
-bool GameService::open(const QString& databasePath, QString* error) {
+GameService::~GameService() {
+    if (queryWorker_ && queryThread_.isRunning()) {
+        // A conexão somente leitura precisa morrer na thread que a criou.
+        QMetaObject::invokeMethod(queryWorker_, "closeConnection", Qt::BlockingQueuedConnection);
+    }
+    if (queryThread_.isRunning()) {
+        queryThread_.quit();
+        queryThread_.wait();
+    }
+    delete queryWorker_;
+    queryWorker_ = nullptr;
+}
+
+void GameService::setAsyncQueries(bool enabled) {
+    asyncQueries_ = enabled;
+}
+
+bool GameService::open(const QString& databasePath, QString* error, bool deferAggregates) {
     QString localError;
     if (!connection_.open(databasePath, &localError)) {
         error_ = localError;
@@ -116,7 +137,31 @@ bool GameService::open(const QString& databasePath, QString* error) {
         qWarning("Preferências da biblioteca indisponíveis: %s", qPrintable(preferenceError));
     }
     loading_ = false;
-    refresh();
+    databasePath_ = databasePath;
+    // A primeira carga sempre invalida os agregados do perfil anterior.
+    genresDirty_ = true;
+    launchStatsDirty_ = true;
+    coverStatsDirty_ = true;
+    // A conexão de leitura nasce na thread do worker, nunca na GUI.
+    if (asyncQueries_ && !queryWorker_) {
+        queryWorker_ = new LibraryQueryWorker(databasePath);
+        queryWorker_->moveToThread(&queryThread_);
+        connect(queryWorker_, &LibraryQueryWorker::finished, this, &GameService::applyQueryResponse);
+        queryThread_.start();
+        bool opened = false;
+        QMetaObject::invokeMethod(queryWorker_, "openConnection", Qt::BlockingQueuedConnection,
+            Q_RETURN_ARG(bool, opened));
+        if (!opened) {
+            // Sem conexão de leitura o serviço volta ao modo síncrono em vez de falhar.
+            queryThread_.quit();
+            queryThread_.wait();
+            delete queryWorker_;
+            queryWorker_ = nullptr;
+            asyncQueries_ = false;
+        }
+    }
+    // A primeira página é síncrona para o primeiro quadro; agregados seguem conforme o modo.
+    refreshPageSync(!deferAggregates);
     if (!error_.isEmpty()) {
         if (error) *error = error_;
         return false;
@@ -171,6 +216,24 @@ void GameService::decorate(QVariantMap* game) {
 }
 
 void GameService::refresh() {
+    // Chamadas externas (importadores, sincronização) podem ter alterado qualquer agregado.
+    genresDirty_ = true;
+    launchStatsDirty_ = true;
+    coverStatsDirty_ = true;
+    refreshPage(true);
+}
+
+void GameService::refreshPage(bool refreshAggregates) {
+    if (!open_) return;
+    // No app interativo a consulta sai da GUI; testes e abertura usam o caminho síncrono.
+    if (asyncQueries_ && queryWorker_) {
+        scheduleQuery(refreshAggregates);
+        return;
+    }
+    refreshPageSync(refreshAggregates);
+}
+
+void GameService::refreshPageSync(bool refreshAggregates) {
     if (!open_) return;
     GameReadDao dao(connection_.database());
     GamePage result;
@@ -198,25 +261,108 @@ void GameService::refresh() {
         items_.append(game);
     }
     model_.setGames(result.items);
-    if (!dao.listGenres(&genres_, &error)) {
+    // Paginação e ordenação não alteram os filtros nem as estatísticas já carregadas.
+    if (!refreshAggregates) {
+        error_.clear();
+        emit changed();
+        return;
+    }
+    if (!loadAggregateQueries(&error)) {
         error_ = error;
         emit changed();
         return;
     }
-    if (!dao.sidebarCounts(filters(), &counts_, &error)) {
+    error_.clear();
+    emit changed();
+}
+
+bool GameService::loadAggregateQueries(QString* error) {
+    GameReadDao dao(connection_.database());
+    // Os contadores da sidebar dependem dos filtros ativos e acompanham cada busca.
+    if (!dao.sidebarCounts(filters(), &counts_, error)) return false;
+    // Gêneros, partidas e capas são globais; só mudam após CRUD/importação/sincronização.
+    if (genresDirty_) {
+        if (!dao.listGenres(&genres_, error)) return false;
+        genresDirty_ = false;
+    }
+    if (launchStatsDirty_) {
+        if (!dao.launchStats(&launchStats_, error)) return false;
+        launchStatsDirty_ = false;
+    }
+    if (coverStatsDirty_) {
+        if (!dao.coverStats(&coverStats_, error)) return false;
+        coverStatsDirty_ = false;
+    }
+    return true;
+}
+
+void GameService::loadAggregates() {
+    if (!open_) return;
+    // Após o primeiro quadro, a mesma consulta pode seguir na thread de leitura.
+    if (asyncQueries_ && queryWorker_) {
+        scheduleQuery(true);
+        return;
+    }
+    QString error;
+    if (!loadAggregateQueries(&error)) {
         error_ = error;
         emit changed();
         return;
     }
-    if (!dao.launchStats(&launchStats_, &error)) {
-        error_ = error;
+    error_.clear();
+    emit changed();
+}
+
+void GameService::scheduleQuery(bool refreshAggregates) {
+    LibraryQueryWorker::Request request;
+    request.generation = ++queryGeneration_;
+    request.page = page_;
+    request.pageSize = pageSize_;
+    request.filters = filters();
+    request.wantSidebar = refreshAggregates;
+    // Só pede os agregados globais marcados como desatualizados.
+    request.wantGenres = refreshAggregates && genresDirty_;
+    request.wantLaunchStats = refreshAggregates && launchStatsDirty_;
+    request.wantCoverStats = refreshAggregates && coverStatsDirty_;
+    pendingAggregates_ = refreshAggregates;
+    QMetaObject::invokeMethod(queryWorker_, "run", Qt::QueuedConnection,
+        Q_ARG(LibraryQueryWorker::Request, request));
+}
+
+void GameService::applyQueryResponse(const LibraryQueryWorker::Response& response) {
+    // Gerações antigas (digitação rápida ou paginação) não sobrescrevem o estado atual.
+    if (response.generation != queryGeneration_) return;
+    if (!response.ok) {
+        error_ = response.error;
         emit changed();
         return;
     }
-    if (!dao.coverStats(&coverStats_, &error)) {
-        error_ = error;
-        emit changed();
+    // A página pode ficar vazia depois de um filtro; volta para a primeira e repete.
+    if (response.page.items.isEmpty() && page_ > 1) {
+        page_ = 1;
+        scheduleQuery(pendingAggregates_);
         return;
+    }
+    total_ = response.page.total;
+    filtered_ = response.page.filtered;
+    items_.clear();
+    for (QVariantMap game : response.page.items) {
+        decorate(&game);
+        items_.append(game);
+    }
+    model_.setGames(response.page.items);
+    if (response.hasSidebar) counts_ = response.sidebar;
+    if (response.hasGenres) {
+        genres_ = response.genres;
+        genresDirty_ = false;
+    }
+    if (response.hasLaunchStats) {
+        launchStats_ = response.launchStats;
+        launchStatsDirty_ = false;
+    }
+    if (response.hasCoverStats) {
+        coverStats_ = response.coverStats;
+        coverStatsDirty_ = false;
     }
     error_.clear();
     emit changed();
@@ -226,14 +372,15 @@ void GameService::setSearch(const QString& value) {
     if (search_ == value) return;
     search_ = value;
     page_ = 1;
-    refresh();
+    // A busca só afeta página e contadores filtrados; gêneros e estatísticas globais ficam em cache.
+    refreshPage(true);
 }
 
 void GameService::setGenre(const QString& value) {
     if (genre_ == value) return;
     genre_ = value;
     page_ = 1;
-    refresh();
+    refreshPage(true);
     savePreferences();
 }
 
@@ -241,7 +388,7 @@ void GameService::setCollection(const QString& value) {
     if (collection_ == value) return;
     collection_ = value;
     page_ = 1;
-    refresh();
+    refreshPage(true);
     savePreferences();
 }
 
@@ -249,7 +396,7 @@ void GameService::setSortBy(const QString& value) {
     if (sortBy_ == value) return;
     sortBy_ = value;
     page_ = 1;
-    refresh();
+    refreshPage(false);
     savePreferences();
 }
 
@@ -265,14 +412,14 @@ void GameService::setPlatformId(qint64 value) {
     if (platformId_ == value) return;
     platformId_ = value;
     page_ = 1;
-    refresh();
+    refreshPage(true);
 }
 
 void GameService::setIncludeMissingCovers(bool value) {
     if (includeMissingCovers_ == value) return;
     includeMissingCovers_ = value;
     page_ = 1;
-    refresh();
+    refreshPage(true);
     savePreferences();
 }
 
@@ -280,13 +427,13 @@ void GameService::setPageSize(int value) {
     if (value <= 0 || value > 1000 || pageSize_ == value) return;
     pageSize_ = value;
     page_ = 1;
-    refresh();
+    refreshPage(false);
 }
 
 void GameService::goToPage(int value) {
     if (value < 1 || value == page_) return;
     page_ = value;
-    refresh();
+    refreshPage(false);
 }
 
 QVariantMap GameService::get(qint64 id) {
@@ -323,6 +470,8 @@ QVariantMap GameService::create(const QVariantMap& input) {
         emit changed();
         return {};
     }
+    // Limpa o erro anterior: no modo assíncrono o refresh ainda não terminou ao retornar.
+    error_.clear();
     refresh();
     if (!error_.isEmpty()) return {};
     return get(id);
@@ -342,6 +491,7 @@ bool GameService::update(qint64 id, const QVariantMap& changes) {
         emit changed();
         return false;
     }
+    error_.clear();
     refresh();
     return error_.isEmpty();
 }
@@ -359,6 +509,7 @@ bool GameService::remove(qint64 id) {
         emit changed();
         return false;
     }
+    error_.clear();
     refresh();
     return error_.isEmpty();
 }
@@ -524,6 +675,7 @@ QVariantMap GameService::launchStats() {
         return {};
     }
     launchStats_ = stats;
+    launchStatsDirty_ = false;
     error_.clear();
     emit changed();
     return QVariantMap{{QStringLiteral("totalLaunches"), stats.totalLaunches},
@@ -545,6 +697,7 @@ QVariantMap GameService::coverStats() {
         return {};
     }
     coverStats_ = stats;
+    coverStatsDirty_ = false;
     error_.clear();
     emit changed();
     return QVariantMap{{QStringLiteral("total"), stats.total},
@@ -566,6 +719,7 @@ QVariantMap GameService::resetLaunchStats() {
         emit changed();
         return {};
     }
+    error_.clear();
     refresh();
     if (!error_.isEmpty()) return {};
     return QVariantMap{{QStringLiteral("success"), true}, {QStringLiteral("updated"), updated}};

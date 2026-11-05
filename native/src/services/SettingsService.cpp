@@ -13,6 +13,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QUrl>
+#include <QtConcurrent>
 
 namespace gamestock {
 namespace {
@@ -31,16 +32,24 @@ QString levelName(int level) {
 }
 } // namespace
 
-SettingsService::SettingsService(QObject* parent) : QObject(parent) {}
+SettingsService::SettingsService(QObject* parent) : QObject(parent) {
+    // A varredura termina na thread do pool e publica o resultado de volta na thread da UI.
+    connect(&statsWatcher_, &QFutureWatcher<StatsResult>::finished, this, &SettingsService::applyStatsResult);
+}
 
-SettingsService::~SettingsService() = default;
+SettingsService::~SettingsService() {
+    // Evita que o callback da varredura alcance um objeto já destruído.
+    statsWatcher_.waitForFinished();
+}
 
 void SettingsService::configure(const QString& profileRoot, const QString& logFile, const QString& databasePath) {
     profileRoot_ = profileRoot;
     logFile_ = logFile;
     databasePath_ = databasePath;
-    // Um novo perfil/diagnóstico invalida o cache de estatísticas anterior.
+    // Um novo perfil/diagnóstico invalida o cache e qualquer varredura em andamento.
     statsTimer_.invalidate();
+    ++statsGeneration_;
+    statsLoading_ = false;
     emit statsChanged();
     emit logsChanged();
 }
@@ -76,11 +85,29 @@ void SettingsService::refreshLogs() {
         emit logsChanged();
         return;
     }
-    const QStringList lines = QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    // Percorre o arquivo de trás para frente; a memória depende somente das linhas exibidas.
+    QList<QByteArray> recentLines;
+    QByteArray pending;
+    qint64 position = file.size();
     const QRegularExpression pattern(QStringLiteral("^(\\S+)\\s+(\\d+)\\s+(.*)$"));
+    int validLines = 0;
+    while (position > 0 && validLines < kMaxLogEntries) {
+        const qint64 count = qMin<qint64>(position, 16384);
+        position -= count;
+        if (!file.seek(position)) { error_ = file.errorString(); break; }
+        pending.prepend(file.read(count));
+        qsizetype newline;
+        while ((newline = pending.lastIndexOf('\n')) >= 0 && validLines < kMaxLogEntries) {
+            const QByteArray line = pending.mid(newline + 1);
+            pending.truncate(newline);
+            if (pattern.match(QString::fromUtf8(line)).hasMatch()) { recentLines.prepend(line); ++validLines; }
+        }
+    }
+    if (position == 0 && validLines < kMaxLogEntries && pattern.match(QString::fromUtf8(pending)).hasMatch())
+        recentLines.prepend(pending);
     int id = 0;
-    for (const QString& line : lines) {
-        const QRegularExpressionMatch match = pattern.match(line);
+    for (const QByteArray& line : recentLines) {
+        const QRegularExpressionMatch match = pattern.match(QString::fromUtf8(line));
         if (!match.hasMatch()) continue;
         QVariantMap entry;
         entry.insert(QStringLiteral("id"), ++id);
@@ -122,44 +149,79 @@ bool SettingsService::openDataDir() {
 
 void SettingsService::refreshStats() {
     // A varredura de disco pode ser cara; o cache curto evita repetir ao alternar abas.
+    if (statsRunning_) {
+        // Uma nova leitura pedida durante a varredura substitui o resultado em voo.
+        statsRestart_ = true;
+        return;
+    }
     if (statsTimer_.isValid() && statsTimer_.elapsed() < 30000) return;
     statsLoading_ = true;
     emit statsChanged();
 
-    totalGames_ = -1;
-    totalInventoryItems_ = -1;
-    if (!databasePath_.isEmpty()) {
-        ReadOnlyConnection connection;
-        QString databaseError;
-        if (connection.open(databasePath_, &databaseError)) {
-            QSqlQuery games(connection.database());
-            if (games.exec(QStringLiteral("SELECT COUNT(*) FROM games")) && games.next()) totalGames_ = games.value(0).toLongLong();
-            QSqlQuery items(connection.database());
-            if (items.exec(QStringLiteral("SELECT COUNT(*) FROM hardware_items")) && items.next()) {
-                totalInventoryItems_ = items.value(0).toLongLong();
+    // Cópias explícitas: o lambda não captura o objeto e pode terminar após configure().
+    const QString profile = profileRoot_;
+    const QString databasePath = databasePath_;
+    const quint64 generation = ++statsGeneration_;
+    statsRunning_ = true;
+    statsWatcher_.setFuture(QtConcurrent::run([profile, databasePath, generation] {
+        StatsResult result;
+        result.generation = generation;
+        if (!databasePath.isEmpty()) {
+            ReadOnlyConnection connection;
+            QString databaseError;
+            if (connection.open(databasePath, &databaseError)) {
+                QSqlQuery games(connection.database());
+                if (games.exec(QStringLiteral("SELECT COUNT(*) FROM games")) && games.next()) {
+                    result.totalGames = games.value(0).toLongLong();
+                }
+                QSqlQuery items(connection.database());
+                if (items.exec(QStringLiteral("SELECT COUNT(*) FROM hardware_items")) && items.next()) {
+                    result.totalInventoryItems = items.value(0).toLongLong();
+                }
+            } else {
+                result.error = databaseError;
             }
-        } else {
-            error_ = databaseError;
         }
-    }
 
-    qint64 bytes = 0;
-    if (!profileRoot_.isEmpty() && QDir(profileRoot_).exists()) {
-        QDirIterator iterator(profileRoot_, QDir::Files | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot,
-            QDirIterator::Subdirectories);
-        while (iterator.hasNext()) {
-            iterator.next();
-            bytes += iterator.fileInfo().size();
+        qint64 bytes = 0;
+        if (!profile.isEmpty() && QDir(profile).exists()) {
+            QDirIterator iterator(profile, QDir::Files | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot,
+                QDirIterator::Subdirectories);
+            while (iterator.hasNext()) {
+                iterator.next();
+                bytes += iterator.fileInfo().size();
+            }
+            // Duas casas decimais evitam diferenças de formatação entre leituras.
+            result.dataDirSizeMb = qRound(static_cast<double>(bytes) / (1024.0 * 1024.0) * 100.0) / 100.0;
         }
-        // Duas casas decimais evitam diferenças de formatação entre leituras.
-        dataDirSizeMb_ = qRound(static_cast<double>(bytes) / (1024.0 * 1024.0) * 100.0) / 100.0;
-    } else {
-        dataDirSizeMb_ = -1;
-    }
+        return result;
+    }));
+}
 
+void SettingsService::applyStatsResult() {
+    statsRunning_ = false;
+    const StatsResult result = statsWatcher_.result();
+    // configure() incrementa a geração; resultados antigos não sobrescrevem o perfil atual.
+    if (result.generation != statsGeneration_) {
+        statsLoading_ = false;
+        emit statsChanged();
+        if (statsRestart_) {
+            statsRestart_ = false;
+            refreshStats();
+        }
+        return;
+    }
+    totalGames_ = result.totalGames;
+    totalInventoryItems_ = result.totalInventoryItems;
+    dataDirSizeMb_ = result.dataDirSizeMb;
+    if (!result.error.isEmpty()) error_ = result.error;
     statsLoading_ = false;
     statsTimer_.restart();
     emit statsChanged();
+    if (statsRestart_) {
+        statsRestart_ = false;
+        refreshStats();
+    }
 }
 
 bool SettingsService::clearRomCache() {

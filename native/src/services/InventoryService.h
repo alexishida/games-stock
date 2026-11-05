@@ -32,8 +32,9 @@ class InventoryService final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
     explicit InventoryService(QObject* parent = nullptr);
-    /** Abre o banco e define o perfil usado para gravar/remover fotos. */
-    bool open(const QString& databasePath, const QString& profileRoot, QString* error = nullptr);
+    /** Abre o banco e define o perfil usado para gravar/remover fotos.
+     *  Com `lazyLoad`, tipos/estados/plataformas/itens ficam para `ensureLoaded()`. */
+    bool open(const QString& databasePath, const QString& profileRoot, QString* error = nullptr, bool lazyLoad = false);
     bool isOpen() const;
     void setMediaRoot(const QString& path) { mediaRoot_ = path; }
 
@@ -57,6 +58,8 @@ public:
     QString error() const { return error_; }
 
 public slots:
+    /** Carrega os dados do inventário na primeira entrada na seção, sem custo na abertura. */
+    void ensureLoaded();
     void setSearch(const QString& value);
     void setSortBy(const QString& value);
     void setItemTypeId(qint64 value);
@@ -133,5 +136,7 @@ private:
     qint64 filtered_ = 0;
     QString error_;
     bool open_ = false;
+    // Diferencia a conexão aberta da primeira carga pesada do inventário.
+    bool loaded_ = false;
 };
 } // namespace gamestock

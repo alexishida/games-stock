@@ -98,6 +98,8 @@ bool applySchema(QSqlDatabase& database, QString* error) {
         {"games", "launchbox_id", "TEXT"},
         {"games", "launch_count", "INTEGER NOT NULL DEFAULT 0"},
         {"games", "library_group_key", "TEXT"},
+        // Título em minúsculas Unicode para busca sem depender do LOWER() ASCII do SQLite.
+        {"games", "title_normalized", "TEXT"},
         {"platforms", "is_default", "INTEGER NOT NULL DEFAULT 0"},
     };
     for (const auto& column : columns) {
@@ -113,6 +115,8 @@ bool applySchema(QSqlDatabase& database, QString* error) {
         QStringLiteral("CREATE INDEX IF NOT EXISTS idx_games_library_group_title ON games(platform_id, library_group_key, title COLLATE NOCASE) "
             "WHERE library_group_key IS NOT NULL AND library_group_key != ''"),
         QStringLiteral("CREATE INDEX IF NOT EXISTS idx_games_recent ON games(created_at DESC, id DESC)"),
+        // A busca usa a coluna normalizada; o índice cobre prefixos e ordenações que a usem.
+        QStringLiteral("CREATE INDEX IF NOT EXISTS idx_games_title_normalized ON games(title_normalized)"),
     };
     if (!execStatements(database, extraIndexes, error)) return false;
 

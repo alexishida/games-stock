@@ -56,7 +56,7 @@ bool copyFile(const QString& source, const QString& destination) {
 
 InventoryService::InventoryService(QObject* parent) : QObject(parent) {}
 
-bool InventoryService::open(const QString& databasePath, const QString& profileRoot, QString* error) {
+bool InventoryService::open(const QString& databasePath, const QString& profileRoot, QString* error, bool lazyLoad) {
     QString localError;
     if (!connection_.open(databasePath, &localError)) {
         error_ = localError;
@@ -67,16 +67,24 @@ bool InventoryService::open(const QString& databasePath, const QString& profileR
     profileRoot_ = profileRoot;
     if (mediaRoot_.isEmpty()) mediaRoot_ = profileRoot;
     open_ = true;
-    reloadTypes();
-    reloadStates();
-    reloadPlatforms();
-    reload();
+    // O modo interativo adia a carga; testes e chamadas diretas continuam recebendo tudo pronto.
+    if (!lazyLoad) ensureLoaded();
     if (error_.isEmpty()) {
         if (error) error->clear();
         return true;
     }
     if (error) *error = error_;
     return false;
+}
+
+void InventoryService::ensureLoaded() {
+    if (!open_ || loaded_) return;
+    // Marca antes das consultas para que sinais intermediários não repitam a carga.
+    loaded_ = true;
+    reloadTypes();
+    reloadStates();
+    reloadPlatforms();
+    reload();
 }
 
 bool InventoryService::isOpen() const { return open_; }
@@ -86,7 +94,7 @@ void InventoryService::setSearch(const QString& value) {
     if (search_ == value) return;
     search_ = value;
     page_ = 1;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::setSortBy(const QString& value) {
@@ -94,7 +102,7 @@ void InventoryService::setSortBy(const QString& value) {
     if (sortBy_ == value) return;
     sortBy_ = value;
     page_ = 1;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::setItemTypeId(qint64 value) {
@@ -102,7 +110,7 @@ void InventoryService::setItemTypeId(qint64 value) {
     if (itemTypeId_ == normalized) return;
     itemTypeId_ = normalized;
     page_ = 1;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::setConservationStateId(qint64 value) {
@@ -110,7 +118,7 @@ void InventoryService::setConservationStateId(qint64 value) {
     if (conservationStateId_ == normalized) return;
     conservationStateId_ = normalized;
     page_ = 1;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::setPlatformId(qint64 value) {
@@ -118,7 +126,7 @@ void InventoryService::setPlatformId(qint64 value) {
     if (platformId_ == normalized) return;
     platformId_ = normalized;
     page_ = 1;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::setPageSize(int value) {
@@ -126,17 +134,20 @@ void InventoryService::setPageSize(int value) {
     if (pageSize_ == normalized) return;
     pageSize_ = normalized;
     page_ = 1;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::goToPage(int value) {
     const int normalized = qMax(1, value);
     if (page_ == normalized) return;
     page_ = normalized;
-    reload();
+    if (loaded_) reload(); else ensureLoaded();
 }
 
 void InventoryService::refresh() {
+    if (!open_) return;
+    // Qualquer mutação exige a carga completa, inclusive quando veio de uma aba ainda não aberta.
+    loaded_ = true;
     reloadTypes();
     reloadStates();
     reloadPlatforms();

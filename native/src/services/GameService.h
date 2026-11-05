@@ -4,8 +4,10 @@
 #include "db/WriteConnection.h"
 #include "db/dao/GameReadDao.h"
 #include "models/GameListModel.h"
+#include "services/LibraryQueryWorker.h"
 
 #include <QObject>
+#include <QThread>
 #include <QUrl>
 #include <QStringList>
 #include <QVariantList>
@@ -45,8 +47,12 @@ class GameService final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
     explicit GameService(QObject* parent = nullptr);
-    /** Abre o banco já inicializado para leitura/escrita e carrega a primeira página. */
-    bool open(const QString& databasePath, QString* error = nullptr);
+    ~GameService() override;
+    /** Liga a leitura em thread própria; deve ser chamado antes de `open` no app interativo. */
+    void setAsyncQueries(bool enabled);
+    /** Abre o banco já inicializado para leitura/escrita e carrega a primeira página.
+     *  `deferAggregates` deixa gêneros/contadores/estatísticas para depois do primeiro quadro. */
+    bool open(const QString& databasePath, QString* error = nullptr, bool deferAggregates = false);
     bool isOpen() const;
     /** Raiz autorizada para listar mídias; padrão é o diretório do banco. */
     void setMediaRoot(const QString& path);
@@ -93,6 +99,8 @@ public slots:
     void goToPage(int value);
     /** Recarrega página, contadores, gêneros, estatísticas e plataformas. */
     void refresh();
+    /** Carrega somente agregados adiados na abertura, sem repetir a consulta da página. */
+    void loadAggregates();
 
     /** Retorna o jogo completo com `coverUrl`, ou mapa vazio em erro. */
     QVariantMap get(qint64 id);
@@ -127,6 +135,16 @@ signals:
     void changed();
 
 private:
+    /** Recarrega a página e, quando necessário, os agregados da biblioteca. */
+    void refreshPage(bool refreshAggregates);
+    /** Caminho síncrono usado na abertura, nas mutações e nos testes. */
+    void refreshPageSync(bool refreshAggregates);
+    /** Enfileira uma consulta para a thread de leitura. */
+    void scheduleQuery(bool refreshAggregates);
+    /** Aplica a resposta mais recente e descarta gerações obsoletas. */
+    void applyQueryResponse(const LibraryQueryWorker::Response& response);
+    /** Executa as consultas agregadas, pulando as que não mudaram desde a última leitura. */
+    bool loadAggregateQueries(QString* error);
     /** Mesmos filtros aplicados à página, à sidebar e aos contadores. */
     GameListFilters filters() const;
     /** Persiste as preferências de biblioteca no formato do renderer legado. */
@@ -155,5 +173,16 @@ private:
     qint64 filtered_ = 0;
     QString error_;
     bool open_ = false;
+    // Agregados que não dependem dos filtros só são recalculados após mutações.
+    bool genresDirty_ = true;
+    bool launchStatsDirty_ = true;
+    bool coverStatsDirty_ = true;
+    // Consulta assíncrona: worker com conexão própria, geração e flag do último pedido.
+    QThread queryThread_;
+    LibraryQueryWorker* queryWorker_ = nullptr;
+    QString databasePath_;
+    bool asyncQueries_ = false;
+    quint64 queryGeneration_ = 0;
+    bool pendingAggregates_ = true;
 };
 } // namespace gamestock

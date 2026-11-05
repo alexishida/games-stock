@@ -85,6 +85,42 @@ private slots:
         QCOMPARE(service.model()->rowCount(), 1);
     }
 
+    /** O modo assíncrono mantém a abertura síncrona e entrega filtros pela thread de leitura. */
+    void asyncQueries() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("db/gamestock.db");
+        {
+            gamestock::Database database;
+            QString error;
+            QVERIFY2(database.open(path, dir.filePath("db/images"), &error), qPrintable(error));
+            const qint64 platform = platformId(database.handle(), QStringLiteral("Super Nintendo"));
+            QVERIFY(platform > 0);
+            gamestock::GameWriteDao dao(database.handle());
+            qint64 id = 0;
+            QVERIFY2(dao.create({{"title", "Aventura"}, {"platform_id", platform}}, &id, &error), qPrintable(error));
+            QVERIFY2(dao.create({{"title", "Concluído"}, {"platform_id", platform},
+                {"play_status", "completed"}}, &id, &error), qPrintable(error));
+        }
+
+        gamestock::GameService service;
+        service.setAsyncQueries(true);
+        QString error;
+        QVERIFY2(service.open(path, &error), qPrintable(error));
+        // A primeira página continua síncrona para o primeiro quadro.
+        QCOMPARE(service.total(), static_cast<qint64>(2));
+        QCOMPARE(service.model()->rowCount(), 2);
+        service.setSearch("conclu");
+        QTRY_COMPARE_WITH_TIMEOUT(service.filtered(), static_cast<qint64>(1), 5000);
+        QCOMPARE(service.model()->rowCount(), 1);
+        service.setSearch("");
+        QTRY_COMPARE_WITH_TIMEOUT(service.filtered(), static_cast<qint64>(2), 5000);
+        // Mutações continuam síncronas e a recarga chega pela mesma fila.
+        const qint64 removedId = service.items().first().toMap().value("id").toLongLong();
+        QVERIFY(service.remove(removedId));
+        QTRY_COMPARE_WITH_TIMEOUT(service.total(), static_cast<qint64>(1), 5000);
+    }
+
     /** CRUD tipado, validação e filtros combinados usam o mesmo contrato do Electron. */
     void crudAndCombinedFilters() {
         QTemporaryDir dir;

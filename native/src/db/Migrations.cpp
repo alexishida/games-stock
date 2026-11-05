@@ -489,9 +489,39 @@ bool backfillLibraryGroupKeys(QSqlDatabase& database, QString* error) {
     }
     return true;
 }
+
+/** Preenche o título normalizado que a busca usa, cobrindo acentos e maiúsculas Unicode. */
+bool backfillTitleNormalized(QSqlDatabase& database, QString* error) {
+    QSqlQuery rows(database);
+    if (!rows.exec(QStringLiteral("SELECT id, title FROM games"))) {
+        if (error) *error = rows.lastError().text();
+        return false;
+    }
+    QList<QPair<qint64, QString>> updates;
+    while (rows.next()) {
+        // toCaseFolded aplica a dobra Unicode completa, diferente do LOWER() limitado a ASCII.
+        updates.append({rows.value(0).toLongLong(), rows.value(1).toString().toCaseFolded()});
+    }
+    QSqlQuery update(database);
+    if (!update.prepare(QStringLiteral("UPDATE games SET title_normalized = ? WHERE id = ?"))) {
+        if (error) *error = update.lastError().text();
+        return false;
+    }
+    for (const auto& item : updates) {
+        update.bindValue(0, item.second);
+        update.bindValue(1, item.first);
+        if (!update.exec()) { if (error) *error = update.lastError().text(); return false; }
+    }
+    return true;
+}
 } // namespace
 
-bool initializeDatabase(QSqlDatabase& database, const QString& imagesDir, QString* error) {    if (!applySchema(database, error)) return false;
+bool initializeDatabase(QSqlDatabase& database, const QString& imagesDir, QString* error) {
+    // Agrupa o DDL: um banco limpo não precisa sincronizar o disco a cada tabela/índice.
+    // O commit precede runOnce, cujas migrations mantêm suas próprias transações.
+    if (!database.transaction()) { if (error) *error = database.lastError().text(); return false; }
+    if (!applySchema(database, error)) { database.rollback(); return false; }
+    if (!database.commit()) { if (error) *error = database.lastError().text(); database.rollback(); return false; }
     if (!runOnce(database, QStringLiteral("platform-aliases-v1"), [&](QString* inner) { return migratePlatformAliases(database, inner); }, error)) return false;
     if (!runOnce(database, QStringLiteral("dedupe-launchbox-games-v1"), [&](QString* inner) { return dedupeGamesByLaunchBoxId(database, inner); }, error)) return false;
     if (!ensureGamesLaunchBoxUniqueIndex(database, error)) return false;
@@ -506,6 +536,8 @@ bool initializeDatabase(QSqlDatabase& database, const QString& imagesDir, QStrin
     if (!runOnce(database, QStringLiteral("rom-variant-titles-v1"), [&](QString* inner) { return backfillRomVariantTitles(database, inner); }, error)) return false;
     if (!runOnce(database, QStringLiteral("cached-cover-paths-v1"), [&](QString* inner) { return backfillCachedCoverPaths(database, imagesDir, inner); }, error)) return false;
     if (!runOnce(database, QStringLiteral("library-group-key-v1"), [&](QString* inner) { return backfillLibraryGroupKeys(database, inner); }, error)) return false;
+    // Executa por último para cobrir títulos corrigidos pelas migrations anteriores.
+    if (!runOnce(database, QStringLiteral("title-normalized-v1"), [&](QString* inner) { return backfillTitleNormalized(database, inner); }, error)) return false;
     return true;
 }
 
@@ -514,6 +546,6 @@ QStringList knownMigrationNames() {
     return {QStringLiteral("platform-aliases-v1"), QStringLiteral("dedupe-launchbox-games-v1"),
         QStringLiteral("hardware-conservation-states-v1"), QStringLiteral("teknoparrot-profile-filename-v1"),
         QStringLiteral("rom-variant-titles-v1"), QStringLiteral("cached-cover-paths-v1"),
-        QStringLiteral("library-group-key-v1")};
+        QStringLiteral("library-group-key-v1"), QStringLiteral("title-normalized-v1")};
 }
 } // namespace gamestock

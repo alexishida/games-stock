@@ -22,6 +22,23 @@ bool writeLog(const QString& path, const QStringList& lines) {
 class SettingsServiceTest : public QObject {
     Q_OBJECT
 private slots:
+    /** A leitura reversa preserva as últimas entradas válidas, inclusive UTF-8 entre blocos. */
+    void recentLogs() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("log.txt");
+        QStringList lines;
+        for (int i = 0; i < 700; ++i)
+            lines.append(QStringLiteral("2026-11-02T10:00:00Z 4 Entrada %1 ç").arg(i));
+        lines.append(QStringLiteral("linha inválida"));
+        QVERIFY(writeLog(path, lines));
+        gamestock::SettingsService service;
+        service.configure(dir.path(), path, QString());
+        service.refreshLogs();
+        QCOMPARE(service.logEntries().size(), 500);
+        QCOMPARE(service.logEntries().first().toMap().value("message").toString(), QStringLiteral("Entrada 200 ç"));
+        QCOMPARE(service.logEntries().last().toMap().value("message").toString(), QStringLiteral("Entrada 699 ç"));
+    }
     void logsLifecycle() {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -76,10 +93,11 @@ private slots:
         gamestock::SettingsService service;
         service.configure(profile, QDir(profile).filePath("native-prototype.log"), path);
         service.refreshStats();
-        QCOMPARE(service.totalGames(), qint64(1));
-        QCOMPARE(service.totalInventoryItems(), qint64(0));
-        QVERIFY(service.dataDirSizeMb() >= 0);
-        QCOMPARE(service.statsLoading(), false);
+        // A varredura roda em segundo plano; o teste espera o sinal sem bloquear a UI.
+        QTRY_COMPARE_WITH_TIMEOUT(service.totalGames(), qint64(1), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(service.totalInventoryItems(), qint64(0), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(service.dataDirSizeMb() >= 0, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(service.statsLoading(), false, 5000);
         QVERIFY(service.error().isEmpty());
 
         // O cache temporário é isolado por variável de ambiente para o teste.
@@ -98,8 +116,8 @@ private slots:
         // Banco inexistente mantém os contadores desconhecidos, sem exceção.
         service.configure(profile, QString(), dir.filePath("ausente.db"));
         service.refreshStats();
-        QCOMPARE(service.totalGames(), qint64(-1));
-        QCOMPARE(service.totalInventoryItems(), qint64(-1));
+        QTRY_COMPARE_WITH_TIMEOUT(service.totalGames(), qint64(-1), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(service.totalInventoryItems(), qint64(-1), 5000);
     }
 };
 

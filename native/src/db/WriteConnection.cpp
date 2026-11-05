@@ -42,6 +42,10 @@ bool WriteConnection::open(const QString& path, QString* error) {
         database_.close();
         return false;
     }
+    // A conexão de escrita dos jobs acompanha o WAL persistido pelo Database principal.
+    QSqlQuery sync(database_);
+    if (!sync.exec(QStringLiteral("PRAGMA synchronous = NORMAL")))
+        qWarning("Não foi possível ajustar synchronous na escrita: %s", qPrintable(sync.lastError().text()));
     if (error) error->clear();
     return true;
 }

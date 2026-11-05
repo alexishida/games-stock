@@ -207,5 +207,7 @@ Item {
         }
     }
 
-    Component.onCompleted: refreshStats()
+    /* Consultas de mídia só são necessárias quando a seção está aberta. */
+    onVisibleChanged: if (visible) refreshStats()
+    Component.onCompleted: if (visible) refreshStats()
 }

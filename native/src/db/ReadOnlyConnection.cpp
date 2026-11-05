@@ -31,6 +31,10 @@ bool ReadOnlyConnection::open(const QString& path, QString* error) {
         database_.close();
         return false;
     }
+    // Leitura concorrente no modo WAL não precisa sincronizar a cada consulta.
+    QSqlQuery sync(database_);
+    if (!sync.exec(QStringLiteral("PRAGMA synchronous = NORMAL")))
+        qWarning("Não foi possível ajustar synchronous na leitura: %s", qPrintable(sync.lastError().text()));
     if (error) error->clear();
     return true;
 }
