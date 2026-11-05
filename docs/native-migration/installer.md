@@ -26,6 +26,9 @@ NSIS 3.11 fica em `.native-tools/nsis-3.11` (não entra no repositório nem no r
 - `install.marker` na pasta instalada → canal `installed`.
 - Registro HKCU em `Software\Microsoft\Windows\CurrentVersion\Uninstall\com.gamestock.app`.
 - Atalhos em `%APPDATA%\Microsoft\Windows\Start Menu\Programs\GameStock`.
+- Atalho adicional na Área de Trabalho (`$DESKTOP\GameStock.lnk`), removido na desinstalação.
+- O executável embute `native/assets/gamestock.ico` como recurso Win32; Explorer, barra de tarefas
+  e atalhos usam a mesma arte, e o instalador usa o ícone nas próprias telas.
 - O ZIP portátil contém `portable.marker` e mantém `gamestock_native.exe`; o instalador remove o
   executável interno duplicado e usa `GameStock.exe`.
 

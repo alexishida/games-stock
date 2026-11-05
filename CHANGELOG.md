@@ -24,6 +24,7 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
 ### Corrigido
 
+- Instalador passa a criar atalho na Área de Trabalho e o executável embute o ícone do aplicativo, usado por Explorer, barra de tarefas e atalhos.
 - Verificada a compatibilidade do perfil existente em cópia, preservando dados e caminhos.
 - Corrigida a orientação de capas reais sem ciclo de binding ou mudança de layout.
 - Restaurados ampliação, navegação e salvamento da galeria; seleção de capa passa a copiá-la para o perfil e caminhos de ROM preservam espaços e acentos.

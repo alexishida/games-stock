@@ -50,6 +50,10 @@ Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 
+; O instalador e o desinstalador usam a mesma arte do executável.
+!define MUI_ICON "__GAMESTOCK_ICON__"
+!define MUI_UNICON "__GAMESTOCK_ICON__"
+
 !ifndef APP_VERSION
   !define APP_VERSION "0.0.0"
 !endif
@@ -102,12 +106,17 @@ Section "GameStock" SEC_MAIN
   CreateDirectory "$SMPROGRAMS\GameStock"
   CreateShortcut "$SMPROGRAMS\GameStock\GameStock.lnk" "$INSTDIR\GameStock.exe"
   CreateShortcut "$SMPROGRAMS\GameStock\Desinstalar GameStock.lnk" "$INSTDIR\Uninstall.exe"
+  ; Atalho na área de trabalho do usuário que executou o instalador.
+  SetShellVarContext current
+  CreateShortcut "$DESKTOP\GameStock.lnk" "$INSTDIR\GameStock.exe"
 SectionEnd
 
 Section "Uninstall"
   Delete "$SMPROGRAMS\GameStock\GameStock.lnk"
   Delete "$SMPROGRAMS\GameStock\Desinstalar GameStock.lnk"
   RMDir "$SMPROGRAMS\GameStock"
+  SetShellVarContext current
+  Delete "$DESKTOP\GameStock.lnk"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\com.gamestock.app"
   DeleteRegKey HKCU "Software\GameStock"
   ; O perfil do usuário em %APPDATA%\gamestock é preservado de propósito.
@@ -115,6 +124,9 @@ Section "Uninstall"
 SectionEnd
 '@
 $content = $content
+$iconPath = Join-Path $root 'native/assets/gamestock.ico'
+if (-not (Test-Path -LiteralPath $iconPath)) { throw "Ícone do aplicativo não encontrado: $iconPath" }
+$content = $content.Replace('__GAMESTOCK_ICON__', $iconPath)
 Set-Content -LiteralPath $scriptPath -Value $content -Encoding utf8
 
 & $nsis /V2 "/DAPP_VERSION=$Version" "/DSOURCE_DIR=$appSource" "/DOUT_FILE=$outFile" $scriptPath

@@ -1,0 +1,3 @@
+// Recurso de ícone Win32: Explorer, barra de tarefas e atalhos usam esta imagem.
+// O caminho absoluto é resolvido no configure do CMake para não depender do diretório do rc.exe.
+IDI_ICON1 ICON "@GAMESTOCK_ICON_PATH@"

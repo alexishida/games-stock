@@ -131,6 +131,10 @@ target_link_libraries(gamestock_native PRIVATE gamestock_core Qt6::Gui Qt6::Qml 
 if(WIN32)
     # Abre o aplicativo gráfico sem criar uma janela de console no Windows.
     set_target_properties(gamestock_native PROPERTIES WIN32_EXECUTABLE TRUE)
+    # Ícone nativo do executável: Explorer, barra de tarefas e atalhos usam este recurso.
+    set(GAMESTOCK_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/gamestock.ico")
+    configure_file(src/app/gamestock.rc.in "${CMAKE_CURRENT_BINARY_DIR}/gamestock.rc" @ONLY)
+    target_sources(gamestock_native PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/gamestock.rc")
     # Psapi mede memória; DWM aplica a barra de título escura da janela nativa.
     target_link_libraries(gamestock_native PRIVATE psapi dwmapi)
 endif()
