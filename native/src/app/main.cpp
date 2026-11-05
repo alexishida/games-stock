@@ -427,14 +427,16 @@ int main(int argc, char* argv[]) {
         if (!servicePath.isEmpty() && romFolderService.open(servicePath, &romFolderError)) romFolderServiceObject = &romFolderService;
         else qWarning("Serviço de importação de ROMs indisponível: %s", qPrintable(romFolderError));
         QString mediaSyncError;
-        if (!servicePath.isEmpty() && mediaSyncService.open(servicePath, profile,
+        // O cache do LaunchBox fica em <perfil>/launchbox_cache, igual ao formato legado.
+        const QString launchBoxCacheDir = QDir(profile).filePath(QStringLiteral("launchbox_cache"));
+        if (!servicePath.isEmpty() && mediaSyncService.open(servicePath, launchBoxCacheDir,
                 QDir(profile).filePath(QStringLiteral("images")), &mediaSyncError)) {
             mediaSyncServiceObject = &mediaSyncService;
         } else {
             qWarning("Serviço de mídia indisponível: %s", qPrintable(mediaSyncError));
         }
         QString metadataServiceError;
-        if (!servicePath.isEmpty() && metadataService.open(servicePath, profile,
+        if (!servicePath.isEmpty() && metadataService.open(servicePath, launchBoxCacheDir,
                 QDir(profile).filePath(QStringLiteral("images")), &metadataServiceError)) {
             metadataServiceObject = &metadataService;
         } else {

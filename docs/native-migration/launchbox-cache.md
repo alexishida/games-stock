@@ -8,7 +8,7 @@
 | `native/src/launchbox/LaunchBoxCache.*` | Download HTTPS com progresso, extração do `Metadata.zip`, cache de 24 h, índice JSON e parser XML incremental. |
 | `native/src/app/RomLaunchExtraction.*` | `sevenZipBinaryPath`/`extractArchiveWithSevenZip` reutilizados na extração. |
 
-Caminhos padrão dentro de `launchbox_cache/`:
+Caminhos padrão dentro de `launchbox_cache/` (abaixo do perfil do usuário):
 
 - `Metadata.xml` — catálogo extraído e canônico.
 - `Metadata.zip.part` — download temporário, removido em sucesso ou falha.
@@ -16,7 +16,13 @@ Caminhos padrão dentro de `launchbox_cache/`:
 
 ## Regras preservadas
 
-- `ensureMetadata(false)` usa o XML quando a idade é de até 24 h; `force` baixa de novo.
+- `ensureMetadata(false)` usa o XML quando a idade é de até 24 h **e** o conteúdo começa com
+  `<Game>`; `force` baixa de novo.
+- O ZIP atual do LaunchBox contém `Metadata.xml`, `Mame.xml`, `Files.xml` e `Platforms.xml`.
+  A extração escolhe explicitamente o `Metadata.xml`; escolher o primeiro XML quebraria a busca
+  (o `Files.xml` não tem jogos).
+- Um XML recente com o dataset errado (por exemplo, `Files.xml` renomeado) é rejeitado e força
+  novo download; se o download falhar, um cache antigo válido continua servindo à busca.
 - O download usa `QNetworkAccessManager`, segue redirects, aplica timeout de 60 s, valida HTTP 200 e
   reporta progresso em bytes.
 - O XML só substitui o anterior depois de extraído e copiado com `QSaveFile`; erro de rede,
@@ -27,7 +33,8 @@ Caminhos padrão dentro de `launchbox_cache/`:
   alternativos e imagens.
 - `index.json` é aceito apenas se for objeto não vazio e o primeiro jogo tiver `alternateNames`
   (formato atual); cache inválido/antigo é descartado e reconstruído.
-- O índice só é gravado após parse completo; XML inválido não gera índice parcial.
+- O índice só é gravado após parse completo; XML inválido ou sem `<Game>` não gera índice parcial
+  nem índice vazio.
 - Operações concorrentes no mesmo `LaunchBoxCache` são serializadas por mutex recursivo: a segunda
   chamada reutiliza XML/índice recém-gerados sem repetir download.
 - `7za/7z/7zz` segue a mesma busca do launch (`GAMESTOCK_7Z_PATH`, app, `tools/`, `PATH`).
@@ -45,6 +52,9 @@ ctest --test-dir native/build/windows-msvc -C Release -R launchbox-cache --outpu
 - servidor HTTP local entregando ZIP real: download, extração, índice com dois jogos, alias,
   imagem/região, `index.json` e segunda leitura sem novo HTTP;
 - cache recente retornando `cached`;
+- pacote com `Files.xml`/`Mame.xml`/`Metadata.xml` escolhendo o `Metadata.xml` correto;
+- `Metadata.xml` recente com dataset errado rejeitado e baixado de novo;
+- XML válido sem `<Game>` falhando sem gravar índice vazio;
 - `index.json` corrompido/antigo reconstruído a partir do XML e regravado;
 - XML inválido falhando sem escrever índice;
 - HTTP 500 preservando o `Metadata.xml` anterior e removendo o `.part`;

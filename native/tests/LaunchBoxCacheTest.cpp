@@ -56,6 +56,32 @@ QByteArray makeZip(const QString& xml, const QString& directory, const QString& 
     return zip.readAll();
 }
 
+/** Cria um ZIP real com vários XMLs, preservando a ordem informada. */
+QByteArray makeZipFiles(const QList<QPair<QString, QString>>& files, const QString& directory,
+    const QString& archiveName)
+{
+    QStringList names;
+    for (const auto& file : files) {
+        QFile source(QDir(directory).filePath(file.first + QStringLiteral(".xml")));
+        if (!source.open(QIODevice::WriteOnly | QIODevice::Truncate)) return {};
+        source.write(file.second.toUtf8());
+        source.close();
+        names.append(QFileInfo(source).fileName());
+    }
+    const QString archive = QDir(directory).filePath(archiveName + QStringLiteral(".zip"));
+    QProcess process;
+    process.setWorkingDirectory(directory);
+    process.setProgram(qEnvironmentVariable("GAMESTOCK_7Z_PATH"));
+    QStringList arguments{QStringLiteral("a"), archive};
+    arguments.append(names);
+    process.setArguments(arguments);
+    process.start();
+    if (!process.waitForFinished(30000)) return {};
+    QFile zip(archive);
+    if (!zip.open(QIODevice::ReadOnly)) return {};
+    return zip.readAll();
+}
+
 /** Servidor HTTP mínimo que entrega um ZIP fixo e conta requisições. */
 class ZipServer : public QObject {
     Q_OBJECT
@@ -145,6 +171,81 @@ private slots:
         QCOMPARE(cached.size(), 2);
         const auto recent = cache.ensureMetadata(false);
         QCOMPARE(recent.status, QString("cached"));
+    }
+
+    /** O ZIP atual do LaunchBox traz vários XMLs; só Metadata.xml contém jogos. */
+    void prefersMetadataXmlInMultiFileZip() {
+        const QString sevenZip = qEnvironmentVariable("GAMESTOCK_7Z_PATH");
+        if (sevenZip.isEmpty() || !QFileInfo(sevenZip).isFile()) QSKIP("7-Zip de teste não informado.");
+        QTemporaryDir work;
+        QVERIFY(work.isValid());
+        const QString filesXml = QStringLiteral(
+            "<?xml version=\"1.0\"?><LaunchBox><File><FileName>x</FileName></File></LaunchBox>");
+        const QString mameXml = QStringLiteral(
+            "<?xml version=\"1.0\"?><LaunchBox><Machine><Name>x</Name></Machine></LaunchBox>");
+        const QByteArray zip = makeZipFiles({
+            {QStringLiteral("Files"), filesXml},
+            {QStringLiteral("Mame"), mameXml},
+            {QStringLiteral("Metadata"), QString::fromUtf8(sampleXml)}}, work.path(), QStringLiteral("Bundle"));
+        QVERIFY(!zip.isEmpty());
+        ZipServer server(zip);
+        QVERIFY(server.listen());
+        gamestock::LaunchBoxCache cache(work.filePath("launchbox_cache"), server.url(), sevenZip);
+        const auto result = cache.ensureMetadata(false);
+        QVERIFY2(result.ok(), qPrintable(result.error));
+        QJsonObject index;
+        QString error;
+        QVERIFY2(cache.buildIndex(&index, &error), qPrintable(error));
+        QCOMPARE(index.size(), 2);
+        QCOMPARE(server.requests(), 1);
+    }
+
+    /** Um Metadata.xml antigo com o dataset errado não é aceito como cache válido. */
+    void rejectsWrongDatasetInCache() {
+        const QString sevenZip = qEnvironmentVariable("GAMESTOCK_7Z_PATH");
+        if (sevenZip.isEmpty() || !QFileInfo(sevenZip).isFile()) QSKIP("7-Zip de teste não informado.");
+        QTemporaryDir work;
+        QVERIFY(work.isValid());
+        const QString cacheDir = work.filePath("launchbox_cache");
+        QVERIFY(QDir().mkpath(cacheDir));
+        QFile wrong(QDir(cacheDir).filePath(QStringLiteral("Metadata.xml")));
+        QVERIFY(wrong.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        wrong.write("<?xml version=\"1.0\"?><LaunchBox><File><FileName>x</FileName></File></LaunchBox>");
+        wrong.close();
+        const QByteArray zip = makeZip(QString::fromUtf8(sampleXml), work.path(), QStringLiteral("Metadata"));
+        QVERIFY(!zip.isEmpty());
+        ZipServer server(zip);
+        QVERIFY(server.listen());
+        gamestock::LaunchBoxCache cache(cacheDir, server.url(), sevenZip);
+        const auto result = cache.ensureMetadata(false);
+        QVERIFY2(result.ok(), qPrintable(result.error));
+        QCOMPARE(result.status, QString("downloaded"));
+        QCOMPARE(server.requests(), 1);
+        QJsonObject index;
+        QString error;
+        QVERIFY2(cache.buildIndex(&index, &error), qPrintable(error));
+        QCOMPARE(index.size(), 2);
+    }
+
+    /** XML válido sem <Game> falha e não grava índice vazio. */
+    void emptyDatasetFails() {
+        const QString sevenZip = qEnvironmentVariable("GAMESTOCK_7Z_PATH");
+        if (sevenZip.isEmpty() || !QFileInfo(sevenZip).isFile()) QSKIP("7-Zip de teste não informado.");
+        QTemporaryDir work;
+        QVERIFY(work.isValid());
+        const QByteArray zip = makeZip(
+            QStringLiteral("<?xml version=\"1.0\"?><LaunchBox><File><FileName>x</FileName></File></LaunchBox>"),
+            work.path(), QStringLiteral("Metadata"));
+        QVERIFY(!zip.isEmpty());
+        ZipServer server(zip);
+        QVERIFY(server.listen());
+        gamestock::LaunchBoxCache cache(work.filePath("cache"), server.url(), sevenZip);
+        QVERIFY(cache.ensureMetadata(false).ok());
+        QJsonObject index;
+        QString error;
+        QVERIFY(!cache.buildIndex(&index, &error));
+        QVERIFY(error.contains(QStringLiteral("não contém jogos")));
+        QVERIFY(!QFileInfo::exists(cache.indexFile()));
     }
 
     /** Índice inválido é descartado e reconstruído a partir do XML. */

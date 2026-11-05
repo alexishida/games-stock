@@ -72,6 +72,22 @@ void assignGameField(QJsonObject& game, const QString& field, const QString& tex
     else if (field == QLatin1String("ESRB")) game.insert(QStringLiteral("rating"), text);
     else if (field == QLatin1String("Cooperative")) game.insert(QStringLiteral("cooperative"), text);
 }
+
+/** Confirma que o XML é o dataset de jogos, e não Files/Mame/Platforms do mesmo pacote. */
+bool metadataHasGames(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QXmlStreamReader reader(&file);
+    while (!reader.atEnd()) {
+        reader.readNext();
+        if (!reader.isStartElement()) continue;
+        const QString name = reader.name().toString();
+        if (name == QLatin1String("LaunchBox")) continue;
+        // O Metadata.xml de jogos começa com <Game>; os outros arquivos do ZIP têm outros elementos.
+        return name == QLatin1String("Game");
+    }
+    return false;
+}
 } // namespace
 
 LaunchBoxCache::LaunchBoxCache(QString cacheDir, QString metadataUrl, QString sevenZipPath)
@@ -105,7 +121,9 @@ LaunchBoxCache::Result LaunchBoxCache::ensureMetadata(bool force,
     const std::function<void(const LaunchBoxProgress&)>& progress) {
     QMutexLocker lock(&mutex_);
     const QFileInfo info(metadataFile());
-    if (!force && info.exists() && info.lastModified().msecsTo(QDateTime::currentDateTime()) <= cacheAgeMs) {
+    // Um XML recente só é aceito se for realmente o dataset de jogos.
+    if (!force && info.exists() && info.lastModified().msecsTo(QDateTime::currentDateTime()) <= cacheAgeMs
+        && metadataHasGames(metadataFile())) {
         return {QStringLiteral("cached"), {}};
     }
     if (!QDir().mkpath(cacheDir_)) return {QStringLiteral("error"), QStringLiteral("Não foi possível criar o cache do LaunchBox.")};
@@ -114,6 +132,10 @@ LaunchBoxCache::Result LaunchBoxCache::ensureMetadata(bool force,
     QString error;
     if (!downloadMetadata(zipPath, &error, progress)) {
         QFile::remove(zipPath);
+        // Sem rede, um cache antigo válido continua servindo à busca em vez de falhar.
+        if (!force && info.exists() && metadataHasGames(metadataFile())) {
+            return {QStringLiteral("cached"), {}};
+        }
         return {QStringLiteral("error"), error};
     }
     if (progress) progress({0, 0, QStringLiteral("Extraindo Metadata.zip"), QStringLiteral("extracting")});
@@ -187,14 +209,20 @@ bool LaunchBoxCache::extractMetadata(const QString& zipPath, QString* error,
         return false;
     }
     QString xmlPath;
+    QString fallbackPath;
     QDirIterator iterator(workDir, QDir::Files, QDirIterator::Subdirectories);
     while (iterator.hasNext()) {
         const QString candidate = iterator.next();
-        if (QFileInfo(candidate).suffix().compare(QStringLiteral("xml"), Qt::CaseInsensitive) == 0) {
+        if (QFileInfo(candidate).suffix().compare(QStringLiteral("xml"), Qt::CaseInsensitive) != 0) continue;
+        // O ZIP do LaunchBox contém Metadata.xml, Mame.xml, Files.xml e Platforms.xml.
+        // Só o Metadata.xml traz <Game>; escolher o primeiro XML quebraria a busca.
+        if (QFileInfo(candidate).fileName().compare(QStringLiteral("Metadata.xml"), Qt::CaseInsensitive) == 0) {
             xmlPath = candidate;
             break;
         }
+        if (fallbackPath.isEmpty()) fallbackPath = candidate;
     }
+    if (xmlPath.isEmpty()) xmlPath = fallbackPath;
     if (xmlPath.isEmpty()) {
         QDir(workDir).removeRecursively();
         if (error) *error = QStringLiteral("Metadata.xml não encontrado no ZIP.");
@@ -273,6 +301,11 @@ bool LaunchBoxCache::buildIndex(QJsonObject* index, QString* error,
     QString parseError;
     if (!parseXml(metadataFile(), &built, &parseError, progress)) {
         if (error) *error = parseError;
+        return false;
+    }
+    // Um XML sem jogos (Files/Mame/Platforms) não pode gravar um índice vazio e esconder a falha.
+    if (built.isEmpty()) {
+        if (error) *error = QStringLiteral("Metadata.xml não contém jogos.");
         return false;
     }
     QString saveError;
