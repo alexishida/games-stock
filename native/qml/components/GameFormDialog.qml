@@ -25,17 +25,33 @@ DragDialog {
     /* Rascunho isolado: o serviço só é chamado em Salvar. */
     property var draft: ({})
     property string metadataQuery: ""
+    /* Busca embutida no cartão de metadados: nada abre em modal ou notificação. */
+    property var metadataService: null
+    property var metadataResults: []
+    property bool metadataBusy: false
+    property bool metadataSearched: false
+    property bool metadataSearchActive: false
+    property string metadataError: ""
+    /* Busca digitada durante o bootstrap do catálogo é retomada quando o serviço liberar. */
+    property string pendingMetadataQuery: ""
+    /* Distingue busca de importação de rascunho para não reaproveitar resultados antigos. */
+    property bool metadataImporting: false
+    /* Mesmos tipos do seletor do importador, para o rascunho receber a mídia completa. */
+    readonly property var metadataImageTypes: [
+        "Box - Back", "Box - Front", "Cart - Front", "Fanart - Background", "Screenshot - Gameplay"
+    ]
 
     signal saved(var gameId)
-    /* A busca de metadados abre o importador existente, como o sub-modal do Electron. */
-    signal metadataRequested(string title, string platformName)
 
     width: Math.min(createMode ? 680 : 760, parent.width - 48)
     height: Math.min(createMode ? 700 : 620, parent.height - 48)
     padding: 16
     heading: createMode ? "Novo jogo" : "Editar cadastro"
     onOpened: populate()
-    onClosed: formError = ""
+    onClosed: {
+        formError = ""
+        closeMetadataSearch()
+    }
 
     /** Rascunho vazio com os padrões usados pelo ManualGameModal. */
     function emptyDraft() {
@@ -64,6 +80,7 @@ DragDialog {
     /** Preenche o rascunho e os campos do modo de criação. */
     function populate() {
         formError = ""
+        closeMetadataSearch()
         metadataQuery = editingGame ? (editingGame.title || "") : ""
         draft = editingGame ? copyDraft(editingGame) : emptyDraft()
         if (!editingGame) {
@@ -99,6 +116,137 @@ DragDialog {
         for (const key in values) {
             if (key.endsWith("_path") && !values[key]) continue
             setDraft(key, values[key])
+        }
+    }
+
+    /** Fecha o painel de resultados e devolve o cartão ao estado normal. */
+    function closeMetadataSearch() {
+        metadataSearchActive = false
+        metadataSearched = false
+        metadataResults = []
+        metadataBusy = false
+        metadataError = ""
+        pendingMetadataQuery = ""
+        metadataImporting = false
+    }
+
+    /** Deixa o cartão pronto para exibir busca, carregamento ou erro. */
+    function openMetadataPanel() {
+        metadataSearchActive = true
+        metadataSearched = false
+        metadataResults = []
+        metadataBusy = false
+        metadataError = ""
+        pendingMetadataQuery = ""
+    }
+
+    /** Busca no catálogo sem sair do formulário. */
+    function searchMetadata(query) {
+        openMetadataPanel()
+        metadataImporting = false
+        if (!metadataService) {
+            metadataError = "Base de metadados indisponível."
+            return
+        }
+        const text = String(query || "").trim() || String(draft.title || "").trim()
+        if (!text.length) {
+            metadataError = "Informe um título para buscar."
+            return
+        }
+        metadataQuery = text
+        // O catálogo pode estar sendo preparado; a busca reinicia quando ele ficar pronto.
+        if (metadataService.busy) {
+            pendingMetadataQuery = text
+            metadataBusy = true
+            return
+        }
+        metadataBusy = true
+        const job = metadataService.search(text, platformName())
+        if (!job || !job.jobId) {
+            metadataBusy = false
+            metadataError = metadataService.error || "Não foi possível iniciar a busca."
+        }
+    }
+
+    /** Recarrega o vínculo LaunchBox atual sem passar por outra tela. */
+    function refreshMetadata() {
+        const linked = String(draft.launchbox_id || "").trim()
+        if (!linked) {
+            searchMetadata(draft.title)
+            return
+        }
+        openMetadataPanel()
+        metadataImporting = true
+        if (!metadataService) {
+            metadataImporting = false
+            metadataError = "Base de metadados indisponível."
+            return
+        }
+        if (metadataService.busy) {
+            metadataImporting = false
+            metadataError = "Aguarde a operação de metadados atual."
+            return
+        }
+        metadataBusy = true
+        const job = metadataService.importGame(
+            {id: linked, name: String(draft.title || ""), platform: platformName()},
+            metadataImageTypes, true)
+        if (!job || !job.jobId) {
+            metadataBusy = false
+            metadataImporting = false
+            metadataError = metadataService.error || "Não foi possível atualizar os metadados."
+        }
+    }
+
+    /** Aplica o resultado escolhido ao rascunho; o cadastro só é gravado em Salvar. */
+    function chooseMetadata(game) {
+        if (!metadataService || !game) return
+        metadataError = ""
+        if (metadataService.busy) {
+            metadataError = "Aguarde a operação de metadados atual."
+            return
+        }
+        metadataBusy = true
+        metadataImporting = true
+        const job = metadataService.importGame(game, metadataImageTypes, true)
+        if (!job || !job.jobId) {
+            metadataBusy = false
+            metadataImporting = false
+            metadataError = metadataService.error || "Não foi possível carregar os metadados."
+        }
+    }
+
+    /** Espelha o estado do serviço enquanto a busca embutida está aberta. */
+    function syncMetadataState() {
+        if (!metadataService || !metadataSearchActive) return
+        metadataBusy = metadataService.busy === true
+        if (metadataBusy) return
+        if (pendingMetadataQuery.length > 0) {
+            const text = pendingMetadataQuery
+            pendingMetadataQuery = ""
+            searchMetadata(text)
+            return
+        }
+        // A importação de rascunho termina em `prepared`; aqui só tratamos a falha.
+        if (metadataImporting) {
+            metadataImporting = false
+            metadataSearched = false
+            metadataError = metadataService.error || ""
+            return
+        }
+        metadataResults = metadataService.results || []
+        metadataSearched = true
+        metadataError = metadataService.error || ""
+    }
+
+    Connections {
+        target: form.metadataService
+        ignoreUnknownSignals: true
+        function onChanged() { form.syncMetadataState() }
+        function onPrepared(values) {
+            if (!form.metadataSearchActive) return
+            form.applyMetadata(values || {})
+            form.closeMetadataSearch()
         }
     }
 
@@ -530,13 +678,15 @@ DragDialog {
                             objectName: "refreshGameMetadata"
                             text: "Atualizar dados e imagens"
                             iconName: "refresh-cw"
-                            onClicked: form.metadataRequested(String(form.draft.title || ""), form.platformName())
+                            enabled: !form.metadataBusy
+                            onClicked: form.refreshMetadata()
                         }
                         ActionButton {
                             objectName: "searchOtherGameMetadata"
                             text: "Buscar outro título"
                             iconName: "search"
-                            onClicked: form.metadataRequested(String(form.metadataQuery || form.draft.title || ""), form.platformName())
+                            enabled: !form.metadataBusy
+                            onClicked: form.searchMetadata(form.draft.title)
                         }
                     }
 
@@ -572,13 +722,127 @@ DragDialog {
                                 text: "Buscar"
                                 iconName: "search"
                                 primary: true
-                                onClicked: form.metadataRequested(form.metadataQuery, form.platformName())
+                                enabled: !form.metadataBusy
+                                onClicked: form.searchMetadata(form.metadataQuery)
                             }
                             ActionButton {
                                 objectName: "openGameMetadataEditorEmpty"
                                 text: "Manual"
                                 iconName: "pencil"
                                 onClicked: metadataEditor.openFor(form.draft)
+                            }
+                        }
+                    }
+
+                    /* Os resultados ficam no próprio cartão, sem modal e sem notificação. */
+                    Rectangle {
+                        objectName: "gameMetadataResultsPanel"
+                        visible: form.metadataSearchActive
+                        Layout.fillWidth: true
+                        implicitHeight: resultsColumn.implicitHeight + 20
+                        radius: 10
+                        color: "#08000000"
+                        border.color: form.metadataError.length > 0 ? "#66ffb4ab" : Theme.border
+                        ColumnLayout {
+                            id: resultsColumn
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 6
+                            RowLayout {
+                                Layout.fillWidth: true
+                                UiText {
+                                    text: {
+                                        if (form.metadataBusy) return "BUSCANDO NO LAUNCHBOX"
+                                        if (form.metadataSearched || form.metadataResults.length > 0)
+                                            return "RESULTADOS DO LAUNCHBOX (" + form.metadataResults.length + ")"
+                                        return "METADADOS"
+                                    }
+                                    color: Theme.accent
+                                    font.pixelSize: 12
+                                    textWeight: Font.Black
+                                    font.letterSpacing: 0.6
+                                    Layout.fillWidth: true
+                                }
+                                ActionButton {
+                                    objectName: "closeGameMetadataResults"
+                                    iconName: "x"
+                                    toolbar: true
+                                    implicitWidth: 28
+                                    implicitHeight: 28
+                                    Accessible.name: "Fechar resultados"
+                                    onClicked: form.closeMetadataSearch()
+                                }
+                            }
+                            UiText {
+                                visible: form.metadataBusy
+                                text: "Carregando metadados..."
+                                color: Theme.secondary
+                                font.pixelSize: 12
+                                Layout.fillWidth: true
+                            }
+                            ListView {
+                                id: metadataResultList
+                                objectName: "gameMetadataResults"
+                                visible: form.metadataResults.length > 0
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Math.min(198, form.metadataResults.length * 46)
+                                spacing: 4
+                                clip: true
+                                model: form.metadataResults
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: metadataResultList.width
+                                    height: 42
+                                    radius: 8
+                                    color: resultMouse.containsMouse ? Theme.card : Theme.panel
+                                    border.color: Theme.border
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 0
+                                        UiText {
+                                            text: modelData.name || ""
+                                            color: Theme.text
+                                            font.pixelSize: 13
+                                            textWeight: Font.DemiBold
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                        UiText {
+                                            text: (modelData.platform || "Plataforma não informada")
+                                                + (modelData.release ? " · " + modelData.release : "")
+                                            color: Theme.muted
+                                            font.pixelSize: 12
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                    MouseArea {
+                                        id: resultMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: form.chooseMetadata(modelData)
+                                    }
+                                }
+                            }
+                            UiText {
+                                visible: form.metadataSearched && !form.metadataBusy
+                                    && form.metadataResults.length === 0 && form.metadataError.length === 0
+                                text: "Nenhum resultado para esta busca."
+                                color: Theme.muted
+                                font.pixelSize: 12
+                                Layout.fillWidth: true
+                            }
+                            UiText {
+                                objectName: "gameMetadataError"
+                                visible: form.metadataError.length > 0
+                                text: form.metadataError
+                                color: "#ffb4ab"
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
                             }
                         }
                     }

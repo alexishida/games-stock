@@ -1099,15 +1099,12 @@ ApplicationWindow {
         serviceMode: window.dbMode
         platforms: window.platformCatalog
         editingGame: window.formGame
+        metadataService: window.metadataService
         backdropBlurEnabled: !window.prototypeDisableBlur
         modalShadowBlurMax: window.prototypeModalShadowBlur > 0 ? window.prototypeModalShadowBlur : Theme.shadowModalBlurMax
         onBackdropBlurRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
         onClosed: window.formGame = null
         onSaved: function(gameId) { window.afterGameSaved(gameId) }
-        onMetadataRequested: function(title, platformName) {
-            // Mantém o rascunho aberto sob a seleção de metadados.
-            metadataImporter.openFor(title, platformName, true)
-        }
         }
     }
     ConfirmDialog {

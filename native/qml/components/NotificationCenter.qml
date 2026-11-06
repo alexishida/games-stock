@@ -16,6 +16,11 @@ Item {
     visible: jobList.count > 0
     width: cardWidth
     height: Math.min(parent ? parent.height - 120 : 600, jobList.contentHeight)
+    /* Busca e importação de metadados são interativas: o retorno fica no próprio formulário. */
+    readonly property var transientKinds: ["metadata-search", "metadata-import"]
+    function isTransient(kind) {
+        return transientKinds.indexOf(String(kind)) >= 0
+    }
 
     /** Texto principal do card, priorizando o resumo persistido. */
     function titleFor(jobId, fallback) {
@@ -101,7 +106,9 @@ Item {
                 result: result
             })
             width: jobList.width
-            height: card.implicitHeight + 24
+            /* Jobs interativos de metadados não geram card: o formulário já mostra o retorno. */
+            visible: !root.isTransient(kind)
+            height: visible ? card.implicitHeight + 24 : 0
             radius: 12
             color: Theme.glass
             border.color: status === "failed" ? "#66ffb4ab" : Theme.border

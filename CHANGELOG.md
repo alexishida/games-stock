@@ -5,6 +5,11 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
 ## [Não publicado]
 
+### Alterado
+
+- Busca de metadados do formulário de jogo acontece dentro do cartão "Metadados": os resultados do LaunchBox aparecem na própria tela de edição e o título escolhido é aplicado ao rascunho sem abrir o importador. "Atualizar dados e imagens" recarrega o vínculo atual pela mesma via.
+- Busca e importação de metadados deixam de exibir card no centro de notificações, já que o retorno aparece no formulário ou no importador aberto.
+
 ### Corrigido
 
 - Salvar um cadastro com um LaunchBox ID que já pertence a outro jogo da mesma plataforma deixa de falhar com `UNIQUE constraint failed: games.platform_id, games.launchbox_id`; a variante anterior perde o vínculo e os dois registros continuam na biblioteca. Vínculo vazio passa a ser gravado como `NULL`.
