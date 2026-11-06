@@ -74,6 +74,8 @@ DragDialog {
             contentHeight: body.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+            WheelScrollSpeed {}
             ColumnLayout {
                 id: body
                 width: parent.width

@@ -8,6 +8,8 @@ Flickable {
     clip: true
     /* O overflow:auto original exibe um trilho de 6 px e mantém rolagem por teclado/mouse. */
     ScrollBar.vertical: CollectionScrollBar {}
+    /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+    WheelScrollSpeed {}
     Rectangle {
         parent: viewport
         anchors.fill: parent

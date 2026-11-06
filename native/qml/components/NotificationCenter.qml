@@ -16,8 +16,8 @@ Item {
     visible: jobList.count > 0
     width: cardWidth
     height: Math.min(parent ? parent.height - 120 : 600, jobList.contentHeight)
-    /* Busca e importação de metadados são interativas: o retorno fica no próprio formulário. */
-    readonly property var transientKinds: ["metadata-search", "metadata-import"]
+    /* Metadados interativos mostram o progresso no formulário/importador, não como card. */
+    readonly property var transientKinds: ["metadata-open", "metadata-search", "metadata-import"]
     function isTransient(kind) {
         return transientKinds.indexOf(String(kind)) >= 0
     }
@@ -82,6 +82,8 @@ Item {
         anchors.fill: parent
         spacing: 10
         clip: true
+        /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+        WheelScrollSpeed {}
         model: root.jobManager ? root.jobManager.model : null
         delegate: Rectangle {
             id: cardRoot

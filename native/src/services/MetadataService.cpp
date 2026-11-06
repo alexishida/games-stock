@@ -208,11 +208,13 @@ QVariantMap MetadataService::startJob(const QString& kind, const QString& title,
 }
 
 QVariantMap MetadataService::ensureMetadata() {
-    return startMetadataJob(QStringLiteral("Preparando metadados"));
+    // A preparação interativa usa um tipo próprio: o progresso aparece na tela aberta,
+    // enquanto o download do bootstrap continua visível no centro de notificações.
+    return startMetadataJob(QStringLiteral("Preparando metadados"), QStringLiteral("metadata-open"));
 }
 
 QVariantMap MetadataService::ensureMetadataAtStartup() {
-    return startMetadataJob(QStringLiteral("Baixando base de dados"));
+    return startMetadataJob(QStringLiteral("Baixando base de dados"), QStringLiteral("metadata-cache"));
 }
 
 bool MetadataService::metadataExists() const {
@@ -220,10 +222,10 @@ bool MetadataService::metadataExists() const {
         && QFileInfo::exists(QDir(cacheDir_).filePath(QStringLiteral("Metadata.xml")));
 }
 
-QVariantMap MetadataService::startMetadataJob(const QString& title) {
+QVariantMap MetadataService::startMetadataJob(const QString& title, const QString& kind) {
     // O cache é compartilhado: o índice de ~300 MB é carregado uma vez por sessão.
     const auto cache = sharedCache();
-    return startJob(QStringLiteral("metadata-cache"), title,
+    return startJob(kind, title,
         QStringLiteral("LaunchBox"), {},
         [cache](JobWorker* worker) {
             const auto progress = [worker](const LaunchBoxProgress& update) {
@@ -377,7 +379,7 @@ void MetadataService::onJobFinished(const QString& id, const QJsonObject& job) {
         error_.clear();
         if (kind == QLatin1String("metadata-search")) {
             results_ = result.value(QStringLiteral("results")).toList();
-        } else if (kind == QLatin1String("metadata-cache")) {
+        } else if (kind == QLatin1String("metadata-cache") || kind == QLatin1String("metadata-open")) {
             metadataReady_ = true;
         } else if (kind == QLatin1String("metadata-import")) {
             metadataReady_ = true;

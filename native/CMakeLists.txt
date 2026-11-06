@@ -164,6 +164,7 @@ qt_add_qml_module(gamestock_native
         qml/StartupSplash.qml
         # Primitivas visuais compartilham métricas CSS e rasterização da fonte no Windows.
         qml/components/UiText.qml qml/components/SectionIntro.qml qml/components/CollectionScrollBar.qml
+        qml/components/WheelScrollSpeed.qml
         qml/components/FormCheckBox.qml qml/components/PanelFlickable.qml
         # O seletor compartilhado preserva métricas e menu escuro em todos os formulários.
         qml/components/ActionButton.qml qml/components/FormField.qml qml/components/FormSelect.qml qml/components/NavigationButton.qml
@@ -176,6 +177,7 @@ qt_add_qml_module(gamestock_native
         qml/components/EmulatorLinkDialog.qml qml/components/RetroArchCoresDialog.qml
         qml/components/PlayHistorySettings.qml
         qml/components/RomFolderImporter.qml qml/components/NotificationCenter.qml
+        qml/components/MetadataJobStatus.qml
         qml/components/CoverSyncSettings.qml qml/components/LaunchBoxImporter.qml
         qml/components/HardwareItemCard.qml qml/components/InventoryListLine.qml
         qml/components/HardwareCatalogSelector.qml qml/components/HardwareItemFormDialog.qml

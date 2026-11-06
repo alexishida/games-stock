@@ -181,6 +181,8 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     spacing: 0
+                    /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                    WheelScrollSpeed {}
                     model: root.folders
                     delegate: Rectangle {
                         required property var modelData
@@ -392,6 +394,8 @@ Item {
                         anchors.margins: 6
                         clip: true
                         spacing: 2
+                        /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                        WheelScrollSpeed {}
                         model: root.scanResult
                             ? (root.reviewView === "candidates" ? root.scanResult.candidates : root.scanResult.ignoredItems)
                             : []

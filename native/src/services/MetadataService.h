@@ -57,8 +57,8 @@ signals:
     void prepared(const QVariantMap& values);
 
 private:
-    /** Inicia o job de preparação com o título adequado ao contexto. */
-    QVariantMap startMetadataJob(const QString& title);
+    /** Inicia o job de preparação com o título e o tipo adequados ao contexto. */
+    QVariantMap startMetadataJob(const QString& title, const QString& kind);
     /** Inicia um job de metadados e guarda seu ID para correlacionar o resultado. */
     QVariantMap startJob(const QString& kind, const QString& title, const QString& subtitle,
         const QVariantMap& payload, JobManager::Work work);

@@ -82,6 +82,12 @@ Item {
                     enabled: root.metadataService !== null && !root.metadataService.busy
                     onClicked: root.metadataService.ensureMetadata()
                 }
+                /* A preparação do catálogo mostra o progresso aqui, não como notificação. */
+                MetadataJobStatus {
+                    objectName: "coverMetadataJobStatus"
+                    Layout.fillWidth: true
+                    jobManager: root.jobManager
+                }
             }
         }
 

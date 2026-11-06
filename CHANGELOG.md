@@ -7,8 +7,7 @@ Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
 ### Alterado
 
-- Busca de metadados do formulário de jogo acontece dentro do cartão "Metadados": os resultados do LaunchBox aparecem na própria tela de edição e o título escolhido é aplicado ao rascunho sem abrir o importador. "Atualizar dados e imagens" recarrega o vínculo atual pela mesma via.
-- Busca e importação de metadados deixam de exibir card no centro de notificações, já que o retorno aparece no formulário ou no importador aberto.
+- O progresso de metadados (preparar catálogo, buscar e importar) aparece dentro do formulário de jogo e do importador aberto, em vez de um card flutuante de notificação. O download da base no bootstrap continua usando o centro de notificações.
 
 ### Corrigido
 

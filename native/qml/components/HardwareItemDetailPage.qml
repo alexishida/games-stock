@@ -104,6 +104,8 @@ Item {
         contentHeight: content.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
+        /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+        WheelScrollSpeed {}
         ScrollBar.vertical: CollectionScrollBar { policy: ScrollBar.AsNeeded }
 
         ColumnLayout {

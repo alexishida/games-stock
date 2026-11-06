@@ -623,6 +623,8 @@ ApplicationWindow {
                     contentHeight: sidebarContext.implicitHeight
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
+                    /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                    WheelScrollSpeed {}
                     ScrollBar.vertical: CollectionScrollBar {
                         policy: ScrollBar.AsNeeded
                         width: 6
@@ -917,6 +919,8 @@ ApplicationWindow {
                     contentWidth: width
                     contentHeight: gridFlow.height + 2
                     boundsBehavior: Flickable.StopAtBounds
+                    /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                    WheelScrollSpeed {}
                     /* A referência desenha 6 px, trilho #131313 e polegar #353534. */
                     ScrollBar.vertical: CollectionScrollBar {
                         objectName: "libraryVerticalScrollBar"
@@ -987,6 +991,8 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
+                            /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                            WheelScrollSpeed {}
                             model: window.visibleGames
                             delegate: GameListLine {
                                 required property var modelData
@@ -1096,15 +1102,19 @@ ApplicationWindow {
         active: window.formDialogLoaded
         sourceComponent: GameFormDialog {
         gameService: window.gameService
+        jobManager: window.jobManager
         serviceMode: window.dbMode
         platforms: window.platformCatalog
         editingGame: window.formGame
-        metadataService: window.metadataService
         backdropBlurEnabled: !window.prototypeDisableBlur
         modalShadowBlurMax: window.prototypeModalShadowBlur > 0 ? window.prototypeModalShadowBlur : Theme.shadowModalBlurMax
         onBackdropBlurRequested: function(active) { window.blurDepth = Math.max(0, window.blurDepth + (active ? 1 : -1)) }
         onClosed: window.formGame = null
         onSaved: function(gameId) { window.afterGameSaved(gameId) }
+        onMetadataRequested: function(title, platformName) {
+            // Mantém o rascunho aberto sob a seleção de metadados.
+            metadataImporter.openFor(title, platformName, true)
+        }
         }
     }
     ConfirmDialog {
@@ -1165,6 +1175,7 @@ ApplicationWindow {
         metadataService: window.metadataService
         platformService: window.platformService
         gameService: window.gameService
+        jobManager: window.jobManager
         serviceMode: window.dbMode && window.metadataService !== null && window.metadataService !== undefined
         backdropBlurEnabled: !window.prototypeDisableBlur
         modalShadowBlurMax: window.prototypeModalShadowBlur > 0 ? window.prototypeModalShadowBlur : Theme.shadowModalBlurMax

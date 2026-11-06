@@ -14,6 +14,7 @@ DragDialog {
     required property var metadataService
     required property var platformService
     required property var gameService
+    property var jobManager: null
     property bool serviceMode: false
     property string query: ""
     property string platformName: ""
@@ -145,6 +146,12 @@ DragDialog {
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
+        /* O progresso do job aparece aqui, sem abrir notificação sobre a tela. */
+        MetadataJobStatus {
+            objectName: "launchBoxJobStatus"
+            Layout.fillWidth: true
+            jobManager: importer.jobManager
+        }
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -163,6 +170,8 @@ DragDialog {
                     anchors.margins: 6
                     clip: true
                     spacing: 3
+                    /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                    WheelScrollSpeed {}
                     model: importer.results
                     delegate: Rectangle {
                         required property var modelData

@@ -250,6 +250,8 @@ Item {
                     contentHeight: gridFlow.height + 8
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
+                    /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                    WheelScrollSpeed {}
                     ScrollBar.vertical: CollectionScrollBar {
                         policy: ScrollBar.AsNeeded
                         width: 6
@@ -290,6 +292,8 @@ Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
+                        /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
+                        WheelScrollSpeed {}
                         model: page.serviceMode ? inventoryService.items : []
                         delegate: InventoryListLine {
                             required property var modelData
