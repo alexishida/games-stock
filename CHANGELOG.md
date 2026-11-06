@@ -3,6 +3,12 @@
 
 Todas as mudancas relevantes do GameStock sao registradas neste arquivo.
 
+## [Não publicado]
+
+### Corrigido
+
+- Salvar um cadastro com um LaunchBox ID que já pertence a outro jogo da mesma plataforma deixa de falhar com `UNIQUE constraint failed: games.platform_id, games.launchbox_id`; a variante anterior perde o vínculo e os dois registros continuam na biblioteca. Vínculo vazio passa a ser gravado como `NULL`.
+
 ## [1.1.6] - 2026-11-05
 
 ### Adicionado

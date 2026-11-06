@@ -93,6 +93,51 @@ private slots:
         QVERIFY2(dao.update(id, {}, &error), qPrintable(error));
     }
 
+    /** O vínculo LaunchBox é único por plataforma; variantes antigas são desvinculadas. */
+    void updateLaunchBoxLinkKeepsOnePerPlatform() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        gamestock::Database database;
+        QString error;
+        QVERIFY2(database.open(dir.filePath("db/gamestock.db"), dir.filePath("db/images"), &error), qPrintable(error));
+        const qint64 platform = platformId(database.handle(), QStringLiteral("Super Nintendo"));
+        const qint64 otherPlatform = platformId(database.handle(), QStringLiteral("Sega Mega Drive"));
+        QVERIFY(platform > 0);
+        QVERIFY(otherPlatform > 0);
+        gamestock::GameWriteDao dao(database.handle());
+        gamestock::GameReadDao read(database.handle());
+
+        qint64 original = 0;
+        qint64 variant = 0;
+        QVERIFY2(dao.create({{"title", "Jogo Base"}, {"platform_id", platform},
+            {"rom_path", "C:/roms/base.sfc"}, {"launchbox_id", "9613"}}, &original, &error), qPrintable(error));
+        QVERIFY2(dao.create({{"title", "Jogo Base"}, {"platform_id", platform},
+            {"rom_path", "C:/roms/base (alt).sfc"}}, &variant, &error), qPrintable(error));
+
+        // Salvar a variante com o mesmo LaunchBox ID não pode falhar no índice único.
+        QVERIFY2(dao.update(variant, {{"launchbox_id", "9613"}, {"platform_id", platform}}, &error), qPrintable(error));
+        QVariantMap originalGame;
+        QVERIFY(read.get(original, &originalGame, &error));
+        QVERIFY(originalGame.value("launchbox_id").isNull());
+        QVariantMap variantGame;
+        QVERIFY(read.get(variant, &variantGame, &error));
+        QCOMPARE(variantGame.value("launchbox_id").toString(), QString("9613"));
+
+        // Plataforma diferente mantém o próprio vínculo, mesmo com o mesmo ID.
+        qint64 elsewhere = 0;
+        QVERIFY2(dao.create({{"title", "Jogo Base"}, {"platform_id", otherPlatform},
+            {"launchbox_id", "9613"}}, &elsewhere, &error), qPrintable(error));
+        QVERIFY2(dao.update(variant, {{"launchbox_id", "9613"}}, &error), qPrintable(error));
+        QVariantMap otherGame;
+        QVERIFY(read.get(elsewhere, &otherGame, &error));
+        QCOMPARE(otherGame.value("launchbox_id").toString(), QString("9613"));
+
+        // Vínculo vazio vira NULL em vez de texto vazio.
+        QVERIFY2(dao.update(variant, {{"launchbox_id", "   "}}, &error), qPrintable(error));
+        QVERIFY(read.get(variant, &variantGame, &error));
+        QVERIFY(variantGame.value("launchbox_id").isNull());
+    }
+
     /** Contadores por coleção e contagem de partidas acompanham as transições. */
     void countsAndLaunch() {
         QTemporaryDir dir;
