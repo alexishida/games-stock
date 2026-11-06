@@ -110,8 +110,11 @@ private slots:
         // A primeira página continua síncrona para o primeiro quadro.
         QCOMPARE(service.total(), static_cast<qint64>(2));
         QCOMPARE(service.model()->rowCount(), 2);
+        // O loading acompanha o pedido e termina somente quando a resposta atual chega.
         service.setSearch("conclu");
+        QVERIFY(service.queryPending());
         QTRY_COMPARE_WITH_TIMEOUT(service.filtered(), static_cast<qint64>(1), 5000);
+        QVERIFY(!service.queryPending());
         QCOMPARE(service.model()->rowCount(), 1);
         service.setSearch("");
         QTRY_COMPARE_WITH_TIMEOUT(service.filtered(), static_cast<qint64>(2), 5000);
@@ -248,6 +251,17 @@ private slots:
         QCOMPARE(versions.at(1).toMap().value("regionLabel").toString(), QString("USA"));
 
         // Galeria exclui a capa principal e arquivos não suportados, na ordem do Electron.
+        // A mesma galeria e variantes chegam pela leitura assíncrona, com solicitação identificada.
+        QSignalSpy detailSpy(&service, &gamestock::GameService::detailLoaded);
+        const quint64 request = service.loadDetail(usa.value("id").toLongLong());
+        QTRY_COMPARE_WITH_TIMEOUT(detailSpy.count(), 1, 5000);
+        QCOMPARE(detailSpy.first().at(0).toULongLong(), request);
+        const QVariantMap detail = detailSpy.first().at(1).toMap();
+        QVERIFY2(!detail.contains(QStringLiteral("error")), qPrintable(detail.value(QStringLiteral("error")).toString()));
+        QCOMPARE(detail.value(QStringLiteral("game")).toMap().value(QStringLiteral("id")).toLongLong(), usa.value("id").toLongLong());
+        QCOMPARE(detail.value(QStringLiteral("versions")).toList().size(), versions.size());
+        QCOMPARE(detail.value(QStringLiteral("media")).toList().size(), service.listMedia(usa.value("id").toLongLong()).size());
+
         const QVariantList media = service.listMedia(usa.value("id").toLongLong());
         QCOMPARE(media.size(), 4);
         QCOMPARE(media.at(0).toMap().value("kind").toString(), QString("box-art"));

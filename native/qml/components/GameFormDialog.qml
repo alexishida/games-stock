@@ -94,6 +94,14 @@ DragDialog {
         statusBox.currentIndex = status >= 0 ? status : 0
     }
 
+    /** Mantém imagens locais quando a fonte não fornece uma substituição. */
+    function applyMetadata(values) {
+        for (const key in values) {
+            if (key.endsWith("_path") && !values[key]) continue
+            setDraft(key, values[key])
+        }
+    }
+
     function platformIndex(id) {
         for (let index = 0; index < platforms.length; index++) {
             if (Number(platforms[index].id) === Number(id)) return index
@@ -170,6 +178,9 @@ DragDialog {
                 return
             }
             data = {
+                launchbox_id: draft.launchbox_id || "",
+                background_path: draft.background_path || "",
+                screenshot_path: draft.screenshot_path || "",
                 title: title,
                 platform_id: Number(draft.platform_id),
                 publisher: String(draft.publisher || "").trim(),

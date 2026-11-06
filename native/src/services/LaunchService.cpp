@@ -11,8 +11,16 @@
 #include "db/dao/PlatformEmulatorDao.h"
 
 #include <QFileInfo>
+#include <QFutureWatcher>
+#include <QtConcurrentRun>
 #include <QProcess>
 #include <QRegularExpression>
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace gamestock {
 namespace {
@@ -65,6 +73,7 @@ bool LaunchService::open(const QString& databasePath, QString* error) {
         emit changed();
         return false;
     }
+    databasePath_ = databasePath;
     open_ = true;
     error_.clear();
     if (error) error->clear();
@@ -72,6 +81,34 @@ bool LaunchService::open(const QString& databasePath, QString* error) {
 }
 
 bool LaunchService::isOpen() const { return open_; }
+
+bool LaunchService::beginLaunch(qint64 gameId) {
+    if (!open_ || launching_) return false;
+    launching_ = true;
+    error_.clear();
+    emit changed();
+    const QString path = databasePath_;
+    auto* watcher = new QFutureWatcher<QVariantMap>(this);
+    connect(watcher, &QFutureWatcher<QVariantMap>::finished, this, [this, watcher, gameId] {
+        const QVariantMap result = watcher->result();
+        watcher->deleteLater();
+        error_ = result.value(QStringLiteral("error")).toString();
+        launching_ = false;
+        emit changed();
+        emit launchFinished(gameId, result);
+    });
+    // SQLite e extração usam uma instância criada e destruída na thread de trabalho.
+    watcher->setFuture(QtConcurrent::run([path, gameId] {
+        LaunchService worker;
+        QString error;
+        if (!worker.open(path, &error)) return QVariantMap{{QStringLiteral("error"), error}};
+        worker.launching_ = true;
+        QVariantMap result = worker.launch(gameId);
+        if (!result.value(QStringLiteral("success")).toBool()) result.insert(QStringLiteral("error"), worker.error());
+        return result;
+    }));
+    return true;
+}
 
 QVariantMap LaunchService::launch(qint64 gameId) {
     if (!open_) {
@@ -143,11 +180,20 @@ QVariantMap LaunchService::launch(qint64 gameId) {
     }
 
     // O spawn precisa ser confirmado antes de registrar a partida.
-    if (!QProcess::startDetached(resolved.resolvedPath, arguments)) {
+    qint64 processId = 0;
+    if (!QProcess::startDetached(resolved.resolvedPath, arguments, QString(), &processId)) {
         error_ = QStringLiteral("Não foi possível iniciar o emulador.");
         emit changed();
         return {};
     }
+#ifdef Q_OS_WIN
+    // Na thread de lançamento, aguarda a inicialização da interface do emulador com limite finito.
+    // Processos console ou launchers sem fila gráfica retornam sem impedir o jogo.
+    if (launching_) {
+        const HANDLE process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_INFORMATION, FALSE, static_cast<DWORD>(processId));
+        if (process) { WaitForInputIdle(process, 10000); CloseHandle(process); }
+    }
+#endif
     GameWriteDao writer(connection_.database());
     QString countError;
     QVariantMap result{{QStringLiteral("success"), true}};

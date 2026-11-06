@@ -25,6 +25,42 @@ Item {
     property var versions: []
     property var gallery: []
     property string actionError: ""
+    property bool awaitingLaunch: false
+    property bool detailLoading: false
+    property var detailRequest: 0
+    // A galeria usa as mesmas setas para trocar imagens.
+    readonly property bool imageViewerOpen: imageViewer.opened
+    /* As dicas reutilizam os nomes acessíveis e acompanham mudanças de estado. */
+    component DetailAction: ActionButton {
+        id: action
+        // A dica pertence ao botão para manter posição inferior e estilo independentes do sistema.
+        ToolTip {
+            id: hint
+            objectName: "detailActionTooltip"
+            parent: action
+            visible: action.hovered
+            text: action.Accessible.name
+            delay: 450
+            x: Math.round((action.width - width) / 2)
+            y: action.height + 8
+            padding: 8
+            font.family: Theme.fontFamily
+            font.pixelSize: 12
+            contentItem: UiText { text: hint.text; font: hint.font; color: Theme.text }
+            background: Rectangle { color: Theme.panel; radius: 6; border.color: Theme.borderStrong }
+        }
+    }
+
+    /* A navegação usa superfície opaca para preservar contraste sobre fundos claros. */
+    component NavigationAction: DetailAction {
+        id: navigation
+        background: Rectangle {
+            radius: 6
+            color: navigation.hovered ? Theme.card : Theme.panel
+            border.color: navigation.activeFocus ? Theme.accent : Theme.borderStrong
+        }
+    }
+
     /* O visualizador reutiliza a galeria existente e não interfere no layout do detalhe. */
     property int imageIndex: -1
     readonly property var selectedImage: imageIndex >= 0 && imageIndex < gallery.length ? gallery[imageIndex] : null
@@ -55,7 +91,8 @@ Item {
     signal closeRequested()
 
     onLibraryGameChanged: reload()
-    Component.onCompleted: reload()
+    // A primeira atribuição pode já ter iniciado a leitura antes de completar o componente.
+    Component.onCompleted: if (!detailLoading && !game.id) reload()
 
     /** Recarrega dados completos, variantes e galeria do jogo selecionado. */
     function reload() {
@@ -63,12 +100,18 @@ Item {
         imageIndex = -1
         actionError = ""
         if (!libraryGame) {
+            detailLoading = false
+            detailRequest = 0
             game = ({})
             versions = []
             gallery = []
             return
         }
-        if (serviceMode && gameService) {
+        if (serviceMode && gameService && typeof gameService.loadDetail === "function") {
+            // Retorna ao event loop enquanto SQLite e filesystem são lidos em outra thread.
+            detailLoading = true
+            detailRequest = gameService.loadDetail(libraryGame.id)
+        } else if (serviceMode && gameService) {
             game = gameService.get(libraryGame.id)
             versions = gameService.listVersions(libraryGame.id)
             gallery = mergeGallery(gameService.listMedia(libraryGame.id))
@@ -77,6 +120,26 @@ Item {
             game = libraryGame
             versions = []
             gallery = localGallery()
+        }
+    }
+
+    Connections {
+        target: page.gameService
+        ignoreUnknownSignals: true
+        function onDetailLoaded(request, result) {
+            // Respostas anteriores não podem substituir o jogo selecionado depois delas.
+            if (!page.libraryGame || request !== page.detailRequest) return
+            if (result.error) {
+                page.game = page.libraryGame
+                page.versions = []
+                page.gallery = page.localGallery()
+                page.actionError = result.error
+            } else {
+                page.game = result.game
+                page.versions = result.versions
+                page.gallery = page.mergeGallery(result.media)
+            }
+            page.detailLoading = false
         }
     }
 
@@ -133,13 +196,32 @@ Item {
             versionsRequested(game)
             return
         }
-        const result = launchService.launch(game.id)
+        if (typeof launchService.beginLaunch === "function") {
+            awaitingLaunch = true
+            if (!launchService.beginLaunch(game.id)) awaitingLaunch = false
+            return
+        }
+        completeLaunch(launchService.launch(game.id))
+    }
+
+    /** Atualiza o detalhe após a confirmação do lançamento. */
+    function completeLaunch(result) {
         if (!result || !result.success) {
             actionError = launchService.error || "Não foi possível iniciar o jogo."
             return
         }
         gameService.refresh()
         reload()
+    }
+
+    Connections {
+        target: page.launchService
+        ignoreUnknownSignals: true
+        function onLaunchFinished(gameId, result) {
+            if (!page.awaitingLaunch) return
+            page.awaitingLaunch = false
+            page.completeLaunch(result)
+        }
     }
 
     Flickable {
@@ -157,7 +239,7 @@ Item {
             spacing: 18
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 300
+                Layout.preferredHeight: 324
                 /* O fundo usa a midia do jogo, com as camadas tonais do hero CSS. */
                 Image {
                     id: heroBackground
@@ -178,14 +260,21 @@ Item {
                 }
             RowLayout {
                 anchors.top: parent.top; anchors.right: parent.right; z: 2
-                spacing: 8
+                // O recuo separa a navegação da borda e amplia os alvos de clique.
+                anchors.topMargin: 16
+                anchors.rightMargin: 20
+                spacing: 12
                 Item { Layout.fillWidth: true }
-                ActionButton { objectName: "detailBack"; font.pixelSize: 13; font.weight: Theme.cssFontWeight(Font.ExtraBold); font.family: Theme.heavyFontFamily; text: "Biblioteca"; iconName: "library"; onClicked: page.closeRequested() }
-                ActionButton { objectName: "previousGame"; iconName: "chevron-left"; implicitWidth: 40; visible: page.hasPrevious; enabled: page.hasPrevious; Accessible.name: "Jogo anterior"; onClicked: page.previousRequested() }
-                ActionButton { objectName: "nextGame"; iconName: "chevron-right"; implicitWidth: 40; visible: page.hasNext; enabled: page.hasNext; Accessible.name: "Próximo jogo"; onClicked: page.nextRequested() }
+                NavigationAction { objectName: "detailBack"; implicitHeight: 38; leftPadding: 16; rightPadding: 16; implicitWidth: 132; font.pixelSize: 14; font.weight: Theme.cssFontWeight(Font.ExtraBold); font.family: Theme.heavyFontFamily; text: "Biblioteca"; Accessible.name: "Voltar para a biblioteca"; iconName: "library"; onClicked: page.closeRequested() }
+                NavigationAction { objectName: "previousGame"; iconName: "chevron-left"; implicitWidth: 40; implicitHeight: 38; visible: page.hasPrevious; enabled: page.hasPrevious; Accessible.name: "Jogo anterior"; onClicked: page.previousRequested() }
+                NavigationAction { objectName: "nextGame"; iconName: "chevron-right"; implicitWidth: 40; implicitHeight: 38; visible: page.hasNext; enabled: page.hasNext; Accessible.name: "Próximo jogo"; onClicked: page.nextRequested() }
             }
             RowLayout {
                 anchors.fill: parent
+                // O fundo ocupa o hero; capa e ações respeitam os mesmos recuos internos.
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
+                anchors.topMargin: 16
                 anchors.bottomMargin: 20
                 /* Na janela mínima, a capa cede espaço para preservar toda a linha de ações. */
                 spacing: body.width < 780 ? 16 : 28
@@ -296,11 +385,12 @@ Item {
                                 && page.launchService.available === true
                             onClicked: page.launch()
                         }
-                        ActionButton { objectName: "favoriteGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.favorite ? "star-favorite-white" : "star"; warningFill: !!page.game.favorite; enabled: page.serviceMode; Accessible.name: page.game.favorite ? "Remover favorito" : "Marcar favorito"; onClicked: page.toggleFavorite() }
-                        ActionButton { objectName: "completedGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.play_status === "completed" ? "trophy-completed" : "trophy"; enabled: page.serviceMode; Accessible.name: "Concluído"; onClicked: page.toggleStatus("completed") }
-                        ActionButton { objectName: "playingGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.play_status === "playing" ? "gamepad-playing" : "gamepad-2"; enabled: page.serviceMode; Accessible.name: "Jogando"; onClicked: page.toggleStatus("playing") }
-                        ActionButton { objectName: "editGame"; implicitWidth: 38; implicitHeight: 38; iconName: "pencil"; enabled: page.serviceMode; Accessible.name: "Editar"; onClicked: page.editRequested(page.game) }
-                        ActionButton { objectName: "deleteGame"; implicitWidth: 38; implicitHeight: 38; iconName: "trash-2-danger"; dangerOutline: true; enabled: page.serviceMode; Accessible.name: "Excluir"; onClicked: page.deleteRequested(page.game) }
+                        // Reutiliza a estrela amarela dos cards para o favorito ativo.
+                        DetailAction { objectName: "favoriteGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.favorite ? "star-card" : "star"; warningFill: !!page.game.favorite; enabled: page.serviceMode; Accessible.name: page.game.favorite ? "Remover favorito" : "Marcar favorito"; onClicked: page.toggleFavorite() }
+                        DetailAction { objectName: "completedGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.play_status === "completed" ? "trophy-completed" : "trophy"; enabled: page.serviceMode; Accessible.name: page.game.play_status === "completed" ? "Marcar como não jogado" : "Marcar como concluído"; onClicked: page.toggleStatus("completed") }
+                        DetailAction { objectName: "playingGame"; implicitWidth: 38; implicitHeight: 38; iconName: page.game.play_status === "playing" ? "gamepad-playing" : "gamepad-2"; enabled: page.serviceMode; Accessible.name: page.game.play_status === "playing" ? "Marcar como não jogado" : "Marcar como jogando"; onClicked: page.toggleStatus("playing") }
+                        DetailAction { objectName: "editGame"; implicitWidth: 38; implicitHeight: 38; iconName: "pencil"; enabled: page.serviceMode; Accessible.name: "Editar"; onClicked: page.editRequested(page.game) }
+                        DetailAction { objectName: "deleteGame"; implicitWidth: 38; implicitHeight: 38; iconName: "trash-2-danger"; dangerOutline: true; enabled: page.serviceMode; Accessible.name: "Excluir"; onClicked: page.deleteRequested(page.game) }
                     }
                 }
             }
@@ -310,8 +400,8 @@ Item {
                 spacing: 16
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredWidth: Math.max(0, body.width - 284)
-                Layout.maximumWidth: Math.max(0, body.width - 284)
+                Layout.preferredWidth: Math.max(0, body.width - 316)
+                Layout.maximumWidth: Math.max(0, body.width - 316)
                 Layout.fillHeight: true
                 implicitHeight: Math.max(284, aboutContent.implicitHeight + 32)
                 radius: 16
@@ -329,66 +419,68 @@ Item {
             }
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredWidth: 268
-                Layout.maximumWidth: 268
-                Layout.minimumWidth: 260
-                implicitHeight: Math.max(284, fileContent.implicitHeight + 32)
+                Layout.preferredWidth: 300
+                Layout.maximumWidth: 300
+                Layout.minimumWidth: 280
+                Layout.alignment: Qt.AlignTop
+                implicitHeight: fileContent.implicitHeight + 40
                 radius: 16
                 color: Theme.panel
                 border.color: Theme.border
                 ColumnLayout {
                     id: fileContent
-                    anchors.fill: parent
-                    anchors.margins: 16
+                    // Alinha o conteúdo ao topo para evitar o vazio entre título e dados.
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                    anchors.margins: 20
                     /* O h2 do CSS usa margin 0 0 12px antes da lista dt/dd. */
                     spacing: 12
                     UiText { text: "Arquivo"; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold }
                     /* Cada linha distribui seu proprio espaco, como os pares dt/dd do CSS. */
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 11
-                        RowLayout {
+                        spacing: 16
+                        ColumnLayout {
                             Layout.fillWidth: true
                             visible: true
                             spacing: 14
-                            UiText { text: "ROM"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            UiText { text: page.fileName(page.game.rom_path); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            UiText { text: "ROM"; color: Theme.secondary; font.pixelSize: 14; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.fileName(page.game.rom_path); color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
                         }
-                        RowLayout {
+                        ColumnLayout {
                             Layout.fillWidth: true
                             visible: page.versions.length > 1
                             spacing: 14
-                            UiText { text: "Arquivos encontrados"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: "Arquivos encontrados"; color: Theme.secondary; font.pixelSize: 14; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                             /* detail-info-row-wrap usa max-width 95% para caber os nomes em uma linha. */
-                            UiText { text: page.versions.map(function(v) { return v.romFileName || "" }).filter(function(v, i, a) { return v.length > 0 && a.indexOf(v) === i }).join("\n"); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.95; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            UiText { text: page.versions.map(function(v) { return v.romFileName || "" }).filter(function(v, i, a) { return v.length > 0 && a.indexOf(v) === i }).join("\n"); color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             visible: page.versions.length > 1
                             spacing: 14
-                            UiText { text: "Imagens agrupadas"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            UiText { text: String(page.gallery.length); color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            UiText { text: "Imagens agrupadas"; color: Theme.secondary; font.pixelSize: 14; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: String(page.gallery.length); color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             visible: true
                             spacing: 14
-                            UiText { text: "Box Art"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            UiText { text: page.game.box_art_path ? "Associada" : "Não associada"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            UiText { text: "Box Art"; color: Theme.secondary; font.pixelSize: 14; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.game.box_art_path ? "Associada" : "Não associada"; color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             visible: true
                             spacing: 14
-                            UiText { text: "Status"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            UiText { text: page.game.rom_path ? "Pronto" : "Pendente"; color: Theme.success; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            UiText { text: "Status"; color: Theme.secondary; font.pixelSize: 14; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: page.game.rom_path ? "Pronto" : "Pendente"; color: Theme.success; font.pixelSize: 15; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             visible: true
                             spacing: 14
-                            UiText { text: "Histórico"; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                            UiText { text: "Jogadas: " + Number(page.game.launch_count || 0) + " vezes"; color: Theme.text; font.pixelSize: 13; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
+                            UiText { text: "Histórico"; color: Theme.secondary; font.pixelSize: 14; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                            UiText { text: "Jogadas: " + Number(page.game.launch_count || 0) + " vezes"; color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; Layout.maximumWidth: fileContent.width * 0.62; horizontalAlignment: Text.AlignRight; wrapMode: Text.WrapAnywhere }
                         }
                     }
                 }

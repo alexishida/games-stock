@@ -21,6 +21,11 @@ DragDialog {
     property var selectedTypes: [
         "Box - Back", "Box - Front", "Cart - Front", "Fanart - Background", "Screenshot - Gameplay"
     ]
+    // A edição seleciona dados para o rascunho; a importação global continua persistindo.
+    property bool selectionMode: false
+    property bool pendingSearch: false
+    property bool searched: false
+    signal metadataSelected(var values)
     signal backdropRequested(bool active)
 
     readonly property var imageTypes: [
@@ -33,15 +38,23 @@ DragDialog {
     width: Math.min(860, parent.width - 48)
     height: Math.min(640, parent.height - 48)
     heading: "Importar do LaunchBox"
+    onClosed: pendingSearch = false
+    showHeading: true
     onBackdropBlurRequested: function(active) { importer.backdropRequested(active) }
 
     /** Abre já filtrado por um jogo do detalhe, quando houver. */
-    function openFor(title, platform) {
+    function openFor(title, platform, selectOnly) {
+        selectionMode = !!selectOnly
+        pendingSearch = false
+        searched = false
         query = title || ""
         platformName = platform || ""
         selectedGame = null
         errorText = ""
         open()
+        // Busca títulos recebidos e retoma após o bootstrap do catálogo.
+        pendingSearch = query.trim().length > 0
+        if (pendingSearch && !busy) runSearch()
         // O bootstrap pode já estar baixando a base; não inicia um segundo job.
         if (metadataService && !metadataService.metadataReady && !metadataService.busy)
             metadataService.ensureMetadata()
@@ -49,7 +62,10 @@ DragDialog {
 
     /** Executa a busca com os filtros atuais. */
     function runSearch() {
-        if (!serviceMode || !metadataService || busy) return
+        if (!serviceMode || !metadataService) return
+        if (busy) { pendingSearch = true; return }
+        pendingSearch = false
+        searched = true
         errorText = ""
         selectedGame = null
         const job = metadataService.search(query, platformName)
@@ -60,7 +76,8 @@ DragDialog {
     function runImport() {
         if (!serviceMode || !metadataService || !selectedGame || busy) return
         errorText = ""
-        const job = metadataService.importGame(selectedGame, selectedTypes)
+        const job = selectionMode ? metadataService.importGame(selectedGame, selectedTypes, true)
+                                  : metadataService.importGame(selectedGame, selectedTypes)
         if (!job || !job.jobId) errorText = metadataService.error
     }
 
@@ -102,6 +119,11 @@ DragDialog {
                     for (let index = 0; index < importer.platforms.length; ++index) list.push(importer.platforms[index])
                     return list
                 }
+                currentIndex: {
+                    for (let i = 1; i < count; ++i)
+                        if (textAt(i) === importer.platformName) return i
+                    return 0
+                }
                 onActivated: importer.platformName = currentIndex === 0 ? "" : currentText
             }
             ActionButton {
@@ -128,6 +150,8 @@ DragDialog {
             Layout.fillHeight: true
             spacing: 12
             Rectangle {
+                // Reserva largura para resultados sem tamanho implícito no ListView.
+                Layout.minimumWidth: 240
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 color: Theme.control
@@ -175,13 +199,14 @@ DragDialog {
                 UiText {
                     anchors.centerIn: parent
                     visible: resultList.count === 0
-                    text: importer.busy ? "Carregando catálogo..." : "Busque um jogo para importar."
+                    text: importer.busy ? "Carregando catálogo..." : (importer.searched ? "Nenhum resultado para esta busca." : "Busque um jogo para importar.")
                     color: Theme.muted
                     font.pixelSize: 13
                 }
             }
             ColumnLayout {
                 Layout.preferredWidth: 240
+                Layout.maximumWidth: 240
                 spacing: 6
                 UiText { text: "IMAGENS"; color: Theme.accent; font.pixelSize: 12; textWeight: Font.Bold }
                 Repeater {
@@ -203,7 +228,8 @@ DragDialog {
                 }
                 ActionButton {
                     objectName: "launchBoxImport"
-                    text: (importer.busy && importer.selectedGame !== null) ? "Importando..." : "Importar selecionado"
+                    text: (importer.busy && importer.selectedGame !== null) ? "Carregando..."
+                        : (importer.selectionMode ? "Usar metadados" : "Importar selecionado")
                     primary: true
                     Layout.fillWidth: true
                     enabled: importer.serviceMode && !importer.busy && importer.selectedGame !== null
@@ -215,6 +241,15 @@ DragDialog {
 
     Connections {
         target: importer.metadataService
+        ignoreUnknownSignals: true
+        function onChanged() {
+            if (importer.visible && importer.pendingSearch && !importer.busy) importer.runSearch()
+        }
+        function onPrepared(values) {
+            if (!importer.visible || !importer.selectionMode) return
+            importer.metadataSelected(values)
+            importer.close()
+        }
         function onImported(gameId) {
             if (importer.gameService) importer.gameService.refresh()
             if (importer.platformService) importer.platformService.refresh()

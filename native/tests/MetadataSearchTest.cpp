@@ -8,6 +8,7 @@
 #include "services/PlatformService.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
@@ -127,6 +128,32 @@ private slots:
         options.restrictPlatforms = false;
         options.limit = 1;
         QCOMPARE(gamestock::searchLaunchBoxIndex(index, options).size(), 1);
+    }
+
+    /** Mede busca com mídia volumosa e verifica que os resultados preservam seus dados. */
+    void largeCatalogSearch() {
+        QJsonArray images;
+        for (int i = 0; i < 64; ++i)
+            images.append(QJsonObject{{QStringLiteral("filename"), QStringLiteral("cover-%1.png").arg(i)},
+                {QStringLiteral("type"), QStringLiteral("Box - Front")}});
+        QJsonObject index;
+        for (int i = 0; i < 12000; ++i) {
+            auto entry = game(QString::number(i), i == 6000 ? QStringLiteral("Needle") : QStringLiteral("Game %1").arg(i),
+                i % 100 == 0 ? QStringLiteral("Target") : QStringLiteral("Other"));
+            entry.insert(QStringLiteral("images"), images);
+            index.insert(QString::number(i), entry);
+        }
+        gamestock::LaunchBoxSearchOptions options;
+        options.query = QStringLiteral("needle");
+        options.restrictPlatforms = true;
+        options.allowedPlatforms = {QStringLiteral("Target")};
+        QElapsedTimer timer;
+        timer.start();
+        const auto result = gamestock::searchLaunchBoxIndex(index, options);
+        qInfo() << "Busca em 12000 jogos (ms):" << timer.elapsed();
+        QCOMPARE(result.size(), 1);
+        QCOMPARE(result.first().value(QStringLiteral("id")).toString(), QStringLiteral("6000"));
+        QCOMPARE(result.first().value(QStringLiteral("images")).toList().size(), 64);
     }
 
     /** Aliases e nomes canônicos resolvem a plataforma, com fallback seguro. */

@@ -20,6 +20,8 @@ class GameService final : public QObject {
     Q_PROPERTY(QAbstractItemModel* model READ model CONSTANT)
     Q_PROPERTY(QVariantList items READ items NOTIFY changed)
     Q_PROPERTY(bool available READ available NOTIFY changed)
+    /** Consulta de biblioteca pendente na thread de leitura. */
+    Q_PROPERTY(bool queryPending READ queryPending NOTIFY changed)
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
     Q_PROPERTY(QString genre READ genre WRITE setGenre NOTIFY changed)
     Q_PROPERTY(QString collection READ collection WRITE setCollection NOTIFY changed)
@@ -60,6 +62,7 @@ public:
 
     QAbstractItemModel* model();
     QVariantList items() const { return items_; }
+    bool queryPending() const { return queryPending_; }
     bool available() const { return open_; }
     QString search() const { return search_; }
     QString genre() const { return genre_; }
@@ -102,6 +105,8 @@ public slots:
     /** Carrega somente agregados adiados na abertura, sem repetir a consulta da página. */
     void loadAggregates();
 
+    /** Inicia leitura assíncrona de detalhes e devolve identificador da solicitação. */
+    quint64 loadDetail(qint64 id);
     /** Retorna o jogo completo com `coverUrl`, ou mapa vazio em erro. */
     QVariantMap get(qint64 id);
     /** Cria e retorna o jogo persistido; mapa vazio indica validação/erro. */
@@ -132,6 +137,8 @@ public slots:
     QVariantMap resetLaunchStats();
 
 signals:
+    /** Entrega os detalhes associados ao identificador solicitado. */
+    void detailLoaded(quint64 request, const QVariantMap& result);
     void changed();
 
 private:
@@ -165,6 +172,8 @@ private:
     QString sortBy_ = QStringLiteral("title");
     QString viewMode_ = QStringLiteral("grid");
     bool loading_ = false;
+    bool queryPending_ = false;
+    quint64 detailGeneration_ = 0;
     qint64 platformId_ = 0;
     bool includeMissingCovers_ = true;
     int page_ = 1;

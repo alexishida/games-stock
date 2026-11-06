@@ -121,7 +121,8 @@ target_compile_definitions(gamestock_core PRIVATE LIBARCHIVE_STATIC)
 target_link_libraries(gamestock_core PUBLIC Qt6::Core Qt6::Sql Qt6::Network Qt6::Gui Qt6::Concurrent archive_static)
 if(WIN32)
     # BCrypt valida a assinatura ECDSA P-256 do manifesto de atualização.
-    target_link_libraries(gamestock_core PRIVATE bcrypt)
+    # WaitForInputIdle confirma a inicialização gráfica do emulador no Windows.
+    target_link_libraries(gamestock_core PRIVATE bcrypt user32)
 endif()
 
 qt_add_executable(gamestock_native src/app/main.cpp)

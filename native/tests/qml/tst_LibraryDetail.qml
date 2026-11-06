@@ -22,6 +22,12 @@ Item {
         property int total: 1
         property int filtered: 1
         property int page: 1
+        property int pageSize: 36
+        property bool queryPending: false
+        property bool simulateAsync: false
+        signal changed()
+        property string search: ""
+        property int platformId: 0
         property string collection: "all"
         property string genre: ""
         property string sortBy: "title"
@@ -70,12 +76,20 @@ Item {
             ]
         }
         function listMedia(id) { return [] }
-        function goToPage(value) { page = value }
+        function goToPage(value) {
+            page = value
+            if (simulateAsync) { queryPending = true; changed() }
+        }
+        // Simula a entrega assíncrona depois que a interface solicitou outra página.
+        function finishPage(games) { items = games; queryPending = false; changed() }
         function mediaUrl(path) { return "" }
     }
 
     QtObject {
         id: launcher
+        property bool launching: false
+        property var beginLaunch: null
+        signal launchFinished(var gameId, var result)
         property bool available: true
         property string error: ""
         property int lastId: 0
@@ -157,6 +171,115 @@ Item {
             if (confirm) confirm.close()
             const versions = findChild(app, "gameVersionDialog")
             if (versions) versions.close()
+        }
+
+        /** Cliques reais no menu retornam aos resultados, inclusive no filtro já ativo. */
+        function test_menuClosesDetail_data() {
+            return [
+                {tag: "all", button: "collection_all"},
+                {tag: "mostPlayed", button: "collection_mostPlayed"},
+                {tag: "favorites", button: "collection_favorites"},
+                {tag: "playing", button: "collection_playing"},
+                {tag: "completed", button: "collection_completed"},
+                {tag: "platforms", button: "allPlatforms"},
+                {tag: "library", button: "librarySection"},
+                {tag: "settings", button: "openSettings"}
+            ]
+        }
+        function test_menuClosesDetail(data) {
+            resetGame()
+            app.openGame(service.items[0])
+            verify(app.selectedGame !== null)
+            mouseClick(findChild(app, data.button))
+            compare(app.selectedGame, null)
+            const settings = findChild(app, "settingsDialog")
+            if (settings) settings.close()
+        }
+
+        /** Digitar fecha o detalhe imediatamente e aplica a busca após o debounce. */
+        function test_searchClosesDetail() {
+            resetGame()
+            app.openGame(service.items[0])
+            const field = findChild(app, "librarySearch")
+            app.requestActivate()
+            field.forceActiveFocus()
+            wait(50)
+            keyClick(Qt.Key_T)
+            keyClick(Qt.Key_E)
+            keyClick(Qt.Key_S)
+            keyClick(Qt.Key_T)
+            keyClick(Qt.Key_E)
+            compare(app.selectedGame, null)
+            tryCompare(service, "search", "teste")
+            // Limpar também retorna aos resultados quando um jogo está aberto.
+            app.openGame(service.items[0])
+            mouseClick(findChild(app, "clearLibrarySearch"))
+            compare(app.selectedGame, null)
+            compare(service.search, "")
+        }
+
+        /** A navegação espera a nova página e a biblioteca preserva a página atual. */
+        function test_navigationAcrossPages() {
+            resetGame()
+            const first = service.items[0]
+            const second = Object.assign({}, first, {id: 2, title: "Próxima página"})
+            service.page = 1
+            service.filtered = 37
+            service.simulateAsync = true
+            app.openGame(first)
+            app.selectAdjacent(1)
+            compare(service.page, 2)
+            compare(app.selectedGame.id, 1)
+            tryVerify(function() { return findChild(app, "libraryLoadingDialog").visible })
+            service.finishPage([second])
+            tryVerify(function() { return app.selectedGame && app.selectedGame.id === 2 })
+            app.closeGameDetail()
+            compare(service.page, 2)
+            app.openGame(second)
+            app.selectAdjacent(-1)
+            compare(service.page, 1)
+            service.finishPage([first])
+            tryVerify(function() { return app.selectedGame && app.selectedGame.id === 1 })
+            service.simulateAsync = false
+        }
+
+        /** O modal acompanha todo o lançamento e a falha retorna ao detalhe. */
+        function test_launchLoading() {
+            resetGame()
+            launcher.beginLaunch = function(id) { launcher.lastId = id; launcher.launching = true; return true }
+            app.openGame(service.items[0])
+            const detail = findChild(app, "gameDetailPage")
+            detail.launch()
+            compare(launcher.lastId, 1)
+            tryVerify(function() { return findChild(app, "libraryLoadingDialog").visible })
+            launcher.error = "Falha ao abrir o emulador"
+            launcher.launching = false
+            launcher.launchFinished(1, {error: launcher.error})
+            compare(detail.actionError, launcher.error)
+            tryVerify(function() { return !findChild(app, "libraryLoadingDialog").visible })
+            launcher.beginLaunch = null
+            launcher.error = ""
+        }
+
+        /** Setas percorrem os jogos sem roubar a navegação do campo de busca. */
+        function test_keyboardGameNavigation() {
+            resetGame()
+            service.items = [service.items[0], Object.assign({}, service.items[0], {id: 2, title: "Outro jogo"})]
+            service.total = 2
+            service.filtered = 2
+            app.openGame(service.items[0])
+            app.requestActivate()
+            app.contentItem.forceActiveFocus()
+            wait(50)
+            keyClick(Qt.Key_Right)
+            tryVerify(function() { return findChild(app, "libraryLoadingDialog").visible })
+            tryVerify(function() { return app.selectedGame && app.selectedGame.id === 2 })
+            keyClick(Qt.Key_Left)
+            tryVerify(function() { return app.selectedGame && app.selectedGame.id === 1 })
+            const search = findChild(app, "librarySearch")
+            search.forceActiveFocus()
+            keyClick(Qt.Key_Right)
+            compare(app.selectedGame.id, 1)
         }
 
         /** O título curto aproveita a lateral da capa sem disputar largura com os botões. */
@@ -241,9 +364,16 @@ Item {
             verify(findChild(form, "gameFormError").visible)
             compare(findChild(form, "gameFormError").text, "Título é obrigatório")
             form.setDraft("title", "Jogo Editado")
+            // Dados selecionados conservam a ROM e são persistidos junto com o rascunho.
+            form.applyMetadata({launchbox_id: "10", background_path: "background.png",
+                screenshot_path: "screen.png", box_art_path: ""})
+            compare(form.draft.rom_path, "C:/roms/Jogo Teste.sfc")
             mouseClick(findChild(form, "saveGame"))
             tryVerify(function() { return !form.visible }, 2000)
             compare(service.items[0].title, "Jogo Editado")
+            compare(service.items[0].launchbox_id, "10")
+            compare(service.items[0].background_path, "background.png")
+            compare(service.items[0].screenshot_path, "screen.png")
             compare(dialog.gameTitle, "Jogo Editado")
             app.closeGameDetail()
         }

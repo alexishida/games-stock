@@ -110,6 +110,15 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!service.busy(), 30000);
         QCOMPARE(service.results().size(), 2);
 
+        // A seleção entrega dados sem persistir o jogo antes de Salvar.
+        QSignalSpy prepared(&service, &gamestock::MetadataService::prepared);
+        QSignalSpy persisted(&service, &gamestock::MetadataService::imported);
+        QVERIFY(!service.importGame(selected, {QStringLiteral("Box - Front")}, true).isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(!service.busy(), 30000);
+        QCOMPARE(prepared.count(), 1);
+        QCOMPARE(persisted.count(), 0);
+        QVERIFY(!prepared.first().first().toMap().contains(QStringLiteral("platform_id")));
+
         const QVariantMap imported = service.importGame(selected, {QStringLiteral("Box - Front")});
         QVERIFY2(!imported.isEmpty(), qPrintable(service.error()));
         QTRY_VERIFY_WITH_TIMEOUT(!service.busy(), 30000);
@@ -131,7 +140,14 @@ private slots:
         QVariantMap platform;
         QVERIFY(platforms.get(game.value(3).toLongLong(), &platform, &error));
         QCOMPARE(platform.value(QStringLiteral("name")).toString(), QStringLiteral("Sega Mega Drive"));
-        QCOMPARE(server.requests(QStringLiteral("/box.png")), 1);
+        // O filtro aceita o nome local usando os aliases persistidos do LaunchBox.
+        const qint64 platformId = game.value(3).toLongLong();
+        QVERIFY(platforms.update(platformId, QStringLiteral("Meu Mega Drive"), QStringLiteral("Outros"), &error));
+        QVERIFY(platforms.saveMappings(platformId, {QStringLiteral("Sega Mega Drive")},
+            {{{QStringLiteral("extension"), QStringLiteral(".md")}, {QStringLiteral("is_primary"), true}}}, &error));
+        QVERIFY(!service.search(QStringLiteral("Game"), QStringLiteral("Meu Mega Drive")).isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(!service.busy(), 30000);
+        QCOMPARE(service.results().size(), 1);
     }
 };
 

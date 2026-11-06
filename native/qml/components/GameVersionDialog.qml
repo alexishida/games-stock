@@ -16,6 +16,7 @@ DragDialog {
     property bool serviceMode: false
     property var launchService: null
     property string actionError: ""
+    property var awaitingVersionId: 0
 
     signal versionSelected(var version)
     signal versionLaunched(var versionId)
@@ -41,13 +42,32 @@ DragDialog {
             actionError = "Serviço de lançamento indisponível."
             return
         }
-        const result = launchService.launch(Number(option.id))
+        if (typeof launchService.beginLaunch === "function") {
+            awaitingVersionId = Number(option.id)
+            if (!launchService.beginLaunch(awaitingVersionId)) awaitingVersionId = 0
+            return
+        }
+        completeLaunch(Number(option.id), launchService.launch(Number(option.id)))
+    }
+
+    /** Fecha o seletor somente quando o serviço confirmou o processo. */
+    function completeLaunch(gameId, result) {
         if (!result || !result.success) {
             actionError = launchService.error || "Não foi possível iniciar a versão."
             return
         }
-        versions.versionLaunched(Number(option.id))
+        versions.versionLaunched(gameId)
         versions.close()
+    }
+
+    Connections {
+        target: versions.launchService
+        ignoreUnknownSignals: true
+        function onLaunchFinished(gameId, result) {
+            if (gameId !== versions.awaitingVersionId) return
+            versions.awaitingVersionId = 0
+            versions.completeLaunch(gameId, result)
+        }
     }
 
     ColumnLayout {
@@ -118,18 +138,20 @@ DragDialog {
                     delegate: Rectangle {
                         required property var modelData
                         Layout.fillWidth: true
-                        implicitHeight: 168
+                        // A altura acompanha os dados sem deixar um rodapé vazio em cada variante.
+                        implicitHeight: Math.max(136, versionRow.implicitHeight + 28)
                         radius: 14
                         color: "#04ffffff"
                         border.color: Theme.border
                         RowLayout {
+                            id: versionRow
                             anchors.fill: parent
                             anchors.margins: 14
                             spacing: 14
                             Rectangle {
                                 Layout.preferredWidth: 84
                                 Layout.preferredHeight: 108
-                                Layout.alignment: Qt.AlignTop
+                                Layout.alignment: Qt.AlignVCenter
                                 radius: 10
                                 color: Theme.control
                                 clip: true
@@ -146,10 +168,12 @@ DragDialog {
                                     visible: !versions.preview(modelData).length
                                 }
                             }
+                            // Centro: identifica a variante uma única vez e reserva a linha da ROM.
                             ColumnLayout {
                                 Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 4
+                                Layout.minimumWidth: 0
+                                Layout.alignment: Qt.AlignVCenter
+                                spacing: 8
                                 UiText {
                                     text: modelData.title || ""
                                     color: Theme.text
@@ -158,63 +182,56 @@ DragDialog {
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Image { source: "qrc:/icons/globe-2.svg"; sourceSize: Qt.size(14, 14) }
+                                    UiText {
+                                        text: modelData.variantLabel || modelData.regionLabel || "Versão padrão"
+                                        color: Theme.accentMuted
+                                        font.pixelSize: 13
+                                        textWeight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                }
                                 UiText {
-                                    text: modelData.variantLabel || "Versão padrão"
+                                    text: modelData.romFileName || "ROM não associada"
                                     color: Theme.secondary
                                     font.pixelSize: 13
+                                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                                    maximumLineCount: 2
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    columnSpacing: 14
-                                    rowSpacing: 8
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
-                                        spacing: 8
-                                        Image { source: "qrc:/icons/globe-2.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText { text: modelData.regionLabel || "Região não detectada"; color: Theme.secondary; font.pixelSize: 13 }
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
-                                        spacing: 8
-                                        Image { source: "qrc:/icons/sparkles.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText { text: modelData.typeLabel || "Sem marcador especial"; color: Theme.secondary; font.pixelSize: 13 }
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
-                                        spacing: 8
-                                        Image { source: "qrc:/icons/scroll-text.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText { text: modelData.romFileName || ""; color: Theme.secondary; font.pixelSize: 13; elide: Text.ElideRight; Layout.maximumWidth: 220 }
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
-                                        spacing: 8
-                                        Image { source: "qrc:/icons/rotate-ccw.svg"; sourceSize: Qt.size(13, 13) }
-                                        UiText {
-                                            text: Number(modelData.launchCount || 0) + (Number(modelData.launchCount || 0) === 1 ? " jogada" : " jogadas")
-                                            color: Theme.secondary
-                                            font.pixelSize: 13
-                                        }
+                            }
+                            // Histórico e ação formam uma coluna fixa, alinhada entre todos os cards.
+                            ColumnLayout {
+                                Layout.preferredWidth: 110
+                                Layout.minimumWidth: 110
+                                Layout.maximumWidth: 110
+                                Layout.alignment: Qt.AlignVCenter
+                                spacing: 12
+                                RowLayout {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    spacing: 6
+                                    Image { source: "qrc:/icons/rotate-ccw.svg"; sourceSize: Qt.size(14, 14) }
+                                    UiText {
+                                        text: Number(modelData.launchCount || 0) + (Number(modelData.launchCount || 0) === 1 ? " jogada" : " jogadas")
+                                        color: Theme.secondary
+                                        font.pixelSize: 13
                                     }
                                 }
-                                Item { Layout.fillHeight: true }
-                                RowLayout {
+                                ActionButton {
+                                    objectName: "selectVersion"
+                                    text: "Jogar"
+                                    iconName: "play-white"
+                                    successFill: true
                                     Layout.fillWidth: true
-                                    Item { Layout.fillWidth: true }
-                                    ActionButton {
-                                        objectName: "selectVersion"
-                                        text: "Jogar"
-                                        iconName: "play"
-                                        link: true
-                                        enabled: versions.serviceMode && versions.launchService
-                                        onClicked: versions.launch(modelData)
-                                    }
+                                    implicitHeight: 36
+                                    font.weight: Font.DemiBold
+                                    enabled: versions.serviceMode && versions.launchService
+                                    onClicked: versions.launch(modelData)
                                 }
                             }
                         }

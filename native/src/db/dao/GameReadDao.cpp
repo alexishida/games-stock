@@ -369,17 +369,24 @@ bool GameReadDao::listVersions(qint64 id, QList<QVariantMap>* result, QString* e
 
     QList<QVariantMap> options;
     QSqlQuery candidates(database_);
-    if (!candidates.prepare(QStringLiteral(
-            "SELECT games.id, games.title, games.rom_path, games.launch_count, games.box_art_path, "
-            "games.background_path, games.screenshot_path, platforms.name, games.platform_id "
-            "FROM games JOIN platforms ON platforms.id = games.platform_id "
-            "WHERE games.platform_id = ? AND games.title_normalized = ? "
-            "AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''"))) {
-        if (error) *error = candidates.lastError().text();
-        return false;
+    const QString selectCandidates = QStringLiteral(
+        "SELECT games.id, games.title, games.rom_path, games.launch_count, games.box_art_path, "
+        "games.background_path, games.screenshot_path, platforms.name, games.platform_id "
+        "FROM games JOIN platforms ON platforms.id = games.platform_id "
+        "WHERE games.platform_id = ? ");
+    const QString hasRom = QStringLiteral("AND games.rom_path IS NOT NULL AND TRIM(games.rom_path) != ''");
+    bool indexedTitle = true;
+    if (!candidates.prepare(selectCandidates + QStringLiteral("AND games.title_normalized = ? ") + hasRom)) {
+        // Fixtures e bancos legados podem ainda não ter a coluna materializada.
+        if (!candidates.lastError().text().contains(QStringLiteral("no such column"), Qt::CaseInsensitive)
+                || !candidates.prepare(selectCandidates + hasRom)) {
+            if (error) *error = candidates.lastError().text();
+            return false;
+        }
+        indexedTitle = false;
     }
     candidates.addBindValue(current.value(2));
-    candidates.addBindValue(currentTitle.toCaseFolded());
+    if (indexedTitle) candidates.addBindValue(currentTitle.toCaseFolded());
     if (!candidates.exec()) {
         if (error) *error = candidates.lastError().text();
         return false;

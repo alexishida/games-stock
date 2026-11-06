@@ -141,7 +141,14 @@ private slots:
             QVERIFY(games.get(gameId, &stored, &readError));
         }
         QCOMPARE(stored.value("launch_count").toInt(), 1);
-        QVERIFY2(!launcher.launch(gameId).isEmpty(), qPrintable(launcher.error()));
+        // O caminho assíncrono sinaliza início/fim e não permite lançamentos duplicados.
+        QSignalSpy launched(&launcher, &gamestock::LaunchService::launchFinished);
+        QVERIFY(launcher.beginLaunch(gameId));
+        QVERIFY(launcher.launching());
+        QVERIFY(!launcher.beginLaunch(gameId));
+        QTRY_COMPARE_WITH_TIMEOUT(launched.count(), 1, 5000);
+        QVERIFY(!launcher.launching());
+        QVERIFY(launched.first().at(1).toMap().value("success").toBool());
         {
             gamestock::Database database;
             QString readError;
@@ -150,6 +157,13 @@ private slots:
             QVERIFY(games.get(gameId, &stored, &readError));
         }
         QCOMPARE(stored.value("launch_count").toInt(), 2);
+        // Falhas também encerram o loading e entregam uma mensagem ao formulário.
+        launched.clear();
+        QVERIFY(launcher.beginLaunch(-1));
+        QTRY_COMPARE_WITH_TIMEOUT(launched.count(), 1, 5000);
+        QVERIFY(!launcher.launching());
+        QVERIFY(!launched.first().at(1).toMap().value("success").toBool());
+        QVERIFY(!launcher.error().isEmpty());
     }
 
     /** ZIP/7z extraem, cache reaproveita, falha usa o pacote e Arcade preserva o ZIP. */

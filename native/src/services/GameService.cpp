@@ -1,6 +1,9 @@
 /** Implementação da fachada da biblioteca; toda a SQL fica nos DAOs. */
 #include "GameService.h"
 #include <QImageReader>
+#include <QFutureWatcher>
+#include <QtConcurrentRun>
+#include "db/ReadOnlyConnection.h"
 #include <QSaveFile>
 #include <QUuid>
 
@@ -85,6 +88,44 @@ bool importExternalGameImages(GameService* service, const QString& root, QVarian
         values->insert(key, imported.value("path"));
     }
     return true;
+}
+/** Lista a mídia de um jogo já lido, sempre dentro da raiz autorizada. */
+QVariantList readGameMedia(const QVariantMap& game, const QString& mediaRoot) {
+    QVariantList result;
+    // O diretório vem dos caminhos conhecidos do jogo, sempre validado pela raiz autorizada.
+    QString mediaDirectory;
+    for (const QString& key : {QStringLiteral("box_art_path"), QStringLiteral("background_path"),
+             QStringLiteral("screenshot_path")}) {
+        const QString mediaPath = game.value(key).toString();
+        if (mediaPath.isEmpty()) continue;
+        if (!validatedMediaPath(mediaRoot, mediaPath).isEmpty()) {
+            mediaDirectory = QFileInfo(mediaPath).absolutePath();
+            break;
+        }
+        if (mediaDirectory.isEmpty()) mediaDirectory = allowedDirectory(mediaRoot, QFileInfo(mediaPath).absolutePath());
+    }
+    if (mediaDirectory.isEmpty()) return result;
+
+    const QFileInfoList entries = QDir(mediaDirectory).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+    QList<QVariantMap> files;
+    for (const QFileInfo& entry : entries) {
+        if (!mediaExtensions().contains(entry.suffix().toLower())) continue;
+        if (mediaKind(entry.absoluteFilePath()) == QLatin1String("cover")) continue;
+        const QString authorized = validatedMediaPath(mediaRoot, entry.absoluteFilePath());
+        if (authorized.isEmpty()) continue;
+        files.append(QVariantMap{{QStringLiteral("path"), authorized},
+            {QStringLiteral("label"), mediaLabel(authorized)},
+            {QStringLiteral("kind"), mediaKind(authorized)}});
+    }
+    std::stable_sort(files.begin(), files.end(), [](const QVariantMap& left, const QVariantMap& right) {
+        const int leftWeight = mediaSortWeight(left.value(QStringLiteral("kind")).toString());
+        const int rightWeight = mediaSortWeight(right.value(QStringLiteral("kind")).toString());
+        if (leftWeight != rightWeight) return leftWeight < rightWeight;
+        return QString::compare(QFileInfo(left.value(QStringLiteral("path")).toString()).fileName(),
+            QFileInfo(right.value(QStringLiteral("path")).toString()).fileName(), Qt::CaseInsensitive) < 0;
+    });
+    for (const QVariantMap& file : files) result.append(file);
+    return result;
 }
 } // namespace
 
@@ -316,6 +357,9 @@ void GameService::loadAggregates() {
 void GameService::scheduleQuery(bool refreshAggregates) {
     LibraryQueryWorker::Request request;
     request.generation = ++queryGeneration_;
+    // Sinaliza somente a consulta mais recente; respostas antigas não encerram o loading.
+    queryPending_ = true;
+    emit changed();
     request.page = page_;
     request.pageSize = pageSize_;
     request.filters = filters();
@@ -333,6 +377,7 @@ void GameService::applyQueryResponse(const LibraryQueryWorker::Response& respons
     // Gerações antigas (digitação rápida ou paginação) não sobrescrevem o estado atual.
     if (response.generation != queryGeneration_) return;
     if (!response.ok) {
+        queryPending_ = false;
         error_ = response.error;
         emit changed();
         return;
@@ -343,6 +388,7 @@ void GameService::applyQueryResponse(const LibraryQueryWorker::Response& respons
         scheduleQuery(pendingAggregates_);
         return;
     }
+    queryPending_ = false;
     total_ = response.page.total;
     filtered_ = response.page.filtered;
     items_.clear();
@@ -526,41 +572,41 @@ QVariantList GameService::listMedia(qint64 id) {
         return result;
     }
 
-    // O diretório vem dos caminhos conhecidos do jogo, sempre validado pela raiz autorizada.
-    QString mediaDirectory;
-    for (const QString& key : {QStringLiteral("box_art_path"), QStringLiteral("background_path"),
-             QStringLiteral("screenshot_path")}) {
-        const QString mediaPath = game.value(key).toString();
-        if (mediaPath.isEmpty()) continue;
-        if (!validatedMediaPath(mediaRoot_, mediaPath).isEmpty()) {
-            mediaDirectory = QFileInfo(mediaPath).absolutePath();
-            break;
-        }
-        if (mediaDirectory.isEmpty()) mediaDirectory = allowedDirectory(mediaRoot_, QFileInfo(mediaPath).absolutePath());
-    }
-    if (mediaDirectory.isEmpty()) return result;
-
-    const QFileInfoList entries = QDir(mediaDirectory).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
-    QList<QVariantMap> files;
-    for (const QFileInfo& entry : entries) {
-        if (!mediaExtensions().contains(entry.suffix().toLower())) continue;
-        if (mediaKind(entry.absoluteFilePath()) == QLatin1String("cover")) continue;
-        const QString authorized = validatedMediaPath(mediaRoot_, entry.absoluteFilePath());
-        if (authorized.isEmpty()) continue;
-        files.append(QVariantMap{{QStringLiteral("path"), authorized},
-            {QStringLiteral("label"), mediaLabel(authorized)},
-            {QStringLiteral("kind"), mediaKind(authorized)}});
-    }
-    std::stable_sort(files.begin(), files.end(), [](const QVariantMap& left, const QVariantMap& right) {
-        const int leftWeight = mediaSortWeight(left.value(QStringLiteral("kind")).toString());
-        const int rightWeight = mediaSortWeight(right.value(QStringLiteral("kind")).toString());
-        if (leftWeight != rightWeight) return leftWeight < rightWeight;
-        return QString::compare(QFileInfo(left.value(QStringLiteral("path")).toString()).fileName(),
-            QFileInfo(right.value(QStringLiteral("path")).toString()).fileName(), Qt::CaseInsensitive) < 0;
-    });
-    for (const QVariantMap& file : files) result.append(file);
+    result = readGameMedia(game, mediaRoot_);
     error_.clear();
     return result;
+}
+
+/** Consulta detalhes e arquivos em thread própria, sem bloquear a interface. */
+quint64 GameService::loadDetail(qint64 id) {
+    const quint64 request = ++detailGeneration_;
+    const QString path = databasePath_;
+    const QString mediaRoot = mediaRoot_;
+    auto* watcher = new QFutureWatcher<QVariantMap>(this);
+    connect(watcher, &QFutureWatcher<QVariantMap>::finished, this, [this, watcher, request] {
+        const QVariantMap result = watcher->result();
+        watcher->deleteLater();
+        emit detailLoaded(request, result);
+    });
+    watcher->setFuture(QtConcurrent::run([path, mediaRoot, id] {
+        ReadOnlyConnection connection;
+        QString error;
+        if (!connection.open(path, &error)) return QVariantMap{{QStringLiteral("error"), error}};
+        GameReadDao dao(connection.database());
+        QVariantMap game;
+        if (!dao.get(id, &game, &error)) return QVariantMap{{QStringLiteral("error"), error}};
+        QList<QVariantMap> versions;
+        if (!dao.listVersions(id, &versions, &error)) return QVariantMap{{QStringLiteral("error"), error}};
+        GameService::decorate(&game);
+        QVariantList versionList;
+        for (QVariantMap version : versions) {
+            version.insert(QStringLiteral("coverUrl"), GameListModel::coverUrl(version.value(QStringLiteral("boxArtPath")).toString()));
+            versionList.append(version);
+        }
+        return QVariantMap{{QStringLiteral("game"), game}, {QStringLiteral("versions"), versionList},
+            {QStringLiteral("media"), readGameMedia(game, mediaRoot)}};
+    }));
+    return request;
 }
 
 QString GameService::mediaUrl(const QString& path) const {

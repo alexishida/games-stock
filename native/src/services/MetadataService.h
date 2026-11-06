@@ -47,12 +47,14 @@ public slots:
     /** Busca por título e plataforma; resultados chegam por `changed`. */
     QVariantMap search(const QString& query, const QString& platformName);
     /** Importa o jogo selecionado baixando os tipos de imagem escolhidos. */
-    QVariantMap importGame(const QVariantMap& game, const QStringList& imageTypes);
+    QVariantMap importGame(const QVariantMap& game, const QStringList& imageTypes, bool draftOnly = false);
 
 signals:
     void changed();
     /** Emitido após criar/atualizar um jogo pelo LaunchBox. */
     void imported(qint64 gameId);
+    /** Entrega metadados ao rascunho sem criar ou alterar jogos. */
+    void prepared(const QVariantMap& values);
 
 private:
     /** Inicia o job de preparação com o título adequado ao contexto. */

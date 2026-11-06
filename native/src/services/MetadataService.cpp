@@ -241,16 +241,16 @@ QVariantMap MetadataService::search(const QString& query, const QString& platfor
     const auto cache = sharedCache();
     const QString trimmedQuery = query.trimmed();
     const QString filterPlatform = platformName.trimmed();
+    const QString databasePath = databasePath_;
     return startJob(QStringLiteral("metadata-search"),
         QStringLiteral("Buscando \"%1\"").arg(trimmedQuery),
         filterPlatform.isEmpty() ? QStringLiteral("Todas as plataformas") : filterPlatform,
         {{QStringLiteral("query"), trimmedQuery}, {QStringLiteral("platformName"), filterPlatform}},
-        [cache, trimmedQuery, filterPlatform](JobWorker* worker) {
+        [cache, trimmedQuery, filterPlatform, databasePath](JobWorker* worker) {
             const auto progress = [worker](const LaunchBoxProgress& update) {
                 worker->reportProgress(metadataProgressPayload(update));
             };
-            const auto ensured = cache->ensureMetadata(false, progress);
-            if (!ensured.ok()) throw std::runtime_error(ensured.error.toStdString());
+            // buildIndex garante a base quando necessário e reaproveita o índice da sessão sem rede.
             QJsonObject index;
             QString error;
             if (!cache->buildIndex(&index, &error, progress)) throw std::runtime_error(error.toStdString());
@@ -259,6 +259,20 @@ QVariantMap MetadataService::search(const QString& query, const QString& platfor
             options.limit = 100;
             if (!filterPlatform.isEmpty()) {
                 options.allowedPlatforms = {filterPlatform};
+                // Inclui aliases locais: o nome exibido pode diferir do nome no LaunchBox.
+                WriteConnection connection;
+                if (!connection.open(databasePath, &error)) throw std::runtime_error(error.toStdString());
+                PlatformDao platforms(connection.database());
+                QList<QVariantMap> list;
+                if (!platforms.list(&list, &error)) throw std::runtime_error(error.toStdString());
+                for (const auto& platform : list) {
+                    if (normalizePlatform(platform.value(QStringLiteral("name")).toString()) != normalizePlatform(filterPlatform)) continue;
+                    QVariantMap mappings;
+                    if (!platforms.mappings(platform.value(QStringLiteral("id")).toLongLong(), &mappings, &error))
+                        throw std::runtime_error(error.toStdString());
+                    for (const auto& alias : mappings.value(QStringLiteral("aliases")).toList())
+                        options.allowedPlatforms.append(alias.toMap().value(QStringLiteral("alias")).toString());
+                }
                 options.restrictPlatforms = true;
             }
             const QList<QVariantMap> found = searchLaunchBoxIndex(index, options);
@@ -268,7 +282,7 @@ QVariantMap MetadataService::search(const QString& query, const QString& platfor
         });
 }
 
-QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringList& imageTypes) {
+QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringList& imageTypes, bool draftOnly) {
     const auto cache = sharedCache();
     const QString imagesDir = imagesDir_;
     const QString imagesBaseUrl = imagesBaseUrl_;
@@ -282,7 +296,7 @@ QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringLi
         QStringLiteral("Importando %1").arg(game.value(QStringLiteral("name")).toString()),
         game.value(QStringLiteral("platform")).toString(),
         {{QStringLiteral("launchboxId"), launchBoxId}},
-        [databasePath, cache, imagesDir, imagesBaseUrl, launchBoxId, types](JobWorker* worker) {
+        [databasePath, cache, imagesDir, imagesBaseUrl, launchBoxId, types, draftOnly](JobWorker* worker) {
             WriteConnection connection;
             QString error;
             if (!connection.open(databasePath, &error)) throw std::runtime_error(error.toStdString());
@@ -290,9 +304,10 @@ QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringLi
                 worker->reportProgress(metadataProgressPayload(update));
             };
             const QVariantMap launchBoxGame = indexGame(*cache, launchBoxId, worker, progress);
-            const qint64 platformId = resolvePlatform(connection.database(),
+            // O rascunho conserva a plataforma local e não cria relacionamentos antes de Salvar.
+            const qint64 platformId = draftOnly ? 0 : resolvePlatform(connection.database(),
                 launchBoxGame.value(QStringLiteral("platform")).toString(), &error);
-            if (platformId <= 0) throw std::runtime_error(error.toStdString());
+            if (!draftOnly && platformId <= 0) throw std::runtime_error(error.toStdString());
 
             LaunchBoxMedia media(imagesBaseUrl);
             const auto imageProgress = [worker](const LaunchBoxProgress& update) {
@@ -320,6 +335,12 @@ QVariantMap MetadataService::importGame(const QVariantMap& game, const QStringLi
                 {QStringLiteral("background_path"), mediaFile(download.files, QStringLiteral("fanart-background"))},
                 {QStringLiteral("launchbox_id"), launchBoxId},
             };
+            if (draftOnly) {
+                QVariantMap values = input;
+                values.remove(QStringLiteral("platform_id"));
+                worker->setResult(QJsonObject{{QStringLiteral("draft"), QJsonObject::fromVariantMap(values)}});
+                return;
+            }
             GameWriteDao games(connection.database());
             qint64 gameId = 0;
             bool found = false;
@@ -361,7 +382,8 @@ void MetadataService::onJobFinished(const QString& id, const QJsonObject& job) {
         } else if (kind == QLatin1String("metadata-import")) {
             metadataReady_ = true;
             const qint64 gameId = result.value(QStringLiteral("gameId")).toLongLong();
-            if (gameId > 0) emit imported(gameId);
+            if (result.contains(QStringLiteral("draft"))) emit prepared(result.value(QStringLiteral("draft")).toMap());
+            else if (gameId > 0) emit imported(gameId);
         }
     }
     emit changed();

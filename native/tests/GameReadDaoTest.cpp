@@ -12,6 +12,30 @@
 class GameReadDaoTest : public QObject {
     Q_OBJECT
 private slots:
+    /** Bancos antigos sem title_normalized também preservam as variantes Unicode. */
+    void legacyVersionsWithoutNormalizedTitle() {
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "legacy-versions");
+            db.setDatabaseName(":memory:");
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("CREATE TABLE platforms (id INTEGER PRIMARY KEY, name TEXT)"));
+            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, platform_id INTEGER, rom_path TEXT, launch_count INTEGER, box_art_path TEXT, background_path TEXT, screenshot_path TEXT)"));
+            QVERIFY(query.exec("INSERT INTO platforms VALUES (1, 'Console')"));
+            QVERIFY(query.prepare("INSERT INTO games (id, title, platform_id, rom_path, launch_count) VALUES (?, ?, 1, ?, 0)"));
+            query.addBindValue(1); query.addBindValue(QString::fromUtf8("\xc3\x87\xc3\x89U")); query.addBindValue("C:/roms/Jogo (USA).rom");
+            QVERIFY(query.exec());
+            query.bindValue(0, 2); query.bindValue(1, QString::fromUtf8("\xc3\xa7\xc3\xa9u")); query.bindValue(2, "C:/roms/Jogo (Europe).rom");
+            QVERIFY(query.exec());
+            gamestock::GameReadDao dao(db);
+            QList<QVariantMap> versions;
+            QString error;
+            QVERIFY2(dao.listVersions(1, &versions, &error), qPrintable(error));
+            QCOMPARE(versions.size(), 2);
+        }
+        QSqlDatabase::removeDatabase("legacy-versions");
+    }
+
     /** A paginação escolhe um representante estável antes de aplicar limite. */
     void groupedPages() {
         {

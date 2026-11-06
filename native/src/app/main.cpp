@@ -532,7 +532,8 @@ int main(int argc, char* argv[]) {
                 metadataService.setJobManager(jobManager.get());
                 // Como no Electron, a base do LaunchBox é baixada em segundo plano na abertura
                 // quando ainda não existe no cache; o job aparece no NotificationCenter.
-                if (metadataService.available() && !metadataService.metadataExists()) {
+                // Capturas devem encerrar sem aguardar downloads externos no destrutor dos jobs.
+                if (!parser.isSet("capture") && metadataService.available() && !metadataService.metadataExists()) {
                     const QVariantMap startupJob = metadataService.ensureMetadataAtStartup();
                     if (startupJob.isEmpty())
                         qWarning("Não foi possível preparar o LaunchBox: %s", qPrintable(metadataService.error()));

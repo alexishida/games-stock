@@ -17,9 +17,12 @@ QString normalizeLaunchBoxSearchText(const QString& value) {
             || category == QChar::Mark_Enclosing) continue;
         withoutMarks += character;
     }
+    // As expressões são constantes: recompilá-las para cada jogo domina catálogos grandes.
+    static const QRegularExpression punctuation(QStringLiteral("[^a-z0-9]+"));
+    static const QRegularExpression spaces(QStringLiteral("\\s+"));
     QString normalized = withoutMarks.toLower();
-    normalized.replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral(" "));
-    return normalized.trimmed().replace(QRegularExpression(QStringLiteral("\\s+")), QStringLiteral(" "));
+    normalized.replace(punctuation, QStringLiteral(" "));
+    return normalized.trimmed().replace(spaces, QStringLiteral(" "));
 }
 
 QList<QVariantMap> searchLaunchBoxIndex(const QJsonObject& index, const LaunchBoxSearchOptions& options) {
@@ -34,52 +37,44 @@ QList<QVariantMap> searchLaunchBoxIndex(const QJsonObject& index, const LaunchBo
         if (allowed.isEmpty()) return {};
     }
 
-    struct Entry {
-        QVariantMap game;
-        QStringList names;
-        QString platform;
+    struct Match {
+        QJsonObject game;
+        QString title;
     };
-    QList<Entry> entries;
-    entries.reserve(index.size());
+    QList<Match> exact;
+    QList<Match> partial;
     for (auto iterator = index.constBegin(); iterator != index.constEnd(); ++iterator) {
         const QJsonObject game = iterator.value().toObject();
-        Entry entry;
-        entry.game = game.toVariantMap();
-        entry.platform = normalizeLaunchBoxSearchText(game.value(QStringLiteral("platform")).toString());
-        entry.names.append(normalizeLaunchBoxSearchText(game.value(QStringLiteral("name")).toString()));
-        for (const QJsonValue& alias : game.value(QStringLiteral("alternateNames")).toArray()) {
-            const QString normalized = normalizeLaunchBoxSearchText(alias.toString());
-            if (!normalized.isEmpty() && !entry.names.contains(normalized)) entry.names.append(normalized);
+        // Recusa outras plataformas antes de normalizar títulos ou percorrer aliases.
+        if (options.restrictPlatforms && !allowed.contains(normalizeLaunchBoxSearchText(
+                game.value(QStringLiteral("platform")).toString()))) continue;
+        const QString title = game.value(QStringLiteral("name")).toString();
+        const QString name = normalizeLaunchBoxSearchText(title);
+        bool isExact = name == query;
+        bool isPartial = name.contains(query);
+        if (!isExact) {
+            for (const auto& alias : game.value(QStringLiteral("alternateNames")).toArray()) {
+                const QString normalized = normalizeLaunchBoxSearchText(alias.toString());
+                if (normalized == query) { isExact = true; break; }
+                if (normalized.contains(query)) isPartial = true;
+            }
         }
-        entries.append(entry);
+        if (isExact) exact.append({game, title});
+        else if (isPartial) partial.append({game, title});
     }
-    std::stable_sort(entries.begin(), entries.end(), [](const Entry& left, const Entry& right) {
-        return QString::localeAwareCompare(left.game.value(QStringLiteral("name")).toString(),
-            right.game.value(QStringLiteral("name")).toString()) < 0;
-    });
-
+    const auto byTitle = [](const Match& left, const Match& right) {
+        return QString::localeAwareCompare(left.title, right.title) < 0;
+    };
+    // Ordena somente correspondências; as imagens viram QVariant apenas para os itens retornados.
+    std::stable_sort(exact.begin(), exact.end(), byTitle);
+    std::stable_sort(partial.begin(), partial.end(), byTitle);
     const int limit = qMax(1, options.limit);
-    QList<QVariantMap> exact;
-    QList<QVariantMap> partial;
-    for (const Entry& entry : entries) {
-        if (options.restrictPlatforms && !allowed.contains(entry.platform)) continue;
-        bool isExact = false;
-        bool isPartial = false;
-        for (const QString& name : entry.names) {
-            if (name == query) { isExact = true; break; }
-            if (name.contains(query)) isPartial = true;
+    QList<QVariantMap> result;
+    for (const auto& matches : {exact, partial}) {
+        for (const auto& match : matches) {
+            if (result.size() >= limit) return result;
+            result.append(match.game.toVariantMap());
         }
-        if (isExact) {
-            exact.append(entry.game);
-            if (exact.size() >= limit) break;
-        } else if (isPartial && partial.size() < limit) {
-            partial.append(entry.game);
-        }
-    }
-    QList<QVariantMap> result = exact;
-    for (const QVariantMap& game : partial) {
-        if (result.size() >= limit) break;
-        result.append(game);
     }
     return result;
 }

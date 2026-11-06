@@ -92,6 +92,12 @@ ApplicationWindow {
     /* Contador compartilhado: cada diálogo informa quando precisa do fundo desfocado. */
     property int blurDepth: 0
     property var selectedGame: null
+    // Direção pendente durante a troca assíncrona de página.
+    property int pendingGameDirection: 0
+    // A troca de detalhe aguarda um quadro para exibir o indicador antes da leitura local.
+    property bool detailNavigationBusy: false
+    property var pendingDetailGame: null
+    readonly property int libraryPageSize: dbMode ? Number(gameService.pageSize || 36) : 36
     /* Nulo cria um jogo; um mapa de catálogo abre a edição. */
     property var formGame: null
     /* O formulário só é instanciado na primeira abertura. */
@@ -155,18 +161,24 @@ ApplicationWindow {
     }
     readonly property bool hasPreviousGame: window.selectedIndex > 0 || window.currentPage > 1
     readonly property bool hasNextGame: window.selectedIndex >= 0
-        && (window.selectedIndex < window.catalog.length - 1 || window.currentPage * 36 < window.filteredTotal)
+        && (window.selectedIndex < window.catalog.length - 1 || window.currentPage * window.libraryPageSize < window.filteredTotal)
 
     /* Os filtros da sidebar e da TopBar falam com o serviço ativo, sem SQL na interface. */
     function setCollection(value) {
+        // Navegar ou filtrar retorna aos resultados mesmo quando o filtro não muda.
+        window.closeGameDetail()
         if (window.dbMode) window.gameService.collection = value
         else window.fixtureLibrary.setCollection(value)
     }
     function setSearch(value) {
+        // Navegar ou filtrar retorna aos resultados mesmo quando o filtro não muda.
+        window.closeGameDetail()
         if (window.dbMode) window.gameService.search = value
         else window.fixtureLibrary.setSearch(value)
     }
     function setGenre(value) {
+        // Navegar ou filtrar retorna aos resultados mesmo quando o filtro não muda.
+        window.closeGameDetail()
         if (window.dbMode) window.gameService.genre = value
         else window.fixtureLibrary.setGenre(value)
     }
@@ -179,12 +191,23 @@ ApplicationWindow {
         else window.fixtureLibrary.setIncludeMissingCovers(value)
     }
     function setPlatformFilter(value) {
+        // Navegar ou filtrar retorna aos resultados mesmo quando o filtro não muda.
+        window.closeGameDetail()
         if (window.dbMode) window.gameService.platformId = value
     }
     function setListView(value) {
         if (window.dbMode) window.gameService.viewMode = value ? "list" : "grid"
         else window.fixtureListView = value
     }
+
+    // Não intercepta a busca nem os diálogos, sobretudo a galeria que usa as mesmas teclas.
+    readonly property bool detailKeyboardNavigation: selectedGame !== null && !inventoryMode
+        && !(launchService && launchService.launching)
+        && !detailNavigationBusy && !(dbMode && gameService.queryPending) && !search.activeFocus && blurDepth === 0 && !settings.opened && !versions.opened
+        && !(gameFormLoader.item && gameFormLoader.item.opened)
+        && !(detailLoader.item && detailLoader.item.imageViewerOpen)
+    Shortcut { sequence: "Left"; enabled: window.detailKeyboardNavigation && window.hasPreviousGame; onActivated: window.selectAdjacent(-1) }
+    Shortcut { sequence: "Right"; enabled: window.detailKeyboardNavigation && window.hasNextGame; onActivated: window.selectAdjacent(1) }
 
     /* Uma nova página deve começar no topo nas duas visualizações da coleção. */
     function goToLibraryPage(page) {
@@ -197,27 +220,111 @@ ApplicationWindow {
     function openGame(game) {
         if (!game) return
         window.selectedGame = game
-        if (detailLoader.item) detailLoader.item.reload()
+        // A mudança de libraryGame já recarrega o detalhe; repetir duplicava as leituras.
     }
 
     function closeGameDetail() {
+        window.pendingGameDirection = 0
+        detailNavigationTimer.stop()
+        window.pendingDetailGame = null
+        window.detailNavigationBusy = false
         window.selectedGame = null
     }
 
     /* Navega no catálogo atual e atravessa a borda da página, como o GameDetail Electron. */
     function selectAdjacent(delta) {
-        if (!window.selectedGame) return
+        // Ignora novas teclas até terminar a troca de página anterior.
+        if (!window.selectedGame || window.detailNavigationBusy || window.pendingGameDirection || (window.dbMode && window.gameService.queryPending)) return
         const index = window.selectedIndex
         if (index >= 0 && index + delta >= 0 && index + delta < window.catalog.length) {
-            window.openGame(window.catalog[index + delta])
+            window.scheduleDetailNavigation(window.catalog[index + delta])
             return
         }
-        if (delta > 0 && window.currentPage * 36 < window.filteredTotal) {
-            window.goToLibraryPage(window.currentPage + 1)
-            if (window.catalog.length) window.openGame(window.catalog[0])
-        } else if (delta < 0 && window.currentPage > 1) {
-            window.goToLibraryPage(window.currentPage - 1)
-            if (window.catalog.length) window.openGame(window.catalog[window.catalog.length - 1])
+        if ((delta > 0 && window.currentPage * window.libraryPageSize < window.filteredTotal)
+                || (delta < 0 && window.currentPage > 1)) {
+            window.detailNavigationBusy = true
+            window.pendingGameDirection = delta
+            window.goToLibraryPage(window.currentPage + delta)
+            window.finishAdjacentNavigation()
+        }
+    }
+
+    /** Aguarda a página pedida antes de selecionar seu primeiro ou último jogo. */
+    function finishAdjacentNavigation() {
+        if (!pendingGameDirection || (dbMode && gameService.queryPending)) return
+        const direction = pendingGameDirection
+        pendingGameDirection = 0
+        if (dbMode && gameService.error) { detailNavigationBusy = false; return }
+        if (catalog.length) scheduleDetailNavigation(catalog[direction > 0 ? 0 : catalog.length - 1])
+        else detailNavigationBusy = false
+    }
+    /** Apresenta o modal antes de executar as consultas do próximo detalhe. */
+    function scheduleDetailNavigation(game) {
+        pendingDetailGame = game
+        detailNavigationBusy = true
+        detailNavigationTimer.restart()
+    }
+    Timer {
+        id: detailNavigationTimer
+        interval: 16
+        onTriggered: {
+            const game = window.pendingDetailGame
+            window.pendingDetailGame = null
+            if (game && window.selectedGame) window.openGame(game)
+            if (!detailLoader.item || !detailLoader.item.detailLoading) window.detailNavigationBusy = false
+        }
+    }
+    Connections {
+        target: detailLoader.item
+        ignoreUnknownSignals: true
+        function onDetailLoadingChanged() {
+            if (detailLoader.item && !detailLoader.item.detailLoading && !window.pendingGameDirection)
+                window.detailNavigationBusy = false
+        }
+    }
+    Connections {
+        target: window.gameService
+        ignoreUnknownSignals: true
+        function onChanged() { window.finishAdjacentNavigation() }
+    }
+    // Modal central usa o estado real do serviço, inclusive quando a consulta falha.
+    DragDialog {
+        id: libraryLoadingDialog
+        objectName: "libraryLoadingDialog"
+        // O mesmo overlay central acompanha a preparação e o spawn do emulador.
+        visible: (window.launchService && !!window.launchService.launching) || window.detailNavigationBusy || (detailLoader.item && detailLoader.item.detailLoading)
+            || (window.dbMode && !!window.gameService.queryPending)
+        width: Math.min(320, parent.width - 48)
+        height: 150
+        closePolicy: Popup.NoAutoClose
+        backdropBlurEnabled: false
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 12
+            BusyIndicator {
+                running: libraryLoadingDialog.visible
+                Layout.alignment: Qt.AlignHCenter
+                // O acento do tema mantém o indicador visível sobre o painel escuro.
+                contentItem: Item {
+                    implicitWidth: 40; implicitHeight: 40
+                    Item {
+                        anchors.centerIn: parent
+                        width: 40; height: 40
+                        Repeater {
+                            model: 8
+                            Rectangle {
+                                required property int index
+                                x: 18; y: 0; width: 4; height: 10; radius: 2
+                                color: Theme.accent
+                                opacity: (index + 1) / 8
+                                transform: Rotation { origin.x: 2; origin.y: 20; angle: index * 45 }
+                            }
+                        }
+                        RotationAnimator on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: libraryLoadingDialog.visible }
+                    }
+                }
+            }
+            UiText { text: window.launchService && window.launchService.launching ? "Abrindo jogo..." : "Carregando jogos..."; color: Theme.text; font.pixelSize: 14; Layout.alignment: Qt.AlignHCenter }
         }
     }
 
@@ -492,7 +599,7 @@ ApplicationWindow {
                         text: "Biblioteca"
                         selected: !window.inventoryMode
                         Layout.fillWidth: true
-                        onClicked: window.inventoryMode = false
+                        onClicked: { window.closeGameDetail(); window.inventoryMode = false }
                     }
                     NavigationButton {
                         objectName: "inventorySection"
@@ -501,7 +608,7 @@ ApplicationWindow {
                         selected: window.inventoryMode
                         Layout.fillWidth: true
                         enabled: window.inventoryAvailable
-                        onClicked: window.inventoryMode = true
+                        onClicked: { window.closeGameDetail(); window.inventoryMode = true }
                     }
                 }
                 /* Margens do separador seguem o Sidebar.css, sem comprimir as cole??es. */
@@ -530,11 +637,11 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             spacing: 3
                             visible: !window.inventoryMode
-                            NavigationButton { text: "Todos os jogos"; compact: true; counter: ((window.dbMode || window.fixtureLibrary.enabled) ? window.libCounts.all : window.catalog.length).toString(); selected: window.activeCollection === "all"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("all") }
-                            NavigationButton { text: "Mais Jogados"; compact: true; iconName: "chart-no-axes-column"; counter: String(window.libCounts.mostPlayed || 0); selected: window.activeCollection === "mostPlayed"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("mostPlayed") }
-                            NavigationButton { text: "Favoritos"; compact: true; iconName: "star"; counter: String(window.libCounts.favorites || 0); selected: window.activeCollection === "favorites"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("favorites") }
-                            NavigationButton { text: "Jogando"; compact: true; iconName: "gamepad-2"; counter: String(window.libCounts.playing || 0); selected: window.activeCollection === "playing"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("playing") }
-                            NavigationButton { text: "Concluído"; compact: true; iconName: "trophy"; counter: String(window.libCounts.completed || 0); selected: window.activeCollection === "completed"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("completed") }
+                            NavigationButton { objectName: "collection_all"; text: "Todos os jogos"; compact: true; counter: ((window.dbMode || window.fixtureLibrary.enabled) ? window.libCounts.all : window.catalog.length).toString(); selected: window.activeCollection === "all"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("all") }
+                            NavigationButton { objectName: "collection_mostPlayed"; text: "Mais Jogados"; compact: true; iconName: "chart-no-axes-column"; counter: String(window.libCounts.mostPlayed || 0); selected: window.activeCollection === "mostPlayed"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("mostPlayed") }
+                            NavigationButton { objectName: "collection_favorites"; text: "Favoritos"; compact: true; iconName: "star"; counter: String(window.libCounts.favorites || 0); selected: window.activeCollection === "favorites"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("favorites") }
+                            NavigationButton { objectName: "collection_playing"; text: "Jogando"; compact: true; iconName: "gamepad-2"; counter: String(window.libCounts.playing || 0); selected: window.activeCollection === "playing"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("playing") }
+                            NavigationButton { objectName: "collection_completed"; text: "Concluído"; compact: true; iconName: "trophy"; counter: String(window.libCounts.completed || 0); selected: window.activeCollection === "completed"; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setCollection("completed") }
                         }
                         /* As margens completam os 9 px medidos entre coleção e árvore de plataformas. */
                         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; Layout.topMargin: 1; Layout.bottomMargin: 1; color: Theme.border; visible: !window.inventoryMode }
@@ -647,7 +754,7 @@ ApplicationWindow {
                     enabled: window.inventoryAvailable
                     onClicked: if (inventoryLoader.item) inventoryLoader.item.openCreate()
                 }
-                ActionButton { objectName: "openSettings"; sidebarAction: true; Layout.minimumHeight: 38; Layout.preferredHeight: 38; font.weight: Font.Black; text: "Configurações"; iconName: "settings"; primary: true; Layout.fillWidth: true; onClicked: settings.open() }
+                ActionButton { objectName: "openSettings"; sidebarAction: true; Layout.minimumHeight: 38; Layout.preferredHeight: 38; font.weight: Font.Black; text: "Configurações"; iconName: "settings"; primary: true; Layout.fillWidth: true; onClicked: { window.closeGameDetail(); settings.open() } }
             }
         }
         ColumnLayout {
@@ -686,7 +793,11 @@ ApplicationWindow {
                         placeholderText: "Buscar biblioteca"
                         text: window.prototypeSearch
                         // Debounce mantém a digitação fluida e acompanha o renderer de referência.
-                        onTextChanged: if (window.libraryService) searchDelay.restart()
+                        onTextChanged: if (window.libraryService) {
+                            // A lista aparece na primeira tecla; somente a consulta aguarda o debounce.
+                            window.closeGameDetail()
+                            searchDelay.restart()
+                        }
                         color: Theme.text
                         placeholderTextColor: Theme.muted
                         font.pixelSize: Theme.formControlFontSize
@@ -918,8 +1029,8 @@ ApplicationWindow {
                         ActionButton { objectName: "firstLibraryPage"; iconName: "chevrons-left"; pagination: true; enabled: window.currentPage > 1; Accessible.name: "Primeira página"; onClicked: window.goToLibraryPage(1) }
                         ActionButton { objectName: "previousLibraryPage"; iconName: "chevron-left"; pagination: true; enabled: window.currentPage > 1; Accessible.name: "Página anterior"; onClicked: window.goToLibraryPage(window.currentPage - 1) }
                         UiText { text: window.currentPage + " / " + Math.ceil(window.filteredTotal / 36); color: Theme.text; font.pixelSize: 13; Layout.minimumWidth: 56; horizontalAlignment: Text.AlignHCenter }
-                        ActionButton { objectName: "nextLibraryPage"; iconName: "chevron-right"; pagination: true; enabled: window.currentPage * 36 < window.filteredTotal; Accessible.name: "Próxima página"; onClicked: window.goToLibraryPage(window.currentPage + 1) }
-                        ActionButton { objectName: "lastLibraryPage"; iconName: "chevrons-right"; pagination: true; enabled: window.currentPage * 36 < window.filteredTotal; Accessible.name: "Última página"; onClicked: window.goToLibraryPage(Math.ceil(window.filteredTotal / 36)) }
+                        ActionButton { objectName: "nextLibraryPage"; iconName: "chevron-right"; pagination: true; enabled: window.currentPage * window.libraryPageSize < window.filteredTotal; Accessible.name: "Próxima página"; onClicked: window.goToLibraryPage(window.currentPage + 1) }
+                        ActionButton { objectName: "lastLibraryPage"; iconName: "chevrons-right"; pagination: true; enabled: window.currentPage * window.libraryPageSize < window.filteredTotal; Accessible.name: "Última página"; onClicked: window.goToLibraryPage(Math.ceil(window.filteredTotal / 36)) }
                     }
                 }
                 /* O detalhe substitui a coleção e só é construído quando há jogo selecionado. */
@@ -994,8 +1105,8 @@ ApplicationWindow {
         onClosed: window.formGame = null
         onSaved: function(gameId) { window.afterGameSaved(gameId) }
         onMetadataRequested: function(title, platformName) {
-            close()
-            metadataImporter.openFor(title, platformName)
+            // Mantém o rascunho aberto sob a seleção de metadados.
+            metadataImporter.openFor(title, platformName, true)
         }
         }
     }
@@ -1051,6 +1162,9 @@ ApplicationWindow {
     /* Importador LaunchBox disponível pela barra superior e pelo detalhe. */
     LaunchBoxImporter {
         id: metadataImporter
+        onMetadataSelected: function(values) {
+            if (gameFormLoader.item) gameFormLoader.item.applyMetadata(values)
+        }
         metadataService: window.metadataService
         platformService: window.platformService
         gameService: window.gameService

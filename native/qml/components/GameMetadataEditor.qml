@@ -16,8 +16,9 @@ DragDialog {
     signal applied(var values)
 
     width: Math.min(680, parent.width - 48)
-    height: Math.min(620, parent.height - 48)
-    heading: "Metadados existentes"
+    height: Math.min(700, parent.height - 48)
+    heading: "Editar metadados"
+    showHeading: true
     onClosed: errorText.text = ""
 
     /** Copia o jogo para os campos locais antes de abrir. */
@@ -62,98 +63,126 @@ DragDialog {
         FormField { font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold); id: field; Layout.fillWidth: true }
     }
 
-    Flickable {
+    // O rodapé permanece acessível enquanto apenas o formulário rola.
+    ColumnLayout {
         anchors.fill: parent
-        contentWidth: width
-        contentHeight: body.implicitHeight
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        ColumnLayout {
-            id: body
-            width: parent.width
-            spacing: Theme.formGroupGap
+        spacing: 16
+        Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentWidth: width
+            contentHeight: body.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ColumnLayout {
+                id: body
+                width: parent.width
+                spacing: Theme.formGroupGap
 
-            UiText {
-                text: "Dados usados no detalhe do jogo."
-                color: Theme.secondary
-                font.pixelSize: 13
-                Layout.fillWidth: true
-            }
+                UiText {
+                    text: "Edite os dados e aplique ao cadastro do jogo."
+                    color: Theme.secondary
+                    font.pixelSize: 13
+                    Layout.fillWidth: true
+                }
 
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 4
-                columnSpacing: 8
-                Repeater {
-                    model: [
-                        {label: "METADATA ID", value: editor.game.launchbox_id || "Não vinculado"},
-                        {label: "CAPA", value: editor.game.box_art_path ? "Associada" : "Não associada"},
-                        {label: "BACKGROUND", value: editor.game.background_path ? "Associado" : "Não associado"},
-                        {label: "SCREENSHOT", value: editor.game.screenshot_path ? "Associado" : "Não associado"}
-                    ]
-                    delegate: Rectangle {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        implicitHeight: 54
-                        radius: 8
-                        color: Theme.card
-                        border.color: Theme.border
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: 9
-                            spacing: 1
-                            UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold }
-                            UiText { text: modelData.value; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 4
+                    columnSpacing: 8
+                    Repeater {
+                        model: [
+                            {label: "METADATA ID", value: editor.game.launchbox_id || "Não vinculado"},
+                            {label: "CAPA", value: editor.game.box_art_path ? "Associada" : "Não associada"},
+                            {label: "BACKGROUND", value: editor.game.background_path ? "Associado" : "Não associado"},
+                            {label: "SCREENSHOT", value: editor.game.screenshot_path ? "Associado" : "Não associado"}
+                        ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            implicitHeight: 54
+                            radius: 8
+                            color: Theme.card
+                            border.color: Theme.border
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 9
+                                spacing: 1
+                                UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold }
+                                UiText { text: modelData.value; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                            }
                         }
                     }
                 }
-            }
 
-            LabeledField { id: titleField; objectName: "gameMetadataTitleRow"; label: "Título"; fieldObjectName: "gameMetadataTitleField" }
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 12
-                rowSpacing: 10
-                LabeledField { id: publisherField; label: "Publisher"; fieldObjectName: "gameMetadataPublisherField" }
-                LabeledField { id: genreField; label: "Gênero"; fieldObjectName: "gameMetadataGenreField" }
-                LabeledField { id: yearField; label: "Ano"; fieldObjectName: "gameMetadataYearField" }
-                LabeledField { id: ratingField; label: "Rating"; fieldObjectName: "gameMetadataRatingField" }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.formLabelGap
-                UiText { text: "Descrição"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
-                TextArea {
-                    /* Mantém o texto editável suave como os demais controles. */
-                    renderType: TextEdit.QtRendering
-                    antialiasing: true
-                    id: notesField
-                    objectName: "gameMetadataNotesField"
+                LabeledField { id: titleField; objectName: "gameMetadataTitleRow"; label: "Título"; fieldObjectName: "gameMetadataTitleField" }
+                GridLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 84
-                    padding: 8
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.formControlFontSize
-                    color: Theme.text
-                    wrapMode: TextArea.Wrap
-                    background: Rectangle { radius: 6; color: Theme.control; border.color: notesField.activeFocus ? Theme.accent : Theme.border }
+                    columns: 2
+                    columnSpacing: 12
+                    rowSpacing: 10
+                    LabeledField { id: publisherField; label: "Publisher"; fieldObjectName: "gameMetadataPublisherField" }
+                    LabeledField { id: genreField; label: "Gênero"; fieldObjectName: "gameMetadataGenreField" }
+                    LabeledField { id: yearField; label: "Ano"; fieldObjectName: "gameMetadataYearField" }
+                    LabeledField { id: ratingField; label: "Rating"; fieldObjectName: "gameMetadataRatingField" }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.formLabelGap
+                    UiText { text: "Descrição"; color: Theme.muted; font.pixelSize: Theme.formLabelFontSize; textWeight: Font.ExtraBold; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.55 }
+                    // Descrições longas rolam dentro do campo, sem esconder o rodapé.
+                    ScrollView {
+                        id: notesScroll
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 144
+                        clip: true
+                        TextArea {
+                            /* Mantém o texto editável suave como os demais controles. */
+                            renderType: TextEdit.QtRendering
+                            antialiasing: true
+                            id: notesField
+                            objectName: "gameMetadataNotesField"
+                            width: notesScroll.availableWidth
+                            padding: 8
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.formControlFontSize
+                            color: Theme.text
+                            wrapMode: TextArea.Wrap
+                            background: Rectangle { radius: 6; color: Theme.control; border.color: notesField.activeFocus ? Theme.accent : Theme.border }
+                        }
+                    }
+                }
+                UiText {
+                    id: errorText
+                    visible: text.length > 0
+                    color: "#ffb4ab"
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                    Layout.fillWidth: true
                 }
             }
-            UiText {
-                id: errorText
-                visible: text.length > 0
-                color: "#ffb4ab"
-                font.pixelSize: 13
-                wrapMode: Text.WordWrap
-                Layout.fillWidth: true
+        }
+        Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
+        // Segue o rodapé dos formulários de edição: cancelar vermelho e confirmar com contorno ciano.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.formActionGap
+            Item { Layout.fillWidth: true }
+            ActionButton {
+                objectName: "closeGameMetadataEditor"
+                text: "Cancelar"
+                iconName: "x-danger"
+                formAction: true
+                dangerOutline: true
+                onClicked: editor.close()
             }
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                Item { Layout.fillWidth: true }
-                ActionButton { objectName: "closeGameMetadataEditor"; text: "Fechar"; onClicked: editor.close() }
-                ActionButton { objectName: "applyGameMetadata"; text: "Salvar"; formAction: true; iconName: "save"; primary: true; onClicked: editor.apply() }
+            ActionButton {
+                objectName: "applyGameMetadata"
+                text: "Aplicar alterações"
+                formAction: true
+                iconName: "save"
+                accentOutline: true
+                onClicked: editor.apply()
             }
         }
     }
