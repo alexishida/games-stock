@@ -2,9 +2,13 @@
 Gera localmente o instalador Windows e o pacote portátil do GameStock.
 A versão é lida do projeto para manter os dois artefatos alinhados ao CMake.
 Uso: powershell -ExecutionPolicy Bypass -File scripts/native-release.ps1
+Use -CompileJobs 8 para ajustar o paralelismo conforme a memória disponível.
 #>
 param(
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    # Quatro processos por target são um padrão conservador para os arquivos grandes de QML.
+    [ValidateRange(1, 64)]
+    [int]$CompileJobs = [Math]::Min(4, [Environment]::ProcessorCount)
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,17 +43,26 @@ $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
 Write-Host "Gerando GameStock $version para Windows..."
-& $cmake --preset windows-msvc -S $native
+$totalTimer = [System.Diagnostics.Stopwatch]::StartNew()
+$phaseTimer = [System.Diagnostics.Stopwatch]::StartNew()
+& $cmake --preset windows-msvc -S $native "-DGAMESTOCK_MSVC_COMPILE_JOBS=$CompileJobs"
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao configurar o build Release do Windows.' }
+Write-Host ("Configuração: {0:N1} s" -f $phaseTimer.Elapsed.TotalSeconds)
 
-& $cmake --build (Join-Path $native 'build/windows-msvc') --config Release --parallel 4
+# O target inclui as dependências do aplicativo e dispensa a compilação dos executáveis de teste.
+# Dois projetos simultâneos limitam a multiplicação de processos iniciados por /MP.
+$phaseTimer.Restart()
+& $cmake --build (Join-Path $native 'build/windows-msvc') --config Release --target gamestock_native --parallel 2
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o GameStock em Release.' }
+Write-Host ("Compilação: {0:N1} s ({1} arquivos por target)" -f $phaseTimer.Elapsed.TotalSeconds, $CompileJobs)
 
 # O empacotador existente cria o instalador e o ZIP a partir da mesma build já compilada.
 $installerScript = Join-Path $PSScriptRoot 'native-installer.ps1'
+$phaseTimer.Restart()
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installerScript `
     -Version $version -OutputDirectory $OutputDirectory
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar os pacotes do GameStock.' }
+Write-Host ("Empacotamento: {0:N1} s; total: {1:N1} s" -f $phaseTimer.Elapsed.TotalSeconds, $totalTimer.Elapsed.TotalSeconds)
 
 Write-Host "Release local concluído em $OutputDirectory"
 Write-Host "  GameStock-$version-Setup.exe"

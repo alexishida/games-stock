@@ -199,10 +199,17 @@ qt_add_resources(gamestock_native icons PREFIX /icons BASE assets FILES ${icon_f
 file(GLOB inter_font_files CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/*.ttf")
 qt_add_resources(gamestock_native fonts PREFIX /fonts BASE assets/fonts FILES ${inter_font_files})
 
+# Limitar processos por compilador evita multiplicar o consumo de memória pelo /m do MSBuild.
+set(GAMESTOCK_MSVC_COMPILE_JOBS "4" CACHE STRING "Arquivos compilados em paralelo por target MSVC")
+if(MSVC AND NOT GAMESTOCK_MSVC_COMPILE_JOBS MATCHES "^([1-9]|[1-5][0-9]|6[0-4])$")
+    message(FATAL_ERROR "GAMESTOCK_MSVC_COMPILE_JOBS deve estar entre 1 e 64")
+endif()
+
 # Avisos por target respeitam as diferenças entre MSVC e GCC/Clang.
 foreach(target IN ITEMS gamestock_core gamestock_native)
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)
+        # /m paraleliza projetos; /MP também paraleliza os arquivos C++ gerados pelo QML.
+        target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8 /MP${GAMESTOCK_MSVC_COMPILE_JOBS})
     else()
         target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
     endif()
