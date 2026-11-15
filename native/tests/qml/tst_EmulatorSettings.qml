@@ -264,6 +264,10 @@ Item {
             tryVerify(function() { return dialog.visible }, 2000)
             wait(200)
             compare(dialog.inventory.installedCores.length, 2)
+            // O botão precisa dar retorno visível mesmo quando nada muda na pasta de cores.
+            mouseClick(findChild(dialog, "refreshCores"))
+            tryVerify(function() { return dialog.refreshFeedback.indexOf("2 cores instalados") >= 0 }, 2000)
+            verify(findChild(dialog, "retroArchCoresFeedback").visible)
             dialog.setDraft(platforms.items[0], "snes9x_libretro")
             mouseClick(findChild(dialog, "saveCores"))
             tryVerify(function() { return !dialog.visible }, 2000)

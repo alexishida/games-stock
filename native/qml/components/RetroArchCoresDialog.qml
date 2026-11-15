@@ -24,6 +24,24 @@ DragDialog {
     property var edited: ({})
     property string search: ""
     property string formError: ""
+    /* Feedback transitório do botão "Atualizar cores" (a varredura é síncrona e rápida). */
+    property bool refreshing: false
+    property bool refreshFailed: false
+    property string refreshFeedback: ""
+
+    Timer {
+        id: feedbackTimer
+        interval: 5000
+        repeat: false
+        onTriggered: cores.refreshFeedback = ""
+    }
+    /* O atraso curto permite pintar "Atualizando..." antes da varredura síncrona de cores/. */
+    Timer {
+        id: refreshTimer
+        interval: 80
+        repeat: false
+        onTriggered: cores.load(true)
+    }
 
     width: Math.min(760, parent.width - 56)
     height: Math.min(620, parent.height - 56)
@@ -33,7 +51,7 @@ DragDialog {
     padding: 18
     onOpened: load()
 
-    function load() {
+    function load(announce) {
         formError = ""
         edited = ({})
         coreDrafts = ({})
@@ -49,6 +67,35 @@ DragDialog {
             drafts[String(platform.id)] = existing && existing.core_path ? existing.core_path : (candidates.length ? candidates[0] : "")
         }
         coreDrafts = drafts
+        refreshing = false
+        if (!announce) return
+        // A confirmação aparece só após uma atualização pedida, não ao abrir o modal.
+        if (!emulatorService) {
+            refreshFailed = true
+            refreshFeedback = "Serviço de emuladores indisponível."
+        } else if (inventory.executableConfigured === false) {
+            refreshFailed = true
+            refreshFeedback = "Configure o executável do RetroArch para procurar cores."
+        } else if (inventory.coresDirExists === false) {
+            refreshFailed = true
+            refreshFeedback = "Pasta cores/ não encontrada ao lado do RetroArch."
+        } else {
+            const count = (inventory.installedCores || []).length
+            refreshFailed = count === 0
+            refreshFeedback = count === 0
+                ? "Nenhum core instalado encontrado em " + (inventory.coresDir || "cores") + "."
+                : "Cores atualizados: " + count + (count === 1 ? " core instalado." : " cores instalados.")
+        }
+        feedbackTimer.restart()
+    }
+
+    /** Dá retorno visual imediato antes de reler a pasta de cores. */
+    function beginRefresh() {
+        refreshing = true
+        refreshFailed = false
+        refreshFeedback = "Atualizando cores..."
+        feedbackTimer.stop()
+        refreshTimer.restart()
     }
 
     function existingLink(platform) {
@@ -156,7 +203,17 @@ DragDialog {
                 FormField { Layout.fillWidth: true; placeholderText: "Plataforma ou core"; onTextChanged: cores.search = text }
             }
             Item { Layout.fillWidth: true }
-            ActionButton { objectName: "refreshCores"; Layout.alignment: Qt.AlignBottom; text: "Atualizar cores"; iconName: "refresh-cw"; implicitHeight: 34; onClicked: cores.load() }
+            ActionButton { objectName: "refreshCores"; Layout.alignment: Qt.AlignBottom; text: cores.refreshing ? "Atualizando..." : "Atualizar cores"; iconName: "refresh-cw"; implicitHeight: 34; enabled: !cores.refreshing; onClicked: cores.beginRefresh() }
+        }
+        UiText {
+            objectName: "retroArchCoresFeedback"
+            visible: cores.refreshFeedback.length > 0
+            text: cores.refreshFeedback
+            color: cores.refreshFailed ? "#ff7b7b" : Theme.accent
+            font.pixelSize: 12
+            textWeight: Font.Bold
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
         }
         PanelFlickable {
             Layout.fillWidth: true
