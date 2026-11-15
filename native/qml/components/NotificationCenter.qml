@@ -1,6 +1,7 @@
 /* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Centro de notificações de jobs em background; fonte única é o JobManager. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -54,6 +55,7 @@ Item {
             extracting: "extraindo catálogo",
             matching: "fazendo match",
             downloading: "baixando",
+            copying: "copiando foto",
             skipped: "pulando",
             saving: "salvando",
             done: "concluído",
@@ -95,8 +97,9 @@ Item {
             required property string status
             required property string title
             required property string error
-            required property int progressCurrent
-            required property int progressTotal
+            /* Fotos grandes podem exceder o limite de inteiros de 32 bits. */
+            required property real progressCurrent
+            required property real progressTotal
             required property string progressMessage
             required property string progressStage
             required property string progressFilename
@@ -128,7 +131,7 @@ Item {
                     Layout.fillWidth: true
                     spacing: 8
                     UiText {
-                        text: root.titleFor(jobId, cardRoot.jobData)
+                        text: root.titleFor(cardRoot.jobId, cardRoot.jobData)
                         color: Theme.text
                         font.pixelSize: 13
                         textWeight: Font.DemiBold
@@ -136,16 +139,16 @@ Item {
                         Layout.fillWidth: true
                     }
                     ActionButton {
-                        objectName: "dismissJob" + jobId
+                        objectName: "dismissJob" + cardRoot.jobId
                         text: "×"
                         toolbar: true
-                        visible: status !== "running"
-                        onClicked: root.jobManager.dismiss(jobId)
+                        visible: cardRoot.status !== "running"
+                        onClicked: root.jobManager.dismiss(cardRoot.jobId)
                     }
                 }
                 UiText {
-                    visible: progressFilename.length > 0 || progressFolderPath.length > 0
-                    text: progressFilename.length > 0 ? progressFilename : progressFolderPath
+                    visible: cardRoot.progressFilename.length > 0 || cardRoot.progressFolderPath.length > 0
+                    text: cardRoot.progressFilename.length > 0 ? cardRoot.progressFilename : cardRoot.progressFolderPath
                     color: Theme.secondary
                     font.pixelSize: 12
                     elide: Text.ElideMiddle
@@ -160,19 +163,22 @@ Item {
                         width: parent.width * root.percentFor(cardRoot.jobData) / 100
                         height: parent.height
                         radius: 3
-                        color: status === "failed" ? "#ffb4ab" : Theme.accent
+                        color: cardRoot.status === "failed" ? "#ffb4ab" : Theme.accent
                     }
                 }
                 RowLayout {
                     Layout.fillWidth: true
                     UiText {
                         text: {
-                            if (status === "completed") return "Concluído"
-                            if (status === "failed") return "Erro"
-                            if (status === "interrupted") return "Interrompido"
-                            const label = root.stageLabel(progressStage)
-                            const amount = progressTotal > 0 ? (progressCurrent + " de " + progressTotal)
-                                : (progressCurrent > 0 ? progressCurrent + " itens" : "")
+                            if (cardRoot.status === "completed") return "Concluído"
+                            if (cardRoot.status === "failed") return "Erro"
+                            if (cardRoot.status === "interrupted") return "Interrompido"
+                            const label = root.stageLabel(cardRoot.progressStage)
+                            /* O job de foto informa bytes, sem apresentar esse valor como itens. */
+                            const amount = cardRoot.kind === "inventory-photo" && cardRoot.progressTotal > 0
+                                ? ((cardRoot.progressCurrent / 1048576).toFixed(1) + " de " + (cardRoot.progressTotal / 1048576).toFixed(1) + " MB")
+                                : cardRoot.progressTotal > 0 ? (cardRoot.progressCurrent + " de " + cardRoot.progressTotal)
+                                : (cardRoot.progressCurrent > 0 ? cardRoot.progressCurrent + " itens" : "")
                             if (amount.length > 0 && label.length > 0) return amount + " - " + label
                             return label.length > 0 ? label : amount
                         }
@@ -181,11 +187,19 @@ Item {
                         Layout.fillWidth: true
                     }
                     ActionButton {
-                        objectName: "resumeJob" + jobId
+                        objectName: "cancelPhotoJob" + cardRoot.jobId
+                        text: "Cancelar"
+                        toolbar: true
+                        implicitWidth: 76
+                        visible: cardRoot.status === "running" && cardRoot.kind === "inventory-photo"
+                        onClicked: root.jobManager.cancel(cardRoot.jobId)
+                    }
+                    ActionButton {
+                        objectName: "resumeJob" + cardRoot.jobId
                         text: "Continuar"
                         toolbar: true
-                        visible: status === "interrupted" && kind === "rom-folder-import"
-                        onClicked: root.resume(jobId)
+                        visible: cardRoot.status === "interrupted" && cardRoot.kind === "rom-folder-import"
+                        onClicked: root.resume(cardRoot.jobId)
                     }
                 }
             }

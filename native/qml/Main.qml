@@ -100,13 +100,32 @@ ApplicationWindow {
     readonly property int libraryPageSize: dbMode ? Number(gameService.pageSize || 36) : 36
     /* Nulo cria um jogo; um mapa de catálogo abre a edição. */
     property var formGame: null
+    /* Capturas de detalhe aguardam o worker e não devem abrir o mesmo item duas vezes. */
+    property bool prototypeInventoryDetailOpened: false
+    function openPrototypeInventoryDetailWhenReady() {
+        if (prototypeInventoryDetailOpened || !inventoryLoader.item || !inventoryAvailable
+                || inventoryService.queryPending === true || inventoryService.items.length === 0
+                || !(prototypeInventoryDetail || prototypeInventoryEdit || prototypeInventoryDelete)) return
+        prototypeInventoryDetailOpened = true
+        const item = inventoryService.items[0]
+        inventoryLoader.item.openItem(item)
+        if (prototypeInventoryEdit) inventoryLoader.item.openEdit(item)
+        if (prototypeInventoryDelete) inventoryLoader.item.openDelete(item)
+    }
+    Connections {
+        target: window.inventoryService
+        ignoreUnknownSignals: true
+        function onChanged() { Qt.callLater(window.openPrototypeInventoryDetailWhenReady) }
+    }
     /* O formulário só é instanciado na primeira abertura. */
     property bool formDialogLoaded: false
     property string settingsSection: "sobre"
     /* As abas são criadas na primeira abertura e preservadas ao fechar o modal. */
+    // qmllint disable missing-property
     readonly property var platformManager: settingsPages.item && settingsPages.item.platformsPanelLoader ? settingsPages.item.platformsPanelLoader.item : null
     readonly property var emulatorManager: settingsPages.item && settingsPages.item.emulatorsPanelLoader ? settingsPages.item.emulatorsPanelLoader.item : null
     readonly property var coverSettings: settingsPages.item && settingsPages.item.mediaPanelLoader ? settingsPages.item.mediaPanelLoader.item : null
+    // qmllint enable missing-property
     /* Modo banco usa a página do serviço nativo; a fixture continua servindo às capturas. */
     readonly property bool dbMode: gameService !== null && gameService !== undefined && gameService.available === true
     readonly property bool libraryService: dbMode || window.fixtureLibrary.enabled
@@ -270,15 +289,19 @@ ApplicationWindow {
             const game = window.pendingDetailGame
             window.pendingDetailGame = null
             if (game && window.selectedGame) window.openGame(game)
+            // qmllint disable missing-property
             if (!detailLoader.item || !detailLoader.item.detailLoading) window.detailNavigationBusy = false
+            // qmllint enable missing-property
         }
     }
     Connections {
         target: detailLoader.item
         ignoreUnknownSignals: true
         function onDetailLoadingChanged() {
+            // qmllint disable missing-property
             if (detailLoader.item && !detailLoader.item.detailLoading && !window.pendingGameDirection)
                 window.detailNavigationBusy = false
+            // qmllint enable missing-property
         }
     }
     Connections {
@@ -312,11 +335,12 @@ ApplicationWindow {
                         Repeater {
                             model: 8
                             Rectangle {
+                                id: loadingTick
                                 required property int index
                                 x: 18; y: 0; width: 4; height: 10; radius: 2
                                 color: Theme.accent
-                                opacity: (index + 1) / 8
-                                transform: Rotation { origin.x: 2; origin.y: 20; angle: index * 45 }
+                                opacity: (loadingTick.index + 1) / 8
+                                transform: Rotation { origin.x: 2; origin.y: 20; angle: loadingTick.index * 45 }
                             }
                         }
                         RotationAnimator on rotation { from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: libraryLoadingDialog.visible }
@@ -341,13 +365,17 @@ ApplicationWindow {
     function openCreateForm() {
         window.formGame = null
         window.formDialogLoaded = true
+        // qmllint disable missing-property
         if (gameFormLoader.item) gameFormLoader.item.open()
+        // qmllint enable missing-property
     }
 
     function openEditForm(game) {
         window.formGame = game
         window.formDialogLoaded = true
+        // qmllint disable missing-property
         if (gameFormLoader.item) gameFormLoader.item.open()
+        // qmllint enable missing-property
     }
 
     /* Seleciona o jogo recém-salvo mesmo quando ele não está na página filtrada. */
@@ -356,7 +384,9 @@ ApplicationWindow {
         const saved = window.gameService.get(gameId)
         if (saved && saved.id) {
             window.selectedGame = saved
+            // qmllint disable missing-property
             if (detailLoader.item) detailLoader.item.reload()
+            // qmllint enable missing-property
         }
     }
 
@@ -625,10 +655,11 @@ ApplicationWindow {
                     /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
                     WheelScrollSpeed {}
                     ScrollBar.vertical: CollectionScrollBar {
+                        id: sidebarScrollBar
                         policy: ScrollBar.AsNeeded
                         width: 6
                         background: Rectangle { implicitWidth: 6; color: Theme.sidebar }
-                        contentItem: Rectangle { implicitWidth: 6; radius: 3; color: parent.pressed ? Theme.borderStrong : Theme.elevated }
+                        contentItem: Rectangle { implicitWidth: 6; radius: 3; color: sidebarScrollBar.pressed ? Theme.borderStrong : Theme.elevated }
                     }
                     ColumnLayout {
                         id: sidebarContext
@@ -753,7 +784,9 @@ ApplicationWindow {
                     primary: true
                     Layout.fillWidth: true
                     enabled: window.inventoryAvailable
+                    // qmllint disable missing-property
                     onClicked: if (inventoryLoader.item) inventoryLoader.item.openCreate()
+                    // qmllint enable missing-property
                 }
                 ActionButton { objectName: "openSettings"; sidebarAction: true; Layout.minimumHeight: 38; Layout.preferredHeight: 38; font.weight: Font.Black; text: "Configurações"; iconName: "settings"; primary: true; Layout.fillWidth: true; onClicked: { window.closeGameDetail(); settings.open() } }
             }
@@ -924,6 +957,7 @@ ApplicationWindow {
                     WheelScrollSpeed {}
                     /* A referência desenha 6 px, trilho #131313 e polegar #353534. */
                     ScrollBar.vertical: CollectionScrollBar {
+                        id: libraryScrollBar
                         objectName: "libraryVerticalScrollBar"
                         policy: ScrollBar.AsNeeded
                         width: 6
@@ -931,7 +965,7 @@ ApplicationWindow {
                         contentItem: Rectangle {
                             implicitWidth: 6
                             radius: 3
-                            color: parent.pressed ? Theme.borderStrong : Theme.elevated
+                            color: libraryScrollBar.pressed ? Theme.borderStrong : Theme.elevated
                         }
                     }
                     Flow {
@@ -951,8 +985,8 @@ ApplicationWindow {
                             model: window.visibleGames
                             delegate: GameCard {
                                 required property var modelData
-                                width: parent.cardWidth
-                                height: parent.cardHeight
+                                width: gridFlow.cardWidth
+                                height: gridFlow.cardHeight
                                 gameTitle: modelData.title
                                 platformName: modelData.platform_name || "Fixture Console"
                                 coverSource: modelData.coverUrl || ""
@@ -1027,8 +1061,8 @@ ApplicationWindow {
                 }
                 UiText {
                     objectName: "libraryError"
-                    visible: window.selectedGame === null && (window.dbMode ? gameService.error.length > 0 : window.fixtureLibrary.error.length > 0)
-                    text: window.dbMode ? gameService.error : window.fixtureLibrary.error
+                    visible: window.selectedGame === null && (window.dbMode ? window.gameService.error.length > 0 : window.fixtureLibrary.error.length > 0)
+                    text: window.dbMode ? window.gameService.error : window.fixtureLibrary.error
                     color: "#ffb4ab"
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
@@ -1171,7 +1205,9 @@ ApplicationWindow {
             const selected = window.gameService.get(versionId)
             if (selected && selected.id) {
                 window.selectedGame = selected
+                // qmllint disable missing-property
                 if (detailLoader.item) detailLoader.item.reload()
+                // qmllint enable missing-property
             }
         }
     }
@@ -1179,7 +1215,9 @@ ApplicationWindow {
     LaunchBoxImporter {
         id: metadataImporter
         onMetadataSelected: function(values) {
+            // qmllint disable missing-property
             if (gameFormLoader.item) gameFormLoader.item.applyMetadata(values)
+            // qmllint enable missing-property
         }
         metadataService: window.metadataService
         platformService: window.platformService
@@ -1261,12 +1299,13 @@ ApplicationWindow {
                         {key: "sobre", label: "Sobre", icon: "info", enabled: true}
                     ]
                     delegate: ColumnLayout {
+                        id: settingsEntry
                         required property var modelData
                         Layout.fillWidth: true
                         spacing: 2
                         /* Separadores delimitam os mesmos grupos do menu original. */
                         Rectangle {
-                            visible: ["plataformas", "biblioteca", "backup"].indexOf(modelData.key) >= 0
+                            visible: ["plataformas", "biblioteca", "backup"].indexOf(settingsEntry.modelData.key) >= 0
                             Layout.fillWidth: true; Layout.preferredHeight: 1
                             Layout.leftMargin: 8; Layout.rightMargin: 8
                             Layout.topMargin: 10; Layout.bottomMargin: 10
@@ -1274,19 +1313,19 @@ ApplicationWindow {
                         }
                         NavigationButton {
                         settingsItem: true
-                        text: modelData.label
-                        iconName: modelData.icon
+                        text: settingsEntry.modelData.label
+                        iconName: settingsEntry.modelData.icon
                         Layout.fillWidth: true
-                        selected: window.settingsSection === modelData.key
-                        enabled: modelData.enabled
+                        selected: window.settingsSection === settingsEntry.modelData.key
+                        enabled: settingsEntry.modelData.enabled
                         onClicked: {
-                            window.settingsSection = modelData.key
-                            if (modelData.key === "emuladores" && window.emulatorService) window.emulatorService.refresh()
-                            if (modelData.key === "partidas" && window.dbMode) window.gameService.refresh()
-                            if (modelData.key === "covers" && window.coverSettings) window.coverSettings.refreshStats()
-                            if (modelData.key === "logs" && window.settingsService) window.settingsService.refreshLogs()
-                            if (modelData.key === "sobre" && window.settingsService) window.settingsService.refreshStats()
-                            if (modelData.key === "backup" && window.settingsService) window.settingsService.refreshStats()
+                            window.settingsSection = settingsEntry.modelData.key
+                            if (settingsEntry.modelData.key === "emuladores" && window.emulatorService) window.emulatorService.refresh()
+                            if (settingsEntry.modelData.key === "partidas" && window.dbMode) window.gameService.refresh()
+                            if (settingsEntry.modelData.key === "covers" && window.coverSettings) window.coverSettings.refreshStats()
+                            if (settingsEntry.modelData.key === "logs" && window.settingsService) window.settingsService.refreshLogs()
+                            if (settingsEntry.modelData.key === "sobre" && window.settingsService) window.settingsService.refreshStats()
+                            if (settingsEntry.modelData.key === "backup" && window.settingsService) window.settingsService.refreshStats()
                         }
                         }
                     }
@@ -1560,12 +1599,7 @@ ApplicationWindow {
                 inventoryLoader.item.openCreate()
                 inventoryLoader.item.showTypeInline()
             }
-            if ((window.prototypeInventoryDetail || window.prototypeInventoryEdit || window.prototypeInventoryDelete)
-                    && window.inventoryAvailable && window.inventoryService.items.length > 0) {
-                inventoryLoader.item.openItem(window.inventoryService.items[0])
-                if (window.prototypeInventoryEdit) inventoryLoader.item.openEdit(window.inventoryService.items[0])
-                if (window.prototypeInventoryDelete) inventoryLoader.item.openDelete(window.inventoryService.items[0])
-            }
+            window.openPrototypeInventoryDetailWhenReady()
         })
     }
 }

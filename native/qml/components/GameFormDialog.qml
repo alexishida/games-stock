@@ -503,6 +503,7 @@ DragDialog {
                                 {key: "metadata", label: "METADATA ID"}
                             ]
                             delegate: Rectangle {
+                                id: metadataRow
                                 required property var modelData
                                 Layout.fillWidth: true
                                 implicitHeight: 56
@@ -513,10 +514,10 @@ DragDialog {
                                     anchors.fill: parent
                                     anchors.margins: 10
                                     spacing: 2
-                                    UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
+                                    UiText { text: metadataRow.modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.6 }
                                     UiText {
-                                        text: form.metadataValue(modelData.key)
-                                        color: form.metadataValue(modelData.key).indexOf("Não ") === 0 ? Theme.muted : Theme.text
+                                        text: form.metadataValue(metadataRow.modelData.key)
+                                        color: form.metadataValue(metadataRow.modelData.key).indexOf("Não ") === 0 ? Theme.muted : Theme.text
                                         font.pixelSize: 13
                                         textWeight: Font.Bold
                                         elide: Text.ElideRight

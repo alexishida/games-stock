@@ -124,12 +124,13 @@ DragDialog {
                     Repeater {
                         model: aliasModel
                         delegate: RowLayout {
+                            id: aliasRow
                             required property int index
                             required property string value
                             Layout.fillWidth: true
                             spacing: 8
-                            FormField { Layout.fillWidth: true; text: value; onTextEdited: aliasModel.setProperty(index, "value", text) }
-                            ActionButton { objectName: "removeAlias"; iconName: "trash-2-danger"; dangerOutline: true; enabled: aliasModel.count > 1; Accessible.name: "Remover alias"; onClicked: aliasModel.remove(index) }
+                            FormField { Layout.fillWidth: true; text: aliasRow.value; onTextEdited: aliasModel.setProperty(aliasRow.index, "value", text) }
+                            ActionButton { objectName: "removeAlias"; iconName: "trash-2-danger"; dangerOutline: true; enabled: aliasModel.count > 1; Accessible.name: "Remover alias"; onClicked: aliasModel.remove(aliasRow.index) }
                         }
                     }
                 }
@@ -166,21 +167,22 @@ DragDialog {
                     Repeater {
                         model: extensionModel
                         delegate: RowLayout {
+                            id: extensionRow
                             required property int index
                             required property string extension
                             required property string kind
                             required property bool primary
                             Layout.fillWidth: true
                             spacing: 8
-                            FormField { Layout.preferredWidth: 140; text: extension; onTextEdited: extensionModel.setProperty(index, "extension", text) }
-                            FormField { Layout.fillWidth: true; text: kind; onTextEdited: extensionModel.setProperty(index, "kind", text) }
+                            FormField { Layout.preferredWidth: 140; text: extensionRow.extension; onTextEdited: extensionModel.setProperty(extensionRow.index, "extension", text) }
+                            FormField { Layout.fillWidth: true; text: extensionRow.kind; onTextEdited: extensionModel.setProperty(extensionRow.index, "kind", text) }
                             ColumnLayout {
                                 Layout.preferredWidth: 88
                                 spacing: 4
-                                FormCheckBox { Layout.alignment: Qt.AlignHCenter; checked: primary; onToggled: extensionModel.setProperty(index, "primary", checked) }
-                                UiText { Layout.alignment: Qt.AlignHCenter; text: primary ? "SIM" : "NÃO"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold }
+                                FormCheckBox { Layout.alignment: Qt.AlignHCenter; checked: extensionRow.primary; onToggled: extensionModel.setProperty(extensionRow.index, "primary", checked) }
+                                UiText { Layout.alignment: Qt.AlignHCenter; text: extensionRow.primary ? "SIM" : "NÃO"; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold }
                             }
-                            ActionButton { objectName: "removeExtension"; Layout.preferredWidth: 26; Layout.leftMargin: 7; Layout.rightMargin: 7; iconName: "trash-2-danger"; dangerOutline: true; enabled: extensionModel.count > 1; Accessible.name: "Remover extensão"; onClicked: extensionModel.remove(index) }
+                            ActionButton { objectName: "removeExtension"; Layout.preferredWidth: 26; Layout.leftMargin: 7; Layout.rightMargin: 7; iconName: "trash-2-danger"; dangerOutline: true; enabled: extensionModel.count > 1; Accessible.name: "Remover extensão"; onClicked: extensionModel.remove(extensionRow.index) }
                         }
                     }
                 }

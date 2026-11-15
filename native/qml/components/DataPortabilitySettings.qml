@@ -3,6 +3,7 @@
 /* Textos UTF-8 e altura dos cards seguem a referencia de backup. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Aba Backup: exportação/importação com preview, avisos e jobs em background. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -107,6 +108,7 @@ Item {
                         {label: "DADOS LOCAIS", icon: "database-backup", value: panel.settingsService && panel.settingsService.dataDirSizeMb >= 0 ? panel.settingsService.dataDirSizeMb + " MB" : "carregando"}
                     ]
                     delegate: Rectangle {
+                        id: statusCard
                         required property var modelData
                         Layout.fillWidth: true
                         Layout.preferredWidth: 1
@@ -121,10 +123,10 @@ Item {
                             RowLayout {
                                 spacing: 8
                                 /* O DOM de referência usa ícones lucide de 18 px nos cards de status. */
-                                Image { source: "qrc:/icons/" + modelData.icon + "-active.svg"; sourceSize: Qt.size(18, 18) }
-                                UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
+                                Image { source: "qrc:/icons/" + statusCard.modelData.icon + "-active.svg"; sourceSize: Qt.size(18, 18) }
+                                UiText { text: statusCard.modelData.label; color: Theme.secondary; font.pixelSize: 12; textWeight: Font.ExtraBold; font.letterSpacing: 0.55 }
                             }
-                            UiText { text: modelData.value; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
+                            UiText { text: statusCard.modelData.value; color: Theme.text; font.pixelSize: 18; textWeight: Font.Bold; Layout.fillWidth: true; elide: Text.ElideRight }
                         }
                     }
                 }
@@ -156,8 +158,8 @@ Item {
                                 Layout.fillWidth: true
                                 implicitHeight: 72
                                 radius: 8
-                                color: panel.includes(panel.exportCategories, modelData.key) ? Theme.accentSoft : Theme.control
-                                border.color: panel.includes(panel.exportCategories, modelData.key) ? Theme.accent : Theme.border
+                                color: panel.includes(panel.exportCategories, exportCard.modelData.key) ? Theme.accentSoft : Theme.control
+                                border.color: panel.includes(panel.exportCategories, exportCard.modelData.key) ? Theme.accent : Theme.border
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.margins: 10
@@ -165,8 +167,8 @@ Item {
                                     FormCheckBox {
                                         id: exportCheckbox
                                         objectName: "exportCategory" + exportCard.modelData.key
-                                        checked: panel.includes(panel.exportCategories, modelData.key)
-                                        onClicked: panel.exportCategories = panel.toggle(panel.exportCategories, modelData.key, checked)
+                                        checked: panel.includes(panel.exportCategories, exportCard.modelData.key)
+                                        onClicked: panel.exportCategories = panel.toggle(panel.exportCategories, exportCard.modelData.key, checked)
 
                                     }
                                     ColumnLayout {
@@ -265,13 +267,13 @@ Item {
                                     id: importCard
                                     required property var modelData
                                     readonly property bool available: panel.preview && panel.preview.availableCategories
-                                        && panel.preview.availableCategories.indexOf(modelData.key) >= 0
+                                        && panel.preview.availableCategories.indexOf(importCard.modelData.key) >= 0
                                     Layout.fillWidth: true
                                     implicitHeight: 50
                                     opacity: available ? 1 : 0.4
                                     radius: 8
-                                    color: available && panel.includes(panel.importCategories, modelData.key) ? Theme.accentSoft : Theme.control
-                                    border.color: available && panel.includes(panel.importCategories, modelData.key) ? Theme.accent : Theme.border
+                                    color: available && panel.includes(panel.importCategories, importCard.modelData.key) ? Theme.accentSoft : Theme.control
+                                    border.color: available && panel.includes(panel.importCategories, importCard.modelData.key) ? Theme.accent : Theme.border
                                     RowLayout {
                                         anchors.fill: parent
                                         anchors.margins: 10

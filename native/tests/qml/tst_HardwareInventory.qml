@@ -34,6 +34,9 @@ Item {
         property int conservationStateId: 0
         property int platformId: 0
         property string error: ""
+        property bool photoImporting: false
+        property bool queryPending: false
+        signal photoImportFinished(int itemId, bool success, string error)
         property var photos: []
         property int lastRemoved: 0
 
@@ -195,8 +198,10 @@ Item {
     QtObject {
         id: jobs
         property var model: activeJobs
+        property string cancelledJob: ""
         function job(id) { return null }
         function dismiss(id) {}
+        function cancel(id) { cancelledJob = id; return true }
     }
 
     /* Coordenador de backup simulado, sem abrir diálogos nativos. */
@@ -293,6 +298,10 @@ Item {
             inventory.itemTypeId = 0
             inventory.conservationStateId = 0
             inventory.lastRemoved = 0
+            inventory.photoImporting = false
+            inventory.queryPending = false
+            app.prototypeInventoryDetail = false
+            app.prototypeInventoryDetailOpened = false
             inventory.photos = [{id: 7, item_id: 1, file_path: "C:/perfil/inventario/images/1/a.png",
                 sort_order: 0, fileUrl: "image://profilemedia/a"}]
             prefs.viewMode = "grid"
@@ -414,6 +423,72 @@ Item {
             const detail = findChild(page(), "hardwareItemDetail")
             verify(detail.visible)
             compare(detail.item.name, "Controle novo")
+        }
+
+        /* A tela mostra a consulta pendente sem anunciar incorretamente inventário vazio. */
+        function test_inventoryLoading() {
+            const loading = findChild(page(), "inventoryLoading")
+            verify(loading !== null)
+            verify(!loading.visible)
+            inventory.queryPending = true
+            tryCompare(loading, "visible", true)
+            inventory.queryPending = false
+            tryCompare(loading, "visible", false)
+        }
+
+        /* Capturas de detalhe aguardam a primeira leitura assíncrona do inventário. */
+        function test_previewWaitsForInventory() {
+            app.prototypeInventoryDetail = true
+            inventory.queryPending = true
+            app.openPrototypeInventoryDetailWhenReady()
+            verify(!app.prototypeInventoryDetailOpened)
+            inventory.queryPending = false
+            app.openPrototypeInventoryDetailWhenReady()
+            verify(app.prototypeInventoryDetailOpened)
+            compare(page().selectedItem.id, 1)
+            app.prototypeInventoryDetail = false
+        }
+
+        /* O modal acompanha apenas a importação do item aberto e bloqueia cópias paralelas. */
+        function test_photoImportFeedback() {
+            page().openEdit(inventory.items[0])
+            const form = findChild(app, "hardwareItemFormDialog")
+            tryVerify(function() { return form.visible }, 2000)
+            const addButton = findChild(form, "addHardwarePhoto")
+            verify(addButton.enabled)
+            inventory.photoImporting = true
+            tryCompare(addButton, "enabled", false)
+            inventory.photoImportFinished(999, false, "Erro de outro item")
+            compare(form.photoError, "")
+            inventory.photoImporting = false
+            inventory.photoImportFinished(1, false, "Erro sintético")
+            compare(form.photoError, "Erro sintético")
+            inventory.photos = [{id: 8, item_id: 1, fileUrl: ""}]
+            inventory.photoImportFinished(1, true, "")
+            compare(form.photoError, "")
+            compare(form.photos.length, 1)
+            compare(form.photos[0].id, 8)
+        }
+
+        /* O progresso de fotos grandes não estoura 32 bits e permite solicitar cancelamento. */
+        function test_photoNotificationCancel() {
+            jobs.cancelledJob = ""
+            activeJobs.insert(0, {jobId: "foto-teste", kind: "inventory-photo", status: "running", title: "Foto",
+                error: "", progressCurrent: 3221225472, progressTotal: 4294967296, progressMessage: "Copiando foto",
+                progressStage: "copying", progressFilename: "", progressFolderPath: ""})
+            const list = findChild(app, "jobNotificationList")
+            verify(list !== null)
+            list.positionViewAtBeginning()
+            let notification = null
+            tryVerify(function() { notification = list.itemAtIndex(0); return notification !== null && notification.jobId === "foto-teste" })
+            const button = findChild(notification, "cancelPhotoJobfoto-teste")
+            verify(button !== null)
+            verify(button.visible)
+            compare(notification.progressCurrent, 3221225472)
+            compare(notification.progressTotal, 4294967296)
+            mouseClick(button)
+            compare(jobs.cancelledJob, "foto-teste")
+            activeJobs.remove(0)
         }
 
         /* Exclusão passa pela confirmação e remove o item pelo serviço. */

@@ -1,5 +1,6 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletor compartilhado: reproduz o select escuro do Electron inclusive no menu aberto. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls.Basic
 import GameStock
@@ -61,6 +62,7 @@ ComboBox {
         }
     }
     delegate: ItemDelegate {
+        id: selectEntry
         required property int index
         /* O texto das opções não ocupa a faixa da barra do menu. */
         width: Math.max(0, control.popup.availableWidth - 14)
@@ -69,14 +71,14 @@ ComboBox {
         font: control.font
         highlighted: control.highlightedIndex === index
         contentItem: UiText {
-            text: parent.text
+            text: selectEntry.text
             font: control.font
             color: Theme.text
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
         background: Rectangle {
-            color: parent.highlighted ? Theme.accentSoft : Theme.panel
+            color: selectEntry.highlighted ? Theme.accentSoft : Theme.panel
         }
     }
     popup: Popup {

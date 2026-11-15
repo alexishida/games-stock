@@ -5,6 +5,7 @@
 #include <QBuffer>
 #include <QColor>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QImage>
 #include <QImageReader>
@@ -91,6 +92,77 @@ private slots:
         QCOMPARE(second.skipped, 4);
         QCOMPARE(second.failed, 0);
         QCOMPARE(server.requests(QStringLiteral("/box-front-brazil.png")), 1);
+    }
+
+    /** A fila baixa até três imagens ao mesmo tempo e mantém a ordem dos arquivos. */
+    void parallelDownloads() {
+        HttpTestServer server;
+        QVariantList images;
+        const QString type = QStringLiteral("Screenshot - Gameplay");
+        for (int index = 0; index < 6; ++index) {
+            const QString filename = QStringLiteral("shot-%1.png").arg(index);
+            server.add(QStringLiteral("/") + filename, png(40, 30, QColor::fromHsv(index * 40, 200, 200)),
+                200, 150);
+            images.append(QVariantMap{{QStringLiteral("filename"), filename},
+                {QStringLiteral("type"), type}, {QStringLiteral("region"), QStringLiteral("Brazil")}});
+        }
+        QVERIFY(server.listen());
+        QVariantMap game{{QStringLiteral("id"), QStringLiteral("99")},
+            {QStringLiteral("name"), QStringLiteral("Paralelo")},
+            {QStringLiteral("platform"), QStringLiteral("Super Nintendo")},
+            {QStringLiteral("images"), images}};
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        gamestock::LaunchBoxMedia media(server.baseUrl() + QStringLiteral("/"));
+        const gamestock::LaunchBoxMediaResult result = media.downloadImages(game, dir.path(),
+            QStringList{type});
+        QCOMPARE(result.success, 6);
+        QCOMPARE(result.failed, 0);
+        // Duas ou três conexões simultâneas comprovam a fila; uma execução sequencial daria 1.
+        QVERIFY(server.maxConcurrent() >= 2);
+        QVERIFY(server.maxConcurrent() <= 3);
+        QCOMPARE(result.files.size(), 6);
+        for (int index = 0; index < result.files.size(); ++index) {
+            QVERIFY(QFileInfo::exists(result.files.at(index)));
+            QVERIFY(result.files.at(index).contains(
+                QStringLiteral("-%1.png").arg(index + 1, 2, 10, QLatin1Char('0'))));
+        }
+    }
+
+    /** Mede a fila sequencial e a paralela com a mesma latência sintética. */
+    void mediaDownloadMeasurement() {
+        constexpr int total = 12;
+        constexpr int delayMs = 100;
+        HttpTestServer server;
+        QVariantList images;
+        for (int index = 0; index < total; ++index) {
+            const QString filename = QStringLiteral("measure-%1.png").arg(index);
+            server.add(QStringLiteral("/") + filename, png(20, 20, Qt::gray), 200, delayMs);
+            images.append(QVariantMap{{QStringLiteral("filename"), filename},
+                {QStringLiteral("type"), QStringLiteral("Screenshot - Gameplay")},
+                {QStringLiteral("region"), QString()}});
+        }
+        QVERIFY(server.listen());
+        QVariantMap game{{QStringLiteral("id"), QStringLiteral("measure")},
+            {QStringLiteral("name"), QStringLiteral("Measure")},
+            {QStringLiteral("platform"), QStringLiteral("Super Nintendo")},
+            {QStringLiteral("images"), images}};
+        gamestock::LaunchBoxMedia media(server.baseUrl() + QStringLiteral("/"));
+        QTemporaryDir sequentialDir;
+        QTemporaryDir parallelDir;
+        QVERIFY(sequentialDir.isValid() && parallelDir.isValid());
+        QElapsedTimer timer;
+        timer.start();
+        const auto sequential = media.downloadImages(game, sequentialDir.path(), {}, nullptr, false, 1);
+        const qint64 sequentialMs = timer.elapsed();
+        timer.restart();
+        const auto parallel = media.downloadImages(game, parallelDir.path(), {}, nullptr, false, 3);
+        const qint64 parallelMs = timer.elapsed();
+        qInfo() << "Downloads sequencial/paralelo (ms):" << sequentialMs << parallelMs;
+        QCOMPARE(sequential.success, total);
+        QCOMPARE(parallel.success, total);
+        // Sem concorrência o tempo é a soma das latências; com três, cai para cerca de um terço.
+        QVERIFY(parallelMs < sequentialMs);
     }
 
     /** Landscape usa 280x195 e imagens menores não são ampliadas. */

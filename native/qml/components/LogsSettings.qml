@@ -2,6 +2,7 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Aba Logs: histórico local com atualização, abertura da pasta e limpeza. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -88,12 +89,13 @@ Item {
                 Repeater {
                     model: logs.settingsService ? logs.settingsService.logEntries : []
                     delegate: Rectangle {
+                        id: logEntry
                         required property var modelData
                         Layout.fillWidth: true
                         implicitHeight: entryColumn.implicitHeight + 16
                         radius: 6
                         color: "#191919"
-                        Rectangle { width: 3; height: parent.height; radius: 2; color: logs.levelColor(modelData.level) }
+                        Rectangle { width: 3; height: parent.height; radius: 2; color: logs.levelColor(logEntry.modelData.level) }
                         border.color: Theme.border
                         ColumnLayout {
                             id: entryColumn
@@ -103,14 +105,14 @@ Item {
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
-                                UiText { text: logs.formatTimestamp(modelData.timestamp); color: Theme.muted; font.pixelSize: 12 }
-                                UiText { text: modelData.source || "GameStock"; color: Theme.secondary; font.pixelSize: 12 }
-                                UiText { text: String(modelData.level || "info").toUpperCase(); color: logs.levelColor(modelData.level); font.pixelSize: 12; textWeight: Font.ExtraBold }
+                                UiText { text: logs.formatTimestamp(logEntry.modelData.timestamp); color: Theme.muted; font.pixelSize: 12 }
+                                UiText { text: logEntry.modelData.source || "GameStock"; color: Theme.secondary; font.pixelSize: 12 }
+                                UiText { text: String(logEntry.modelData.level || "info").toUpperCase(); color: logs.levelColor(logEntry.modelData.level); font.pixelSize: 12; textWeight: Font.ExtraBold }
                                 Item { Layout.fillWidth: true }
                             }
                             UiText {
                                 Layout.fillWidth: true
-                                text: modelData.message || ""
+                                text: logEntry.modelData.message || ""
                                 color: Theme.text
                                 font.pixelSize: 13
                                 font.family: "Consolas"

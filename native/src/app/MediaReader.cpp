@@ -41,14 +41,30 @@ QString finalPath(HANDLE handle) {
 namespace gamestock {
 namespace {
 /** Aplica a redução no próprio decodificador; o cabeçalho do arquivo informa as dimensões originais. */
-void applyScaledSize(QImageReader& reader, const QSize& targetSize) {
-    if (targetSize.width() <= 0 || targetSize.height() <= 0) return;
+void applyScaledSize(QImageReader& reader, const QSize& targetSize, Qt::AspectRatioMode aspectMode) {
+    if (targetSize.width() <= 0 && targetSize.height() <= 0) return;
     const QSize sourceSize = reader.size();
-    reader.setScaledSize(sourceSize.isValid() ? sourceSize.scaled(targetSize, Qt::KeepAspectRatio) : targetSize);
+    // A escala precede a rotação EXIF: inverta o alvo para imagens giradas em 90 graus.
+    QSize decodeTarget = targetSize;
+    if (reader.autoTransform() && (reader.transformation() & QImageIOHandler::TransformationRotate90)) decodeTarget.transpose();
+    const bool singleDimension = decodeTarget.width() <= 0 || decodeTarget.height() <= 0;
+    if (singleDimension && !sourceSize.isValid()) return;
+    if (singleDimension) {
+        // Uma dimensão preserva a proporção real necessária para identificar a orientação da capa.
+        decodeTarget.setWidth(qMax(1, decodeTarget.width()));
+        decodeTarget.setHeight(qMax(1, decodeTarget.height()));
+    }
+    QSize scaled = sourceSize.isValid() ? sourceSize.scaled(decodeTarget, singleDimension ? Qt::KeepAspectRatioByExpanding : aspectMode) : decodeTarget;
+    if (singleDimension || aspectMode == Qt::KeepAspectRatioByExpanding) {
+        // Limita panoramas extremos e não amplia arquivos menores que o card.
+        if (sourceSize.isValid() && (scaled.width() > sourceSize.width() || scaled.height() > sourceSize.height())) scaled = sourceSize;
+        if (scaled.width() > 4096 || scaled.height() > 4096) scaled = scaled.scaled(QSize(4096, 4096), Qt::KeepAspectRatio);
+    }
+    reader.setScaledSize(scaled);
 }
 } // namespace
 
-QImage readProfileImage(const QString& profile, const QString& requested, const QSize& targetSize) {
+QImage readProfileImage(const QString& profile, const QString& requested, const QSize& targetSize, Qt::AspectRatioMode aspectMode) {
 #ifdef Q_OS_WIN
     if (profile.isEmpty() || !QDir::isAbsolutePath(requested)) return {};
     const QString rootNative = QDir::toNativeSeparators(profile);
@@ -77,7 +93,7 @@ QImage readProfileImage(const QString& profile, const QString& requested, const 
     QImageReader reader(&buffer);
     reader.setAutoTransform(true);
     // Decodificar já no tamanho do card evita alocar a resolução total da capa.
-    applyScaledSize(reader, targetSize);
+    applyScaledSize(reader, targetSize, aspectMode);
     return reader.read();
 #elif defined(Q_OS_LINUX)
     if (profile.isEmpty() || !QDir::isAbsolutePath(requested)) return {};
@@ -109,11 +125,13 @@ QImage readProfileImage(const QString& profile, const QString& requested, const 
     QImageReader reader(&buffer);
     reader.setAutoTransform(true);
     // Mesmo contrato de redução do ramo Windows.
-    applyScaledSize(reader, targetSize);
+    applyScaledSize(reader, targetSize, aspectMode);
     return reader.read();
 #else
     Q_UNUSED(profile);
     Q_UNUSED(requested);
+    Q_UNUSED(targetSize);
+    Q_UNUSED(aspectMode);
     return {};
 #endif
 }

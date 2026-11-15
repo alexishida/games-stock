@@ -21,6 +21,8 @@ public:
     void reportProgress(const QJsonObject& progress);
     /** Publica o resultado serializável junto da conclusão. */
     void setResult(const QJsonObject& result) { result_ = result; }
+    /** Confirma efeito persistido: cancelamento tardio não pode relatá-lo como falha. */
+    void setCommittedResult(const QJsonObject& result) { result_ = result; committed_ = true; }
 
 public slots:
     /** Executa na thread do worker; sempre emite completed ou failed. */
@@ -38,5 +40,7 @@ private:
     Work work_;
     QJsonObject result_;
     std::atomic_bool cancelled_{false};
+    // Somente a thread do worker acessa committed_; cancel() altera apenas o atomic.
+    bool committed_ = false;
 };
 } // namespace gamestock

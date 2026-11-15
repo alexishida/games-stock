@@ -1,7 +1,7 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Card individual do inventário: capa ou placeholder, plataforma, tipo e condição. */
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Effects
 import GameStock
 
@@ -68,11 +68,12 @@ Item {
 
         Image {
             anchors.fill: parent
-            source: card.item ? (card.item.coverUrl || "") : ""
+            /* O provider mantém resolução suficiente para preencher o recorte da capa. */
+            source: card.item ? String(card.item.coverUrl || "").replace("image://profilemedia/", "image://profilemedia/crop/") : ""
             fillMode: Image.PreserveAspectCrop
             /* Decodifica próximo ao tamanho exibido, inclusive em telas de alta densidade. */
-            sourceSize: Qt.size(Math.ceil(Math.max(cover.width, cover.height) * Screen.devicePixelRatio),
-                                Math.ceil(Math.max(cover.width, cover.height) * Screen.devicePixelRatio))
+            sourceSize: Qt.size(Math.ceil(cover.width * Screen.devicePixelRatio),
+                                Math.ceil(cover.height * Screen.devicePixelRatio))
             asynchronous: true
             cache: true
         }

@@ -40,6 +40,20 @@ bool HardwareConservationStateDao::list(QList<QVariantMap>* result, QString* err
     return true;
 }
 
+bool HardwareConservationStateDao::get(qint64 id, QVariantMap* result, QString* error) const {
+    if (!result || id <= 0) { if (error) *error = QStringLiteral("Estado inválido."); return false; }
+    QSqlQuery query(database_);
+    if (!query.prepare(QStringLiteral("SELECT id, name, is_default, created_at FROM conservation_states WHERE id = ?"))) {
+        if (error) *error = query.lastError().text(); return false;
+    }
+    query.addBindValue(id);
+    if (!query.exec()) { if (error) *error = query.lastError().text(); return false; }
+    if (!query.next()) { if (error) *error = QStringLiteral("Estado não encontrado."); return false; }
+    *result = readRow(query);
+    if (error) error->clear();
+    return true;
+}
+
 bool HardwareConservationStateDao::listWithCounts(QList<QVariantMap>* result, QString* error) const {
     if (!result) {
         if (error) *error = QStringLiteral("Destino da listagem ausente.");

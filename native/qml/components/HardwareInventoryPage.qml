@@ -22,6 +22,8 @@ Item {
     property var formItem: null
     readonly property bool listMode: preferences ? preferences.viewMode === "list" : false
     readonly property bool serviceMode: inventoryService !== null && inventoryService !== undefined && inventoryService.available === true
+    /* Os resultados anteriores não devem ser apresentados como resposta aos filtros pendentes. */
+    readonly property bool queryPending: serviceMode && inventoryService.queryPending === true
     readonly property int pageSize: 36
     readonly property int currentPage: page.serviceMode ? inventoryService.page : 1
     readonly property int filteredCount: page.serviceMode ? inventoryService.filtered : 0
@@ -139,6 +141,7 @@ Item {
                     rightPadding: 36
                     Image { x: 10; anchors.verticalCenter: parent.verticalCenter; source: "qrc:/icons/search.svg"; sourceSize: Qt.size(16, 16) }
                     ToolButton {
+                        id: clearSearchButton
                         anchors.right: parent.right
                         anchors.rightMargin: 6
                         anchors.verticalCenter: parent.verticalCenter
@@ -146,7 +149,7 @@ Item {
                         padding: 4
                         visible: searchField.text.length > 0
                         Accessible.name: "Limpar busca"
-                        background: Rectangle { radius: 4; color: parent.hovered ? Theme.controlHover : "transparent" }
+                        background: Rectangle { radius: 4; color: clearSearchButton.hovered ? Theme.controlHover : "transparent" }
                         contentItem: Image { source: "qrc:/icons/x.svg"; sourceSize: Qt.size(16, 16); fillMode: Image.PreserveAspectFit }
                         onClicked: {
                             searchField.clear()
@@ -196,7 +199,7 @@ Item {
                 }
                 UiText {
                     visible: page.selectedItem === null
-                    text: page.serviceMode ? "Exibindo " + inventoryService.filtered + " de " + inventoryService.total + " itens" : "Inventário indisponível"
+                    text: page.serviceMode ? "Exibindo " + page.inventoryService.filtered + " de " + page.inventoryService.total + " itens" : "Inventário indisponível"
                     color: Theme.secondary
                     font.pixelSize: 12
                     textWeight: Font.Bold
@@ -212,9 +215,9 @@ Item {
             Layout.fillHeight: true
             inventoryService: page.inventoryService
             item: page.selectedItem
-            items: page.serviceMode ? inventoryService.items : []
+            items: page.serviceMode ? page.inventoryService.items : []
             onCloseRequested: page.closeItem()
-            onEditRequested: function(item) { page.formItem = item; page.form.open() }
+            onEditRequested: function(item) { page.formItem = item; form.open() }
             onDeleteRequested: function(item) {
                 page.selectedItem = item
                 deleteConfirm.message = "Deletar \"" + (item ? item.name : "") + "\"?"
@@ -243,7 +246,7 @@ Item {
                 /* Grade de cards com a mesma largura do renderer atual. */
                 Flickable {
                     id: gridScroll
-                    visible: !page.listMode && page.serviceMode && inventoryService.items.length > 0
+                    visible: !page.listMode && page.serviceMode && !page.queryPending && page.inventoryService.items.length > 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     contentWidth: width
@@ -253,10 +256,11 @@ Item {
                     /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
                     WheelScrollSpeed {}
                     ScrollBar.vertical: CollectionScrollBar {
+                        id: inventoryScrollBar
                         policy: ScrollBar.AsNeeded
                         width: 6
                         background: Rectangle { implicitWidth: 6; color: Theme.background }
-                        contentItem: Rectangle { implicitWidth: 6; radius: 3; color: parent.pressed ? Theme.borderStrong : Theme.elevated }
+                        contentItem: Rectangle { implicitWidth: 6; radius: 3; color: inventoryScrollBar.pressed ? Theme.borderStrong : Theme.elevated }
                     }
                     Flow {
                         id: gridFlow
@@ -268,13 +272,14 @@ Item {
                         y: 2
                         spacing: gap
                         Repeater {
-                            model: page.serviceMode ? inventoryService.items : []
+                            model: page.serviceMode ? page.inventoryService.items : []
                             delegate: HardwareItemCard {
+                                id: inventoryCard
                                 required property var modelData
                                 objectName: "hardwareItemCard"
                                 width: gridFlow.cardWidth
-                                item: modelData
-                                onClicked: page.openItem(modelData)
+                                item: inventoryCard.modelData
+                                onClicked: page.openItem(inventoryCard.modelData)
                             }
                         }
                     }
@@ -282,7 +287,7 @@ Item {
 
                 /* Lista tabular com as mesmas colunas do renderer. */
                 ColumnLayout {
-                    visible: page.listMode && page.serviceMode && inventoryService.items.length > 0
+                    visible: page.listMode && page.serviceMode && !page.queryPending && page.inventoryService.items.length > 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     spacing: 0
@@ -296,19 +301,29 @@ Item {
                         clip: true
                         /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
                         WheelScrollSpeed {}
-                        model: page.serviceMode ? inventoryService.items : []
+                        model: page.serviceMode ? page.inventoryService.items : []
                         delegate: InventoryListLine {
+                            id: inventoryLine
                             required property var modelData
                             width: ListView.view.width - 14
-                            item: modelData
-                            onClicked: page.openItem(modelData)
+                            item: inventoryLine.modelData
+                            onClicked: page.openItem(inventoryLine.modelData)
                         }
                     }
                 }
 
+                /* A primeira consulta e as trocas de filtro apresentam progresso em vez de estado vazio. */
+                Item {
+                    objectName: "inventoryLoading"
+                    visible: page.queryPending
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    UiText { anchors.centerIn: parent; text: "Carregando inventário..."; color: Theme.secondary; font.pixelSize: 14 }
+                }
+
                 /* Estado vazio equivalente ao do módulo Electron. */
                 Item {
-                    visible: page.serviceMode && inventoryService.items.length === 0
+                    visible: page.serviceMode && !page.queryPending && page.inventoryService.items.length === 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     ColumnLayout {
@@ -321,8 +336,8 @@ Item {
 
                 UiText {
                     objectName: "inventoryError"
-                    visible: page.serviceMode && inventoryService.error.length > 0
-                    text: page.serviceMode ? inventoryService.error : ""
+                    visible: page.serviceMode && page.inventoryService.error.length > 0
+                    text: page.serviceMode ? page.inventoryService.error : ""
                     color: "#ffb4ab"
                     font.pixelSize: 13
                     wrapMode: Text.WordWrap
@@ -331,7 +346,7 @@ Item {
 
                 /* Paginação de 36 itens, igual aos cards e à lista. */
                 RowLayout {
-                    visible: page.serviceMode && page.filteredCount > page.pageSize
+                    visible: page.serviceMode && !page.queryPending && page.filteredCount > page.pageSize
                     Layout.alignment: Qt.AlignHCenter
                     spacing: 12
                     UiText {

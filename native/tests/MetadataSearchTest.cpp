@@ -130,6 +130,61 @@ private slots:
         QCOMPARE(gamestock::searchLaunchBoxIndex(index, options).size(), 1);
     }
 
+    /** Limites preservam prioridade exata e ordem estável mesmo com muitos empates. */
+    void launchBoxLimitedStableOrder() {
+        QJsonObject index;
+        index.insert(QStringLiteral("001"), game("001", "Mario World", "A"));
+        index.insert(QStringLiteral("002"), game("002", "Mario World", "B"));
+        index.insert(QStringLiteral("003"), game("003", "Mario World", "C"));
+        index.insert(QStringLiteral("004"), game("004", "Zelda", "A", QJsonArray{QStringLiteral("Mario")}));
+        for (int i = 5; i < 100; ++i) {
+            const QString id = QStringLiteral("%1").arg(i, 3, 10, QLatin1Char('0'));
+            index.insert(id, game(id, QStringLiteral("Mario %1").arg(i, 3, 10, QLatin1Char('0')), "A"));
+        }
+        gamestock::LaunchBoxSearchOptions options;
+        options.query = QStringLiteral("Mario");
+        options.limit = 4;
+        const auto result = gamestock::searchLaunchBoxIndex(index, options);
+        QCOMPARE(result.size(), 4);
+        QCOMPARE(result.at(0).value("id").toString(), QStringLiteral("004"));
+        QCOMPARE(result.at(1).value("name").toString(), QStringLiteral("Mario 005"));
+        options.query = QStringLiteral("Mario World");
+        options.limit = 2;
+        const auto tied = gamestock::searchLaunchBoxIndex(index, options);
+        QCOMPARE(tied.size(), 2);
+        QCOMPARE(tied.at(0).value("id").toString(), QStringLiteral("001"));
+        QCOMPARE(tied.at(1).value("id").toString(), QStringLiteral("002"));
+    }
+
+    /** A visão preparada preserva resultados, aliases, plataformas e ordem da busca direta. */
+    void preparedSearchMatchesDirect() {
+        QJsonObject index;
+        index.insert(QStringLiteral("1"), game(QStringLiteral("1"), QStringLiteral("Mario World"),
+            QStringLiteral("Super Nintendo"), QJsonArray{QStringLiteral("Super Mário World")}));
+        index.insert(QStringLiteral("2"), game(QStringLiteral("2"), QStringLiteral("Mario World"),
+            QStringLiteral("Mega Drive")));
+        index.insert(QStringLiteral("3"), game(QStringLiteral("3"), QStringLiteral("Mário 64"),
+            QStringLiteral("Nintendo 64"), QJsonArray{QStringLiteral("Super Mario 64")}));
+        index.insert(QStringLiteral("4"), game(QStringLiteral("4"), QStringLiteral("Mario Kart"),
+            QStringLiteral("Super Nintendo")));
+        gamestock::LaunchBoxSearchIndex prepared(index);
+        QCOMPARE(prepared.size(), index.size());
+        const QList<gamestock::LaunchBoxSearchOptions> cases{
+            {QStringLiteral("mario"), {}, false, 100},
+            {QStringLiteral("super mario"), {}, false, 2},
+            {QStringLiteral("mario"), {QStringLiteral("Super Nintendo"), QStringLiteral("Super Nintendo")}, true, 100},
+            {QStringLiteral("mario"), {QStringLiteral("Mega Drive")}, true, 1},
+            {QStringLiteral("mario"), {}, true, 100},
+            {QString(), {}, false, 100},
+        };
+        for (const auto& options : cases) {
+            QCOMPARE(prepared.search(options), gamestock::searchLaunchBoxIndex(index, options));
+        }
+        // Repetir a mesma busca não altera a ordem nem o conteúdo devolvido.
+        const gamestock::LaunchBoxSearchOptions repeated{QStringLiteral("mario world"), {}, false, 100};
+        QCOMPARE(prepared.search(repeated), prepared.search(repeated));
+    }
+
     /** Mede busca com mídia volumosa e verifica que os resultados preservam seus dados. */
     void largeCatalogSearch() {
         QJsonArray images;

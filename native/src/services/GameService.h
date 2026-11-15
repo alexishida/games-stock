@@ -162,6 +162,9 @@ private:
     /** Acrescenta a URL do provider de mídia aos mapas expostos ao QML. */
     static void decorate(QVariantMap* game);
     WriteConnection connection_;
+    // Contagens reaproveitadas entre páginas/ordenações; a geração acompanha cada escrita.
+    GameCountCache countCache_;
+    quint64 dataGeneration_ = 0;
     GameReadDao::SidebarCounts counts_;
     GameReadDao::LaunchStats launchStats_;
     GameReadDao::CoverStats coverStats_;

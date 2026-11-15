@@ -13,6 +13,8 @@ public:
     explicit HardwareItemTypeDao(QSqlDatabase& database);
 
     bool list(QList<QVariantMap>* result, QString* error) const;
+    /** Lê um registro por ID sem recarregar todo o catálogo. */
+    bool get(qint64 id, QVariantMap* result, QString* error) const;
     /** Inclui tipos sem itens, com contagem agregada para a sidebar. */
     bool listWithCounts(QList<QVariantMap>* result, QString* error) const;
     /** Cria com `is_default = 0`; nome duplicado vira mensagem acionável. */

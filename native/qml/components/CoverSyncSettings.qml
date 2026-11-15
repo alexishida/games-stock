@@ -2,8 +2,8 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Seção "Mídia da biblioteca": estatísticas e sincronização LaunchBox. */
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."
@@ -110,6 +110,7 @@ Item {
                     {key: "total", label: "Jogos", icon: "gamepad-2-active"}
                 ]
                 delegate: Rectangle {
+                    id: coverStat
                     required property var modelData
                     Layout.fillWidth: true
                     Layout.preferredWidth: 1
@@ -123,10 +124,10 @@ Item {
                         spacing: 6
                         RowLayout {
                             spacing: 8
-                            Image { source: "qrc:/icons/" + modelData.icon + ".svg"; sourceSize: Qt.size(18, 18) }
-                            UiText { text: modelData.label; color: Theme.secondary; font.pixelSize: 13; textWeight: Font.ExtraBold }
+                            Image { source: "qrc:/icons/" + coverStat.modelData.icon + ".svg"; sourceSize: Qt.size(18, 18) }
+                            UiText { text: coverStat.modelData.label; color: Theme.secondary; font.pixelSize: 13; textWeight: Font.ExtraBold }
                         }
-                        UiText { text: root.stats && root.stats[modelData.key] !== undefined ? root.stats[modelData.key] : 0; color: Theme.text; font.pixelSize: 28; textWeight: Font.Bold; lineHeightMode: Text.FixedHeight; lineHeight: 28 }
+                        UiText { text: root.stats && root.stats[coverStat.modelData.key] !== undefined ? root.stats[coverStat.modelData.key] : 0; color: Theme.text; font.pixelSize: 28; textWeight: Font.Bold; lineHeightMode: Text.FixedHeight; lineHeight: 28 }
                     }
                 }
             }

@@ -3,7 +3,6 @@
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Histórico agregado de partidas e limpeza manual dos contadores. */
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."

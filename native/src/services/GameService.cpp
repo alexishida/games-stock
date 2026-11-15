@@ -179,7 +179,8 @@ bool GameService::open(const QString& databasePath, QString* error, bool deferAg
     }
     loading_ = false;
     databasePath_ = databasePath;
-    // A primeira carga sempre invalida os agregados do perfil anterior.
+    // A primeira carga sempre invalida os agregados e as contagens do perfil anterior.
+    countCache_.setGeneration(++dataGeneration_);
     genresDirty_ = true;
     launchStatsDirty_ = true;
     coverStatsDirty_ = true;
@@ -258,6 +259,8 @@ void GameService::decorate(QVariantMap* game) {
 
 void GameService::refresh() {
     // Chamadas externas (importadores, sincronização) podem ter alterado qualquer agregado.
+    // A nova geração invalida as contagens também no worker, que recebe o número no pedido.
+    countCache_.setGeneration(++dataGeneration_);
     genresDirty_ = true;
     launchStatsDirty_ = true;
     coverStatsDirty_ = true;
@@ -280,14 +283,14 @@ void GameService::refreshPageSync(bool refreshAggregates) {
     GamePage result;
     QString error;
     // A página selecionada é revalidada contra o conjunto filtrado atual.
-    if (!dao.list(page_, pageSize_, &result, &error, filters())) {
+    if (!dao.list(page_, pageSize_, &result, &error, filters(), &countCache_)) {
         error_ = error;
         emit changed();
         return;
     }
     if (result.items.isEmpty() && page_ > 1) {
         page_ = 1;
-        if (!dao.list(page_, pageSize_, &result, &error, filters())) {
+        if (!dao.list(page_, pageSize_, &result, &error, filters(), &countCache_)) {
             error_ = error;
             emit changed();
             return;
@@ -320,7 +323,7 @@ void GameService::refreshPageSync(bool refreshAggregates) {
 bool GameService::loadAggregateQueries(QString* error) {
     GameReadDao dao(connection_.database());
     // Os contadores da sidebar dependem dos filtros ativos e acompanham cada busca.
-    if (!dao.sidebarCounts(filters(), &counts_, error)) return false;
+    if (!dao.sidebarCounts(filters(), &counts_, error, &countCache_)) return false;
     // Gêneros, partidas e capas são globais; só mudam após CRUD/importação/sincronização.
     if (genresDirty_) {
         if (!dao.listGenres(&genres_, error)) return false;
@@ -363,6 +366,8 @@ void GameService::scheduleQuery(bool refreshAggregates) {
     request.page = page_;
     request.pageSize = pageSize_;
     request.filters = filters();
+    // O worker mantém o próprio cache e descarta tudo quando a geração avança.
+    request.dataGeneration = dataGeneration_;
     request.wantSidebar = refreshAggregates;
     // Só pede os agregados globais marcados como desatualizados.
     request.wantGenres = refreshAggregates && genresDirty_;

@@ -388,6 +388,8 @@ DragDialog {
                                     implicitHeight: 28
                                     text: "Adicionar foto"
                                     iconName: "image"
+                                    /* Evita importações concorrentes e ordenação ambígua das fotos. */
+                                    enabled: !form.inventoryService || form.inventoryService.photoImporting !== true
                                     onClicked: form.addPhoto()
                                 }
                             }
@@ -599,12 +601,21 @@ DragDialog {
         title: "Selecionar foto"
         nameFilters: ["Imagens (*.jpg *.jpeg *.png *.webp)"]
         onAccepted: {
-            const photo = form.inventoryService.addPhoto(Number(form.editingItem.id), form.localPath(selectedFile))
-            if (!photo || !photo.id) {
+            const jobId = form.inventoryService.startPhotoImport(Number(form.editingItem.id), form.localPath(selectedFile))
+            if (!jobId) {
                 form.photoError = form.inventoryService.error || "Erro ao adicionar foto."
-                return
             }
-            form.refreshPhotos()
+        }
+    }
+
+    /* O job continua após fechar o modal; atualiza somente a galeria do item correspondente. */
+    Connections {
+        target: form.inventoryService
+        ignoreUnknownSignals: true
+        function onPhotoImportFinished(itemId, success, error) {
+            if (!form.opened || !form.editingItem || Number(form.editingItem.id) !== Number(itemId)) return
+            if (success) { form.photoError = ""; form.refreshPhotos() }
+            else form.photoError = error || "Erro ao adicionar foto."
         }
     }
 }

@@ -4,7 +4,6 @@
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Criação e edição de plataforma, equivalente ao PlatformFormModal do Electron. */
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."

@@ -37,6 +37,35 @@ gamestock::JobWorker::Work countingWork(int ticks, int delayMs, bool ignoreCance
 class JobManagerTest : public QObject {
     Q_OBJECT
 private slots:
+    /** Um cancelamento após confirmar o efeito não transforma uma gravação em falha. */
+    void committedWorkSurvivesLateCancellation() {
+        gamestock::JobWorker worker(QStringLiteral("committed"), [](gamestock::JobWorker* current) {
+            current->cancel();
+            current->setCommittedResult(QJsonObject{{QStringLiteral("saved"), true}});
+        });
+        QSignalSpy completed(&worker, &gamestock::JobWorker::completed);
+        QSignalSpy failed(&worker, &gamestock::JobWorker::failed);
+        worker.run();
+        QCOMPARE(completed.size(), 1);
+        QCOMPARE(failed.size(), 0);
+        QVERIFY(completed.first().at(1).toJsonObject().value(QStringLiteral("saved")).toBool());
+    }
+
+    /** O fechamento persiste conclusão quando o efeito foi confirmado durante o cancelamento. */
+    void shutdownPersistsCommittedWork() {
+        gamestock::JobRegistry registry([](const QJsonArray&, QString*) { return true; });
+        gamestock::JobManager manager(&registry);
+        QString error;
+        QVERIFY2(manager.start(job(QStringLiteral("committed-shutdown")), [](gamestock::JobWorker* worker) {
+            QThread::msleep(30);
+            worker->setCommittedResult(QJsonObject{{QStringLiteral("saved"), true}});
+        }, &error), qPrintable(error));
+        QTest::qWait(5);
+        QVERIFY(manager.shutdown(5000));
+        QCOMPARE(registry.jobs()[0].toObject().value(QStringLiteral("status")).toString(), QStringLiteral("completed"));
+        QVERIFY(registry.jobs()[0].toObject().value(QStringLiteral("result")).toObject().value(QStringLiteral("saved")).toBool());
+    }
+
     /** A thread da UI segue atendendo timers enquanto o worker progride. */
     void uiStaysResponsive() {
         gamestock::JobRegistry registry([](const QJsonArray&, QString*) { return true; });

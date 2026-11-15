@@ -23,9 +23,10 @@ class LaunchBoxMedia final {
 public:
     explicit LaunchBoxMedia(QString imagesBaseUrl = QString());
 
+    /** `maxParallel` limita conexões simultâneas (1 a 4); o padrão é 3. */
     LaunchBoxMediaResult downloadImages(const QVariantMap& game, const QString& outputDir,
         const QStringList& types = {}, const std::function<void(const LaunchBoxProgress&)>& progress = {},
-        bool force = false);
+        bool force = false, int maxParallel = 3);
 
     /** `outputDir/<plataforma>/<título>-<id>`, sanitizado para Windows/Linux. */
     static QString gameImageDir(const QString& outputDir, const QVariantMap& game);

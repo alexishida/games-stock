@@ -126,6 +126,75 @@ QString detectTypeLabel(const QStringList& tags) {
 }
 }
 
+namespace {
+/** Limite de combinações guardadas: digitação longa não pode crescer sem controle. */
+constexpr int maxCachedFilters = 64;
+constexpr int maxCachedSidebar = 32;
+} // namespace
+
+void GameCountCache::setGeneration(quint64 generation) {
+    if (generation_ == generation) return;
+    generation_ = generation;
+    clear();
+}
+
+void GameCountCache::clear() {
+    hasTotal_ = false;
+    total_ = 0;
+    filtered_.clear();
+    sidebar_.clear();
+}
+
+bool GameCountCache::total(qint64* value) const {
+    if (!hasTotal_) return false;
+    if (value) *value = total_;
+    return true;
+}
+
+void GameCountCache::storeTotal(qint64 value) {
+    hasTotal_ = true;
+    total_ = value;
+}
+
+bool GameCountCache::filtered(const QString& key, qint64* value) const {
+    const auto it = filtered_.constFind(key);
+    if (it == filtered_.cend()) return false;
+    if (value) *value = it.value();
+    return true;
+}
+
+void GameCountCache::storeFiltered(const QString& key, qint64 value) {
+    // O descarte integral é aceitável: o cache é só uma otimização e a próxima consulta recria.
+    if (!filtered_.contains(key) && filtered_.size() >= maxCachedFilters) filtered_.clear();
+    filtered_.insert(key, value);
+}
+
+bool GameCountCache::sidebar(const QString& key, SidebarCounts* value) const {
+    const auto it = sidebar_.constFind(key);
+    if (it == sidebar_.cend()) return false;
+    if (value) *value = it.value();
+    return true;
+}
+
+void GameCountCache::storeSidebar(const QString& key, const SidebarCounts& value) {
+    if (!sidebar_.contains(key) && sidebar_.size() >= maxCachedSidebar) sidebar_.clear();
+    sidebar_.insert(key, value);
+}
+
+QString GameCountCache::filterKey(const GameListFilters& filters) {
+    // Comprimento antes do valor evita colisões quando a busca contém os separadores.
+    const QStringList parts = {
+        filters.search.trimmed().toCaseFolded(),
+        filters.genre.trimmed(),
+        filters.collection,
+        QString::number(filters.platformId),
+        filters.includeMissingCovers ? QStringLiteral("1") : QStringLiteral("0"),
+    };
+    QString key;
+    for (const QString& part : parts) key += QString::number(part.size()) + QLatin1Char(':') + part;
+    return key;
+}
+
 GameReadDao::GameReadDao(QSqlDatabase& database) : database_(database) {}
 
 bool GameReadDao::listGenres(QStringList* result, QString* error) const {
@@ -215,10 +284,17 @@ bool GameReadDao::collectionCounts(CollectionCounts* result, QString* error) con
     return true;
 }
 
-bool GameReadDao::sidebarCounts(const GameListFilters& filters, SidebarCounts* result, QString* error) const {
+bool GameReadDao::sidebarCounts(const GameListFilters& filters, SidebarCounts* result, QString* error,
+    GameCountCache* cache) const {
     if (!result) {
         if (error) *error = QStringLiteral("Destino de contadores ausente.");
         return false;
+    }
+    // Contadores da sidebar dependem só dos filtros; reutilizar antes de montar tabelas temporárias.
+    const QString cacheKey = GameCountCache::filterKey(filters);
+    if (cache && cache->sidebar(cacheKey, result)) {
+        if (error) error->clear();
+        return true;
     }
     TemporaryGenres genres(database_);
     QString genreCondition;
@@ -314,6 +390,7 @@ bool GameReadDao::sidebarCounts(const GameListFilters& filters, SidebarCounts* r
     }
     result->platforms.clear();
     while (platforms.next()) result->platforms.insert(platforms.value(0).toLongLong(), platforms.value(1).toLongLong());
+    if (cache) cache->storeSidebar(cacheKey, *result);
     if (error) error->clear();
     return true;
 }
@@ -492,7 +569,8 @@ bool GameReadDao::listLinkedGames(QList<LinkedGame>* result, QString* error) con
     return true;
 }
 
-bool GameReadDao::list(int page, int pageSize, GamePage* result, QString* error, const GameListFilters& filters) const {
+bool GameReadDao::list(int page, int pageSize, GamePage* result, QString* error, const GameListFilters& filters,
+    GameCountCache* cache) const {
     if (!result || page < 1 || pageSize < 1 || pageSize > 1000) {
         if (error) *error = QStringLiteral("Página ou tamanho inválido.");
         return false;
@@ -548,21 +626,30 @@ bool GameReadDao::list(int page, int pageSize, GamePage* result, QString* error,
     else if (sort == QLatin1String("recent")) order = QStringLiteral("%1.created_at DESC, %1.id DESC");
     else if (sort == QLatin1String("mostPlayed")) order = QStringLiteral("%1.launch_count DESC, %1.title COLLATE NOCASE, %1.id");
     else { if (error) *error = QStringLiteral("Ordenação inválida."); return false; }
-    QSqlQuery count(database_);
-    if (!count.exec(QStringLiteral("SELECT COUNT(DISTINCT ") + groupExpression + QStringLiteral(") FROM games")) || !count.next()) {
-        if (error) *error = count.lastError().text();
-        return false;
+    // O total de grupos independe dos filtros e só muda após escritas, então sobrevive à paginação.
+    if (!(cache && cache->total(&output.total))) {
+        QSqlQuery count(database_);
+        if (!count.exec(QStringLiteral("SELECT COUNT(DISTINCT ") + groupExpression + QStringLiteral(") FROM games")) || !count.next()) {
+            if (error) *error = count.lastError().text();
+            return false;
+        }
+        output.total = count.value(0).toLongLong();
+        if (cache) cache->storeTotal(output.total);
     }
-    output.total = count.value(0).toLongLong();
     output.filtered = output.total;
     if (!conditions.isEmpty()) {
-        QSqlQuery filtered(database_);
-        if (!filtered.prepare(QStringLiteral("SELECT COUNT(DISTINCT ") + groupExpression + QStringLiteral(") FROM games") + where)) {
-            if (error) *error = filtered.lastError().text(); return false;
+        // A contagem filtrada também é reaproveitada ao trocar de página ou ordenação.
+        const QString cacheKey = GameCountCache::filterKey(filters);
+        if (!(cache && cache->filtered(cacheKey, &output.filtered))) {
+            QSqlQuery filtered(database_);
+            if (!filtered.prepare(QStringLiteral("SELECT COUNT(DISTINCT ") + groupExpression + QStringLiteral(") FROM games") + where)) {
+                if (error) *error = filtered.lastError().text(); return false;
+            }
+            for (const auto& parameter : parameters) filtered.addBindValue(parameter);
+            if (!filtered.exec() || !filtered.next()) { if (error) *error = filtered.lastError().text(); return false; }
+            output.filtered = filtered.value(0).toLongLong();
+            if (cache) cache->storeFiltered(cacheKey, output.filtered);
         }
-        for (const auto& parameter : parameters) filtered.addBindValue(parameter);
-        if (!filtered.exec() || !filtered.next()) { if (error) *error = filtered.lastError().text(); return false; }
-        output.filtered = filtered.value(0).toLongLong();
     }
     QSqlQuery query(database_);
     const QString sql = QStringLiteral(

@@ -5,14 +5,22 @@
 #include "db/dao/HardwareItemDao.h"
 #include "db/dao/HardwareItemPhotoDao.h"
 #include "db/dao/HardwareItemTypeDao.h"
+#include "db/ReadOnlyConnection.h"
+#include "jobs/JobManager.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
+#include <QElapsedTimer>
 #include <QImageReader>
 #include <QSqlDatabase>
 #include <QStringList>
 #include <QUuid>
+#include <QtConcurrentRun>
+#include <QDateTime>
+#include <QJsonObject>
+#include <stdexcept>
 
 namespace gamestock {
 namespace {
@@ -39,22 +47,49 @@ bool pathStartsWith(const QString& path, const QString& prefix) {
 }
 
 /** Cópia em streaming com destino aberto somente após validar a origem. */
-bool copyFile(const QString& source, const QString& destination) {
+bool copyFile(const QString& source, const QString& destination, JobWorker* worker = nullptr) {
     QFile input(source);
     if (!input.open(QIODevice::ReadOnly)) return false;
-    QFile output(destination);
-    if (!output.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+    // A foto só aparece no destino após a cópia completa e validada pelo QSaveFile.
+    QSaveFile output(destination);
+    if (!output.open(QIODevice::WriteOnly)) return false;
+    QElapsedTimer progressTimer;
+    progressTimer.start();
     constexpr qint64 chunk = 1024 * 1024;
     while (!input.atEnd()) {
+        if (worker && worker->isCancelled()) return false;
         const QByteArray bytes = input.read(chunk);
         if (bytes.isEmpty() && input.error() != QFileDevice::NoError) return false;
         if (output.write(bytes) != bytes.size()) return false;
+        if (worker && (progressTimer.elapsed() >= 100 || input.atEnd())) {
+            worker->reportProgress(QJsonObject{{"current", input.pos()}, {"total", input.size()},
+                {"stage", "copying"}, {"message", QStringLiteral("Copiando foto")}});
+            progressTimer.restart();
+        }
     }
-    return true;
+    if (worker && worker->isCancelled()) return false;
+    return output.commit();
 }
 } // namespace
 
-InventoryService::InventoryService(QObject* parent) : QObject(parent) {}
+InventoryService::InventoryService(QObject* parent) : QObject(parent) {
+    connect(&queryWatcher_, &QFutureWatcher<QueryResult>::finished, this, &InventoryService::finishAsyncQuery);
+}
+
+void InventoryService::setJobManager(JobManager* manager) {
+    if (jobManager_) disconnect(jobManager_, nullptr, this, nullptr);
+    jobManager_ = manager;
+    if (!manager) return;
+    connect(manager, &JobManager::jobFinished, this, [this](const QString& id, const QJsonObject& job) {
+        if (job.value(QStringLiteral("kind")).toString() != QLatin1String("inventory-photo")) return;
+        if (id == activePhotoJob_) activePhotoJob_.clear();
+        const qint64 itemId = job.value(QStringLiteral("itemId")).toVariant().toLongLong();
+        const bool success = job.value(QStringLiteral("status")).toString() == QLatin1String("completed");
+        if (success) reload();
+        else emit changed();
+        emit photoImportFinished(itemId, success, job.value(QStringLiteral("error")).toString());
+    });
+}
 
 bool InventoryService::open(const QString& databasePath, const QString& profileRoot, QString* error, bool lazyLoad) {
     QString localError;
@@ -65,6 +100,9 @@ bool InventoryService::open(const QString& databasePath, const QString& profileR
         return false;
     }
     profileRoot_ = profileRoot;
+    databasePath_ = databasePath;
+    // O modo interativo usa leitura assíncrona; chamadas diretas preservam o contrato síncrono.
+    asyncQueries_ = lazyLoad;
     if (mediaRoot_.isEmpty()) mediaRoot_ = profileRoot;
     open_ = true;
     // O modo interativo adia a carga; testes e chamadas diretas continuam recebendo tudo pronto.
@@ -81,6 +119,11 @@ void InventoryService::ensureLoaded() {
     if (!open_ || loaded_) return;
     // Marca antes das consultas para que sinais intermediários não repitam a carga.
     loaded_ = true;
+    if (asyncQueries_) {
+        auxiliaryDirty_ = true;
+        reload();
+        return;
+    }
     reloadTypes();
     reloadStates();
     reloadPlatforms();
@@ -148,6 +191,11 @@ void InventoryService::refresh() {
     if (!open_) return;
     // Qualquer mutação exige a carga completa, inclusive quando veio de uma aba ainda não aberta.
     loaded_ = true;
+    if (asyncQueries_) {
+        auxiliaryDirty_ = true;
+        reload();
+        return;
+    }
     reloadTypes();
     reloadStates();
     reloadPlatforms();
@@ -156,6 +204,15 @@ void InventoryService::refresh() {
 
 void InventoryService::reload() {
     if (!open_) return;
+    if (asyncQueries_) {
+        ++queryGeneration_;
+        queryPending_ = true;
+        // Uma nova consulta substitui o erro da tentativa anterior imediatamente.
+        error_.clear();
+        emit changed();
+        if (!queryRunning_) startAsyncQuery();
+        return;
+    }
     HardwareItemDao dao(connection_.database());
     HardwareItemFilters filters;
     filters.platformId = platformId_;
@@ -175,6 +232,79 @@ void InventoryService::reload() {
         emit changed();
         return;
     }
+    applyRows(std::move(rows), total, filtered);
+}
+
+void InventoryService::startAsyncQuery() {
+    queryRunning_ = true;
+    HardwareItemFilters filters;
+    filters.platformId = platformId_;
+    filters.itemTypeId = itemTypeId_;
+    filters.conservationStateId = conservationStateId_;
+    filters.search = search_;
+    filters.sortBy = sortBy_;
+    filters.page = page_;
+    filters.pageSize = pageSize_;
+    const QString path = databasePath_;
+    const quint64 generation = queryGeneration_;
+    const bool includeAuxiliary = auxiliaryDirty_;
+    // Capturas por valor evitam acesso ao serviço depois de sua destruição.
+    queryWatcher_.setFuture(QtConcurrent::run([path, filters, generation, includeAuxiliary] {
+        QueryResult result;
+        result.generation = generation;
+        ReadOnlyConnection connection;
+        if (!connection.open(path, &result.error)) return result;
+        HardwareItemDao dao(connection.database());
+        if (!dao.list(filters, &result.rows, &result.total, &result.filtered, &result.error)) return result;
+        if (includeAuxiliary) {
+            HardwareItemTypeDao types(connection.database());
+            HardwareConservationStateDao states(connection.database());
+            if (!types.list(&result.types, &result.error) || !types.listWithCounts(&result.typeCounts, &result.error)
+                || !states.list(&result.states, &result.error) || !states.listWithCounts(&result.stateCounts, &result.error)
+                || !dao.listPlatformsWithItems(&result.platforms, &result.error)) return result;
+            result.hasAuxiliary = true;
+        }
+        result.ok = true;
+        return result;
+    }));
+}
+
+void InventoryService::finishAsyncQuery() {
+    QueryResult result = queryWatcher_.result();
+    queryRunning_ = false;
+    if (result.generation != queryGeneration_) {
+        // Condensar alterações rápidas impede uma fila longa de consultas obsoletas.
+        startAsyncQuery();
+        return;
+    }
+    queryPending_ = false;
+    if (!result.ok) {
+        // Uma falha no filtro atual não deve exibir itens pertencentes à consulta anterior.
+        items_.clear();
+        model_.setItems({});
+        filtered_ = 0;
+        error_ = result.error;
+        emit changed();
+        return;
+    }
+    if (result.hasAuxiliary) {
+        const auto toVariants = [](const QList<QVariantMap>& source) {
+            QVariantList values;
+            values.reserve(source.size());
+            for (const QVariantMap& value : source) values.append(value);
+            return values;
+        };
+        types_ = toVariants(result.types);
+        typeCounts_ = toVariants(result.typeCounts);
+        states_ = toVariants(result.states);
+        stateCounts_ = toVariants(result.stateCounts);
+        platforms_ = toVariants(result.platforms);
+        auxiliaryDirty_ = false;
+    }
+    applyRows(std::move(result.rows), result.total, result.filtered);
+}
+
+void InventoryService::applyRows(QList<QVariantMap> rows, qint64 total, qint64 filtered) {
     // A decoração fica na fronteira do serviço: o QML nunca monta URLs de arquivo.
     for (QVariantMap& row : rows) decorate(&row);
     items_.clear();
@@ -349,6 +479,57 @@ QVariantList InventoryService::listPhotos(qint64 itemId) {
 }
 
 QVariantMap InventoryService::addPhoto(qint64 itemId, const QString& sourcePath) {
+    return addPhotoInternal(itemId, sourcePath, nullptr);
+}
+
+QString InventoryService::startPhotoImport(qint64 itemId, const QString& sourcePath) {
+    if (!open_ || !jobManager_) {
+        error_ = QStringLiteral("Importação de fotos indisponível.");
+        emit changed();
+        return {};
+    }
+    if (!activePhotoJob_.isEmpty()) {
+        error_ = QStringLiteral("Aguarde a importação da foto anterior.");
+        emit changed();
+        return {};
+    }
+    const QString id = QStringLiteral("inventory-photo-") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QJsonObject job{{"jobId", id}, {"kind", "inventory-photo"}, {"status", "running"},
+        {"title", QStringLiteral("Adicionando foto ao inventário")},
+        {"subtitle", QFileInfo(sourcePath).fileName()}, {"itemId", QJsonValue::fromVariant(itemId)},
+        {"startedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
+        {"progress", QJsonObject{{"current", 0}, {"total", 0}, {"stage", "preparing"}, {"message", QStringLiteral("Preparando foto")}}}};
+    const QString path = databasePath_;
+    const QString profile = profileRoot_;
+    const auto work = [path, profile, itemId, sourcePath](JobWorker* worker) {
+        if (worker->isCancelled()) return;
+        InventoryService service;
+        QString error;
+        if (!service.open(path, profile, &error, true)) throw std::runtime_error(error.toStdString());
+        // O serviço temporário vive inteiramente no worker e não inicia um segundo worker de leitura.
+        service.asyncQueries_ = false;
+        const QVariantMap photo = service.addPhotoInternal(itemId, sourcePath, worker);
+        if (photo.isEmpty()) {
+            if (worker->isCancelled()) return;
+            throw std::runtime_error(service.error().toStdString());
+        }
+        // Após a gravação, um cancelamento tardio não pode relatar falha para uma foto persistida.
+        worker->setCommittedResult(QJsonObject{{"itemId", QJsonValue::fromVariant(itemId)},
+            {"photoId", QJsonValue::fromVariant(photo.value(QStringLiteral("id")))}});
+    };
+    QString error;
+    if (!jobManager_->start(job, work, &error)) {
+        error_ = error;
+        emit changed();
+        return {};
+    }
+    activePhotoJob_ = id;
+    error_.clear();
+    emit changed();
+    return id;
+}
+
+QVariantMap InventoryService::addPhotoInternal(qint64 itemId, const QString& sourcePath, JobWorker* worker) {
     if (!open_) {
         error_ = QStringLiteral("Banco do inventário indisponível.");
         emit changed();
@@ -380,10 +561,15 @@ QVariantMap InventoryService::addPhoto(qint64 itemId, const QString& sourcePath)
     }
     const QString destPath = QDir(destDir).filePath(
         QUuid::createUuid().toString(QUuid::WithoutBraces) + QLatin1Char('.') + source.suffix().toLower());
-    if (!copyFile(source.absoluteFilePath(), destPath)) {
+    if (!copyFile(source.absoluteFilePath(), destPath, worker)) {
         QFile::remove(destPath);
-        error_ = QStringLiteral("Não foi possível copiar a foto.");
+        error_ = worker && worker->isCancelled() ? QStringLiteral("Importação cancelada.") : QStringLiteral("Não foi possível copiar a foto.");
         emit changed();
+        return {};
+    }
+    if (worker && worker->isCancelled()) {
+        QFile::remove(destPath);
+        error_ = QStringLiteral("Importação cancelada.");
         return {};
     }
     HardwareItemPhotoDao dao(connection_.database());
@@ -396,9 +582,9 @@ QVariantMap InventoryService::addPhoto(qint64 itemId, const QString& sourcePath)
     }
     QVariantMap photo;
     if (!dao.get(photoId, &photo, &error)) {
-        error_ = error;
-        emit changed();
-        return {};
+        // A inserção já foi confirmada: não informar falha após persistir a foto.
+        photo = {{QStringLiteral("id"), photoId}, {QStringLiteral("item_id"), itemId},
+            {QStringLiteral("file_path"), destPath}};
     }
     decorate(&photo);
     photo.insert(QStringLiteral("fileUrl"), mediaUrl(destPath));
@@ -463,17 +649,15 @@ QVariantMap InventoryService::createType(const QString& name) {
         emit changed();
         return {};
     }
-    reloadTypes();
-    QList<QVariantMap> types;
-    if (!dao.list(&types, &error)) {
+    if (asyncQueries_) { auxiliaryDirty_ = true; reload(); }
+    else reloadTypes();
+    QVariantMap type;
+    if (!dao.get(id, &type, &error)) {
         error_ = error;
         emit changed();
         return {};
     }
-    for (const QVariantMap& type : types) {
-        if (type.value(QStringLiteral("id")).toLongLong() == id) return type;
-    }
-    return {};
+    return type;
 }
 
 QVariantMap InventoryService::createState(const QString& name) {
@@ -490,17 +674,15 @@ QVariantMap InventoryService::createState(const QString& name) {
         emit changed();
         return {};
     }
-    reloadStates();
-    QList<QVariantMap> states;
-    if (!dao.list(&states, &error)) {
+    if (asyncQueries_) { auxiliaryDirty_ = true; reload(); }
+    else reloadStates();
+    QVariantMap state;
+    if (!dao.get(id, &state, &error)) {
         error_ = error;
         emit changed();
         return {};
     }
-    for (const QVariantMap& state : states) {
-        if (state.value(QStringLiteral("id")).toLongLong() == id) return state;
-    }
-    return {};
+    return state;
 }
 
 bool InventoryService::removeType(qint64 id) {
@@ -539,6 +721,7 @@ bool InventoryService::removeState(qint64 id) {
 
 QVariantList InventoryService::platformsWithItems() {
     if (!open_) return platforms_;
+    if (asyncQueries_) { if (!loaded_) ensureLoaded(); return platforms_; }
     reloadPlatforms();
     return platforms_;
 }

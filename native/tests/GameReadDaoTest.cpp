@@ -140,6 +140,67 @@ private slots:
         QSqlDatabase::removeDatabase("sidebar-counts-test");
     }
 
+    /** Contagens são reutilizadas entre páginas e só mudam quando a geração avança. */
+    void countCacheReuseAndInvalidation() {
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "count-cache-test");
+            db.setDatabaseName(":memory:");
+            QVERIFY(db.open());
+            QSqlQuery query(db);
+            QVERIFY(query.exec("CREATE TABLE platforms (id INTEGER PRIMARY KEY, name TEXT)"));
+            QVERIFY(query.exec("CREATE TABLE games (id INTEGER PRIMARY KEY, title TEXT, title_normalized TEXT, platform_id INTEGER, "
+                "rom_path TEXT, library_group_key TEXT, genre TEXT, favorite INTEGER DEFAULT 0, "
+                "play_status TEXT DEFAULT 'unplayed', launch_count INTEGER DEFAULT 0, box_art_path TEXT, "
+                "year INTEGER, created_at TEXT)"));
+            QVERIFY(query.exec("INSERT INTO platforms VALUES (1, 'Console'), (2, 'Outro')"));
+            QVERIFY(query.exec("INSERT INTO games (id,title,title_normalized,platform_id,rom_path,library_group_key,favorite) VALUES "
+                "(1,'Alpha','alpha',1,'a.rom','alpha',1),"
+                "(2,'Alpha','alpha',1,'b.rom','alpha',0),"
+                "(3,'Beta','beta',1,NULL,NULL,0),"
+                "(4,'Gama','gama',2,'g.rom','gama',0)"));
+            gamestock::GameReadDao dao(db);
+            gamestock::GameCountCache cache;
+            cache.setGeneration(7);
+            gamestock::GamePage page;
+            gamestock::GameListFilters filters;
+            filters.collection = "favorites";
+            QString error;
+            QVERIFY2(dao.list(1, 36, &page, &error, filters, &cache), qPrintable(error));
+            QCOMPARE(page.total, static_cast<qint64>(3));
+            QCOMPARE(page.filtered, static_cast<qint64>(1));
+
+            // Escrita fora do DAO sem nova geração mantém as contagens antigas (cache em uso).
+            QVERIFY(query.exec("INSERT INTO games (id,title,title_normalized,platform_id) VALUES (5,'Delta','delta',1)"));
+            QVERIFY2(dao.list(2, 36, &page, &error, filters, &cache), qPrintable(error));
+            QCOMPARE(page.total, static_cast<qint64>(3));
+            QCOMPARE(page.filtered, static_cast<qint64>(1));
+
+            // A geração nova descarta totais e combinações filtradas.
+            cache.setGeneration(8);
+            QVERIFY2(dao.list(1, 36, &page, &error, filters, &cache), qPrintable(error));
+            QCOMPARE(page.total, static_cast<qint64>(4));
+            QCOMPARE(page.filtered, static_cast<qint64>(1));
+
+            gamestock::GameReadDao::SidebarCounts counts;
+            QVERIFY2(dao.sidebarCounts(filters, &counts, &error, &cache), qPrintable(error));
+            QCOMPARE(counts.all, static_cast<qint64>(4));
+            QVERIFY(query.exec("UPDATE games SET favorite = 1 WHERE id = 5"));
+            QVERIFY2(dao.sidebarCounts(filters, &counts, &error, &cache), qPrintable(error));
+            QCOMPARE(counts.collections.favorites, static_cast<qint64>(1));
+            cache.setGeneration(9);
+            QVERIFY2(dao.sidebarCounts(filters, &counts, &error, &cache), qPrintable(error));
+            QCOMPARE(counts.collections.favorites, static_cast<qint64>(2));
+
+            // Combinar mesma coleção com outro gênero não deve reutilizar a contagem anterior.
+            gamestock::GameListFilters other = filters;
+            other.genre = "Ação";
+            QVERIFY2(dao.list(1, 36, &page, &error, other, &cache), qPrintable(error));
+            QCOMPARE(page.filtered, static_cast<qint64>(0));
+            QVERIFY(gamestock::GameCountCache::filterKey(filters) != gamestock::GameCountCache::filterKey(other));
+        }
+        QSqlDatabase::removeDatabase("count-cache-test");
+    }
+
     /** Seletor de versões agrupa pela chave visual, rotula região/tipo e ordena por partidas. */
     void versionsByGroupKey() {
         {

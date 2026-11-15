@@ -277,7 +277,9 @@ QVariantMap MetadataService::search(const QString& query, const QString& platfor
                 }
                 options.restrictPlatforms = true;
             }
-            const QList<QVariantMap> found = searchLaunchBoxIndex(index, options);
+            // O cache mantém a visão normalizada do índice entre buscas da mesma sessão.
+            QList<QVariantMap> found;
+            if (!cache->search(options, &found, &error)) throw std::runtime_error(error.toStdString());
             QVariantList results;
             for (const QVariantMap& game : found) results.append(game);
             worker->setResult(QJsonObject{{QStringLiteral("results"), QJsonValue::fromVariant(results)}});

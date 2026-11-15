@@ -7,14 +7,21 @@
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QFutureWatcher>
+#include <QPointer>
 
 namespace gamestock {
+class JobManager;
+class JobWorker;
 /** Uma conexão por instância; a UI conversa apenas com propriedades e slots. */
 class InventoryService final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QAbstractItemModel* model READ model CONSTANT)
     Q_PROPERTY(QVariantList items READ items NOTIFY changed)
     Q_PROPERTY(bool available READ available NOTIFY changed)
+    /** Indica consulta pendente, inclusive quando um filtro mais recente aguarda o worker. */
+    Q_PROPERTY(bool queryPending READ queryPending NOTIFY changed)
+    Q_PROPERTY(bool photoImporting READ photoImporting NOTIFY changed)
     Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
     Q_PROPERTY(QString sortBy READ sortBy WRITE setSortBy NOTIFY changed)
     Q_PROPERTY(qint64 itemTypeId READ itemTypeId WRITE setItemTypeId NOTIFY changed)
@@ -37,10 +44,14 @@ public:
     bool open(const QString& databasePath, const QString& profileRoot, QString* error = nullptr, bool lazyLoad = false);
     bool isOpen() const;
     void setMediaRoot(const QString& path) { mediaRoot_ = path; }
+    /** Usa o registro compartilhado para a cópia de fotos em segundo plano. */
+    void setJobManager(JobManager* manager);
 
     QAbstractItemModel* model();
     QVariantList items() const { return items_; }
     bool available() const { return open_; }
+    bool queryPending() const { return queryPending_; }
+    bool photoImporting() const { return !activePhotoJob_.isEmpty(); }
     QString search() const { return search_; }
     QString sortBy() const { return sortBy_; }
     qint64 itemTypeId() const { return itemTypeId_; }
@@ -83,6 +94,8 @@ public slots:
     QVariantList listPhotos(qint64 itemId);
     /** Valida e copia uma imagem para `inventario/images/<item_id>/`. */
     QVariantMap addPhoto(qint64 itemId, const QString& sourcePath);
+    /** Inicia cópia cancelável; retorna o identificador do job ou vazio em erro. */
+    QString startPhotoImport(qint64 itemId, const QString& sourcePath);
     /** Remove registro e arquivo físico da foto. */
     bool removePhoto(qint64 photoId);
     /** Troca a ordem de duas fotos do mesmo item. */
@@ -101,10 +114,27 @@ public slots:
 
 signals:
     void changed();
+    /** Informa a conclusão da importação para atualizar a galeria aberta. */
+    void photoImportFinished(qint64 itemId, bool success, const QString& error);
 
 private:
+    struct QueryResult {
+        quint64 generation = 0;
+        QList<QVariantMap> rows;
+        QList<QVariantMap> types, typeCounts, states, stateCounts, platforms;
+        qint64 total = 0;
+        qint64 filtered = 0;
+        QString error;
+        bool ok = false;
+        bool hasAuxiliary = false;
+    };
     /** Aplica a consulta paginada atual e publica itens/modelo. */
     void reload();
+    /** Inicia a última consulta, criando a conexão somente leitura no worker. */
+    void startAsyncQuery();
+    /** Publica somente resultados correspondentes aos filtros mais recentes. */
+    void finishAsyncQuery();
+    void applyRows(QList<QVariantMap> rows, qint64 total, qint64 filtered);
     void reloadTypes();
     void reloadStates();
     void reloadPlatforms();
@@ -112,6 +142,7 @@ private:
     static void decorate(QVariantMap* item);
     /** Verifica assinatura JPEG/PNG/WebP antes de copiar para o perfil. */
     static bool isSupportedImage(const QString& path);
+    QVariantMap addPhotoInternal(qint64 itemId, const QString& sourcePath, JobWorker* worker);
     /** Caminho canônico de arquivo de foto dentro de `inventario/images`, ou vazio. */
     QString authorizedPhotoPath(const QString& path) const;
 
@@ -125,6 +156,9 @@ private:
     QVariantList platforms_;
     QString mediaRoot_;
     QString profileRoot_;
+    QString databasePath_;
+    QPointer<JobManager> jobManager_;
+    QString activePhotoJob_;
     QString search_;
     QString sortBy_ = QStringLiteral("name");
     qint64 itemTypeId_ = 0;
@@ -138,5 +172,11 @@ private:
     bool open_ = false;
     // Diferencia a conexão aberta da primeira carga pesada do inventário.
     bool loaded_ = false;
+    bool asyncQueries_ = false;
+    bool queryPending_ = false;
+    bool queryRunning_ = false;
+    bool auxiliaryDirty_ = false;
+    quint64 queryGeneration_ = 0;
+    QFutureWatcher<QueryResult> queryWatcher_;
 };
 } // namespace gamestock

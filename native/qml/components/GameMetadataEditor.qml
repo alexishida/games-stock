@@ -104,6 +104,7 @@ DragDialog {
                             {label: "SCREENSHOT", value: editor.game.screenshot_path ? "Associado" : "Não associado"}
                         ]
                         delegate: Rectangle {
+                            id: metadataInfo
                             required property var modelData
                             Layout.fillWidth: true
                             implicitHeight: 54
@@ -114,8 +115,8 @@ DragDialog {
                                 anchors.fill: parent
                                 anchors.margins: 9
                                 spacing: 1
-                                UiText { text: modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold }
-                                UiText { text: modelData.value; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                UiText { text: metadataInfo.modelData.label; color: Theme.muted; font.pixelSize: 12; textWeight: Font.ExtraBold }
+                                UiText { text: metadataInfo.modelData.value; color: Theme.text; font.pixelSize: 12; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                             }
                         }
                     }

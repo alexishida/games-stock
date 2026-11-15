@@ -4,6 +4,7 @@ A versão é lida do projeto para manter os dois artefatos alinhados ao CMake.
 Uso: powershell -ExecutionPolicy Bypass -File scripts/native-release.ps1
 Use -CompileJobs 8 para ajustar o paralelismo conforme a memória disponível.
 Use -BuildOnly para compilar sem gerar instalador/ZIP durante o desenvolvimento.
+Use -PackageFormat Installer ou Portable para gerar apenas um formato.
 #>
 param(
     [string]$OutputDirectory = "",
@@ -11,7 +12,11 @@ param(
     [ValidateRange(1, 64)]
     [int]$CompileJobs = [Math]::Min(4, [Environment]::ProcessorCount),
     [switch]$BuildOnly,
-    [switch]$Reconfigure
+    [switch]$Reconfigure,
+    [ValidateSet('Both', 'Installer', 'Portable')]
+    [string]$PackageFormat = 'Both',
+    [ValidateSet('LZMA', 'Zlib')]
+    [string]$InstallerCompression = 'LZMA'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -81,10 +86,10 @@ if ($BuildOnly) {
 $installerScript = Join-Path $PSScriptRoot 'native-installer.ps1'
 $phaseTimer.Restart()
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installerScript `
-    -Version $version -OutputDirectory $OutputDirectory
+    -Version $version -OutputDirectory $OutputDirectory -PackageFormat $PackageFormat -InstallerCompression $InstallerCompression
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar os pacotes do GameStock.' }
 Write-Host ("Empacotamento: {0:N1} s; total: {1:N1} s" -f $phaseTimer.Elapsed.TotalSeconds, $totalTimer.Elapsed.TotalSeconds)
 
 Write-Host "Release local concluído em $OutputDirectory"
-Write-Host "  GameStock-$version-Setup.exe"
-Write-Host "  GameStock-$version-Portable.zip"
+if ($PackageFormat -ne 'Portable') { Write-Host "  GameStock-$version-Setup.exe" }
+if ($PackageFormat -ne 'Installer') { Write-Host "  GameStock-$version-Portable.zip" }

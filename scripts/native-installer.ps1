@@ -4,17 +4,22 @@ Não publica nada; os artefatos ficam em release/windows.
 Uso:
   powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1
   powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1 -Version 1.1.4 -SkipDeploy
+  powershell -ExecutionPolicy Bypass -File scripts/native-installer.ps1 -PackageFormat Portable
 #>
 param(
     [string]$Version = "",
     [string]$OutputDirectory = "",
-    [switch]$SkipDeploy
+    [switch]$SkipDeploy,
+    [ValidateSet('Both', 'Installer', 'Portable')]
+    [string]$PackageFormat = 'Both',
+    [ValidateSet('LZMA', 'Zlib')]
+    [string]$InstallerCompression = 'LZMA'
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $nsis = Join-Path $root '.native-tools/nsis-3.11/makensis.exe'
-if (-not (Test-Path -LiteralPath $nsis)) { throw "NSIS não encontrado em $nsis." }
+if ($PackageFormat -ne 'Portable' -and -not (Test-Path -LiteralPath $nsis)) { throw "NSIS não encontrado em $nsis." }
 
 if (-not $Version) {
     $cmakeFile = Get-Content -LiteralPath (Join-Path $root 'native/CMakeLists.txt') -Raw
@@ -22,6 +27,9 @@ if (-not $Version) {
 }
 if (-not $Version) { throw 'Informe -Version.' }
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root 'release/windows' }
+# O NSIS interpreta caminhos relativos a partir do script temporário; use caminho absoluto.
+if (-not [System.IO.Path]::IsPathRooted($OutputDirectory)) { $OutputDirectory = Join-Path $root $OutputDirectory }
+$OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
 $appSource = Join-Path $root 'native/build/package-staging/windows'
@@ -43,6 +51,8 @@ if (Test-Path -LiteralPath $nativeExe) {
 # O build instalado não deve carregar o marcador portátil do deploy.
 Remove-Item -LiteralPath (Join-Path $appSource 'portable.marker') -ErrorAction SilentlyContinue
 
+if ($PackageFormat -ne 'Portable') {
+$installerTimer = [System.Diagnostics.Stopwatch]::StartNew()
 $outFile = Join-Path $OutputDirectory "GameStock-$Version-Setup.exe"
 $scriptPath = Join-Path $OutputDirectory 'gamestock-installer.nsi'
 $content = @'
@@ -127,11 +137,18 @@ $content = $content
 $iconPath = Join-Path $root 'native/assets/gamestock.ico'
 if (-not (Test-Path -LiteralPath $iconPath)) { throw "Ícone do aplicativo não encontrado: $iconPath" }
 $content = $content.Replace('__GAMESTOCK_ICON__', $iconPath)
+# LZMA sólido continua sendo o padrão publicado; zlib permite comparar tempo e tamanho.
+if ($InstallerCompression -eq 'Zlib') { $content = $content.Replace('SetCompressor /SOLID lzma', 'SetCompressor zlib') }
 Set-Content -LiteralPath $scriptPath -Value $content -Encoding utf8
 
 & $nsis /V2 "/DAPP_VERSION=$Version" "/DSOURCE_DIR=$appSource" "/DOUT_FILE=$outFile" $scriptPath
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar o instalador NSIS.' }
+Get-FileHash -LiteralPath $outFile -Algorithm SHA256 | ForEach-Object { "instalador: $outFile`nsha256: $($_.Hash)" }
+Write-Host ("Instalador ({0}): {1:N1} s; {2} bytes" -f $InstallerCompression, $installerTimer.Elapsed.TotalSeconds, (Get-Item -LiteralPath $outFile).Length)
+}
 
+if ($PackageFormat -ne 'Installer') {
+$portableTimer = [System.Diagnostics.Stopwatch]::StartNew()
 $portableZip = Join-Path $OutputDirectory "GameStock-$Version-Portable.zip"
 # Portátil e instalador usam a mesma build; o marcador impede auto-update no portátil.
 $portableSource = Join-Path $root 'release/windows-portable'
@@ -143,5 +160,6 @@ Set-Content -LiteralPath (Join-Path $portableSource 'portable.marker') -Value 'p
 Remove-Item -LiteralPath (Join-Path $portableSource 'install.marker') -ErrorAction SilentlyContinue
 Compress-Archive -Path (Join-Path $portableSource '*') -DestinationPath $portableZip -Force
 
-Get-FileHash -LiteralPath $outFile -Algorithm SHA256 | ForEach-Object { "instalador: $outFile`nsha256: $($_.Hash)" }
-if (Test-Path -LiteralPath $portableZip) { Get-FileHash -LiteralPath $portableZip -Algorithm SHA256 | ForEach-Object { "portátil: $portableZip`nsha256: $($_.Hash)" } }
+Get-FileHash -LiteralPath $portableZip -Algorithm SHA256 | ForEach-Object { "portátil: $portableZip`nsha256: $($_.Hash)" }
+Write-Host ("Portátil (ZIP): {0:N1} s; {1} bytes" -f $portableTimer.Elapsed.TotalSeconds, (Get-Item -LiteralPath $portableZip).Length)
+}

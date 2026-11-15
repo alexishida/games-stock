@@ -3,6 +3,7 @@
 
 #include <QJsonArray>
 #include <QRegularExpression>
+#include <QSet>
 
 #include <algorithm>
 
@@ -25,57 +26,89 @@ QString normalizeLaunchBoxSearchText(const QString& value) {
     return normalized.trimmed().replace(spaces, QStringLiteral(" "));
 }
 
-QList<QVariantMap> searchLaunchBoxIndex(const QJsonObject& index, const LaunchBoxSearchOptions& options) {
+LaunchBoxSearchIndex::LaunchBoxSearchIndex(const QJsonObject& index) {
+    entries_.reserve(index.size());
+    // A ordem de inserção do QJsonObject substitui a varredura original a cada busca.
+    for (auto iterator = index.constBegin(); iterator != index.constEnd(); ++iterator) {
+        const QJsonObject game = iterator.value().toObject();
+        Entry entry;
+        entry.game = game;
+        entry.title = game.value(QStringLiteral("name")).toString();
+        entry.name = normalizeLaunchBoxSearchText(entry.title);
+        for (const auto& alias : game.value(QStringLiteral("alternateNames")).toArray()) {
+            const QString normalized = normalizeLaunchBoxSearchText(alias.toString());
+            if (!normalized.isEmpty()) entry.aliases.append(normalized);
+        }
+        entry.sequence = entries_.size();
+        const QString platform = normalizeLaunchBoxSearchText(
+            game.value(QStringLiteral("platform")).toString());
+        entries_.append(entry);
+        // Agrupar por plataforma é o que permite recusar o resto do catálogo sem normalizar.
+        byPlatform_[platform].append(entry.sequence);
+    }
+}
+
+QList<QVariantMap> LaunchBoxSearchIndex::search(const LaunchBoxSearchOptions& options) const {
     const QString query = normalizeLaunchBoxSearchText(options.query);
     if (query.isEmpty()) return {};
-    QStringList allowed;
+
+    // Plataformas permitidas viram consultas diretas ao mapa, sem comparar cada jogo do catálogo.
+    QSet<QString> allowed;
     if (options.restrictPlatforms) {
         for (const QString& platform : options.allowedPlatforms) {
             const QString normalized = normalizeLaunchBoxSearchText(platform);
-            if (!normalized.isEmpty() && !allowed.contains(normalized)) allowed.append(normalized);
+            if (!normalized.isEmpty()) allowed.insert(normalized);
         }
         if (allowed.isEmpty()) return {};
     }
 
-    struct Match {
-        QJsonObject game;
-        QString title;
-    };
-    QList<Match> exact;
-    QList<Match> partial;
-    for (auto iterator = index.constBegin(); iterator != index.constEnd(); ++iterator) {
-        const QJsonObject game = iterator.value().toObject();
-        // Recusa outras plataformas antes de normalizar títulos ou percorrer aliases.
-        if (options.restrictPlatforms && !allowed.contains(normalizeLaunchBoxSearchText(
-                game.value(QStringLiteral("platform")).toString()))) continue;
-        const QString title = game.value(QStringLiteral("name")).toString();
-        const QString name = normalizeLaunchBoxSearchText(title);
-        bool isExact = name == query;
-        bool isPartial = name.contains(query);
+    // Os candidatos apontam para entradas estáveis; a ordenação usa a posição original.
+    QList<const Entry*> candidates;
+    if (options.restrictPlatforms) {
+        for (const QString& platform : allowed) {
+            for (const qsizetype position : byPlatform_.value(platform)) candidates.append(&entries_.at(position));
+        }
+    } else {
+        candidates.reserve(entries_.size());
+        for (const Entry& entry : entries_) candidates.append(&entry);
+    }
+
+    QList<const Entry*> exact;
+    QList<const Entry*> partial;
+    for (const Entry* entry : candidates) {
+        // Reproduz a regra anterior: nome exato interrompe aliases; caso contrário aliases ampliam.
+        bool isExact = entry->name == query;
+        bool isPartial = entry->name.contains(query);
         if (!isExact) {
-            for (const auto& alias : game.value(QStringLiteral("alternateNames")).toArray()) {
-                const QString normalized = normalizeLaunchBoxSearchText(alias.toString());
-                if (normalized == query) { isExact = true; break; }
-                if (normalized.contains(query)) isPartial = true;
+            for (const QString& alias : entry->aliases) {
+                if (alias == query) { isExact = true; break; }
+                if (alias.contains(query)) isPartial = true;
             }
         }
-        if (isExact) exact.append({game, title});
-        else if (isPartial) partial.append({game, title});
+        if (isExact) exact.append(entry);
+        else if (isPartial) partial.append(entry);
     }
-    const auto byTitle = [](const Match& left, const Match& right) {
-        return QString::localeAwareCompare(left.title, right.title) < 0;
+    const auto byTitle = [](const Entry* left, const Entry* right) {
+        const int comparison = QString::localeAwareCompare(left->title, right->title);
+        // Desempate pela posição original conserva a ordenação estável anterior.
+        return comparison == 0 ? left->sequence < right->sequence : comparison < 0;
     };
-    // Ordena somente correspondências; as imagens viram QVariant apenas para os itens retornados.
-    std::stable_sort(exact.begin(), exact.end(), byTitle);
-    std::stable_sort(partial.begin(), partial.end(), byTitle);
     const int limit = qMax(1, options.limit);
     QList<QVariantMap> result;
-    for (const auto& matches : {exact, partial}) {
-        for (const auto& match : matches) {
-            if (result.size() >= limit) return result;
-            result.append(match.game.toVariantMap());
+    // Ordenar somente os primeiros resultados evita ordenar todo o catálogo em buscas amplas.
+    for (QList<const Entry*>* matches : {&exact, &partial}) {
+        const qsizetype count = qMin(static_cast<qsizetype>(limit) - result.size(), matches->size());
+        if (count <= 0) continue;
+        std::partial_sort(matches->begin(), matches->begin() + count, matches->end(), byTitle);
+        for (qsizetype position = 0; position < count; ++position) {
+            result.append(matches->at(position)->game.toVariantMap());
         }
     }
     return result;
+}
+
+QList<QVariantMap> searchLaunchBoxIndex(const QJsonObject& index, const LaunchBoxSearchOptions& options) {
+    // Chamada única (testes e fluxos de matching): a visão preparada evita duplicar a regra.
+    return LaunchBoxSearchIndex(index).search(options);
 }
 } // namespace gamestock

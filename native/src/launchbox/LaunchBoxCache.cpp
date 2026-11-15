@@ -2,6 +2,7 @@
 #include "LaunchBoxCache.h"
 
 #include "app/RomLaunchExtraction.h"
+#include "launchbox/LaunchBoxSearch.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -115,6 +116,26 @@ QJsonObject LaunchBoxCache::cachedIndex() const {
 void LaunchBoxCache::invalidateIndex() {
     QFile::remove(indexFile());
     memoryIndex_ = QJsonObject{};
+    // A visão preparada referencia o índice antigo; liberá-la evita manter catálogo obsoleto.
+    searchIndex_.reset();
+}
+
+bool LaunchBoxCache::search(const LaunchBoxSearchOptions& options, QList<QVariantMap>* result,
+    QString* error) {
+    if (!result) {
+        if (error) *error = QStringLiteral("Destino da busca ausente.");
+        return false;
+    }
+    QMutexLocker locker(&mutex_);
+    if (memoryIndex_.isEmpty()) {
+        if (error) *error = QStringLiteral("Índice LaunchBox indisponível.");
+        return false;
+    }
+    // A preparação normaliza o catálogo inteiro; ela acontece uma vez por versão do índice.
+    if (!searchIndex_) searchIndex_ = std::make_shared<LaunchBoxSearchIndex>(memoryIndex_);
+    *result = searchIndex_->search(options);
+    if (error) error->clear();
+    return true;
 }
 
 LaunchBoxCache::Result LaunchBoxCache::ensureMetadata(bool force,
@@ -302,6 +323,8 @@ bool LaunchBoxCache::buildIndex(QJsonObject* index, QString* error,
         QJsonObject cached;
         QString ignored;
         if (loadIndex(indexFile(), &cached, &ignored)) {
+            // Índice novo em memória invalida a visão preparada de uma sessão anterior.
+            searchIndex_.reset();
             memoryIndex_ = cached;
             *index = cached;
             if (error) error->clear();
@@ -324,6 +347,7 @@ bool LaunchBoxCache::buildIndex(QJsonObject* index, QString* error,
         if (error) *error = saveError;
         return false;
     }
+    searchIndex_.reset();
     memoryIndex_ = built;
     *index = built;
     if (error) error->clear();

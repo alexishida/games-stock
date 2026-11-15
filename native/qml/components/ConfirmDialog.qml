@@ -1,8 +1,8 @@
 /* Textos pequenos ampliados para manter a leitura em toda a interface. */
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Confirmação interna reutilizada por exclusões e ações destrutivas. */
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."

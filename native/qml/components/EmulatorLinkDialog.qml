@@ -4,7 +4,6 @@
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Vincula um emulador a uma plataforma, com core opcional para RetroArch. */
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."

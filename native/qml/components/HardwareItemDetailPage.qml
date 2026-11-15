@@ -237,6 +237,7 @@ Item {
                                     ? [detail.item.platform_name, detail.item.item_type_name, detail.item.conservation_state_name].filter(function(value) { return String(value || "").length > 0 })
                                     : []
                                 delegate: Rectangle {
+                                    id: detailChip
                                     required property var modelData
                                     width: chipText.implicitWidth + 18
                                     height: 22
@@ -246,7 +247,7 @@ Item {
                                     UiText {
                                         id: chipText
                                         anchors.centerIn: parent
-                                        text: String(modelData || "").toUpperCase()
+                                        text: String(detailChip.modelData || "").toUpperCase()
                                         color: Theme.accent
                                         font.pixelSize: 12
                                         textWeight: Font.Black

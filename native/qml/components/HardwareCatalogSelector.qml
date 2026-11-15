@@ -3,7 +3,6 @@
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Seletor de tipo/estado com criação inline, como os seletores do formulário Electron. */
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 

@@ -3,6 +3,7 @@
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Hierarquia das introducoes segue SectionIntro.css do Electron. */
 /* Painel de importação de ROMs por pasta com revisão e histórico persistido. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
@@ -146,8 +147,8 @@ Item {
         }
         UiText {
             objectName: "romFolderError"
-            visible: errorText.length > 0
-            text: errorText
+            visible: root.errorText.length > 0
+            text: root.errorText
             color: "#ffb4ab"
             font.pixelSize: 13
             wrapMode: Text.WordWrap
@@ -192,59 +193,60 @@ Item {
                     WheelScrollSpeed {}
                     model: root.folders
                     delegate: Rectangle {
+                        id: folderRow
                         required property var modelData
                         required property int index
-                        objectName: "romFolderRow" + index
+                        objectName: "romFolderRow" + folderRow.index
                         width: folderList.width - (folderScrollBar.visible ? folderScrollBar.width + 8 : 0)
                         height: 40
                         radius: 6
-                        color: root.selectedIndex === index ? Theme.accentSoft : (rowArea.containsMouse ? Theme.controlHover : "transparent")
+                        color: root.selectedIndex === folderRow.index ? Theme.accentSoft : (rowArea.containsMouse ? Theme.controlHover : "transparent")
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 8
                             anchors.rightMargin: 8
                             spacing: 12
                             UiText {
-                                text: modelData.folderPath
+                                text: folderRow.modelData.folderPath
                                 color: Theme.text; font.pixelSize: 13
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 80
                             }
                             UiText {
-                                text: modelData.platformName ? modelData.platformName : "—"
+                                text: folderRow.modelData.platformName ? folderRow.modelData.platformName : "—"
                                 color: Theme.secondary; font.pixelSize: 13
                                 Layout.preferredWidth: 180
                                 elide: Text.ElideRight
                             }
                             UiText {
-                                text: modelData.indexedCount !== undefined ? modelData.indexedCount : 0
+                                text: folderRow.modelData.indexedCount !== undefined ? folderRow.modelData.indexedCount : 0
                                 color: Theme.accent; font.pixelSize: 13; textWeight: Font.DemiBold
                                 Layout.preferredWidth: 72
                             }
                             UiText {
-                                visible: modelData.includeSubfolders === true
+                                visible: folderRow.modelData.includeSubfolders === true
                                 text: "subpastas"
                                 color: Theme.muted; font.pixelSize: 12
                             }
                             Item { Layout.fillWidth: true }
                             ActionButton {
-                                objectName: "continueFolder" + index
+                                objectName: "continueFolder" + folderRow.index
                                 iconName: "refresh-cw"
                                 toolbar: true
                                 Accessible.name: "Importar ou atualizar pasta"
                                 enabled: root.serviceMode && !root.busy
-                                onClicked: root.continueFolder(modelData)
+                                onClicked: root.continueFolder(folderRow.modelData)
                             }
                             ActionButton {
-                                objectName: "removeFolder" + index
+                                objectName: "removeFolder" + folderRow.index
                                 iconName: "trash-2-danger"
                                 dangerOutline: true
                                 implicitWidth: 28
                                 implicitHeight: 28
                                 Accessible.name: "Remover pasta"
                                 enabled: root.serviceMode && !root.busy
-                                onClicked: { root.selectedIndex = index; root.deleteOpen = true; deleteDialog.open() }
+                                onClicked: { root.selectedIndex = folderRow.index; root.deleteOpen = true; deleteDialog.open() }
                             }
                         }
                         MouseArea {
@@ -252,7 +254,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             acceptedButtons: Qt.LeftButton
-                            onClicked: root.selectedIndex = index
+                            onClicked: root.selectedIndex = folderRow.index
                             z: -1
                         }
                     }
@@ -275,10 +277,10 @@ Item {
             text: "Adicionar Pasta"
             iconName: "folder-open"
             accentOutline: true
-            enabled: serviceMode && !busy
+            enabled: root.serviceMode && !root.busy
             onClicked: {
-                resetWizard()
-                addOpen = true
+                root.resetWizard()
+                root.addOpen = true
                 addDialog.open()
             }
         }
@@ -408,6 +410,7 @@ Item {
                             ? (root.reviewView === "candidates" ? root.scanResult.candidates : root.scanResult.ignoredItems)
                             : []
                         delegate: Rectangle {
+                            id: reviewRow
                             required property var modelData
                             width: reviewList.width - 14
                             height: 40
@@ -419,15 +422,15 @@ Item {
                                 anchors.rightMargin: 8
                                 spacing: 8
                                 UiText {
-                                    text: modelData.filename
+                                    text: reviewRow.modelData.filename
                                     color: Theme.text; font.pixelSize: 13
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
                                 UiText {
                                     text: root.reviewView === "candidates"
-                                        ? (modelData.platformName || "")
-                                        : (modelData.reason || "")
+                                        ? (reviewRow.modelData.platformName || "")
+                                        : (reviewRow.modelData.reason || "")
                                     color: root.reviewView === "candidates" ? Theme.accentMuted : Theme.muted
                                     font.pixelSize: 12
                                     elide: Text.ElideRight

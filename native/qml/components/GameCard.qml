@@ -1,5 +1,6 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Card visual de fixture: capa, gradiente e metadados mantêm as medidas do CSS atual. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
@@ -21,35 +22,58 @@ AbstractButton {
         y: card.hovered ? -2 : 0
         Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
     }
-    background: Rectangle {
-        radius: 16
-        color: Theme.card
-        border.color: card.activeFocus ? Theme.accent : (card.hovered ? "#6b00f2ff" : Theme.border)
-        Behavior on border.color { ColorAnimation { duration: 180 } }
-        /* Sombra elevada em repouso; no hover prevalece o brilho ciano da referência. */
-        layer.enabled: true
-        /* autoPaddingEnabled reserva a margem do desfoque sem recortar a sombra. */
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            blurEnabled: true
-            blur: 0
-            /* MultiEffect normaliza o raio em blurMax; 30 px corresponde ao CSS. */
-            blurMax: card.shadowBlurPixels
-            shadowColor: card.hovered ? "#1f00f2ff" : Theme.shadowElevatedColor
-            shadowBlur: 1.0
-            shadowHorizontalOffset: 0
-            shadowVerticalOffset: card.hovered ? 14 : Theme.shadowElevatedOffsetY
-            autoPaddingEnabled: true
-            Behavior on shadowColor { ColorAnimation { duration: 180 } }
-            Behavior on shadowVerticalOffset { NumberAnimation { duration: 180 } }
+    background: Item {
+        /* A sombra vive em uma camada própria: o conteúdo não é retexturizado a cada hover. */
+        Rectangle {
+            id: cardShadow
+            objectName: "libraryCardShadow"
+            anchors.fill: parent
+            radius: 16
+            color: Theme.card
+            /* Sombra elevada em repouso; no hover prevalece o brilho ciano da referência. */
+            layer.enabled: true
+            /* autoPaddingEnabled reserva a margem do desfoque sem recortar a sombra. */
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                blurEnabled: true
+                blur: 0
+                /* MultiEffect normaliza o raio em blurMax; 30 px corresponde ao CSS. */
+                blurMax: card.shadowBlurPixels
+                shadowColor: card.hovered ? "#1f00f2ff" : Theme.shadowElevatedColor
+                shadowBlur: 1.0
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: card.hovered ? 14 : Theme.shadowElevatedOffsetY
+                autoPaddingEnabled: true
+                Behavior on shadowColor { ColorAnimation { duration: 180 } }
+                Behavior on shadowVerticalOffset { NumberAnimation { duration: 180 } }
+            }
+        }
+        Rectangle {
+            id: cardSurface
+            anchors.fill: parent
+            radius: 16
+            color: Theme.card
+            border.color: card.activeFocus ? Theme.accent : (card.hovered ? "#6b00f2ff" : Theme.border)
+            Behavior on border.color { ColorAnimation { duration: 180 } }
+        }
+        /* A sonda compartilha o cache e mede a proporção sem depender da geometria recortada. */
+        Image {
+            id: coverProbe
+            source: card.coverSource
+            sourceSize.width: Math.ceil(Math.max(card.width, card.height) * Screen.devicePixelRatio)
+            asynchronous: true
+            visible: false
         }
         Image {
             id: coverImage
+            objectName: "gameCardCoverImage"
             anchors.fill: parent
             source: card.coverSource
             /* Capas horizontais conservam a arte inteira, como object-fit: contain. */
-            /* As dimensões decodificadas não dependem de fillMode/margens, evitando ciclo com capas reais. */
-            readonly property bool landscape: sourceSize.width > sourceSize.height
+            /* Uma dimensão mantém a proporção e evita decodificar a capa na resolução original. */
+            sourceSize.width: Math.ceil(Math.max(card.width, card.height) * Screen.devicePixelRatio)
+            /* A proporção da sonda não depende do fillMode nem das margens desta imagem. */
+            readonly property bool landscape: coverProbe.implicitWidth > coverProbe.implicitHeight
             anchors.margins: landscape ? 7 : 1
             fillMode: landscape ? Image.PreserveAspectFit : Image.PreserveAspectCrop
             scale: card.hovered ? 1.025 : 1
@@ -96,20 +120,15 @@ AbstractButton {
             }
         }
         Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            /* O gradiente precisa do mesmo recorte da capa para preservar os cantos inferiores. */
-            height: parent.height * 0.58
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: gradientMask
-            }
-            Rectangle { id: gradientMask; anchors.fill: parent; radius: 16; visible: false; layer.enabled: true }
+            objectName: "libraryCardGradient"
+            /* O gradiente cobre o card inteiro e usa o mesmo raio: dispensa camada e máscara.
+               As paradas reproduzem a faixa inferior de 58% sem alterar o resultado visual. */
+            anchors.fill: parent
+            radius: 16
             gradient: Gradient {
                 GradientStop { position: 0; color: "#00131313" }
-                GradientStop { position: 0.46; color: "#bd131313" }
+                GradientStop { position: 0.42; color: "#00131313" }
+                GradientStop { position: 0.687; color: "#bd131313" }
                 GradientStop { position: 1; color: "#fa131313" }
             }
         }

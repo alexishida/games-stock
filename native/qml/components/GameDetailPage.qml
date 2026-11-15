@@ -322,6 +322,7 @@ Item {
                                 page.game.year ? String(page.game.year) : "",
                                 page.game.rating || ""].filter(function(value) { return String(value).length > 0 })
                             delegate: Rectangle {
+                                id: metadataChip
                                 required property string modelData
                                 radius: 999
                                 color: Theme.accentSoft
@@ -331,7 +332,7 @@ Item {
                                 UiText {
                                     id: chip
                                     anchors.centerIn: parent
-                                    text: modelData.toUpperCase()
+                                    text: metadataChip.modelData.toUpperCase()
                                     color: Theme.accent
                                     /* Rótulos de metadados precisam continuar legíveis em escala normal. */
                                     font.pixelSize: 13
@@ -518,7 +519,7 @@ Item {
                                 Image {
                                     anchors.fill: parent
                                     anchors.bottomMargin: 20
-                                    source: page.serviceMode && page.gameService ? page.gameService.mediaUrl(modelData.path) : ""
+                                    source: page.serviceMode && page.gameService ? page.gameService.mediaUrl(galleryTile.modelData.path) : ""
                                     fillMode: Image.PreserveAspectCrop
                                 }
                                 UiText {
@@ -526,7 +527,7 @@ Item {
                                     anchors.right: parent.right
                                     anchors.bottom: parent.bottom
                                     anchors.margins: 5
-                                    text: modelData.label
+                                    text: galleryTile.modelData.label
                                     color: Theme.secondary
                                     font.pixelSize: 12
                                     elide: Text.ElideRight
@@ -551,7 +552,9 @@ Item {
         onAboutToShow: saveError = ""
         onBackdropBlurRequested: function(active) {
             const host = page.Window.window
+            // qmllint disable missing-property
             if (host && host.blurDepth !== undefined) host.blurDepth = Math.max(0, host.blurDepth + (active ? 1 : -1))
+            // qmllint enable missing-property
         }
         contentItem: ColumnLayout {
             spacing: 12

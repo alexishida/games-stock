@@ -164,6 +164,9 @@ public:
         cache_.setMaxCost(64 * 1024);
     }
     QImage requestImage(const QString& id, QSize* size, const QSize& requestedSize) override {
+        // Cards de inventário recortam a imagem e precisam preencher ambas as dimensões.
+        const bool crop = id.startsWith(QLatin1String("crop/"));
+        const QString encodedId = crop ? id.mid(5) : id;
         // O tamanho pedido faz parte da chave: capas da grade e do detalhe não compartilham textura.
         const QString key = id + QLatin1Char('@') + QString::number(requestedSize.width())
             + QLatin1Char('x') + QString::number(requestedSize.height());
@@ -174,13 +177,14 @@ public:
                 return *cached;
             }
         }
-        const QString path = QString::fromUtf8(QByteArray::fromBase64(id.toLatin1(), QByteArray::Base64UrlEncoding));
-        QImage image = gamestock::readProfileImage(profile_, path, requestedSize);
+        const QString path = QString::fromUtf8(QByteArray::fromBase64(encodedId.toLatin1(), QByteArray::Base64UrlEncoding));
+        const auto aspectMode = crop ? Qt::KeepAspectRatioByExpanding : Qt::KeepAspectRatio;
+        QImage image = gamestock::readProfileImage(profile_, path, requestedSize, aspectMode);
         if (image.isNull()) qWarning("Provider não carregou a capa sintética.");
         // Uma textura de um pixel pode ser filtrada pelo atlas; preserve a cor ao apresentá-la.
         if (!image.isNull() && image.width() == 1 && image.height() == 1) image = image.scaled(2, 2);
         // Formatos sem dimensões no cabeçalho ainda passam pela escala única de fallback.
-        if (!image.isNull() && requestedSize.width() > 0 && requestedSize.height() > 0
+        if (!crop && !image.isNull() && requestedSize.width() > 0 && requestedSize.height() > 0
             && (image.width() > requestedSize.width() || image.height() > requestedSize.height())) {
             image = image.scaled(requestedSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
@@ -527,6 +531,11 @@ int main(int argc, char* argv[]) {
                 jobRegistry->restore(restoredJobs);
                 jobManager = std::make_unique<gamestock::JobManager>(jobRegistry.get());
                 jobManagerObject = jobManager.get();
+                // Cancela e conclui os jobs antes de fechar o event loop, persistindo a transição terminal.
+                QObject::connect(&app, &QCoreApplication::aboutToQuit, jobManager.get(), [manager = jobManager.get()] {
+                    manager->shutdown(-1);
+                });
+                inventoryService.setJobManager(jobManager.get());
                 romFolderService.setJobManager(jobManager.get());
                 mediaSyncService.setJobManager(jobManager.get());
                 metadataService.setJobManager(jobManager.get());

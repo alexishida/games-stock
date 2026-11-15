@@ -26,16 +26,18 @@ void LibraryQueryWorker::run(const Request& request) {
         emit finished(response);
         return;
     }
+    // Cada geração de escritas invalida as contagens; paginação reaproveita a mesma geração.
+    countCache_.setGeneration(request.dataGeneration);
     GameReadDao dao(connection_->database());
     QString error;
-    if (!dao.list(request.page, request.pageSize, &response.page, &error, request.filters)) {
+    if (!dao.list(request.page, request.pageSize, &response.page, &error, request.filters, &countCache_)) {
         response.error = error;
         emit finished(response);
         return;
     }
     // Cada agregado só é consultado quando o serviço indicou que ele está desatualizado.
     if (request.wantSidebar) {
-        if (!dao.sidebarCounts(request.filters, &response.sidebar, &error)) {
+        if (!dao.sidebarCounts(request.filters, &response.sidebar, &error, &countCache_)) {
             response.error = error;
             emit finished(response);
             return;

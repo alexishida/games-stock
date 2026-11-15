@@ -115,17 +115,21 @@ bool HardwareItemDao::list(const HardwareItemFilters& filters, QList<QVariantMap
     }
     const qint64 totalCount = totalQuery.value(0).toLongLong();
 
-    QSqlQuery filteredQuery(database_);
-    if (!filteredQuery.prepare(QStringLiteral("SELECT COUNT(*) FROM hardware_items hi ") + where)) {
-        if (error) *error = filteredQuery.lastError().text();
-        return false;
+    // Sem filtros o resultado é idêntico ao total; evite uma segunda consulta ao SQLite.
+    qint64 filteredCount = totalCount;
+    if (!clauses.isEmpty()) {
+        QSqlQuery filteredQuery(database_);
+        if (!filteredQuery.prepare(QStringLiteral("SELECT COUNT(*) FROM hardware_items hi ") + where)) {
+            if (error) *error = filteredQuery.lastError().text();
+            return false;
+        }
+        for (const QVariant& value : params) filteredQuery.addBindValue(value);
+        if (!filteredQuery.exec() || !filteredQuery.next()) {
+            if (error) *error = filteredQuery.lastError().text();
+            return false;
+        }
+        filteredCount = filteredQuery.value(0).toLongLong();
     }
-    for (const QVariant& value : params) filteredQuery.addBindValue(value);
-    if (!filteredQuery.exec() || !filteredQuery.next()) {
-        if (error) *error = filteredQuery.lastError().text();
-        return false;
-    }
-    const qint64 filteredCount = filteredQuery.value(0).toLongLong();
 
     const int page = qMax(1, filters.page);
     const int pageSize = qMax(1, filters.pageSize);

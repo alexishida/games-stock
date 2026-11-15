@@ -3,7 +3,6 @@
 /* Gaps do management-form preservam as medidas originais do Electron. */
 /* Cadastro e edição de emulador, com seletor nativo de executável. */
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import GameStock

@@ -4,7 +4,6 @@
 /* Gerenciador de plataformas dentro de Configurações, com vínculos e bloqueios. */
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."
@@ -83,6 +82,7 @@ Item {
                 Repeater {
                     model: manager.platformService ? manager.platformService.items : []
                     delegate: Rectangle {
+                        id: platformEntry
                         required property var modelData
                         Layout.fillWidth: true
                         implicitHeight: 55
@@ -100,18 +100,18 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: 2
                                 /* A lista precisa ser legível sem ampliação do sistema. */
-                                UiText { text: modelData.name || ""; color: Theme.text; font.pixelSize: 14; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                UiText { text: platformEntry.modelData.name || ""; color: Theme.text; font.pixelSize: 14; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                                 UiText {
-                                    text: (modelData.category || "Sem categoria") + " · " + Number(modelData.gameCount || 0) + " jogos"
+                                    text: (platformEntry.modelData.category || "Sem categoria") + " · " + Number(platformEntry.modelData.gameCount || 0) + " jogos"
                                     color: Theme.secondary
                                     font.pixelSize: 13
                                     elide: Text.ElideRight
                                     Layout.fillWidth: true
                                 }
                             }
-                            ActionButton { objectName: "platformMappings"; iconName: "link-2"; enabled: manager.serviceMode; Accessible.name: "Editar aliases e extensões"; onClicked: manager.openMappings(modelData) }
-                            ActionButton { objectName: "editPlatform"; iconName: "pencil"; enabled: manager.serviceMode; Accessible.name: "Editar"; onClicked: manager.openEdit(modelData) }
-                            ActionButton { objectName: "deletePlatform"; iconName: "trash-2-danger"; dangerOutline: true; enabled: manager.serviceMode && !modelData.isDefault; visible: !modelData.isDefault; Accessible.name: "Remover"; onClicked: manager.deleteRequested(modelData) }
+                            ActionButton { objectName: "platformMappings"; iconName: "link-2"; enabled: manager.serviceMode; Accessible.name: "Editar aliases e extensões"; onClicked: manager.openMappings(platformEntry.modelData) }
+                            ActionButton { objectName: "editPlatform"; iconName: "pencil"; enabled: manager.serviceMode; Accessible.name: "Editar"; onClicked: manager.openEdit(platformEntry.modelData) }
+                            ActionButton { objectName: "deletePlatform"; iconName: "trash-2-danger"; dangerOutline: true; enabled: manager.serviceMode && !platformEntry.modelData.isDefault; visible: !platformEntry.modelData.isDefault; Accessible.name: "Remover"; onClicked: manager.deleteRequested(platformEntry.modelData) }
                         }
                     }
                 }

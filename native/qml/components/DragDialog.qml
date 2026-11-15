@@ -1,5 +1,6 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Overlay interno com limites de arraste; controles filhos mantêm seus próprios eventos. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects

@@ -20,6 +20,8 @@
 #include <QUuid>
 
 #include <algorithm>
+#include <memory>
+#include <vector>
 
 namespace gamestock {
 namespace {
@@ -58,52 +60,8 @@ QString imageFilename(const QVariantMap& image, int index) {
         + QStringLiteral("%1").arg(index + 1, 2, 10, QLatin1Char('0')) + extension;
 }
 
-/** GET síncrono com limite de tamanho, timeout e publicação atômica. */
-bool downloadToFile(const QUrl& url, const QString& destination, QString* error) {
-    QNetworkAccessManager manager;
-    QNetworkRequest request{url};
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("GameStock/1.0"));
-    QNetworkReply* reply = manager.get(request);
-    const QString temporary = destination + QLatin1Char('.')
-        + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".tmp");
-    QFile file(temporary);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        if (error) *error = file.errorString();
-        reply->abort();
-        reply->deleteLater();
-        return false;
-    }
-    QEventLoop loop;
-    QTimer timeout;
-    timeout.setSingleShot(true);
-    QObject::connect(&timeout, &QTimer::timeout, reply, &QNetworkReply::abort);
-    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    QObject::connect(reply, &QNetworkReply::readyRead, &loop, [&] {
-        const QByteArray chunk = reply->readAll();
-        if (file.size() + chunk.size() > maxImageBytes) {
-            reply->abort();
-            return;
-        }
-        file.write(chunk);
-    });
-    timeout.start(30000);
-    loop.exec();
-    file.close();
-    const bool ok = reply->error() == QNetworkReply::NoError
-        && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200
-        && file.size() > 0 && file.size() <= maxImageBytes;
-    if (!ok && error) {
-        *error = reply->error() == QNetworkReply::OperationCanceledError
-            ? QStringLiteral("Tempo esgotado ao baixar imagem.")
-            : QStringLiteral("Falha ao baixar imagem: ") + reply->errorString();
-    }
-    reply->deleteLater();
-    if (!ok) {
-        QFile::remove(temporary);
-        return false;
-    }
-    // Publica com QSaveFile para não perder uma imagem anterior se a cópia falhar.
+/** Publica o arquivo temporário no destino com QSaveFile, sem perder uma imagem anterior. */
+bool publishDownload(const QString& temporary, const QString& destination, QString* error) {
     QFile input(temporary);
     if (!input.open(QIODevice::ReadOnly)) {
         if (error) *error = input.errorString();
@@ -129,6 +87,17 @@ bool downloadToFile(const QUrl& url, const QString& destination, QString* error)
     QFile::remove(temporary);
     return true;
 }
+
+/** Transferência ativa da fila paralela; cada item escreve seu próprio temporário. */
+struct ActiveDownload {
+    QNetworkReply* reply = nullptr;
+    QFile file;
+    QTimer timeout;
+    QString temporary;
+    QString destination;
+    QString filename;
+    int index = 0;
+};
 } // namespace
 
 LaunchBoxMedia::LaunchBoxMedia(QString imagesBaseUrl)
@@ -181,7 +150,8 @@ QString LaunchBoxMedia::ensureCoverPreview(const QString& gameDir, const QString
 }
 
 LaunchBoxMediaResult LaunchBoxMedia::downloadImages(const QVariantMap& game, const QString& outputDir,
-    const QStringList& types, const std::function<void(const LaunchBoxProgress&)>& progress, bool force) {
+    const QStringList& types, const std::function<void(const LaunchBoxProgress&)>& progress, bool force,
+    int maxParallel) {
     LaunchBoxMediaResult result;
     const QString gameDir = gameImageDir(outputDir, game);
     if (!QDir().mkpath(gameDir)) return result;
@@ -191,27 +161,135 @@ LaunchBoxMediaResult LaunchBoxMedia::downloadImages(const QVariantMap& game, con
         if (!types.isEmpty() && !types.contains(image.value(QStringLiteral("type")).toString())) continue;
         images.append(image);
     }
+    // A lista final é remontada na ordem do índice, independente da ordem de conclusão.
+    QList<QString> filesByIndex(images.size());
+    QList<bool> available(images.size(), false);
+    qint64 completed = 0;
+    const qint64 total = images.size();
+
+    /** Registra o fim de uma imagem e mantém o contador de progresso crescente. */
+    const auto report = [&](const QString& filename, const QString& status) {
+        ++completed;
+        if (progress) progress({completed, total, filename, status});
+    };
+
+    struct Pending {
+        int index = 0;
+        QUrl url;
+        QString destination;
+        QString filename;
+    };
+    QList<Pending> queue;
     for (int index = 0; index < images.size(); ++index) {
         const QVariantMap image = images.at(index);
         const QString filename = imageFilename(image, index);
         const QString destination = QDir(gameDir).filePath(filename);
-        const qint64 current = index + 1;
         if (!force && QFileInfo::exists(destination) && QFileInfo(destination).size() > 0) {
             ++result.skipped;
-            result.files.append(destination);
-            if (progress) progress({current, images.size(), filename, QStringLiteral("skipped")});
+            filesByIndex[index] = destination;
+            available[index] = true;
+            report(filename, QStringLiteral("skipped"));
             continue;
         }
-        if (progress) progress({current, images.size(), filename, QStringLiteral("downloading")});
         const QString source = image.value(QStringLiteral("filename")).toString();
-        if (source.isEmpty() || !downloadToFile(QUrl(imagesBaseUrl_ + source), destination, nullptr)) {
+        if (source.isEmpty()) {
             ++result.failed;
-            if (progress) progress({current, images.size(), filename, QStringLiteral("error")});
+            report(filename, QStringLiteral("error"));
             continue;
         }
-        ++result.success;
-        result.files.append(destination);
-        if (progress) progress({current, images.size(), filename, QStringLiteral("done")});
+        // Mais de uma conexão reduz o tempo total sem sobrecarregar o serviço de imagens.
+        queue.append(Pending{index, QUrl(imagesBaseUrl_ + source), destination, filename});
+    }
+
+    QNetworkAccessManager manager;
+    // O limite é fechado no código: nem zero (sem fila) nem muitos sockets contra o serviço.
+    const int parallel = std::clamp(maxParallel, 1, 4);
+    std::vector<std::unique_ptr<ActiveDownload>> active;
+    active.reserve(parallel);
+    qsizetype next = 0;
+    qsizetype remaining = queue.size();
+    QEventLoop loop;
+
+    // A fila só recarrega quando uma vaga abre; cada imagem mantém timeout por inatividade.
+    std::function<void()> startNext;
+    startNext = [&] {
+        while (static_cast<int>(active.size()) < parallel && next < queue.size()) {
+            const Pending pending = queue.at(next++);
+            auto transfer = std::make_unique<ActiveDownload>();
+            transfer->index = pending.index;
+            transfer->destination = pending.destination;
+            transfer->filename = pending.filename;
+            transfer->temporary = pending.destination + QLatin1Char('.')
+                + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".tmp");
+            transfer->file.setFileName(transfer->temporary);
+            if (!transfer->file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                ++result.failed;
+                report(pending.filename, QStringLiteral("error"));
+                --remaining;
+                QFile::remove(transfer->temporary);
+                continue;
+            }
+            QNetworkRequest request{pending.url};
+            request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+            request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("GameStock/1.0"));
+            transfer->reply = manager.get(request);
+            ActiveDownload* current = transfer.get();
+            // O abort é enfileirado para não destruir a transferência dentro do próprio sinal.
+            QObject::connect(&transfer->timeout, &QTimer::timeout, transfer->reply, &QNetworkReply::abort,
+                Qt::QueuedConnection);
+            QObject::connect(transfer->reply, &QNetworkReply::readyRead, &loop, [current] {
+                const QByteArray chunk = current->reply->readAll();
+                if (current->file.size() + chunk.size() > maxImageBytes) {
+                    QMetaObject::invokeMethod(current->reply, &QNetworkReply::abort, Qt::QueuedConnection);
+                    return;
+                }
+                current->file.write(chunk);
+                current->timeout.start(30000);
+            });
+            QObject::connect(transfer->reply, &QNetworkReply::finished, &loop, [&, current] {
+                // O restante do buffer chega junto do `finished`; validar tamanho antes de publicar.
+                const QByteArray tail = current->reply->readAll();
+                if (!tail.isEmpty() && current->file.size() + tail.size() <= maxImageBytes) current->file.write(tail);
+                current->file.close();
+                const bool ok = current->reply->error() == QNetworkReply::NoError
+                    && current->reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200
+                    && current->file.size() > 0 && current->file.size() <= maxImageBytes;
+                bool published = false;
+                if (ok) published = publishDownload(current->temporary, current->destination, nullptr);
+                if (published) {
+                    ++result.success;
+                    filesByIndex[current->index] = current->destination;
+                    available[current->index] = true;
+                    report(current->filename, QStringLiteral("done"));
+                } else {
+                    ++result.failed;
+                    QFile::remove(current->temporary);
+                    report(current->filename, QStringLiteral("error"));
+                }
+                current->reply->deleteLater();
+                for (auto iterator = active.begin(); iterator != active.end(); ++iterator) {
+                    if (iterator->get() == current) { active.erase(iterator); break; }
+                }
+                --remaining;
+                if (remaining == 0) {
+                    loop.quit();
+                    return;
+                }
+                startNext();
+            });
+            transfer->timeout.start(30000);
+            active.push_back(std::move(transfer));
+            if (progress) progress({completed, total, pending.filename, QStringLiteral("downloading")});
+        }
+        // Fila já consumida e nenhuma transferência ativa: não há sinal de `finished` para encerrar.
+        if (active.empty() && next >= queue.size() && remaining == 0) loop.quit();
+    };
+
+    startNext();
+    if (remaining > 0) loop.exec();
+
+    for (int index = 0; index < available.size(); ++index) {
+        if (available.at(index)) result.files.append(filesByIndex.at(index));
     }
 
     const QString cover = ensureCoverPreview(gameDir, result.files);

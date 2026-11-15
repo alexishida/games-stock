@@ -12,7 +12,7 @@ void JobWorker::run() {
     }
     try {
         work_(this);
-        if (cancelled_.load()) {
+        if (cancelled_.load() && !committed_) {
             emit failed(id_, QStringLiteral("Interrompido"));
             return;
         }

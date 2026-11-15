@@ -2,7 +2,6 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Linha tabular do inventário; o cabeçalho usa a mesma grade de colunas. */
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 

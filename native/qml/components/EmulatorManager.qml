@@ -4,7 +4,6 @@
 /* Gerenciador de emuladores, vínculos por plataforma e cores do RetroArch. */
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import GameStock
 import "."
@@ -152,6 +151,7 @@ Item {
                 Repeater {
                     model: manager.orderedEmulators
                     delegate: ColumnLayout {
+                        id: emulatorEntry
                         required property var modelData
                         Layout.fillWidth: true
                         spacing: 0
@@ -172,10 +172,10 @@ Item {
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 2
-                                    UiText { text: modelData.name || ""; color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    UiText { text: emulatorEntry.modelData.name || ""; color: Theme.text; font.pixelSize: 15; textWeight: Font.Bold; elide: Text.ElideRight; Layout.fillWidth: true }
                                     UiText {
-                                        text: modelData.executable && String(modelData.executable).length
-                                            ? modelData.executable : "Executável não configurado"
+                                        text: emulatorEntry.modelData.executable && String(emulatorEntry.modelData.executable).length
+                                            ? emulatorEntry.modelData.executable : "Executável não configurado"
                                         color: Theme.secondary
                                         font.pixelSize: 13
                                         font.italic: true
@@ -184,15 +184,15 @@ Item {
                                     }
                                 }
                                 /* O Electron usa o elo diagonal nesta ação. */
-                                ActionButton { objectName: "emulatorAssociations"; iconName: "link"; enabled: manager.serviceMode; Accessible.name: "Plataformas vinculadas"; onClicked: manager.toggle(modelData) }
-                                ActionButton { objectName: "editEmulator"; iconName: "pencil"; enabled: manager.serviceMode; Accessible.name: "Editar"; onClicked: manager.openEdit(modelData) }
-                                ActionButton { objectName: "emulatorCores"; text: "Cores"; iconName: "sliders-horizontal"; implicitHeight: 26; accentOutline: true; visible: Number(modelData.is_retroarch) === 1; enabled: manager.serviceMode; onClicked: manager.openCores(modelData) }
-                                ActionButton { objectName: "deleteEmulator"; iconName: "trash-2-danger"; dangerOutline: true; visible: Number(modelData.is_retroarch) !== 1; enabled: manager.serviceMode; Accessible.name: "Remover"; onClicked: manager.deleteRequested(modelData) }
+                                ActionButton { objectName: "emulatorAssociations"; iconName: "link"; enabled: manager.serviceMode; Accessible.name: "Plataformas vinculadas"; onClicked: manager.toggle(emulatorEntry.modelData) }
+                                ActionButton { objectName: "editEmulator"; iconName: "pencil"; enabled: manager.serviceMode; Accessible.name: "Editar"; onClicked: manager.openEdit(emulatorEntry.modelData) }
+                                ActionButton { objectName: "emulatorCores"; text: "Cores"; iconName: "sliders-horizontal"; implicitHeight: 26; accentOutline: true; visible: Number(emulatorEntry.modelData.is_retroarch) === 1; enabled: manager.serviceMode; onClicked: manager.openCores(emulatorEntry.modelData) }
+                                ActionButton { objectName: "deleteEmulator"; iconName: "trash-2-danger"; dangerOutline: true; visible: Number(emulatorEntry.modelData.is_retroarch) !== 1; enabled: manager.serviceMode; Accessible.name: "Remover"; onClicked: manager.deleteRequested(emulatorEntry.modelData) }
                             }
                         }
                         Rectangle {
                             Layout.fillWidth: true
-                            visible: !!manager.expanded[String(modelData.id)]
+                            visible: !!manager.expanded[String(emulatorEntry.modelData.id)]
                             implicitHeight: visible ? associationContent.implicitHeight + 20 : 0
                             radius: 8
                             color: Theme.panel
@@ -202,30 +202,31 @@ Item {
                                 anchors.fill: parent
                                 anchors.margins: 10
                                 spacing: 6
-                                UiText { visible: manager.associations(modelData.id).length === 0; text: "Nenhuma plataforma vinculada."; color: Theme.muted; font.pixelSize: 13 }
+                                UiText { visible: manager.associations(emulatorEntry.modelData.id).length === 0; text: "Nenhuma plataforma vinculada."; color: Theme.muted; font.pixelSize: 13 }
                                 Repeater {
-                                    model: manager.associations(modelData.id)
+                                    model: manager.associations(emulatorEntry.modelData.id)
                                     delegate: RowLayout {
+                                        id: emulatorLinkRow
                                         required property var modelData
                                         Layout.fillWidth: true
                                         spacing: 8
-                                        UiText { text: modelData.platformName; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
-                                        UiText { text: modelData.corePath || "-"; color: Theme.muted; font.pixelSize: 12; Layout.preferredWidth: 260; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
-                                        UiText { text: modelData.isDefault ? "padrão" : ""; color: Theme.accentMuted; font.pixelSize: 12; Layout.preferredWidth: 44; horizontalAlignment: Text.AlignRight }
+                                        UiText { text: emulatorLinkRow.modelData.platformName; color: Theme.secondary; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                                        UiText { text: emulatorLinkRow.modelData.corePath || "-"; color: Theme.muted; font.pixelSize: 12; Layout.preferredWidth: 260; elide: Text.ElideRight; horizontalAlignment: Text.AlignRight }
+                                        UiText { text: emulatorLinkRow.modelData.isDefault ? "padrão" : ""; color: Theme.accentMuted; font.pixelSize: 12; Layout.preferredWidth: 44; horizontalAlignment: Text.AlignRight }
                                         ActionButton {
                                             objectName: "unlinkEmulator"
                                             iconName: "unlink"
                                             toolbar: true
                                             Accessible.name: "Desvincular"
                                             onClicked: {
-                                                if (manager.emulatorService.unlink(Number(modelData.emulatorId), Number(modelData.platformId))) {
-                                                    manager.loadLinks(Number(modelData.emulatorId))
+                                                if (manager.emulatorService.unlink(Number(emulatorLinkRow.modelData.emulatorId), Number(emulatorLinkRow.modelData.platformId))) {
+                                                    manager.loadLinks(Number(emulatorLinkRow.modelData.emulatorId))
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                ActionButton { objectName: "linkEmulator"; text: "Vincular plataforma"; iconName: "plus"; onClicked: manager.openLink(modelData) }
+                                ActionButton { objectName: "linkEmulator"; text: "Vincular plataforma"; iconName: "plus"; onClicked: manager.openLink(emulatorEntry.modelData) }
                             }
                         }
                     }

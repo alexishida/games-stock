@@ -1,13 +1,18 @@
 /** Verifica regras do inventário físico, fotos e cadastros auxiliares. */
 #include "db/Database.h"
 #include "services/InventoryService.h"
+#include "jobs/JobManager.h"
+#include "jobs/JobRegistry.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QElapsedTimer>
 #include <QImage>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QtTest>
 
 namespace {
@@ -136,6 +141,42 @@ private slots:
         QCOMPARE(service.total(), qint64(1));
     }
 
+    /** Consultas em voo não podem sobrescrever filtros novos ou resultados de mutações. */
+    void asyncQueriesKeepLatestResult() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("db/gamestock.db");
+        QString error;
+        QVERIFY2(prepareDatabase(path, dir.filePath("db/images"), &error), qPrintable(error));
+        const qint64 platform = platformId(path, QStringLiteral("Super Nintendo"));
+        gamestock::InventoryService service;
+        QVERIFY2(service.open(path, dir.filePath("profile"), &error, true), qPrintable(error));
+        service.ensureLoaded();
+        QTRY_VERIFY_WITH_TIMEOUT(!service.queryPending(), 5000);
+        // Criações em sequência devem publicar os dois catálogos, mesmo com consulta em voo.
+        const QVariantMap newType = service.createType(QStringLiteral("Acessório sintético"));
+        const QVariantMap newState = service.createState(QStringLiteral("Conservado sintético"));
+        QVERIFY(newType.value("id").toLongLong() > 0);
+        QVERIFY(newState.value("id").toLongLong() > 0);
+        QTRY_VERIFY_WITH_TIMEOUT(!service.queryPending(), 5000);
+        QVERIFY(idForName(service.types(), QStringLiteral("Acessório sintético")) > 0);
+        QVERIFY(idForName(service.states(), QStringLiteral("Conservado sintético")) > 0);
+        const qint64 type = idForName(service.types(), QStringLiteral("Console"));
+        const qint64 state = idForName(service.states(), QStringLiteral("Novo"));
+        QVERIFY(!service.create({{"name", "Alpha"}, {"platform_id", platform}, {"item_type_id", type}, {"conservation_state_id", state}}).isEmpty());
+        QVERIFY(!service.create({{"name", "Beta"}, {"platform_id", platform}, {"item_type_id", type}, {"conservation_state_id", state}}).isEmpty());
+        service.setSearch(QStringLiteral("Alpha"));
+        service.setSearch(QStringLiteral("Beta"));
+        QVERIFY(service.queryPending());
+        QTRY_VERIFY_WITH_TIMEOUT(!service.queryPending(), 5000);
+        QCOMPARE(service.total(), qint64(2));
+        QCOMPARE(service.filtered(), qint64(1));
+        QCOMPARE(service.items().first().toMap().value("name").toString(), QString("Beta"));
+        service.setSearch(QStringLiteral("ausente"));
+        QTRY_VERIFY_WITH_TIMEOUT(!service.queryPending(), 5000);
+        QVERIFY(service.items().isEmpty());
+    }
+
     void filtersAndOrdering() {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -203,6 +244,154 @@ private slots:
         service.setItemTypeId(controlType);
         QCOMPARE(service.page(), 1);
         QCOMPARE(service.filtered(), qint64(1));
+    }
+
+    /** Fotos em job preservam integridade ao concluir, cancelar ou encontrar entrada inválida. */
+    void photoImportJobs() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("db/gamestock.db");
+        const QString profile = dir.filePath("profile");
+        QVERIFY(QDir().mkpath(profile));
+        QString error;
+        QVERIFY2(prepareDatabase(path, dir.filePath("db/images"), &error), qPrintable(error));
+        const qint64 platform = platformId(path, QStringLiteral("Super Nintendo"));
+        gamestock::JobRegistry registry([](const QJsonArray&, QString*) { return true; });
+        gamestock::JobManager manager(&registry);
+        gamestock::InventoryService service;
+        service.setJobManager(&manager);
+        QVERIFY2(service.open(path, profile, &error, true), qPrintable(error));
+        service.ensureLoaded();
+        QTRY_VERIFY_WITH_TIMEOUT(!service.queryPending(), 5000);
+        const qint64 type = idForName(service.types(), QStringLiteral("Console"));
+        const qint64 state = idForName(service.states(), QStringLiteral("Novo"));
+        const QVariantMap item = service.create({{"name", "Item de foto"}, {"platform_id", platform},
+            {"item_type_id", type}, {"conservation_state_id", state}});
+        const qint64 itemId = item.value("id").toLongLong();
+        QVERIFY(itemId > 0);
+        const QString source = makePng(dir.filePath("source.png"));
+        QVERIFY(!source.isEmpty());
+        const QString largeSource = makePng(dir.filePath("large.png"));
+        QFile large(largeSource);
+        QVERIFY(large.open(QIODevice::ReadWrite));
+        // Bytes adicionais criam uma cópia longa sem depender de arquivos pessoais.
+        QVERIFY(large.resize(48 * 1024 * 1024));
+        large.close();
+        QSignalSpy finished(&service, &gamestock::InventoryService::photoImportFinished);
+
+        const QString cancelled = service.startPhotoImport(itemId, largeSource);
+        QVERIFY(!cancelled.isEmpty());
+        QVERIFY(manager.cancel(cancelled));
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 10000);
+        QCOMPARE(finished.at(0).at(1).toBool(), false);
+        QVERIFY(service.listPhotos(itemId).isEmpty());
+        const QDir cancelledDirectory(QDir(profile).filePath(QStringLiteral("inventario/images/") + QString::number(itemId)));
+        QVERIFY(cancelledDirectory.entryList(QDir::Files | QDir::Hidden | QDir::System).isEmpty());
+
+        const QString invalid = service.startPhotoImport(itemId, dir.filePath("missing.png"));
+        QVERIFY(!invalid.isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 10000);
+        QCOMPARE(finished.at(1).at(1).toBool(), false);
+        QVERIFY(service.listPhotos(itemId).isEmpty());
+
+        const QString success = service.startPhotoImport(itemId, source);
+        QVERIFY(!success.isEmpty());
+        QVERIFY(service.photoImporting());
+        QVERIFY(service.startPhotoImport(itemId, source).isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 3, 10000);
+        QVERIFY(finished.at(2).at(1).toBool());
+        QVERIFY(!service.photoImporting());
+        QCOMPARE(service.listPhotos(itemId).size(), 1);
+        const QString copied = service.listPhotos(itemId).first().toMap().value("file_path").toString();
+        QVERIFY(QFileInfo::exists(copied));
+
+        // O método síncrono fornece referência local, sem gravar no perfil do usuário.
+        int syncTicks = 0;
+        QTimer syncTimer;
+        connect(&syncTimer, &QTimer::timeout, [&syncTicks] { ++syncTicks; });
+        syncTimer.start(1);
+        QElapsedTimer syncElapsed;
+        syncElapsed.start();
+        const QVariantMap syncPhoto = service.addPhoto(itemId, largeSource);
+        const qint64 syncMs = syncElapsed.elapsed();
+        syncTimer.stop();
+        QVERIFY2(!syncPhoto.isEmpty(), qPrintable(service.error()));
+        QVERIFY(service.removePhoto(syncPhoto.value("id").toLongLong()));
+
+        int ticks = 0;
+        QTimer timer;
+        connect(&timer, &QTimer::timeout, [&ticks] { ++ticks; });
+        timer.start(1);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        const QString largeJob = service.startPhotoImport(itemId, largeSource);
+        const qint64 dispatchUs = elapsed.nsecsElapsed() / 1000;
+        QVERIFY(!largeJob.isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 4, 15000);
+        const qint64 totalMs = elapsed.elapsed();
+        timer.stop();
+        QVERIFY(finished.at(3).at(1).toBool());
+        QCOMPARE(service.listPhotos(itemId).size(), 2);
+        qInfo() << "Foto sintética 48 MiB: cópia síncrona ms/eventos" << syncMs << syncTicks
+                << "despacho assíncrono us" << dispatchUs << "total ms" << totalMs << "eventos da interface" << ticks;
+
+        // Excluir o item durante a cópia nunca pode deixar foto associada ou arquivo órfão.
+        const QVariantMap deletedItem = service.create({{"name", "Item removido durante cópia"}, {"platform_id", platform},
+            {"item_type_id", type}, {"conservation_state_id", state}});
+        const qint64 deletedId = deletedItem.value("id").toLongLong();
+        QVERIFY(deletedId > 0);
+        QVERIFY(!service.startPhotoImport(deletedId, largeSource).isEmpty());
+        QVERIFY(service.remove(deletedId));
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 5, 15000);
+        QVERIFY(service.listPhotos(deletedId).isEmpty());
+        const QDir deletedDirectory(QDir(profile).filePath(QStringLiteral("inventario/images/") + QString::number(deletedId)));
+        QVERIFY(deletedDirectory.entryList(QDir::Files | QDir::Hidden | QDir::System).isEmpty());
+        QVERIFY(manager.shutdown(5000));
+    }
+
+    /** Compara custo do filtro síncrono e despacho assíncrono sem depender de dados reais. */
+    void inventoryResponsivenessMeasurement() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("db/gamestock.db");
+        const QString profile = dir.filePath("profile");
+        QVERIFY(QDir().mkpath(profile));
+        QString error;
+        QVERIFY2(prepareDatabase(path, dir.filePath("db/images"), &error), qPrintable(error));
+        {
+            gamestock::Database database;
+            QVERIFY2(database.open(path, dir.filePath("db/images"), &error), qPrintable(error));
+            QSqlQuery query(database.handle());
+            QVERIFY2(query.exec(QStringLiteral("WITH RECURSIVE seq(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM seq WHERE n<30000) "
+                "INSERT INTO hardware_items (name) SELECT 'Item sintetico ' || printf('%05d', n) FROM seq")), qPrintable(query.lastError().text()));
+        }
+        gamestock::InventoryService sync;
+        QVERIFY2(sync.open(path, profile, &error), qPrintable(error));
+        QElapsedTimer elapsed;
+        elapsed.start();
+        sync.setSearch(QStringLiteral("29999"));
+        const qint64 syncUs = elapsed.nsecsElapsed() / 1000;
+        QCOMPARE(sync.filtered(), qint64(1));
+
+        gamestock::InventoryService async;
+        QVERIFY2(async.open(path, profile, &error, true), qPrintable(error));
+        async.ensureLoaded();
+        QTRY_VERIFY_WITH_TIMEOUT(!async.queryPending(), 10000);
+        int ticks = 0;
+        QTimer timer;
+        connect(&timer, &QTimer::timeout, [&ticks] { ++ticks; });
+        timer.start(1);
+        elapsed.restart();
+        async.setSearch(QStringLiteral("29999"));
+        const qint64 dispatchUs = elapsed.nsecsElapsed() / 1000;
+        QVERIFY(async.queryPending());
+        QTRY_VERIFY_WITH_TIMEOUT(!async.queryPending(), 10000);
+        const qint64 completionMs = elapsed.elapsed();
+        timer.stop();
+        QCOMPARE(async.filtered(), sync.filtered());
+        QCOMPARE(async.items().first().toMap().value("name"), sync.items().first().toMap().value("name"));
+        qInfo() << "Inventário sintético 30000 itens: filtro síncrono us" << syncUs
+                << "despacho assíncrono us" << dispatchUs << "conclusão ms" << completionMs << "eventos da interface" << ticks;
     }
 
     void photosLifecycle() {

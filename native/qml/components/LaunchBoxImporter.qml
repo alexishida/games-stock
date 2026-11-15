@@ -2,6 +2,7 @@
 /* Tipografia e rolagem reutilizam as primitivas calibradas contra o Electron. */
 /* Seletores usam FormSelect para manter padding, altura e menu iguais ao Electron. */
 /* Modal de importação de metadados e mídia do LaunchBox. */
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -176,26 +177,27 @@ DragDialog {
                     ScrollBar.vertical: CollectionScrollBar {}
                     model: importer.results
                     delegate: Rectangle {
+                        id: resultRow
                         required property var modelData
                         required property int index
                         width: resultList.width - 14
                         height: 52
                         radius: 6
-                        color: importer.selectedGame && importer.selectedGame.id === modelData.id
+                        color: importer.selectedGame && importer.selectedGame.id === resultRow.modelData.id
                             ? Theme.accentSoft : Theme.panel
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 8
                             spacing: 1
                             UiText {
-                                text: modelData.name
+                                text: resultRow.modelData.name
                                 color: Theme.text; font.pixelSize: 13; textWeight: Font.DemiBold
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
                             UiText {
-                                text: modelData.platform + " · "
-                                    + (modelData.images ? modelData.images.length : 0) + " imagens"
+                                text: resultRow.modelData.platform + " · "
+                                    + (resultRow.modelData.images ? resultRow.modelData.images.length : 0) + " imagens"
                                 color: Theme.muted; font.pixelSize: 12
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
@@ -203,7 +205,7 @@ DragDialog {
                         }
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: importer.selectedGame = modelData
+                            onClicked: importer.selectedGame = resultRow.modelData
                         }
                     }
                 }

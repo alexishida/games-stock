@@ -41,6 +41,20 @@ bool HardwareItemTypeDao::list(QList<QVariantMap>* result, QString* error) const
     return true;
 }
 
+bool HardwareItemTypeDao::get(qint64 id, QVariantMap* result, QString* error) const {
+    if (!result || id <= 0) { if (error) *error = QStringLiteral("Tipo inválido."); return false; }
+    QSqlQuery query(database_);
+    if (!query.prepare(QStringLiteral("SELECT id, name, is_default, created_at FROM item_types WHERE id = ?"))) {
+        if (error) *error = query.lastError().text(); return false;
+    }
+    query.addBindValue(id);
+    if (!query.exec()) { if (error) *error = query.lastError().text(); return false; }
+    if (!query.next()) { if (error) *error = QStringLiteral("Tipo não encontrado."); return false; }
+    *result = readRow(query);
+    if (error) error->clear();
+    return true;
+}
+
 bool HardwareItemTypeDao::listWithCounts(QList<QVariantMap>* result, QString* error) const {
     if (!result) {
         if (error) *error = QStringLiteral("Destino da listagem ausente.");

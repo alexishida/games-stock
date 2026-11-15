@@ -1,0 +1,2 @@
+<!-- Capa sintética vertical para testar o recorte do card. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="1200" viewBox="0 0 300 1200"><rect width="300" height="1200" fill="#108ba4"/><rect x="50" y="400" width="200" height="400" fill="#f4c044"/></svg>

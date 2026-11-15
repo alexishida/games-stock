@@ -2,12 +2,18 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QList>
 #include <QRecursiveMutex>
 #include <QString>
+#include <QVariantMap>
 
 #include <functional>
+#include <memory>
 
 namespace gamestock {
+class LaunchBoxSearchIndex;
+struct LaunchBoxSearchOptions;
+
 /** Progresso compartilhado entre download, extração e indexação. */
 struct LaunchBoxProgress {
     qint64 current = 0;
@@ -52,6 +58,13 @@ public:
     /** Retrato em memória, sem acionar download/indexação. */
     QJsonObject cachedIndex() const;
 
+    /**
+     * Busca no índice em memória reutilizando os textos normalizados e o agrupamento
+     * por plataforma. Exige `buildIndex` anterior; não inicia download nem indexação.
+     */
+    bool search(const LaunchBoxSearchOptions& options, QList<QVariantMap>* result,
+        QString* error = nullptr);
+
 private:
     bool downloadMetadata(const QString& target, QString* error,
         const std::function<void(const LaunchBoxProgress&)>& progress);
@@ -69,5 +82,7 @@ private:
     QString metadataUrl_;
     QString sevenZipPath_;
     QJsonObject memoryIndex_;
+    // Derivada de memoryIndex_; descartada junto com o índice para não reter textos antigos.
+    std::shared_ptr<LaunchBoxSearchIndex> searchIndex_;
 };
 } // namespace gamestock

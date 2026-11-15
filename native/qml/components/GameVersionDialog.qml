@@ -142,6 +142,7 @@ DragDialog {
                 Repeater {
                     model: versions.options
                     delegate: Rectangle {
+                        id: versionEntry
                         required property var modelData
                         Layout.fillWidth: true
                         // A altura acompanha os dados sem deixar um rodapé vazio em cada variante.
@@ -163,7 +164,7 @@ DragDialog {
                                 clip: true
                                 Image {
                                     anchors.fill: parent
-                                    source: versions.preview(modelData)
+                                    source: versions.preview(versionEntry.modelData)
                                     fillMode: Image.PreserveAspectCrop
                                     visible: source.toString().length > 0
                                 }
@@ -171,7 +172,7 @@ DragDialog {
                                     anchors.centerIn: parent
                                     source: "qrc:/icons/image.svg"
                                     sourceSize: Qt.size(22, 22)
-                                    visible: !versions.preview(modelData).length
+                                    visible: !versions.preview(versionEntry.modelData).length
                                 }
                             }
                             // Centro: identifica a variante uma única vez e reserva a linha da ROM.
@@ -181,7 +182,7 @@ DragDialog {
                                 Layout.alignment: Qt.AlignVCenter
                                 spacing: 8
                                 UiText {
-                                    text: modelData.title || ""
+                                    text: versionEntry.modelData.title || ""
                                     color: Theme.text
                                     font.pixelSize: 16
                                     textWeight: Font.Bold
@@ -193,7 +194,7 @@ DragDialog {
                                     spacing: 6
                                     Image { source: "qrc:/icons/globe-2.svg"; sourceSize: Qt.size(14, 14) }
                                     UiText {
-                                        text: modelData.variantLabel || modelData.regionLabel || "Versão padrão"
+                                        text: versionEntry.modelData.variantLabel || versionEntry.modelData.regionLabel || "Versão padrão"
                                         color: Theme.accentMuted
                                         font.pixelSize: 13
                                         textWeight: Font.DemiBold
@@ -202,7 +203,7 @@ DragDialog {
                                     }
                                 }
                                 UiText {
-                                    text: modelData.romFileName || "ROM não associada"
+                                    text: versionEntry.modelData.romFileName || "ROM não associada"
                                     color: Theme.secondary
                                     font.pixelSize: 13
                                     wrapMode: Text.WrapAtWordBoundaryOrAnywhere
@@ -223,7 +224,7 @@ DragDialog {
                                     spacing: 6
                                     Image { source: "qrc:/icons/rotate-ccw.svg"; sourceSize: Qt.size(14, 14) }
                                     UiText {
-                                        text: Number(modelData.launchCount || 0) + (Number(modelData.launchCount || 0) === 1 ? " jogada" : " jogadas")
+                                        text: Number(versionEntry.modelData.launchCount || 0) + (Number(versionEntry.modelData.launchCount || 0) === 1 ? " jogada" : " jogadas")
                                         color: Theme.secondary
                                         font.pixelSize: 13
                                     }
@@ -237,7 +238,7 @@ DragDialog {
                                     implicitHeight: 36
                                     font.weight: Font.DemiBold
                                     enabled: versions.serviceMode && versions.launchService
-                                    onClicked: versions.launch(modelData)
+                                    onClicked: versions.launch(versionEntry.modelData)
                                 }
                             }
                         }

@@ -19,6 +19,8 @@ public:
     /** Pedido imutável: página/filtros e quais agregados precisam ser recalculados. */
     struct Request {
         quint64 generation = 0;
+        /** Geração das escritas; diferente da última descarta as contagens em cache. */
+        quint64 dataGeneration = 0;
         int page = 1;
         int pageSize = 36;
         GameListFilters filters;
@@ -59,6 +61,8 @@ signals:
 private:
     QString databasePath_;
     std::unique_ptr<ReadOnlyConnection> connection_;
+    // Vive na thread do worker junto com a conexão somente leitura.
+    GameCountCache countCache_;
 };
 } // namespace gamestock
 
