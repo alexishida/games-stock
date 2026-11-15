@@ -6,6 +6,8 @@ import GameStock
 
 ComboBox {
     id: control
+    /* Menus com nomes longos podem crescer sem alargar o campo na barra. */
+    property real popupMinimumWidth: 0
     implicitHeight: Theme.controlHeight
     implicitWidth: Math.max(120, implicitContentWidth + leftPadding + rightPadding)
     leftPadding: 10
@@ -61,7 +63,7 @@ ComboBox {
     delegate: ItemDelegate {
         required property int index
         /* O texto das opções não ocupa a faixa da barra do menu. */
-        width: control.width - 16
+        width: Math.max(0, control.popup.availableWidth - 14)
         implicitHeight: Theme.controlHeight
         text: control.textAt(index)
         font: control.font
@@ -79,7 +81,7 @@ ComboBox {
     }
     popup: Popup {
         y: control.height + 4
-        width: control.width
+        width: Math.max(control.width, control.popupMinimumWidth)
         padding: 1
         implicitHeight: Math.min(contentItem.implicitHeight + 2, 240)
         contentItem: ListView {

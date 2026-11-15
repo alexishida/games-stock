@@ -887,6 +887,8 @@ ApplicationWindow {
                         objectName: "genreFilter"
                         model: ["Todas"].concat(window.activeGenres)
                         Layout.preferredWidth: 100
+                        /* Gêneros longos precisam de espaço no menu sem ampliar a barra de filtros. */
+                        popupMinimumWidth: 260
                         enabled: window.libraryService
                         currentIndex: Math.max(0, model.indexOf(window.activeGenre))
                         onActivated: window.setGenre(currentIndex === 0 ? "" : model[currentIndex])

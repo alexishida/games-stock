@@ -48,6 +48,18 @@ Item {
         name: "FormControls"
         when: windowShown
 
+        /* O menu pode ser mais largo que o campo e aproveita o espaço adicional. */
+        function test_widePopup() {
+            select.popupMinimumWidth = 320
+            select.popup.open()
+            tryCompare(select.popup, "opened", true)
+            compare(select.popup.width, 320)
+            tryVerify(function() { return select.popup.contentItem.itemAtIndex(0) !== null })
+            verify(select.popup.contentItem.itemAtIndex(0).width > select.width)
+            select.popup.close()
+            select.popupMinimumWidth = 0
+        }
+
         /* Menus extensos mantêm a barra visível em repouso e permitem navegar por ela. */
         function test_selectScrollBar() {
             const originalModel = select.model
