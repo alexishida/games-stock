@@ -123,24 +123,16 @@ ApplicationWindow {
     /* A lista de plataformas só existe quando o serviço nativo abriu o banco. */
     readonly property var platformCatalog: (window.platformService !== null && window.platformService !== undefined && window.platformService.available) ? window.platformService.items : []
     readonly property int activePlatformId: dbMode ? gameService.platformId : 0
-    /* A árvore replica o PlatformTree: só plataformas com jogos, agrupadas por categoria. */
+    /* Ordena pelo nome em toda a árvore, sem dividir plataformas por categoria. */
     readonly property var sidebarPlatforms: {
         if (!window.dbMode) return []
-        const groups = ({})
+        const ordered = []
         for (let index = 0; index < window.platformCatalog.length; index++) {
             const platform = window.platformCatalog[index]
             if (Number(platform.gameCount || 0) <= 0) continue
-            const category = platform.category || ""
-            if (!groups[category]) groups[category] = []
-            groups[category].push(platform)
+            ordered.push(platform)
         }
-        const categories = Object.keys(groups).sort(function(left, right) { return left.localeCompare(right, "pt-BR") })
-        const ordered = []
-        for (let index = 0; index < categories.length; index++) {
-            const entries = groups[categories[index]]
-            entries.sort(function(left, right) { return String(left.name).localeCompare(String(right.name), "pt-BR", {sensitivity: "base"}) })
-            for (let entry = 0; entry < entries.length; entry++) ordered.push(entries[entry])
-        }
+        ordered.sort(function(left, right) { return String(left.name).localeCompare(String(right.name), "pt-BR", {sensitivity: "base"}) })
         return ordered
     }
     property var catalog: dbMode ? window.gameService.items : (window.fixtureLibrary.enabled ? window.fixtureLibrary.games : prototypeCatalog)

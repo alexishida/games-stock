@@ -170,6 +170,21 @@ Item {
         }
 
         /** A árvore da sidebar filtra por plataforma e "Todos" limpa o filtro. */
+        function test_sidebarAlphabeticalAcrossCategories() {
+            platforms.items = [
+                {id: 1, name: "Super Nintendo", category: "Console", gameCount: 1},
+                {id: 2, name: "TeknoParrot", category: "Arcade", gameCount: 1},
+                {id: 3, name: "Game Boy", category: "Portátil", gameCount: 1},
+                {id: 4, name: "Vazio", category: "Arcade", gameCount: 0}
+            ]
+            tryCompare(app, "sidebarPlatforms", app.sidebarPlatforms)
+            compare(app.sidebarPlatforms.length, 3)
+            compare(app.sidebarPlatforms[0].name, "Game Boy")
+            compare(app.sidebarPlatforms[1].name, "Super Nintendo")
+            compare(app.sidebarPlatforms[2].name, "TeknoParrot")
+        }
+
+        /** A árvore da sidebar filtra por plataforma e "Todos" limpa o filtro. */
         function test_01_sidebarPlatformFilter() {
             // Fecha o modal para alcançar a sidebar, como faria o usuário.
             const settings = findChild(app, "settingsDialog")
