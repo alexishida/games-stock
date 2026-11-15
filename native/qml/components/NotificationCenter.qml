@@ -84,6 +84,8 @@ Item {
         clip: true
         /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
         WheelScrollSpeed {}
+        /* Reserva uma barra arrastável para listas maiores que a área visível. */
+        ScrollBar.vertical: CollectionScrollBar {}
         model: root.jobManager ? root.jobManager.model : null
         delegate: Rectangle {
             id: cardRoot
@@ -107,7 +109,7 @@ Item {
                 progressFilename: progressFilename, progressFolderPath: progressFolderPath,
                 result: result
             })
-            width: jobList.width
+            width: jobList.width - 14
             /* Jobs interativos de metadados não geram card: o formulário já mostra o retorno. */
             visible: !root.isTransient(kind)
             height: visible ? card.implicitHeight + 24 : 0

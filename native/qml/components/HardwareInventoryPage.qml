@@ -289,6 +289,8 @@ Item {
                     InventoryListLine { header: true; Layout.fillWidth: true }
                     ListView {
                         id: inventoryList
+                        /* A lista tabular também precisa indicar o overflow vertical. */
+                        ScrollBar.vertical: CollectionScrollBar {}
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
@@ -297,7 +299,7 @@ Item {
                         model: page.serviceMode ? inventoryService.items : []
                         delegate: InventoryListLine {
                             required property var modelData
-                            width: ListView.view.width
+                            width: ListView.view.width - 14
                             item: modelData
                             onClicked: page.openItem(modelData)
                         }

@@ -150,7 +150,33 @@ endif()
 if(NOT git_result EQUAL 0 OR NOT GAMESTOCK_BUILD_COMMIT MATCHES "^[0-9a-fA-F]+$")
     set(GAMESTOCK_BUILD_COMMIT "")
 endif()
-target_compile_definitions(gamestock_native PRIVATE GAMESTOCK_VERSION="${PROJECT_VERSION}" GAMESTOCK_BUILD_COMMIT="${GAMESTOCK_BUILD_COMMIT}")
+# Só o bootstrap usa a identidade da build; um commit não deve recompilar todas as telas QML.
+set_property(SOURCE src/app/main.cpp APPEND PROPERTY COMPILE_DEFINITIONS
+    GAMESTOCK_VERSION="${PROJECT_VERSION}" GAMESTOCK_BUILD_COMMIT="${GAMESTOCK_BUILD_COMMIT}")
+# Detectar novos commits também no build incremental, inclusive em worktrees e refs compactadas.
+if(Git_FOUND)
+    foreach(git_path IN ITEMS HEAD packed-refs)
+        execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse --git-path "${git_path}"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE git_dependency OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(git_dependency)
+            get_filename_component(git_dependency "${git_dependency}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+            if(EXISTS "${git_dependency}")
+                set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${git_dependency}")
+            endif()
+        endif()
+    endforeach()
+    execute_process(COMMAND "${GIT_EXECUTABLE}" symbolic-ref -q HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE git_branch_ref OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(git_branch_ref)
+        execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse --git-path "${git_branch_ref}"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            OUTPUT_VARIABLE git_dependency OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        get_filename_component(git_dependency "${git_dependency}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${git_dependency}")
+    endif()
+endif()
 
 # Um singleton concentra tokens, evitando diferenças de tema entre telas.
 set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)

@@ -60,7 +60,8 @@ ComboBox {
     }
     delegate: ItemDelegate {
         required property int index
-        width: control.width - 2
+        /* O texto das opções não ocupa a faixa da barra do menu. */
+        width: control.width - 16
         implicitHeight: Theme.controlHeight
         text: control.textAt(index)
         font: control.font
@@ -87,7 +88,8 @@ ComboBox {
             model: control.popup.visible ? control.delegateModel : null
             currentIndex: control.highlightedIndex
             boundsBehavior: Flickable.StopAtBounds
-            ScrollIndicator.vertical: ScrollIndicator { }
+            /* Barra arrastável permanece visível enquanto houver opções fora da área. */
+            ScrollBar.vertical: CollectionScrollBar {}
         }
         background: Rectangle {
             radius: 6

@@ -988,6 +988,14 @@ ApplicationWindow {
                         GameListLine { header: true; Layout.fillWidth: true }
                         ListView {
                             id: listBody
+                            /* A barra fica na borda visível mesmo com deslocamento horizontal. */
+                            ScrollBar.vertical: CollectionScrollBar {
+                                parent: listViewport
+                                anchors.right: parent.right
+                                y: listBody.y
+                                height: listBody.height
+                                z: 2
+                            }
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
@@ -996,7 +1004,7 @@ ApplicationWindow {
                             model: window.visibleGames
                             delegate: GameListLine {
                                 required property var modelData
-                                width: ListView.view.width
+                                width: ListView.view.width - 14
                                 game: modelData
                                 onClicked: window.openGame(modelData)
                             }

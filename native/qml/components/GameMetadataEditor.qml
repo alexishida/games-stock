@@ -68,17 +68,21 @@ DragDialog {
         anchors.fill: parent
         spacing: 16
         Flickable {
+            id: metadataScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
-            contentWidth: width
+            /* Reserva a faixa da barra para não sobrepor os campos. */
+            contentWidth: width - 14
             contentHeight: body.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
             WheelScrollSpeed {}
+            /* Permite descobrir e arrastar a rolagem dos formulários extensos. */
+            ScrollBar.vertical: CollectionScrollBar {}
             ColumnLayout {
                 id: body
-                width: parent.width
+                width: metadataScroll.contentWidth
                 spacing: Theme.formGroupGap
 
                 UiText {
@@ -135,6 +139,9 @@ DragDialog {
                     // Descrições longas rolam dentro do campo, sem esconder o rodapé.
                     ScrollView {
                         id: notesScroll
+                        /* Descrições longas seguem a mesma barra visível dos demais campos. */
+                        ScrollBar.vertical: CollectionScrollBar {}
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                         Layout.fillWidth: true
                         Layout.preferredHeight: 144
                         clip: true

@@ -276,18 +276,22 @@ DragDialog {
 
     /* Criação manual replica o ManualGameModal: formulário direto de campos. */
     Flickable {
+        id: createScroll
         visible: form.createMode
         Layout.fillWidth: true
         Layout.fillHeight: true
-        contentWidth: width
+        /* Reserva a faixa da barra para não sobrepor os campos. */
+        contentWidth: width - 14
         contentHeight: createBody.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
         WheelScrollSpeed {}
+        /* Permite descobrir e arrastar a rolagem dos formulários extensos. */
+        ScrollBar.vertical: CollectionScrollBar {}
         ColumnLayout {
             id: createBody
-            width: parent.width
+            width: createScroll.contentWidth
             spacing: Theme.formGroupGap
             LabeledField { id: titleField; objectName: "titleFieldRow"; label: "Título"; fieldObjectName: "gameTitleField" }
             LabeledCombo {
@@ -383,18 +387,22 @@ DragDialog {
 
     /* Edição replica o GameForm: título, hub de metadados, arquivos e rodapé. */
     Flickable {
+        id: editScroll
         visible: !form.createMode
         Layout.fillWidth: true
         Layout.fillHeight: true
-        contentWidth: width
+        /* Reserva a faixa da barra para não sobrepor os campos. */
+        contentWidth: width - 14
         contentHeight: editBody.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
         WheelScrollSpeed {}
+        /* Permite descobrir e arrastar a rolagem dos formulários extensos. */
+        ScrollBar.vertical: CollectionScrollBar {}
         ColumnLayout {
             id: editBody
-            width: parent.width
+            width: editScroll.contentWidth
             spacing: 18
 
             Rectangle {

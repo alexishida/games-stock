@@ -358,6 +358,28 @@ Item {
             compare(jobModel.count, 0)
         }
 
+        /** Muitas pastas usam a altura da aba e permitem alcançar a última linha pela barra. */
+        function test_folderListScroll() {
+            const entries = []
+            for (let index = 0; index < 30; ++index)
+                entries.push({folderPath: "D:/ROMs/Pasta " + index, platformId: 23,
+                    platformName: "Sega Mega Drive", indexedCount: index, includeSubfolders: true})
+            romFolders.folders = entries
+            const list = findChild(app, "romFolderList")
+            const bar = findChild(app, "romFolderScrollBar")
+            tryCompare(list, "count", 30)
+            tryCompare(bar, "visible", true)
+            verify(list.height > 240, "A lista deve aproveitar a altura disponível")
+            verify(bar.size < 1)
+            list.positionViewAtEnd()
+            wait(100)
+            verify(list.atYEnd)
+            verify(list.itemAtIndex(29) !== null)
+            verify(findChild(app, "addRomFolder").visible)
+            // Guarda a aparência para comparação com as referências da migração nativa.
+            grabImage(list.parent.parent).save("artifacts/native-migration/rom-folder-scroll.png")
+        }
+
         /** Importador LaunchBox busca, seleciona e importa com tipos de imagem. */
         function test_04_launchBoxSearchAndImport() {
             const settings = findChild(app, "settingsDialog")

@@ -155,7 +155,8 @@ Item {
         }
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(240, 40 + Math.max(1, folderList.count) * 40)
+            /* A tabela ocupa o espaço livre da aba, preservando o botão abaixo. */
+            Layout.fillHeight: true
             color: "#0bffffff"
             radius: 0
             border.color: Theme.border
@@ -181,6 +182,12 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     spacing: 0
+                    boundsBehavior: Flickable.StopAtBounds
+                    /* Mantém a rolagem visível no overflow, sem cobrir as ações das linhas. */
+                    ScrollBar.vertical: CollectionScrollBar {
+                        id: folderScrollBar
+                        objectName: "romFolderScrollBar"
+                    }
                     /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
                     WheelScrollSpeed {}
                     model: root.folders
@@ -188,7 +195,7 @@ Item {
                         required property var modelData
                         required property int index
                         objectName: "romFolderRow" + index
-                        width: folderList.width
+                        width: folderList.width - (folderScrollBar.visible ? folderScrollBar.width + 8 : 0)
                         height: 40
                         radius: 6
                         color: root.selectedIndex === index ? Theme.accentSoft : (rowArea.containsMouse ? Theme.controlHover : "transparent")
@@ -275,7 +282,6 @@ Item {
                 addDialog.open()
             }
         }
-        Item { Layout.fillHeight: true }
     }
 
     FolderDialog {
@@ -396,12 +402,14 @@ Item {
                         spacing: 2
                         /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
                         WheelScrollSpeed {}
+                        /* Reserva uma barra arrastável para listas maiores que a área visível. */
+                        ScrollBar.vertical: CollectionScrollBar {}
                         model: root.scanResult
                             ? (root.reviewView === "candidates" ? root.scanResult.candidates : root.scanResult.ignoredItems)
                             : []
                         delegate: Rectangle {
                             required property var modelData
-                            width: reviewList.width
+                            width: reviewList.width - 14
                             height: 40
                             radius: 4
                             color: Theme.panel

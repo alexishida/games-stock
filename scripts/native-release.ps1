@@ -3,12 +3,15 @@ Gera localmente o instalador Windows e o pacote portátil do GameStock.
 A versão é lida do projeto para manter os dois artefatos alinhados ao CMake.
 Uso: powershell -ExecutionPolicy Bypass -File scripts/native-release.ps1
 Use -CompileJobs 8 para ajustar o paralelismo conforme a memória disponível.
+Use -BuildOnly para compilar sem gerar instalador/ZIP durante o desenvolvimento.
 #>
 param(
     [string]$OutputDirectory = "",
     # Quatro processos por target são um padrão conservador para os arquivos grandes de QML.
     [ValidateRange(1, 64)]
-    [int]$CompileJobs = [Math]::Min(4, [Environment]::ProcessorCount)
+    [int]$CompileJobs = [Math]::Min(4, [Environment]::ProcessorCount),
+    [switch]$BuildOnly,
+    [switch]$Reconfigure
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,8 +48,20 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 Write-Host "Gerando GameStock $version para Windows..."
 $totalTimer = [System.Diagnostics.Stopwatch]::StartNew()
 $phaseTimer = [System.Diagnostics.Stopwatch]::StartNew()
-& $cmake --preset windows-msvc -S $native "-DGAMESTOCK_MSVC_COMPILE_JOBS=$CompileJobs"
-if ($LASTEXITCODE -ne 0) { throw 'Falha ao configurar o build Release do Windows.' }
+# O MSBuild chama CMake quando as entradas mudam; evitar configuração incondicional economiza tempo.
+$buildDirectory = Join-Path $native 'build/windows-msvc'
+$cacheFile = Join-Path $buildDirectory 'CMakeCache.txt'
+$presetFile = Join-Path $native 'CMakePresets.json'
+$needsConfigure = $Reconfigure -or -not (Test-Path -LiteralPath $cacheFile)
+if (-not $needsConfigure) {
+    $cacheText = Get-Content -LiteralPath $cacheFile -Raw
+    $needsConfigure = $cacheText -notmatch "(?m)^GAMESTOCK_MSVC_COMPILE_JOBS:STRING=$CompileJobs\r?$" `
+        -or (Get-Item -LiteralPath $presetFile).LastWriteTimeUtc -gt (Get-Item -LiteralPath $cacheFile).LastWriteTimeUtc
+}
+if ($needsConfigure) {
+    & $cmake --preset windows-msvc -S $native "-DGAMESTOCK_MSVC_COMPILE_JOBS=$CompileJobs"
+    if ($LASTEXITCODE -ne 0) { throw 'Falha ao configurar o build Release do Windows.' }
+}
 Write-Host ("Configuração: {0:N1} s" -f $phaseTimer.Elapsed.TotalSeconds)
 
 # O target inclui as dependências do aplicativo e dispensa a compilação dos executáveis de teste.
@@ -55,6 +70,12 @@ $phaseTimer.Restart()
 & $cmake --build (Join-Path $native 'build/windows-msvc') --config Release --target gamestock_native --parallel 2
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o GameStock em Release.' }
 Write-Host ("Compilação: {0:N1} s ({1} arquivos por target)" -f $phaseTimer.Elapsed.TotalSeconds, $CompileJobs)
+
+# O modo local reaproveita a build Release e dispensa a compressão dos pacotes a cada ajuste.
+if ($BuildOnly) {
+    Write-Host ("Build concluída em {0:N1} s: {1}" -f $totalTimer.Elapsed.TotalSeconds, (Join-Path $buildDirectory 'Release/gamestock_native.exe'))
+    exit 0
+}
 
 # O empacotador existente cria o instalador e o ZIP a partir da mesma build já compilada.
 $installerScript = Join-Path $PSScriptRoot 'native-installer.ps1'

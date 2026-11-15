@@ -175,6 +175,9 @@ DragDialog {
         property alias fieldObjectName: field.objectName
         property alias fieldItem: field
         Layout.fillWidth: true
+        /* O texto e o placeholder não podem impor largura maior que a coluna disponível. */
+        Layout.minimumWidth: 0
+        Layout.alignment: Qt.AlignTop
         spacing: Theme.formLabelGap
         UiText { id: labelText; visible: false }
         UiText {
@@ -183,11 +186,16 @@ DragDialog {
             font.pixelSize: Theme.formLabelFontSize
             textWeight: Font.ExtraBold
             font.letterSpacing: 0.6
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            wrapMode: Text.WordWrap
         }
         FormField {
             id: field
             font.family: Theme.heavyFontFamily; font.weight: Theme.cssFontWeight(Font.ExtraBold)
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            Layout.preferredWidth: 0
             /* O placeholder original é cinza neutro, sem o matiz azul dos metadados. */
             placeholderTextColor: "#757575"
         }
@@ -532,14 +540,17 @@ DragDialog {
                             GridLayout {
                                 Layout.fillWidth: true
                                 columns: 2
+                                /* As duas colunas dividem o espaço, independentemente dos rótulos. */
+                                uniformCellWidths: true
                                 columnSpacing: 12
                                 rowSpacing: 12
                                 LabeledField { id: acquisitionDateRow; label: "Data de aquisição"; placeholder: "AAAA-MM-DD"; fieldObjectName: "hardwareAcquisitionDate" }
                                 LabeledField { id: valueRow; label: "Valor pago (R$)"; placeholder: "0.00"; fieldObjectName: "hardwareValue" }
                                 LabeledField { id: colorRow; label: "Cor"; placeholder: "Ex: Cinza"; fieldObjectName: "hardwareColor" }
                                 LabeledField { id: regionRow; label: "Região"; placeholder: "Ex: NTSC-U/C"; fieldObjectName: "hardwareRegion" }
-                                LabeledField { id: serialRow; label: "Número de série"; fieldObjectName: "hardwareSerial" }
-                                LabeledField { id: storageRow; label: "Local de armazenamento"; placeholder: "Ex: Prateleira 3"; fieldObjectName: "hardwareStorage" }
+                                /* Campos longos usam a largura inteira para preservar leitura e digitação. */
+                                LabeledField { id: serialRow; Layout.columnSpan: 2; label: "Número de série"; fieldObjectName: "hardwareSerial" }
+                                LabeledField { id: storageRow; Layout.columnSpan: 2; label: "Local de armazenamento"; placeholder: "Ex: Prateleira 3"; fieldObjectName: "hardwareStorage" }
                             }
                             LabeledField { id: acquisitionUrlRow; label: "URL de aquisição"; placeholder: "https://..."; fieldObjectName: "hardwareAcquisitionUrl" }
                             LabeledField { id: loanRow; label: "Emprestado para"; placeholder: "Nome da pessoa"; fieldObjectName: "hardwareLoan" }

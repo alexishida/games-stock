@@ -70,6 +70,9 @@ Item {
             anchors.fill: parent
             source: card.item ? (card.item.coverUrl || "") : ""
             fillMode: Image.PreserveAspectCrop
+            /* Decodifica próximo ao tamanho exibido, inclusive em telas de alta densidade. */
+            sourceSize: Qt.size(Math.ceil(Math.max(cover.width, cover.height) * Screen.devicePixelRatio),
+                                Math.ceil(Math.max(cover.width, cover.height) * Screen.devicePixelRatio))
             asynchronous: true
             cache: true
         }

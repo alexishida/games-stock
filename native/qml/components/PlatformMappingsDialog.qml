@@ -74,16 +74,20 @@ DragDialog {
 
     /* A altura acompanha aliases e extensoes; paineis e footer repetem o grid do renderer. */
     Flickable {
+        id: mappingsScroll
         anchors.fill: parent
-        contentWidth: width
+        /* Reserva a faixa da barra para não sobrepor os campos. */
+        contentWidth: width - 14
         contentHeight: body.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
         WheelScrollSpeed {}
+        /* Permite descobrir e arrastar a rolagem dos formulários extensos. */
+        ScrollBar.vertical: CollectionScrollBar {}
         ColumnLayout {
             id: body
-            width: parent.width
+            width: mappingsScroll.contentWidth
             spacing: 16
             RowLayout {
                 Layout.fillWidth: true

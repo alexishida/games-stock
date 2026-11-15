@@ -48,6 +48,34 @@ Item {
         name: "FormControls"
         when: windowShown
 
+        /* Menus extensos mantêm a barra visível em repouso e permitem navegar por ela. */
+        function test_selectScrollBar() {
+            const originalModel = select.model
+            const entries = []
+            for (let index = 0; index < 40; ++index)
+                entries.push({id: index, name: "Plataforma " + index})
+            try {
+                select.model = entries
+                select.currentIndex = 0
+                select.popup.open()
+                tryCompare(select.popup, "opened", true)
+                const list = select.popup.contentItem
+                const bar = list.ScrollBar.vertical
+                verify(bar !== null)
+                tryCompare(bar, "visible", true)
+                wait(600)
+                verify(bar.opacity > 0)
+                verify(bar.contentItem.opacity > 0)
+                const previousY = list.contentY
+                bar.increase()
+                tryVerify(function() { return list.contentY > previousY })
+            } finally {
+                select.popup.close()
+                select.model = originalModel
+                select.currentIndex = 0
+            }
+        }
+
         /* Verifica a fonte efetiva para impedir fallback silencioso de Black para outra família. */
         function test_fontResolution() {
             if (Qt.platform.os !== "windows") skip("Referência tipográfica específica do Windows")

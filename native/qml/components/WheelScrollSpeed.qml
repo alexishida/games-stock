@@ -9,15 +9,24 @@ import QtQuick
 WheelHandler {
     id: root
 
-    /** Flickable rolado pelo handler; por padrão é o item pai. O tipo é `var`
-        para o qmllint não acusar o `parent` genérico como Flickable. */
-    property var flickable: parent
+    /** Localiza a área rolável, pois o Flickable coloca o handler no contentItem.
+        O ancestral mais próximo preserva a rolagem de listas dentro de painéis. */
+    property var flickable: {
+        let item = parent
+        while (item) {
+            if (item instanceof Flickable)
+                return item
+            item = item.parent
+        }
+        return null
+    }
     /** Fator aplicado ao passo padrão do Qt e ao pixelDelta de touchpads. */
     property real speedMultiplier: 1.5
 
     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
     orientation: Qt.Vertical
     blocking: true
+    enabled: flickable !== null && flickable.interactive
 
     onWheel: function(event) {
         if (!root.flickable)
@@ -29,7 +38,11 @@ WheelHandler {
                 : (event.angleDelta.y / 120) * 72 * root.speedMultiplier
 
         // contentY aceita valores fora dos limites, então o clamp é feito aqui.
-        const maxY = Math.max(0, root.flickable.contentHeight - root.flickable.height)
-        root.flickable.contentY = Math.max(0, Math.min(maxY, root.flickable.contentY - delta))
+        // ListView pode deslocar a origem após remover ou reutilizar delegates.
+        const minY = root.flickable.originY - root.flickable.topMargin
+        const maxY = Math.max(minY, root.flickable.originY + root.flickable.contentHeight
+                              - root.flickable.height + root.flickable.bottomMargin)
+        root.flickable.cancelFlick()
+        root.flickable.contentY = Math.max(minY, Math.min(maxY, root.flickable.contentY - delta))
     }
 }

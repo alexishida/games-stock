@@ -122,18 +122,22 @@ DragDialog {
         }
 
         Flickable {
+            id: versionScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
-            contentWidth: width
+            /* Reserva a faixa da barra para não sobrepor os campos. */
+            contentWidth: width - 14
             contentHeight: optionList.implicitHeight
             implicitHeight: optionList.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
             /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
             WheelScrollSpeed {}
+            /* Permite descobrir e arrastar a rolagem dos formulários extensos. */
+            ScrollBar.vertical: CollectionScrollBar {}
             ColumnLayout {
                 id: optionList
-                width: parent.width
+                width: versionScroll.contentWidth
                 spacing: 12
                 Repeater {
                     model: versions.options

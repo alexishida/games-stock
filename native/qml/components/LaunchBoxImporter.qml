@@ -172,11 +172,13 @@ DragDialog {
                     spacing: 3
                     /* Roda do mouse um pouco mais rápida que o padrão do Qt. */
                     WheelScrollSpeed {}
+                    /* Reserva uma barra arrastável para listas maiores que a área visível. */
+                    ScrollBar.vertical: CollectionScrollBar {}
                     model: importer.results
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
-                        width: resultList.width
+                        width: resultList.width - 14
                         height: 52
                         radius: 6
                         color: importer.selectedGame && importer.selectedGame.id === modelData.id
