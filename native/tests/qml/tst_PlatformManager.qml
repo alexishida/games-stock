@@ -66,6 +66,7 @@ Item {
         property bool available: true
         property var items: []
         property int total: 0
+        property int sidebarAllCount: 0
         property int filtered: 0
         property int page: 1
         property string collection: "all"
@@ -182,6 +183,19 @@ Item {
             compare(app.sidebarPlatforms[0].name, "Game Boy")
             compare(app.sidebarPlatforms[1].name, "Super Nintendo")
             compare(app.sidebarPlatforms[2].name, "TeknoParrot")
+        }
+
+        /** Os dois totais seguem seus filtros próprios, mesmo com uma plataforma selecionada. */
+        function test_sidebarFilteredTotals() {
+            games.total = 5007
+            games.sidebarAllCount = 6
+            games.platformCounts = ({"1": 3, "2": 5})
+            games.platformId = 1
+            tryCompare(findChild(app, "collection_all"), "counter", "6")
+            tryCompare(findChild(app, "allPlatforms"), "counter", "8")
+            games.total = 0
+            games.sidebarAllCount = 0
+            games.platformCounts = ({"1": 1})
         }
 
         /** A árvore da sidebar filtra por plataforma e "Todos" limpa o filtro. */

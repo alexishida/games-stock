@@ -34,6 +34,8 @@ class GameService final : public QObject {
     Q_PROPERTY(QStringList genres READ genres NOTIFY changed)
     Q_PROPERTY(qint64 total READ total NOTIFY changed)
     Q_PROPERTY(qint64 filtered READ filtered NOTIFY changed)
+    /** Total da coleção ignorando apenas o filtro de coleção. */
+    Q_PROPERTY(qint64 sidebarAllCount READ sidebarAllCount NOTIFY changed)
     Q_PROPERTY(qint64 favoritesCount READ favoritesCount NOTIFY changed)
     Q_PROPERTY(qint64 playingCount READ playingCount NOTIFY changed)
     Q_PROPERTY(qint64 completedCount READ completedCount NOTIFY changed)
@@ -75,6 +77,7 @@ public:
     int pageSize() const { return pageSize_; }
     qint64 total() const { return total_; }
     qint64 filtered() const { return filtered_; }
+    qint64 sidebarAllCount() const { return counts_.all; }
     qint64 favoritesCount() const { return counts_.collections.favorites; }
     qint64 playingCount() const { return counts_.collections.playing; }
     qint64 completedCount() const { return counts_.collections.completed; }

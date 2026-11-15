@@ -111,7 +111,14 @@ ApplicationWindow {
     readonly property bool dbMode: gameService !== null && gameService !== undefined && gameService.available === true
     readonly property bool libraryService: dbMode || window.fixtureLibrary.enabled
     readonly property bool inventoryAvailable: window.inventoryService !== null && window.inventoryService !== undefined && window.inventoryService.available === true
-    readonly property var libCounts: dbMode ? ({all: gameService.total, mostPlayed: gameService.mostPlayedCount, favorites: gameService.favoritesCount, playing: gameService.playingCount, completed: gameService.completedCount}) : window.fixtureLibrary.counts
+    /* A coleção "Todos" respeita busca, categoria e plataforma, mas ignora a coleção ativa. */
+    readonly property var libCounts: dbMode ? ({all: gameService.sidebarAllCount !== undefined ? gameService.sidebarAllCount : gameService.total, mostPlayed: gameService.mostPlayedCount, favorites: gameService.favoritesCount, playing: gameService.playingCount, completed: gameService.completedCount}) : window.fixtureLibrary.counts
+    /* A árvore de plataformas ignora apenas a plataforma selecionada, como seus contadores individuais. */
+    readonly property int allPlatformsCount: {
+        if (!window.dbMode) return window.libCounts.all || 0
+        const counts = window.gameService.platformCounts || ({})
+        return Object.keys(counts).reduce(function(total, key) { return total + Number(counts[key] || 0) }, 0)
+    }
     readonly property int filteredTotal: dbMode ? gameService.filtered : window.fixtureLibrary.filtered
     readonly property int allTotal: dbMode ? gameService.total : window.fixtureLibrary.total
     readonly property int currentPage: dbMode ? gameService.page : window.fixtureLibrary.page
@@ -645,7 +652,7 @@ ApplicationWindow {
                             spacing: 0
                             visible: !window.inventoryMode
                             /* A árvore mostra o total e somente plataformas com jogos, como o PlatformTree. */
-                            NavigationButton { objectName: "allPlatforms"; text: "Todos"; iconName: ""; treeItem: true; platformItem: true; counter: ((window.dbMode || window.fixtureLibrary.enabled) ? window.libCounts.all : window.visibleGames.length).toString(); selected: window.activePlatformId === 0; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setPlatformFilter(0) }
+                            NavigationButton { objectName: "allPlatforms"; text: "Todos"; iconName: ""; treeItem: true; platformItem: true; counter: ((window.dbMode || window.fixtureLibrary.enabled) ? window.allPlatformsCount : window.visibleGames.length).toString(); selected: window.activePlatformId === 0; Layout.fillWidth: true; enabled: window.libraryService; onClicked: window.setPlatformFilter(0) }
                             Repeater {
                                 model: window.dbMode ? window.sidebarPlatforms : (window.fixtureLibrary.enabled ? [{id: 0, name: "Fixture Console"}] : [])
                                 delegate: NavigationButton {
